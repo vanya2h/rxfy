@@ -1,0 +1,57 @@
+{
+  "name": "rxfy",
+  "version": "0.2.1",
+  "description": "stream-based data management",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "check-types": "tsc --noEmit",
+    "clean": "rimraf ./dist",
+    "dev": "tsup --watch --silent",
+    "lint": "eslint .",
+    "prepublishOnly": "pnpm run build",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "p-queue": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.17",
+    "eslint": "^9.27.0",
+    "immutable": "^5.1.2",
+    "jiti": "^2.4.2",
+    "lodash": "^4.17.21",
+    "rimraf": "^6.0.1",
+    "rxfy-eslint-config": "workspace:*",
+    "rxfy-typescript-config": "workspace:*",
+    "rxjs": "^7.8.2",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.4",
+    "vitest": "^3.1.4",
+    "zod": "^3.25.42"
+  },
+  "peerDependencies": {
+    "lodash": "^4.0.0",
+    "rxjs": "^7.0.0",
+    "zod": "^3.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

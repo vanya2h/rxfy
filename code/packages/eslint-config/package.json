@@ -1,0 +1,49 @@
+{
+  "name": "rxfy-eslint-config",
+  "version": "0.2.1",
+  "description": "A set of useful eslint configs",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./base": "./dist/base.js",
+    "./node": "./dist/node.js",
+    "./react": "./dist/react.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit",
+    "clean": "rimraf ./dist",
+    "dev": "tsc -w",
+    "lint": "eslint ./",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.28.0",
+    "@typescript-eslint/eslint-plugin": "^8.33.0",
+    "@typescript-eslint/parser": "^8.33.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-n": "^17.18.0",
+    "eslint-plugin-prettier": "^5.4.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-turbo": "^2.5.4",
+    "globals": "^16.2.0",
+    "typescript-eslint": "^8.33.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.27.0",
+    "rxfy-typescript-config": "workspace:*",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

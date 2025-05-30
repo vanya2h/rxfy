@@ -1,0 +1,9 @@
+{
+  "extends": "rxfy-typescript-config/lib",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

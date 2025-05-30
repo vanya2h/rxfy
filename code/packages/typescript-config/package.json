@@ -1,0 +1,26 @@
+{
+  "name": "rxfy-typescript-config",
+  "version": "0.2.1",
+  "description": "A set of useful typescript configs",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./base": "./base.json",
+    "./node": "./node.json",
+    "./lib": "./lib.json",
+    "./react": "./react.json"
+  },
+  "files": [
+    "base.json",
+    "node.json",
+    "lib.json",
+    "react.json"
+  ],
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

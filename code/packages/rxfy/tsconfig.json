@@ -1,0 +1,7 @@
+{
+  "extends": "rxfy-typescript-config/node",
+  "compilerOptions": {
+    "types": ["vitest/globals"]
+  },
+  "exclude": ["node_modules", "dist", ".turbo"]
+}

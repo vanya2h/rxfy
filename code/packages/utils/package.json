@@ -1,0 +1,59 @@
+{
+  "name": "rxfy-utils",
+  "version": "0.1.2",
+  "description": "A set of useful common typescript utilities",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.cjs"
+    },
+    "./common": {
+      "import": "./dist/common.js",
+      "types": "./dist/common.d.ts",
+      "default": "./dist/common.cjs"
+    },
+    "./typeUtils": {
+      "import": "./dist/typeUtils.js",
+      "types": "./dist/typeUtils.d.ts",
+      "default": "./dist/typeUtils.cjs"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "check-types": "tsc -b --noEmit",
+    "clean": "rimraf ./dist",
+    "dev": "tsup --watch --silent",
+    "lint": "eslint .",
+    "prepublishOnly": "pnpm run build",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^9.27.0",
+    "jiti": "^2.4.2",
+    "rimraf": "^6.0.1",
+    "rxfy-eslint-config": "workspace:*",
+    "rxfy-typescript-config": "workspace:*",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.4",
+    "vitest": "^3.1.4",
+    "zod": "^3.25.42"
+  },
+  "peerDependencies": {
+    "zod": "^3.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

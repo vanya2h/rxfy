@@ -1,0 +1,10 @@
+.turbo
+node_modules
+.gitsecret/keys/random_seed
+!*.secret
+vault/researches/gpg-secret.md
+dist
+.env
+*.tsbuildinfo
+vite.config.ts.timestamp*
+.DS_Store
