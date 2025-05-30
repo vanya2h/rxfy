@@ -2,7 +2,15 @@
   "name": "rxfy",
   "version": "0.2.1",
   "description": "stream-based data management",
-  "license": "MIT",
+  "homepage": "https://github.com/vanya2h/rxfy#readme",
+  "bugs": {
+    "url": "https://github.com/vanya2h/rxfy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vanya2h/rxfy.git"
+  },
+  "author": "ivan_tcev@proton.me",
   "type": "module",
   "exports": {
     ".": {

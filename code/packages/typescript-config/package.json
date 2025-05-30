@@ -2,7 +2,16 @@
   "name": "rxfy-typescript-config",
   "version": "0.2.1",
   "description": "A set of useful typescript configs",
+  "homepage": "https://github.com/vanya2h/rxfy#readme",
+  "bugs": {
+    "url": "https://github.com/vanya2h/rxfy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vanya2h/rxfy.git"
+  },
   "license": "MIT",
+  "author": "ivan_tcev@proton.me",
   "type": "module",
   "exports": {
     "./base": "./base.json",
