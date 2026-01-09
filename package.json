@@ -1,7 +1,7 @@
 {
   "name": "root",
   "private": true,
-  "author": "ivan_tcev@proton.me",
+  "author": "hi@vanya2h.me",
   "type": "module",
   "scripts": {
     "bootstrap": "corepack pnpm install",
@@ -23,8 +23,8 @@
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"
   },
+  "packageManager": "pnpm@10.11.0",
   "engines": {
     "node": ">=22"
-  },
-  "packageManager": "pnpm@10.11.0"
+  }
 }

@@ -1,0 +1,48 @@
+{
+  "name": "rxfy-example-todo-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "example vite todo app",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "clean": "rimraf ./dist",
+    "dev": "tsx ./server.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "preview": "cross-env NODE_ENV=production node server",
+    "lint": "eslint .",
+    "prepublishOnly": "pnpm run build"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.6",
+    "express": "^5.1.0",
+    "jotai": "^2.12.5",
+    "eslint": "^9.27.0",
+    "jiti": "^2.4.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "compression": "^1.8.0",
+    "sirv": "^3.0.1",
+    "@types/react-dom": "^19.1.5",
+    "@types/express": "^5.0.2",
+    "@types/compression": "^1.8.0",
+    "rimraf": "^6.0.1",
+    "rxfy": "workspace:*",
+    "rxfy-eslint-config": "workspace:*",
+    "rxfy-react": "workspace:*",
+    "@vitejs/plugin-react": "^4.5.0",
+    "rxjs": "^7.8.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4",
+    "vite": "^6.3.5",
+    "zod": "^3.25.42"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

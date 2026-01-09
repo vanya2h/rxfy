@@ -1,2 +1,3 @@
 packages:
-  - "code/packages/*"
+  - "packages/*"
+  - "examples/*"

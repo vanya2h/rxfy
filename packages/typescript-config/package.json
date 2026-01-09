@@ -11,7 +11,7 @@
     "url": "https://github.com/vanya2h/rxfy.git"
   },
   "license": "MIT",
-  "author": "ivan_tcev@proton.me",
+  "author": "hi@vanya2h.me",
   "type": "module",
   "exports": {
     "./base": "./base.json",
