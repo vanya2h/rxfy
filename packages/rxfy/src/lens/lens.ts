@@ -1,6 +1,6 @@
-import { Observable, BehaviorSubject, Subscription } from "rxjs";
-import { distinctUntilChanged, map, tap } from "rxjs/operators";
 import { isEqual } from "lodash";
+import { BehaviorSubject, Observable, Subscription } from "rxjs";
+import { distinctUntilChanged, map, tap } from "rxjs/operators";
 import { IAtom } from "../atom/atom.js";
 
 export type ILens<TSource, TTarget> = {

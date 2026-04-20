@@ -1,5 +1,5 @@
 {
-  "extends": "rxfy-typescript-config/node",
+  "extends": "@vanya2h/typescript-config/node",
   "compilerOptions": {
     "types": ["vitest/globals"]
   },

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "integrate-configs": {
+      "source": "vanya2h/common",
+      "sourceType": "github",
+      "computedHash": "4c185ad98f49f105096b02f24abb2c6f189d099b6a7d2832710ae909d46fa0fc"
+    }
+  }
+}

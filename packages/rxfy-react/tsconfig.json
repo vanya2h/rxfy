@@ -1,5 +1,5 @@
 {
-  "extends": "rxfy-typescript-config/react",
+  "extends": "@vanya2h/typescript-config/react",
   "compilerOptions": {
     "noEmit": true
   },

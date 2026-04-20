@@ -1,7 +1,7 @@
-import App from "./App.tsx";
+import { Provider } from "jotai";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Provider } from "jotai";
+import App from "./App.tsx";
 import { store } from "./store.ts";
 import "./index.css";
 

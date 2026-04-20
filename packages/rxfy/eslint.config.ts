@@ -1,5 +1,5 @@
+import { config } from "@vanya2h/eslint-config/base";
 import { Linter } from "eslint";
-import { config } from "rxfy-eslint-config/base";
 
 export default [
   ...config,

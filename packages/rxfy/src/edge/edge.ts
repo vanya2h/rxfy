@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import { catchError, EMPTY, lastValueFrom, map, Observable, of, switchMap, take, tap, throwError } from "rxjs";
-import { createFulfilled, createPending, createRejected, IWrapped, StatusEnum } from "../wrapped/wrapped.js";
 import { IAtom } from "../atom/atom.js";
+import { createFulfilled, createPending, createRejected, IWrapped, StatusEnum } from "../wrapped/wrapped.js";
 
 export type IBranded<TBrand, TData> = {
   brand: TBrand;

@@ -1,5 +1,5 @@
+import { config } from "@vanya2h/eslint-config/react";
 import { Linter } from "eslint";
-import { config } from "rxfy-eslint-config/react";
 
 export default [
   ...config,

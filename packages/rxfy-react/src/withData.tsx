@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
-import { of } from "rxjs";
-import { createAtom, createState, createStore, IStore, IStoreStateJS } from "rxfy";
 import { createContext, PropsWithChildren, useContext, useMemo } from "react";
+import { createAtom, createState, createStore, IStore, IStoreStateJS } from "rxfy";
+import { of } from "rxjs";
 
 export type IStoreContextProps<TInterface> = {
   store: TInterface;

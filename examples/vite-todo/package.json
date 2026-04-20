@@ -31,7 +31,7 @@
     "@types/compression": "^1.8.0",
     "rimraf": "^6.0.1",
     "rxfy": "workspace:*",
-    "rxfy-eslint-config": "workspace:*",
+    "@vanya2h/eslint-config": "^0.4.0",
     "rxfy-react": "workspace:*",
     "@vitejs/plugin-react": "^4.5.0",
     "rxjs": "^7.8.2",

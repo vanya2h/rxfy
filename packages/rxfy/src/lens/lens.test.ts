@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import { get as getValue, set as setValue } from "lodash";
-import { createLens, ILens } from "./lens.js";
-import { Atom, createAtom } from "../atom/atom.js";
 import { Subscription } from "rxjs";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Atom, createAtom } from "../atom/atom.js";
+import { createLens, ILens } from "./lens.js";
 
 function createData() {
   return {

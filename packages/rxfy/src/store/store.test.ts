@@ -1,7 +1,7 @@
 import PQueue from "p-queue";
 import { of } from "rxjs";
-import { createState, createStore } from "./store.js";
 import { createAtom } from "../atom/atom.js";
+import { createState, createStore } from "./store.js";
 
 const mockBatch = vi.fn((ids: string[]) =>
   of(ids.reduce((acc, id) => ({ ...acc, [id]: { id } }), {} as Record<string, { id: string }>)),

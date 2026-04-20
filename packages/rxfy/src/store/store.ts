@@ -1,11 +1,11 @@
-import PQueue from "p-queue";
 import { Map as IM } from "immutable";
+import PQueue from "p-queue";
 import { EMPTY, map, Observable, of, scan, shareReplay, Subject, switchMap } from "rxjs";
-import { createEdge, IBranded, IEdge, IEdgeJS, toBranded } from "../edge/edge.js";
-import { createIdle } from "../wrapped/wrapped.js";
-import { batcher } from "../batcher/index.js";
-import { createLens, keyLens } from "../lens/lens.js";
 import { IAtom } from "../atom/atom.js";
+import { batcher } from "../batcher/index.js";
+import { createEdge, IBranded, IEdge, IEdgeJS, toBranded } from "../edge/edge.js";
+import { createLens, keyLens } from "../lens/lens.js";
+import { createIdle } from "../wrapped/wrapped.js";
 
 export type IMapJS = IBranded<"map", { [K in string]: IMapJS | IEdgeJS<unknown> }>;
 

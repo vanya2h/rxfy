@@ -1,5 +1,5 @@
-import { IEdge, StatusEnum } from "rxfy";
 import { useEffect, useState } from "react";
+import { IEdge, StatusEnum } from "rxfy";
 
 export function useEdge<TData>(edge: IEdge<TData>) {
   const [state, setState] = useState(edge.subject$.get());

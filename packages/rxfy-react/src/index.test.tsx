@@ -1,10 +1,10 @@
-import React, { act } from "react";
-import PQueue from "p-queue";
-import { of } from "rxjs";
-import { createAtom, createState, createStore } from "rxfy";
-import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
+import PQueue from "p-queue";
+import React, { act } from "react";
+import { createAtom, createState, createStore } from "rxfy";
 import { getErrorMessage } from "rxfy-utils/common";
+import { of } from "rxjs";
+import { describe, expect, it } from "vitest";
 import { Edge } from "./index";
 
 describe("Edge", () => {
