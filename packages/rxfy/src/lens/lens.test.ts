@@ -45,7 +45,7 @@ describe("Lens", () => {
     const values: string[] = [];
 
     const sub = name$.subscribe((val) => values.push(val));
-    root$.set(setValue(root$.get(), ["user", "name"], "Bob"));
+    root$.modify((x) => setValue(x, ["user", "name"], "Bob"));
 
     expect(values).toEqual(["Alice", "Bob"]);
     sub.unsubscribe();

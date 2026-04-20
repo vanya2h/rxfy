@@ -5,14 +5,14 @@
   "type": "module",
   "scripts": {
     "bootstrap": "corepack pnpm install",
-    "build": "turbo build",
+    "build": "turbo run build",
     "changeset": "changeset",
-    "changeset:publish": "changeset publish",
+    "changeset:publish": "turbo run build && changeset publish",
     "changeset:version": "changeset version",
-    "check-types": "turbo check-types",
-    "lint": "turbo lint",
+    "check-types": "turbo run check-types",
+    "lint": "turbo run lint",
     "sort-pkg": "sort-package-json \"package.json\" \"code/packages/*/package.json\" \"code/apps/*/package.json\"",
-    "test": "turbo test"
+    "test": "turbo run test"
   },
   "prettier": "@vanya2h/prettier-config",
   "devDependencies": {

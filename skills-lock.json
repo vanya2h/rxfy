@@ -5,6 +5,11 @@
       "source": "vanya2h/common",
       "sourceType": "github",
       "computedHash": "4c185ad98f49f105096b02f24abb2c6f189d099b6a7d2832710ae909d46fa0fc"
+    },
+    "turborepo": {
+      "source": "vercel/turborepo",
+      "sourceType": "github",
+      "computedHash": "af51e16468977f0a5db2bad0baa50b6452f690318d81f3c0382f701830acdbdc"
     }
   }
 }
