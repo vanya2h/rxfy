@@ -256,7 +256,7 @@ async function fetchMainPage({ page }: { page: number }) {
   return { posts: res.posts };  // must match TShape of pageState
 }
 
-// Component (app code)
+// Component using useStateData — fetches a page of posts (app code)
 function MainPage() {
   const [params, setParams] = useState({ page: 0 });
   const state$ = useStateData(pageState, fetchMainPage, params);
@@ -271,7 +271,37 @@ function MainPage() {
     </Pending>
   );
 }
+
+// Component using useStore directly — reads a single entity from a model store
+// Use this when you already know the key and don't need a fetch/params cycle.
+function PostDetail({ id }: { id: string }) {
+  const { posts } = useStore();
+  const post$ = useMemo(() => posts.get(id), [posts, id]);
+
+  return (
+    <Pending value$={post$}>
+      {(post) => <div>{post.id}</div>}
+    </Pending>
+  );
+}
+
+// useStore for writes — optimistic update or manual cache population
+function PostEditor({ id }: { id: string }) {
+  const { posts } = useStore();
+
+  const handleSave = async (draft: Post) => {
+    posts.set(id, draft);           // immediately propagates to all subscribers
+    await api.put(`/posts/${id}`, draft);
+  };
+
+  // ...
+}
 ```
+
+`useStore()` returns the typed interface you defined in `getInitial` — in this case `{ posts: ModelStore<Post>, users: ModelStore<User> }`. You reach for it when:
+- Rendering a single entity by key (subscribe to `modelStore.get(key)` directly)
+- Writing back to the model store (optimistic updates, mutations)
+- Any case where you know the key upfront and don't need a fetch-driven state
 
 ---
 
