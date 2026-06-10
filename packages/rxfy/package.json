@@ -36,9 +36,11 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "p-queue": "^8.1.0"
+    "p-queue": "^8.1.0",
+    "object-hash": "^3.0.0"
   },
   "devDependencies": {
+    "@types/object-hash": "^3.0.6",
     "@types/lodash": "^4.17.17",
     "eslint": "^9.27.0",
     "immutable": "^5.1.2",
