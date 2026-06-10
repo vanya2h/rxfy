@@ -1,14 +1,13 @@
-import { Provider } from "jotai";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { StoreProvider } from "rxfy-react";
 import App from "./App.tsx";
-import { store } from "./store.ts";
 import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Provider store={store}>
+    <StoreProvider>
       <App />
-    </Provider>
+    </StoreProvider>
   </StrictMode>,
 );

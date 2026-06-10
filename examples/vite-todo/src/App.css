@@ -1,42 +1,124 @@
-#root {
-  max-width: 1280px;
+.app {
+  width: 480px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 40px 0;
+}
+
+h1 {
+  font-size: 5rem;
+  font-weight: 100;
+  color: rgba(175, 47, 47, 0.25);
   text-align: center;
+  margin: 0 0 24px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.add-form {
+  display: flex;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.add-form input {
+  flex: 1;
+  padding: 16px;
+  font-size: 1rem;
+  border: none;
+  background: #fafafa;
+  color: #333;
+  outline: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.add-form button {
+  padding: 0 20px;
+  font-size: 1rem;
+  border-radius: 0;
+  border: none;
+  background: #b83f45;
+  color: white;
+  cursor: pointer;
 }
 
-.card {
-  padding: 2em;
+.add-form button:hover {
+  background: #9e3038;
+  border-color: transparent;
 }
 
-.read-the-docs {
-  color: #888;
+.filters {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.filters button {
+  flex: 1;
+  padding: 8px;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: inherit;
+  opacity: 0.6;
+}
+
+.filters button:hover {
+  opacity: 1;
+  border-color: rgba(175, 47, 47, 0.3);
+}
+
+.filters button.active {
+  opacity: 1;
+  border-color: rgba(175, 47, 47, 0.5);
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fafafa;
+  color: #333;
+  border-bottom: 1px solid #ededed;
+}
+
+.todo-item:last-child {
+  border-bottom: none;
+}
+
+.todo-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #b83f45;
+}
+
+.todo-item span {
+  flex: 1;
+  font-size: 1rem;
+}
+
+.todo-item span.done {
+  text-decoration: line-through;
+  color: #aaa;
+}
+
+.status {
+  text-align: center;
+  padding: 24px;
+  opacity: 0.6;
+  margin: 0;
+  background: #fafafa;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.status.error {
+  color: #b83f45;
+  opacity: 1;
 }
