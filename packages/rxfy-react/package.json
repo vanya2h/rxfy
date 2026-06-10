@@ -17,6 +17,11 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.cjs"
+    },
+    "./ssr": {
+      "import": "./dist/ssr.js",
+      "types": "./dist/ssr.d.ts",
+      "default": "./dist/ssr.cjs"
     }
   },
   "main": "./dist/index.js",
@@ -42,15 +47,16 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/lodash": "^4.17.17",
-    "@types/react": "^19.1.6",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "eslint": "^9.27.0",
     "immutable": "^5.1.2",
     "jiti": "^2.4.2",
     "jsdom": "^26.1.0",
     "lodash": "^4.17.21",
     "p-queue": "^8.1.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "rimraf": "^6.0.1",
     "rxfy": "workspace:*",
     "@vanya2h/eslint-config": "^0.4.0",
@@ -63,7 +69,9 @@
   },
   "peerDependencies": {
     "@types/react": "^18.0.0 || ^19.0.0",
+    "lodash": "^4.0.0",
     "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
     "rxfy": "workspace:*"
   },
   "publishConfig": {
