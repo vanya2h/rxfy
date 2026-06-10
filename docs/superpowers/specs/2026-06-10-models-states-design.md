@@ -9,6 +9,8 @@
 
 Add a normalized state management layer to rxfy: **Models** are Zod-schema-backed reactive key-value stores that act as single source of truth for entities. **States** compose models into a typed shape driven by params. React components use `useStateData` + `<Pending>` to fetch, normalize, and reactively render state — with zero manual store wiring.
 
+`store.ts` (tree-shaped `IStore` with `factory`, `factoryBatch`, `node`, PQueue, branded state types) is **removed entirely**. The new system is built around a lean `ModelRegistry` that holds one `ModelStore<T>` per registered model. `ssr.ts` is also removed — SSR support for model stores is out of scope for this iteration.
+
 ---
 
 ## 1. Core Primitives (packages/rxfy)
@@ -19,7 +21,7 @@ Module-level, stateless. Created once and reused everywhere.
 
 ```ts
 type ModelDescriptor<T> = {
-  readonly _key: symbol;                   // unique lookup key in store registry
+  readonly _key: symbol;                   // unique lookup key in registry
   readonly schema: z.ZodType<T>;
   readonly getKey: (item: T) => string;
 };
@@ -30,7 +32,7 @@ function createModel<T>(
 ): ModelDescriptor<T>
 ```
 
-`_key` is a `Symbol()` created inside `createModel`. It is the identity of the model across all store instances — the store's model registry is a `Map<symbol, ModelStore<any>>`.
+`_key` is a `Symbol()` created inside `createModel`. It is the stable identity of the model across all registry instances.
 
 ---
 
@@ -41,7 +43,7 @@ Used inside `defineState` to describe the shape of a state field.
 ```ts
 type FieldDescriptor<T> =
   | { kind: 'single'; model: ModelDescriptor<T> }
-  | { kind: 'array';  model: ModelDescriptor<T> };   // T here is the element type
+  | { kind: 'array';  model: ModelDescriptor<T> };   // T is the element type
 
 function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>
 function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>
@@ -65,8 +67,6 @@ function defineState<TParams, TShape>(def: {
 }): StateDescriptor<TParams, TShape>
 ```
 
-> **Note:** Named `defineState` (not `createState`) to avoid collision with the existing `createState` export from `store.ts`, which creates a branded `IStoreStateJS` wrapper used internally by `withData.tsx` and `ssr.ts`. The existing `createState` in `store.ts` will be renamed to `createStoreState` and its two call sites (`withData.tsx`, `ssr.ts`) updated accordingly.
-
 ---
 
 ### ModelStore\<T\>
@@ -81,38 +81,44 @@ type ModelStore<T> = {
 };
 ```
 
-`setMany` calls `atom.set(val)` per key. All observers of that key (from any state or component) receive the update immediately.
+`setMany` calls `atom.set(val)` per key. All observers of that key receive the update immediately.
 
 ---
 
-### Changes to IStore (packages/rxfy/src/store/store.ts)
+### IModelRegistry
 
-Two new methods on `IStore`:
+Replaces `IStore` as the provider-scoped container. No PQueue, no tree hierarchy.
 
 ```ts
-// Called during getInitial to register a model store
-model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>
+type IModelRegistry = {
+  model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
+  getModelStore: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
+};
 
-// Called by useStateData to resolve a model store by descriptor
-getModelStore: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>
+function createModelRegistry(): IModelRegistry
 ```
 
-`model()` creates a `ModelStore<T>`, registers it under `descriptor._key` in an internal `Map<symbol, ModelStore<any>>` on the store instance, and returns it. `getModelStore()` looks it up. Both are only meaningful on the root store — child nodes created via `node()` delegate to the root registry.
+`model()` creates a `ModelStore<T>` and registers it under `descriptor._key`. `getModelStore()` looks it up — throws if the model was never registered (i.e. `model()` was not called for it in `getInitial`).
 
 ---
 
-## 2. New File Layout
+## 2. File Layout
 
 ```
 packages/rxfy/src/
   model/
     model.ts           ← createModel, array, single, ModelDescriptor, FieldDescriptor
-    model-store.ts     ← ModelStore, createModelStore
+    model-store.ts     ← ModelStore, createModelStore, IModelRegistry, createModelRegistry
   state/
     state.ts           ← defineState, StateDescriptor
   store/
-    store.ts           ← (modified) add model() and getModelStore() to IStore
-  index.ts             ← (modified) re-export new public types
+    store.ts           ← REMOVED
+    cache.ts           ← DELETED (was untracked scratch file)
+    example.ts         ← DELETED (was untracked scratch file)
+    example.test.ts    ← DELETED (was untracked scratch file)
+    json.ts            ← DELETED (was untracked scratch file)
+    ssss.tsx           ← DELETED (was the sketch file)
+  index.ts             ← (modified) remove store.ts export, add model/state exports
 
 packages/rxfy-react/src/
   useStateData.ts      ← main hook
@@ -120,9 +126,13 @@ packages/rxfy-react/src/
   usePending.ts        ← copied + adapted from common repo
   useObservable.ts     ← copied + adapted from common repo
   render.ts            ← copied + adapted from common repo
-  withData.tsx         ← (modified) extend context to include rawStore
-  index.tsx            ← (modified) re-export new items
+  withData.tsx         ← REWRITTEN (ModelRegistry-based, no IStore dependency)
+  ssr.ts               ← REMOVED (SSR out of scope)
+  ssr.test.tsx         ← REMOVED (SSR out of scope)
+  index.tsx            ← (modified) keep useEdge/Edge, add new exports
 ```
+
+Kept in `packages/rxfy`: `atom.ts`, `edge.ts`, `wrapped.ts`, `lens.ts`, `batcher/`. These are standalone utilities with no dependency on `store.ts`. `useEdge` and `<Edge>` in `rxfy-react` continue to work as-is since they only depend on `edge.ts`.
 
 ---
 
@@ -142,7 +152,7 @@ const pageState = defineState({
 ```
 
 1. `useStateData(pageState, fetchMainPage, { page: 0 })` returns a memoized cold Observable keyed on `params` identity.
-2. `<Pending value$={state$}>` subscribes — `usePending` prepends a `{ status: "pending" }` emission before the source emits.
+2. `<Pending value$={state$}>` subscribes — `usePending` prepends `{ status: "pending" }` before the source emits.
 3. `fetchMainPage({ page: 0 })` resolves → `{ posts: [{ id: "1", isPost: true }, { id: "2", isPost: true }] }`.
 4. For each field in `pageState.fields`:
    - `posts` is `kind: "array"`, model: `postModel`
@@ -157,23 +167,23 @@ const pageState = defineState({
 
 ### Ongoing reactivity
 
-If any other component or fetch updates `post:1` via `postModelStore.set("1", updated)`:
+If any other component or fetch calls `postModelStore.set("1", updatedPost)`:
 - The `Atom` at key `"1"` emits the new value
-- `combineLatest` re-emits with updated post
-- `<Pending>` re-renders with the new `state.value` — no re-fetch
+- `combineLatest` re-emits with the updated post
+- `<Pending>` re-renders — no re-fetch needed
 
 ### Params change
 
 `setParams({ page: 1 })`:
 1. `useStateData` returns a new Observable instance (new memo)
 2. `usePending` sees a new `source$` → re-subscribes → shows pending
-3. Old projection torn down; model store atoms for the old keys remain (still serve other subscribers)
+3. Old projection torn down; atoms for old keys remain in the model store, still serve other subscribers
 4. New fetch → new keys → new projection
 
 ### Error handling
 
 If `fetchMainPage` rejects:
-- Observable errors → `usePending` catches it → `status: "rejected"` with `onReload` callback
+- Observable errors → `usePending` catches → `status: "rejected"` with `onReload` callback
 - Model stores are not modified
 - `onReload` re-subscribes to the same observable → retries the fetch
 
@@ -184,7 +194,6 @@ If `fetchMainPage` rejects:
 ### useStateData
 
 ```ts
-// packages/rxfy-react/src/useStateData.ts
 function useStateData<TParams, TShape>(
   state: StateDescriptor<TParams, TShape>,
   fetchFn: (params: TParams) => Promise<TShape>,
@@ -193,15 +202,14 @@ function useStateData<TParams, TShape>(
 ```
 
 Internals:
-- Calls `useRawStore()` (reads `rawStore` from extended context)
-- Returns `useMemo(() => new Observable(...), [state, fetchFn, params, rawStore])`
-- Observable subscription triggers fetch, normalizes into model stores, then subscribes to the `combineLatest` projection
+- Calls `useModelRegistry()` — reads `IModelRegistry` from `ModelRegistryContext`
+- Returns `useMemo(() => new Observable(...), [state, fetchFn, params, registry])`
+- On subscription: triggers fetch, normalizes into model stores via `setMany`/`set`, then subscribes to the `combineLatest` projection
 - `params` comparison is by reference — caller should stabilize with `useState` or `useMemo`
 
 ### Pending component (copied from common repo)
 
 ```ts
-// packages/rxfy-react/src/Pending.tsx
 type IPendingProps<T> = {
   value$: Observable<T> | T;
   pending?: ReactNode | (() => ReactNode);
@@ -234,11 +242,11 @@ const pageState = defineState({
   model: { posts: array(postModel) },
 });
 
-// Register models in store (app setup, rxfy-react)
+// Register models in provider (app setup, rxfy-react)
 const { StoreProvider, useStore } = createStoreFactory({
-  getInitial: (store) => ({
-    posts: store.model(postModel),
-    users: store.model(userModel),
+  getInitial: (registry) => ({
+    posts: registry.model(postModel),
+    users: registry.model(userModel),
   }),
 });
 
@@ -248,7 +256,7 @@ async function fetchMainPage({ page }: { page: number }) {
   return { posts: res.posts };  // must match TShape of pageState
 }
 
-// Component (app code, rxfy-react)
+// Component (app code)
 function MainPage() {
   const [params, setParams] = useState({ page: 0 });
   const state$ = useStateData(pageState, fetchMainPage, params);
@@ -267,35 +275,57 @@ function MainPage() {
 
 ---
 
-## 5. withData.tsx Changes
+## 5. withData.tsx — Complete Rewrite
 
-Context type extended to carry `rawStore`:
+No dependency on `IStore`, `createStore`, `createAtom`, or any other `store.ts` export.
 
 ```ts
-type IStoreContextProps<TInterface> = {
-  store: TInterface;
-  rawStore: IStore<IStoreStateJS>;   // added
+// ModelRegistryContext — standalone, exported so useStateData can consume it
+export const ModelRegistryContext = createContext<IModelRegistry | null>(null);
+
+export function useModelRegistry(): IModelRegistry {
+  const ctx = useContext(ModelRegistryContext);
+  if (!ctx) throw new Error("StoreProvider is not found");
+  return ctx;
+}
+
+export type IStoreConfig<TInterface> = {
+  getInitial: (registry: IModelRegistry) => TInterface;
 };
+
+export type IStoreProviderProps<TInterface> = PropsWithChildren & {
+  store?: TInterface;  // pass pre-built store for testing / external control
+};
+
+export function createStoreFactory<TInterface>(config: IStoreConfig<TInterface>) {
+  const storeContext = createContext<{ store: TInterface } | null>(null);
+
+  function StoreProvider({ children, store: externalStore }: IStoreProviderProps<TInterface>) {
+    const [{ store: internalStore, registry }] = useState(() => {
+      const reg = createModelRegistry();
+      return { store: config.getInitial(reg), registry: reg };
+    });
+
+    return (
+      <ModelRegistryContext.Provider value={registry}>
+        <storeContext.Provider value={{ store: externalStore ?? internalStore }}>
+          {children}
+        </storeContext.Provider>
+      </ModelRegistryContext.Provider>
+    );
+  }
+
+  function useStore() {
+    const ctx = useContext(storeContext);
+    if (!ctx) throw new Error("StoreProvider is not found");
+    return ctx.store;
+  }
+
+  return { StoreProvider, useStore };
+}
 ```
 
-`StoreProvider` keeps the raw store reference separately from the interface store:
-
-```ts
-const [{ store: internalStore, rawStore }] = useState(() => {
-  const queue = new PQueue({ concurrency: 5, autoStart: false });
-  const state = initialState != null ? (initialState as IStoreStateJS) : createStoreState({});
-  const raw = createStore(queue, createAtom(state));
-  return { store: factoryConfig.getInitial(raw), rawStore: raw };
-});
-```
-
-New exported hook:
-
-```ts
-function useRawStore(): IStore<IStoreStateJS>
-```
-
-Public `useStore()` is unchanged.
+`initialState` prop (previously used for SSR hydration) is removed — SSR is out of scope.
 
 ---
 
@@ -327,8 +357,9 @@ Wrong fetch return type → compile error at the `useStateData` call site.
 
 ## 7. What Is Not In Scope
 
-- **SSR / snapshot support for model stores** — the existing `IStore` snapshot mechanism serializes `Edge` state. Model stores use plain `Atom`s and are not currently included in the snapshot. This is a follow-up.
+- **SSR / snapshot support** — removed along with `ssr.ts`. Model stores are not serialized. Follow-up iteration.
 - **Invalidation / force-refresh** — no manual refetch API beyond params change. Follow-up.
-- **Pagination / cursor merging** — each params value is independent. Accumulating results across pages is not supported. Follow-up.
-- **Single-entity states** — `single(model)` helper is defined but the projection for a non-array field follows the same pattern. Included in scope but lower priority.
-- **Nested node model registration** — `store.model()` is only valid on the root store passed to `getInitial`.
+- **Pagination / cursor merging** — each params value is independent. Accumulating across pages not supported. Follow-up.
+- **Batched loading** — `factoryBatch` from old `store.ts` has no equivalent. If needed, the fetch function can batch internally. Follow-up.
+- **Nested registry scoping** — one flat registry per provider. Follow-up if sub-tree scoping is needed.
+- **`store.ts` migration guide** — existing consumers of `IStore`/`factory`/`useEdge` are not migrated in this iteration. `useEdge` and `<Edge>` continue to work via `edge.ts`.
