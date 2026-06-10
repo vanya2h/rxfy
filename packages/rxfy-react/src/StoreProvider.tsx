@@ -4,9 +4,5 @@ import { ModelRegistryContext } from "./registry-context.js";
 
 export function StoreProvider({ children }: PropsWithChildren) {
   const [registry] = useState(() => createModelRegistry());
-  return (
-    <ModelRegistryContext.Provider value={registry}>
-      {children}
-    </ModelRegistryContext.Provider>
-  );
+  return <ModelRegistryContext.Provider value={registry}>{children}</ModelRegistryContext.Provider>;
 }

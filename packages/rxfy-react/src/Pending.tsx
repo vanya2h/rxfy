@@ -48,7 +48,11 @@ export function BehaviorSubjectRender<T>({ value$, children }: IBehaviorSubjectR
 
   useEffect(() => {
     const sub = value$
-      .pipe(skip(1), distinctUntilChanged(), tap((x) => setState(x)))
+      .pipe(
+        skip(1),
+        distinctUntilChanged(),
+        tap((x) => setState(x)),
+      )
       .subscribe(noop);
     return () => sub.unsubscribe();
   }, [value$]);

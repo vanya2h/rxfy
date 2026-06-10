@@ -5,14 +5,9 @@ import { z } from "zod";
 import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 
-const testModel = createModel(
-  z.object({ id: z.string() }),
-  { getKey: (x) => x.id },
-);
+const testModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <StoreProvider>{children}</StoreProvider>
-);
+const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 describe("StoreProvider", () => {
   it("provides an isolated registry per mount", () => {

@@ -4,10 +4,7 @@ import { z } from "zod";
 import { createModel } from "./model.js";
 import { createModelRegistry, createModelStore } from "./model-store.js";
 
-const postModel = createModel(
-  z.object({ id: z.string(), title: z.string() }),
-  { getKey: (x) => x.id },
-);
+const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
 
 describe("createModelStore", () => {
   it("emits value after set", async () => {

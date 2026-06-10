@@ -13,10 +13,7 @@ export type FieldDescriptor<TShape> = {
   readonly model: ModelDescriptor<any>;
 };
 
-export function createModel<T>(
-  schema: z.ZodType<T>,
-  opts: { getKey: (item: T) => string },
-): ModelDescriptor<T> {
+export function createModel<T>(schema: z.ZodType<T>, opts: { getKey: (item: T) => string }): ModelDescriptor<T> {
   return { _key: Symbol(), schema, getKey: opts.getKey };
 }
 

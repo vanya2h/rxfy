@@ -4,17 +4,11 @@ import { firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { StoreProvider } from "./StoreProvider.js";
-import { useStateData } from "./useStateData.js";
 import { useModelStore } from "./useModelStore.js";
+import { useStateData } from "./useStateData.js";
 
-const postModel = createModel(
-  z.object({ id: z.string(), title: z.string() }),
-  { getKey: (x) => x.id },
-);
-const userModel = createModel(
-  z.object({ id: z.string(), name: z.string() }),
-  { getKey: (x) => x.id },
-);
+const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
+const userModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (x) => x.id });
 
 const pageState = defineState({
   params: z.object({ page: z.number() }),
@@ -26,9 +20,7 @@ const singleState = defineState({
   model: { user: single(userModel) },
 });
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <StoreProvider>{children}</StoreProvider>
-);
+const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 describe("useStateData", () => {
   it("emits fetched data", async () => {
@@ -39,10 +31,7 @@ describe("useStateData", () => {
       ],
     });
 
-    const { result } = renderHook(
-      () => useStateData(pageState, fetchFn, { page: 0 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     const data = await firstValueFrom(result.current);
     expect(data.posts).toEqual([
@@ -57,10 +46,10 @@ describe("useStateData", () => {
     const params0 = { page: 0 };
     const params1 = { page: 1 };
 
-    const { result, rerender } = renderHook(
-      ({ params }) => useStateData(pageState, fetchFn, params),
-      { wrapper, initialProps: { params: params0 } },
-    );
+    const { result, rerender } = renderHook(({ params }) => useStateData(pageState, fetchFn, params), {
+      wrapper,
+      initialProps: { params: params0 },
+    });
 
     const first = result.current;
     rerender({ params: params1 });
@@ -71,10 +60,7 @@ describe("useStateData", () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
     const params = { page: 0 };
 
-    const { result, rerender } = renderHook(
-      () => useStateData(pageState, fetchFn, params),
-      { wrapper },
-    );
+    const { result, rerender } = renderHook(() => useStateData(pageState, fetchFn, params), { wrapper });
 
     const first = result.current;
     rerender();
@@ -127,10 +113,7 @@ describe("useStateData", () => {
   it("handles empty array field", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
 
-    const { result } = renderHook(
-      () => useStateData(pageState, fetchFn, { page: 0 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     const data = await firstValueFrom(result.current);
     expect(data.posts).toEqual([]);
@@ -141,10 +124,7 @@ describe("useStateData", () => {
       user: { id: "u1", name: "Alice" },
     });
 
-    const { result } = renderHook(
-      () => useStateData(singleState, fetchFn, { id: "u1" }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(singleState, fetchFn, { id: "u1" }), { wrapper });
 
     const data = await firstValueFrom(result.current);
     expect(data.user).toEqual({ id: "u1", name: "Alice" });
@@ -153,10 +133,7 @@ describe("useStateData", () => {
   it("propagates fetch rejection as observable error", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(
-      () => useStateData(pageState, fetchFn, { page: 0 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     await expect(firstValueFrom(result.current)).rejects.toThrow("Network error");
   });

@@ -13,11 +13,7 @@ describe("Edge", () => {
     const edge = createEdge(state$, queue, () => of({ id: "test" }));
 
     render(
-      <Edge
-        edge={edge}
-        pending={<div data-testid="pending" />}
-        rejected={() => <div data-testid="rejected" />}
-      >
+      <Edge edge={edge} pending={<div data-testid="pending" />} rejected={() => <div data-testid="rejected" />}>
         {(x) => <div data-testid="fulfilled">{x.id}</div>}
       </Edge>,
     );

@@ -52,15 +52,12 @@ export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () =
         }),
         distinctUntilChanged(_.isEqual),
       ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     [source$, nonce$, getDefaultValue],
   );
 
   const initialState = useMemo<IPendingStatus<T>>(
-    () =>
-      getDefaultValue
-        ? { status: "fulfilled", value: getDefaultValue() }
-        : { status: "pending" },
+    () => (getDefaultValue ? { status: "fulfilled", value: getDefaultValue() } : { status: "pending" }),
     [getDefaultValue],
   );
 

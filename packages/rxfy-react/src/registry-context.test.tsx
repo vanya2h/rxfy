@@ -12,9 +12,7 @@ describe("useModelRegistry", () => {
     const registry = createModelRegistry();
     const { result } = renderHook(() => useModelRegistry(), {
       wrapper: ({ children }) => (
-        <ModelRegistryContext.Provider value={registry}>
-          {children}
-        </ModelRegistryContext.Provider>
+        <ModelRegistryContext.Provider value={registry}>{children}</ModelRegistryContext.Provider>
       ),
     });
     expect(result.current).toBe(registry);
