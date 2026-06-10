@@ -39,12 +39,12 @@ function renderWithParams<TData>(fn: IRenderFn<TData>, data: TData): React.React
   return fn;
 }
 
+export type { IBehaviorSubjectRenderProps, IPendingProps } from "./Pending.js";
+export { BehaviorSubjectRender, Pending } from "./Pending.js";
+export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
 export { StoreProvider } from "./StoreProvider.js";
 export { useModelStore } from "./useModelStore.js";
-export { useStateData } from "./useStateData.js";
-export { Pending, BehaviorSubjectRender } from "./Pending.js";
-export type { IPendingProps, IBehaviorSubjectRenderProps } from "./Pending.js";
-export { usePending } from "./usePending.js";
-export type { IPendingStatus, ObservableLike } from "./usePending.js";
 export { useObservable } from "./useObservable.js";
-export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
+export type { IPendingStatus, ObservableLike } from "./usePending.js";
+export { usePending } from "./usePending.js";
+export { useStateData } from "./useStateData.js";

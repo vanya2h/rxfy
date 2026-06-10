@@ -1,6 +1,6 @@
 import { useMemo } from "react";
+import type { FieldDescriptor, FieldsMap, StateDescriptor } from "rxfy";
 import { combineLatest, map, Observable, of, Subscription } from "rxjs";
-import type { StateDescriptor } from "rxfy";
 import { useModelRegistry } from "./registry-context.js";
 
 export function useStateData<TParams, TShape>(
@@ -19,7 +19,7 @@ export function useStateData<TParams, TShape>(
           .then((result) => {
             if (subscriber.closed) return;
 
-            const entries = Object.entries(state.fields);
+            const entries = Object.entries(state.fields as FieldsMap) as [string, FieldDescriptor<any>][];
 
             // Normalize all fields into their model stores
             for (const [fieldName, fieldDesc] of entries) {
@@ -69,8 +69,6 @@ export function useStateData<TParams, TShape>(
 
         return () => innerSub?.unsubscribe();
       }),
-    // params is intentionally compared by reference — callers should stabilize with useState/useMemo
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [state, fetchFn, params, registry],
   );
 }
