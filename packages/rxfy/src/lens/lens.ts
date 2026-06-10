@@ -12,6 +12,8 @@ export class Lens<TSource, TTarget> extends Observable<TTarget> implements IAtom
   private subject$: BehaviorSubject<TTarget>;
   private sub: Subscription | undefined;
   private subCount = 0;
+  private source$: IAtom<TSource>;
+  private lens: ILens<TSource, TTarget>;
 
   constructor(source$: IAtom<TSource>, lens: ILens<TSource, TTarget>) {
     const initialValue = lens.get(source$.get());
@@ -22,6 +24,7 @@ export class Lens<TSource, TTarget> extends Observable<TTarget> implements IAtom
       if (this.subCount++ === 0) {
         this.sub = new Subscription();
 
+        // source$ → subject$: keep the lens view in sync when source changes externally
         this.sub.add(
           source$
             .pipe(
@@ -36,36 +39,32 @@ export class Lens<TSource, TTarget> extends Observable<TTarget> implements IAtom
             )
             .subscribe(),
         );
-
-        this.sub.add(
-          subject$
-            .pipe(
-              distinctUntilChanged(isEqual),
-              tap((next) => {
-                const value = source$.get();
-                const updated = lens.set(next, value);
-                if (!isEqual(updated, value)) {
-                  source$.set(updated);
-                }
-              }),
-            )
-            .subscribe(),
-        );
-
-        return () => {
-          localSub.unsubscribe();
-          if (--this.subCount === 0) {
-            this.sub?.unsubscribe();
-            this.sub = undefined;
-          }
-        };
       }
+
+      return () => {
+        localSub.unsubscribe();
+        if (--this.subCount === 0) {
+          this.sub?.unsubscribe();
+          this.sub = undefined;
+        }
+      };
     });
 
     this.subject$ = subject$;
+    this.source$ = source$;
+    this.lens = lens;
   }
 
-  set = (value: TTarget) => this.subject$.next(value);
+  set = (value: TTarget) => {
+    this.subject$.next(value);
+    // Always write back to source — required for SSR where no subscriber exists
+    const sourceVal = this.source$.get();
+    const updated = this.lens.set(value, sourceVal);
+    if (!isEqual(updated, sourceVal)) {
+      this.source$.set(updated);
+    }
+  };
+
   get = () => this.subject$.getValue();
   modify = (fn: (val: TTarget) => TTarget) => this.set(fn(this.get()));
 }
