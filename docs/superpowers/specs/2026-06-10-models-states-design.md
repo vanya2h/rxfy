@@ -9,7 +9,9 @@
 
 Add a normalized state management layer to rxfy: **Models** are Zod-schema-backed reactive key-value stores that act as single source of truth for entities. **States** compose models into a typed shape driven by params. React components use `useStateData` + `<Pending>` to fetch, normalize, and reactively render state — with zero manual store wiring.
 
-`store.ts` (tree-shaped `IStore` with `factory`, `factoryBatch`, `node`, PQueue, branded state types) is **removed entirely**. The new system is built around a lean `ModelRegistry` that holds one `ModelStore<T>` per registered model. `ssr.ts` is also removed — SSR support for model stores is out of scope for this iteration.
+`store.ts` (tree-shaped `IStore` with `factory`, `factoryBatch`, `node`, PQueue, branded state types) is **removed entirely**. `ssr.ts` is also removed — SSR support for model stores is out of scope for this iteration.
+
+Models **auto-register lazily** — no central file that imports and lists every model. Each model lives in its own module and registers itself in the current provider's registry on first use.
 
 ---
 
@@ -87,18 +89,17 @@ type ModelStore<T> = {
 
 ### IModelRegistry
 
-Replaces `IStore` as the provider-scoped container. No PQueue, no tree hierarchy.
+Provider-scoped container. No PQueue, no tree hierarchy, no upfront registration.
 
 ```ts
 type IModelRegistry = {
   model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
-  getModelStore: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
 };
 
 function createModelRegistry(): IModelRegistry
 ```
 
-`model()` creates a `ModelStore<T>` and registers it under `descriptor._key`. `getModelStore()` looks it up — throws if the model was never registered (i.e. `model()` was not called for it in `getInitial`).
+`model()` returns the existing `ModelStore<T>` for this descriptor if one exists, or creates and registers a new one. Safe to call on every render — idempotent.
 
 ---
 
@@ -121,12 +122,14 @@ packages/rxfy/src/
   index.ts             ← (modified) remove store.ts export, add model/state exports
 
 packages/rxfy-react/src/
-  useStateData.ts      ← main hook
+  StoreProvider.tsx    ← StoreProvider component, ModelRegistryContext, useModelRegistry
+  useModelStore.ts     ← useModelStore hook
+  useStateData.ts      ← main fetch hook
   Pending.tsx          ← copied + adapted from common repo
   usePending.ts        ← copied + adapted from common repo
   useObservable.ts     ← copied + adapted from common repo
   render.ts            ← copied + adapted from common repo
-  withData.tsx         ← REWRITTEN (ModelRegistry-based, no IStore dependency)
+  withData.tsx         ← REMOVED (replaced by StoreProvider.tsx + useModelStore.ts)
   ssr.ts               ← REMOVED (SSR out of scope)
   ssr.test.tsx         ← REMOVED (SSR out of scope)
   index.tsx            ← (modified) keep useEdge/Edge, add new exports
@@ -142,10 +145,12 @@ Kept in `packages/rxfy`: `atom.ts`, `edge.ts`, `wrapped.ts`, `lens.ts`, `batcher
 
 Given:
 ```ts
-const postModel = createModel(z.object({ id: z.string(), isPost: z.literal(true) }), {
-  getKey: (x) => x.id,
-});
-const pageState = defineState({
+// posts.ts
+export const postModel = createModel(
+  z.object({ id: z.string(), isPost: z.literal(true) }),
+  { getKey: (x) => x.id },
+);
+export const pageState = defineState({
   params: z.object({ page: z.number() }),
   model: { posts: array(postModel) },
 });
@@ -191,6 +196,43 @@ If `fetchMainPage` rejects:
 
 ## 4. React API
 
+### StoreProvider
+
+```tsx
+function StoreProvider({ children }: PropsWithChildren): ReactElement
+```
+
+Creates a fresh `IModelRegistry` and provides it via `ModelRegistryContext`. Wrap the app root (or any subtree that needs isolation, e.g. in tests).
+
+```tsx
+<StoreProvider>
+  <App />
+</StoreProvider>
+```
+
+---
+
+### useModelStore
+
+```ts
+function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+```
+
+Returns the `ModelStore<T>` for this descriptor from the current provider's registry, auto-registering it on first call. Safe to call on every render.
+
+Each model module exports its own accessor so consumers never import the descriptor directly:
+
+```ts
+// posts.ts
+export const postModel = createModel(
+  z.object({ id: z.string(), title: z.string() }),
+  { getKey: (x) => x.id },
+);
+export const usePostStore = () => useModelStore(postModel);
+```
+
+---
+
 ### useStateData
 
 ```ts
@@ -206,6 +248,8 @@ Internals:
 - Returns `useMemo(() => new Observable(...), [state, fetchFn, params, registry])`
 - On subscription: triggers fetch, normalizes into model stores via `setMany`/`set`, then subscribes to the `combineLatest` projection
 - `params` comparison is by reference — caller should stabilize with `useState` or `useMemo`
+
+---
 
 ### Pending component (copied from common repo)
 
@@ -223,40 +267,40 @@ function Pending<T>(props: IPendingProps<T>): ReactElement
 
 `ObservableLike<T>` (`Observable<T> | T`) and `toObservable` are inlined — no dependency on the common package.
 
+---
+
 ### Full usage example
 
-```tsx
-// Define models (module level, rxfy)
-const postModel = createModel(
-  z.object({ id: z.string(), isPost: z.literal(true) }),
+```ts
+// posts.ts — self-contained model module
+export const postModel = createModel(
+  z.object({ id: z.string(), title: z.string() }),
   { getKey: (x) => x.id },
 );
-const userModel = createModel(
-  z.object({ id: z.string(), name: z.string() }),
-  { getKey: (x) => x.id },
-);
+export const usePostStore = () => useModelStore(postModel);
 
-// Define state (module level, rxfy)
-const pageState = defineState({
+export const pageState = defineState({
   params: z.object({ page: z.number() }),
   model: { posts: array(postModel) },
 });
 
-// Register models in provider (app setup, rxfy-react)
-const { StoreProvider, useStore } = createStoreFactory({
-  getInitial: (registry) => ({
-    posts: registry.model(postModel),
-    users: registry.model(userModel),
-  }),
-});
-
-// Fetch function (app code)
-async function fetchMainPage({ page }: { page: number }) {
+export async function fetchMainPage({ page }: { page: number }) {
   const res = await api.get(`/posts?page=${page}`);
-  return { posts: res.posts };  // must match TShape of pageState
+  return { posts: res.posts };
+}
+```
+
+```tsx
+// App.tsx — just a boundary, no model list
+function App() {
+  return (
+    <StoreProvider>
+      <MainPage />
+    </StoreProvider>
+  );
 }
 
-// Component using useStateData — fetches a page of posts (app code)
+// MainPage.tsx — uses useStateData for a fetched list
 function MainPage() {
   const [params, setParams] = useState({ page: 0 });
   const state$ = useStateData(pageState, fetchMainPage, params);
@@ -265,97 +309,68 @@ function MainPage() {
     <Pending value$={state$} pending={<Spinner />}>
       {(data) => (
         <div>
-          {data.posts.map(x => <div key={x.id}>Post</div>)}
+          {data.posts.map(x => <div key={x.id}>{x.title}</div>)}
         </div>
       )}
     </Pending>
   );
 }
 
-// Component using useStore directly — reads a single entity from a model store
-// Use this when you already know the key and don't need a fetch/params cycle.
+// PostDetail.tsx — uses usePostStore for a single entity by key
 function PostDetail({ id }: { id: string }) {
-  const { posts } = useStore();
+  const posts = usePostStore();
   const post$ = useMemo(() => posts.get(id), [posts, id]);
 
   return (
     <Pending value$={post$}>
-      {(post) => <div>{post.id}</div>}
+      {(post) => <div>{post.title}</div>}
     </Pending>
   );
 }
 
-// useStore for writes — optimistic update or manual cache population
+// PostEditor.tsx — writes back to the model store
 function PostEditor({ id }: { id: string }) {
-  const { posts } = useStore();
+  const posts = usePostStore();
 
   const handleSave = async (draft: Post) => {
-    posts.set(id, draft);           // immediately propagates to all subscribers
+    posts.set(id, draft);  // instantly propagates to all subscribers
     await api.put(`/posts/${id}`, draft);
   };
-
-  // ...
 }
 ```
 
-`useStore()` returns the typed interface you defined in `getInitial` — in this case `{ posts: ModelStore<Post>, users: ModelStore<User> }`. You reach for it when:
-- Rendering a single entity by key (subscribe to `modelStore.get(key)` directly)
-- Writing back to the model store (optimistic updates, mutations)
-- Any case where you know the key upfront and don't need a fetch-driven state
-
 ---
 
-## 5. withData.tsx — Complete Rewrite
+## 5. Provider & Registry Implementation
 
-No dependency on `IStore`, `createStore`, `createAtom`, or any other `store.ts` export.
+`StoreProvider` creates an `IModelRegistry` and provides it. `ModelRegistryContext` is exported separately (in its own file) so `useStateData` and `useModelStore` can import it without pulling in `StoreProvider`.
 
 ```ts
-// ModelRegistryContext — standalone, exported so useStateData can consume it
+// registry-context.ts — imported by useModelStore and useStateData
 export const ModelRegistryContext = createContext<IModelRegistry | null>(null);
 
 export function useModelRegistry(): IModelRegistry {
   const ctx = useContext(ModelRegistryContext);
-  if (!ctx) throw new Error("StoreProvider is not found");
+  if (!ctx) throw new Error("StoreProvider not found");
   return ctx;
 }
 
-export type IStoreConfig<TInterface> = {
-  getInitial: (registry: IModelRegistry) => TInterface;
-};
+// StoreProvider.tsx
+export function StoreProvider({ children }: PropsWithChildren) {
+  const [registry] = useState(() => createModelRegistry());
+  return (
+    <ModelRegistryContext.Provider value={registry}>
+      {children}
+    </ModelRegistryContext.Provider>
+  );
+}
 
-export type IStoreProviderProps<TInterface> = PropsWithChildren & {
-  store?: TInterface;  // pass pre-built store for testing / external control
-};
-
-export function createStoreFactory<TInterface>(config: IStoreConfig<TInterface>) {
-  const storeContext = createContext<{ store: TInterface } | null>(null);
-
-  function StoreProvider({ children, store: externalStore }: IStoreProviderProps<TInterface>) {
-    const [{ store: internalStore, registry }] = useState(() => {
-      const reg = createModelRegistry();
-      return { store: config.getInitial(reg), registry: reg };
-    });
-
-    return (
-      <ModelRegistryContext.Provider value={registry}>
-        <storeContext.Provider value={{ store: externalStore ?? internalStore }}>
-          {children}
-        </storeContext.Provider>
-      </ModelRegistryContext.Provider>
-    );
-  }
-
-  function useStore() {
-    const ctx = useContext(storeContext);
-    if (!ctx) throw new Error("StoreProvider is not found");
-    return ctx.store;
-  }
-
-  return { StoreProvider, useStore };
+// useModelStore.ts
+export function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T> {
+  const registry = useModelRegistry();
+  return registry.model(descriptor);  // idempotent — returns existing or creates new
 }
 ```
-
-`initialState` prop (previously used for SSR hydration) is removed — SSR is out of scope.
 
 ---
 
@@ -387,9 +402,8 @@ Wrong fetch return type → compile error at the `useStateData` call site.
 
 ## 7. What Is Not In Scope
 
-- **SSR / snapshot support** — removed along with `ssr.ts`. Model stores are not serialized. Follow-up iteration.
+- **SSR / snapshot support** — model stores are not serialized. `StoreProvider` has no `initialState` prop yet. Follow-up iteration. Auto-registration means the snapshot can discover all touched models during the render pass — no explicit model list needed.
 - **Invalidation / force-refresh** — no manual refetch API beyond params change. Follow-up.
 - **Pagination / cursor merging** — each params value is independent. Accumulating across pages not supported. Follow-up.
 - **Batched loading** — `factoryBatch` from old `store.ts` has no equivalent. If needed, the fetch function can batch internally. Follow-up.
-- **Nested registry scoping** — one flat registry per provider. Follow-up if sub-tree scoping is needed.
 - **`store.ts` migration guide** — existing consumers of `IStore`/`factory`/`useEdge` are not migrated in this iteration. `useEdge` and `<Edge>` continue to work via `edge.ts`.
