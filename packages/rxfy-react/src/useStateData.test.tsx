@@ -121,7 +121,7 @@ describe("useStateData", () => {
     sub.unsubscribe();
 
     expect(emissions.length).toBeGreaterThanOrEqual(2);
-    expect(emissions[emissions.length - 1].posts[0].title).toBe("v2");
+    expect(emissions[emissions.length - 1]!.posts[0]!.title).toBe("v2");
   });
 
   it("handles empty array field", async () => {
