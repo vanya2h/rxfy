@@ -35,8 +35,16 @@ export function Edge<TData>({ edge, children, rejected = null, pending = null }:
 export type IRenderFn<TData> = React.ReactNode | ((data: TData) => React.ReactNode);
 
 function renderWithParams<TData>(fn: IRenderFn<TData>, data: TData): React.ReactNode {
-  if (typeof fn === "function") {
-    return fn(data);
-  }
+  if (typeof fn === "function") return fn(data);
   return fn;
 }
+
+export { StoreProvider } from "./StoreProvider.js";
+export { useModelStore } from "./useModelStore.js";
+export { useStateData } from "./useStateData.js";
+export { Pending, BehaviorSubjectRender } from "./Pending.js";
+export type { IPendingProps, IBehaviorSubjectRenderProps } from "./Pending.js";
+export { usePending } from "./usePending.js";
+export type { IPendingStatus, ObservableLike } from "./usePending.js";
+export { useObservable } from "./useObservable.js";
+export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";

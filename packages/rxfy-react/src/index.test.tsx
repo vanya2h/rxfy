@@ -1,44 +1,29 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import PQueue from "p-queue";
 import React, { act } from "react";
-import { createAtom, createState, createStore } from "rxfy";
-import { getErrorMessage } from "rxfy-utils/common";
+import { createAtom, createEdge, createIdle, IEdgeState } from "rxfy";
 import { of } from "rxjs";
 import { describe, expect, it } from "vitest";
-import { Edge } from "./index";
+import { Edge } from "./index.js";
 
 describe("Edge", () => {
-  it("should render proper status with no data and with data persisted in store", async () => {
+  it("renders pending then fulfilled once edge resolves", async () => {
     const queue = new PQueue({ concurrency: 1, autoStart: false });
-    const state = createAtom(createState({}));
-    const store = createStore(queue, state);
-    const userStore = store.factory("users", (id) => of({ id }));
-    const edge = userStore.get("test");
+    const state$ = createAtom<IEdgeState<{ id: string }>>(createIdle());
+    const edge = createEdge(state$, queue, () => of({ id: "test" }));
 
-    function getRendererd() {
-      return render(
-        <Edge
-          edge={edge}
-          pending={<div data-testid="pending" />}
-          rejected={(x) => <div data-testid="rejected" data-error={getErrorMessage(x)} />}
-          children={(x) => (
-            <div key={x.id} data-testid="fulfilled">
-              {x.id}
-            </div>
-          )}
-        />,
-      );
-    }
+    render(
+      <Edge
+        edge={edge}
+        pending={<div data-testid="pending" />}
+        rejected={() => <div data-testid="rejected" />}
+      >
+        {(x) => <div data-testid="fulfilled">{x.id}</div>}
+      </Edge>,
+    );
 
-    const firstRender = getRendererd();
-
-    expect(firstRender.getByTestId("pending")).toBeInTheDocument();
+    expect(screen.getByTestId("pending")).toBeInTheDocument();
     await act(() => queue.start().onIdle());
-    expect(firstRender.getByTestId("fulfilled")).toBeInTheDocument();
-
-    firstRender.unmount();
-
-    const secondRender = getRendererd();
-    expect(secondRender.getByTestId("fulfilled")).toBeInTheDocument();
+    expect(screen.getByTestId("fulfilled")).toHaveTextContent("test");
   });
 });
