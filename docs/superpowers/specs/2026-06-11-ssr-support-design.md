@@ -35,7 +35,7 @@ flash, no re-fetch, no hydration mismatch.
 | Layer | Holds | Answers | Updated by |
 |---|---|---|---|
 | Query state (`data$`) | entity **ids** (membership, order, shape) | "which entities are in this view" | fetch settle, mutations, `set()`, `reload()` |
-| Model stores | entity **values** | "what is this entity right now" | `normalize()` on fetch settle / hydration ingest, direct `store.set()` (e.g., websocket events) |
+| Model stores | entity **values** | "what is this entity right now" | `normalize()` on fetch settle, hydration ingest, direct `store.set()` (e.g., websocket events) |
 
 Components render `ids.map(id => <Item id={id} />)`; each item subscribes to its model store.
 Because `data$` carries no entity fields, reading stale entity data off a query snapshot is
@@ -82,13 +82,15 @@ Lives inside the registry (`createModelRegistry()`), alongside the model stores.
 
 ### Consistency rule: normalize on write, never on read
 
-`normalize()` runs only when data **enters** the system:
+`normalize()` runs only when a denormalized fetch result **enters** the system:
 
 1. server fetch settle (before React re-renders the suspended boundary — so model-store
    subscriptions are live during SSR),
-2. client fetch settle,
-3. hydration ingest,
-4. mutation / `set()` write-through.
+2. client fetch settle.
+
+Mutations and `set()` operate on ids only, so their write-through involves no normalization.
+Hydration ingest needs none either: the dehydrated payload is already normalized — `models`
+entries write directly into model stores, `queries` entries directly into the cache.
 
 A cache **hit** (e.g., remounting a page on client-side back-navigation) returns ids only and
 never touches model stores. Consequence: a fresher value written by a websocket event can never
@@ -135,7 +137,7 @@ SSR and on the client for misses/reloads — consumers must write it to work in 
 | Server, `ssr: true` | Miss | Call `fetchFn`, store in-flight promise in cache, **throw promise** (Suspense). |
 | Server, `ssr: true` | In-flight | Throw the same promise — request deduplication across components. |
 | Server, `ssr: true` | Hit | `data$` emits cached ids synchronously; rejected entry → `data$` errors synchronously. |
-| Client | Hit | Synchronous emission; no fetch. (Hydration ingest already normalized entities.) |
+| Client | Hit | Synchronous emission; no fetch. (Model stores were already filled at hydration ingest.) |
 | Client | Miss | Current behavior: fetch with AbortSignal. |
 | Client, `reload()` | Any | Delete entry → fetch → write result back to cache (+ normalize). |
 | Client, mutation / `set()` | Any | Update subject **and** write through to cache entry. |
@@ -210,7 +212,7 @@ minor bump 0.2.x → **0.3.0** for `rxfy` + `rxfy-react` with one changeset noti
   value map, dev warnings for unnamed model / keyless state in ssr mode.
 - **`rxfy-react`:** `usePending` sync-probe (synchronous source → first render fulfilled; async
   source unchanged); `useStateData` full decision table — server suspend on miss, promise dedup,
-  hydrated hit → no fetch + normalize on ingest, remount hit → model stores untouched, `reload()`
+  hydrated hit → no fetch (stores filled at ingest), remount hit → model stores untouched, `reload()`
   invalidation, mutation write-through; rejected entry → `rejected` render with working retry.
 - **SSR integration (vitest, node env):** buffered `renderToPipeableStream` / `onAllReady`
   round-trip and `collectStateData` two-pass round-trip — render, dehydrate, hydrate into a fresh
