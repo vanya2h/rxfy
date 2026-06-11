@@ -1,5 +1,6 @@
 import _ from "lodash";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { getAttachedReload, isSyncMarked } from "rxfy";
 import {
   BehaviorSubject,
   catchError,
@@ -28,14 +29,40 @@ export type IPendingStatus<T, K extends Status = Status> = {
   fulfilled: { status: "fulfilled"; value: T };
 }[K];
 
+type ProbeResult<T> = { kind: "value"; value: T } | { kind: "error"; error: unknown } | null;
+
+/**
+ * Render-time probe for sync-marked sources (hydrated query state, seeded model stores).
+ * Subscribes and immediately unsubscribes — only rxfy-controlled observables are marked,
+ * so this never triggers user side effects.
+ */
+function probeSync<T>(source: ObservableLike<T>): ProbeResult<T> {
+  if (!isObservable(source) || !isSyncMarked(source)) return null;
+  let captured: ProbeResult<T> = null;
+  const sub = source.subscribe({
+    next: (value) => (captured = { kind: "value", value }),
+    error: (error) => (captured = { kind: "error", error }),
+  });
+  sub.unsubscribe();
+  return captured;
+}
+
 export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IPendingStatus<T> {
   const [nonce$] = useState(() => new BehaviorSubject(0));
+  const [initialProbe] = useState(() => probeSync(source$));
+
+  const reload = useCallback(() => {
+    const attached = isObservable(source$) ? getAttachedReload(source$) : undefined;
+    if (attached) attached();
+    else nonce$.next(nonce$.getValue() + 1);
+  }, [source$, nonce$]);
 
   const target$ = useMemo(
     () =>
       nonce$.pipe(
         switchMap(() => {
-          const pendingEmission = getDefaultValue ? [] : [of<IPendingStatus<T>>({ status: "pending" })];
+          const emitsSync = isObservable(source$) && isSyncMarked(source$);
+          const pendingEmission = getDefaultValue || emitsSync ? [] : [of<IPendingStatus<T>>({ status: "pending" })];
           return concat(
             ...pendingEmission,
             toObservable(source$).pipe(
@@ -44,7 +71,7 @@ export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () =
                 of<IPendingStatus<T>>({
                   status: "rejected",
                   error,
-                  onReload: () => nonce$.next(nonce$.getValue() + 1),
+                  onReload: reload,
                 }),
               ),
             ),
@@ -52,14 +79,15 @@ export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () =
         }),
         distinctUntilChanged(_.isEqual),
       ),
-
-    [source$, nonce$, getDefaultValue],
+    [source$, nonce$, getDefaultValue, reload],
   );
 
-  const initialState = useMemo<IPendingStatus<T>>(
-    () => (getDefaultValue ? { status: "fulfilled", value: getDefaultValue() } : { status: "pending" }),
-    [getDefaultValue],
-  );
+  const initialState = useMemo<IPendingStatus<T>>(() => {
+    if (initialProbe?.kind === "value") return { status: "fulfilled", value: initialProbe.value };
+    if (initialProbe?.kind === "error") return { status: "rejected", error: initialProbe.error, onReload: reload };
+    if (getDefaultValue) return { status: "fulfilled", value: getDefaultValue() };
+    return { status: "pending" };
+  }, [initialProbe, getDefaultValue, reload]);
 
   return useObservable(target$, initialState);
 }
