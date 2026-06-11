@@ -1,6 +1,7 @@
 import { firstValueFrom } from "rxjs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { isSyncMarked } from "../ssr/sync-marker.js";
 import { createModel } from "./model.js";
 import { createModelRegistry, createModelStore } from "./model-store.js";
 
@@ -67,5 +68,42 @@ describe("createModelRegistry", () => {
     const r1 = createModelRegistry();
     const r2 = createModelRegistry();
     expect(r1.model(postModel)).not.toBe(r2.model(postModel));
+  });
+});
+
+describe("model store sync value access", () => {
+  const model = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
+
+  it("getValue returns the latest value synchronously", () => {
+    const store = createModelStore(model);
+    expect(store.getValue("1")).toBeUndefined();
+    store.set("1", { id: "1", title: "A" });
+    expect(store.getValue("1")).toEqual({ id: "1", title: "A" });
+    store.set("1", { id: "1", title: "B" });
+    expect(store.getValue("1")).toEqual({ id: "1", title: "B" });
+  });
+
+  it("setMany populates the value map", () => {
+    const store = createModelStore(model);
+    store.setMany([
+      { id: "1", title: "A" },
+      { id: "2", title: "B" },
+    ]);
+    expect(store.getValue("2")).toEqual({ id: "2", title: "B" });
+  });
+
+  it("valueEntries enumerates all current values", () => {
+    const store = createModelStore(model);
+    store.set("1", { id: "1", title: "A" });
+    store.set("2", { id: "2", title: "B" });
+    expect(store.valueEntries()).toEqual([
+      ["1", { id: "1", title: "A" }],
+      ["2", { id: "2", title: "B" }],
+    ]);
+  });
+
+  it("get() observables are sync-marked for usePending's render-time probe", () => {
+    const store = createModelStore(model);
+    expect(isSyncMarked(store.get("1"))).toBe(true);
   });
 });
