@@ -62,6 +62,9 @@ export function createModelRegistry(): IModelRegistry {
         stores.set(descriptor._key, store);
         descriptors.set(descriptor._key, descriptor);
         if (descriptor.name) {
+          if (named.has(descriptor.name)) {
+            console.warn(`rxfy: duplicate model name "${descriptor.name}" — SSR dehydration would mix their entities`);
+          }
           named.set(descriptor.name, store);
           const pending = stash.get(descriptor.name);
           if (pending) {
