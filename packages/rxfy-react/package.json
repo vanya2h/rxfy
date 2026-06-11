@@ -17,6 +17,11 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.cjs"
+    },
+    "./next": {
+      "import": "./dist/next.js",
+      "types": "./dist/next.d.ts",
+      "default": "./dist/next.cjs"
     }
   },
   "main": "./dist/index.js",
@@ -67,10 +72,16 @@
     "lodash": "^4.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
-    "rxfy": "workspace:*"
+    "rxfy": "workspace:*",
+    "next": ">=14"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
   }
 }
