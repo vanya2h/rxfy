@@ -42,7 +42,8 @@ function renderWithParams<TData>(fn: IRenderFn<TData>, data: TData): React.React
 export type { IBehaviorSubjectRenderProps, IPendingProps } from "./Pending.js";
 export { BehaviorSubjectRender, Pending } from "./Pending.js";
 export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
-export { StoreProvider } from "./StoreProvider.js";
+export { SsrContext, StoreProvider } from "./StoreProvider.js";
+export type { StoreProviderProps } from "./StoreProvider.js";
 export { useModelStore } from "./useModelStore.js";
 export { useObservable } from "./useObservable.js";
 export type { IPendingStatus, ObservableLike } from "./usePending.js";
