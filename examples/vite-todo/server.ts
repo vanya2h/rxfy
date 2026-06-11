@@ -14,8 +14,7 @@ const templateHtml = isProduction ? await fs.readFile("./dist/client/index.html"
 const app = express();
 
 // Add Vite or respective production middlewares
-/** @type {import('vite').ViteDevServer | undefined} */
-let vite;
+let vite: import("vite").ViteDevServer | undefined;
 if (!isProduction) {
   const { createServer } = await import("vite");
   vite = await createServer({
@@ -36,21 +35,20 @@ app.use("*all", async (req, res) => {
   try {
     const url = req.originalUrl.replace(base, "");
 
-    /** @type {string} */
-    let template;
-    /** @type {import('./src/entry-server.ts').render} */
-    let render;
+    let template: string;
+    let render: (url: string) => { html: string; head?: string };
     if (!isProduction) {
       // Always read fresh template in development
       template = await fs.readFile("./index.html", "utf-8");
-      template = await vite.transformIndexHtml(url, template);
-      render = (await vite.ssrLoadModule("/src/entry-server.tsx")).render;
+      template = await vite!.transformIndexHtml(url, template);
+      render = (await vite!.ssrLoadModule("/src/entry-server.tsx")).render;
     } else {
       template = templateHtml;
-      render = (await import("./dist/server/entry-server.js")).render;
+      // @ts-expect-error — dist artifact has no .d.ts
+      render = ((await import("./dist/server/entry-server.js")) as { render: typeof render }).render;
     }
 
-    const rendered = await render(url);
+    const rendered = render(url);
 
     const html = template
       .replace(`<!--app-head-->`, rendered.head ?? "")
@@ -58,9 +56,10 @@ app.use("*all", async (req, res) => {
 
     res.status(200).set({ "Content-Type": "text/html" }).send(html);
   } catch (e) {
-    vite?.ssrFixStacktrace(e);
-    console.log(e.stack);
-    res.status(500).end(e.stack);
+    const err = e instanceof Error ? e : new Error(String(e));
+    vite?.ssrFixStacktrace(err);
+    console.log(err.stack);
+    res.status(500).end(err.stack);
   }
 });
 

@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "check-types": "tsc --noEmit",
+    "check-types": "tsc -b --noEmit",
     "clean": "rimraf ./dist",
     "dev": "tsx ./server.ts",
     "build": "npm run build:client && npm run build:server",
