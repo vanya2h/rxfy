@@ -43,7 +43,10 @@ describe("usePending sync probe", () => {
   });
 
   it("still resolves async sources (unchanged behavior)", async () => {
-    const { result } = renderHook(() => usePending(of(7)));
+    // hoisted: source$ must be referentially stable across renders (see usePending JSDoc) —
+    // a completing observable recreated inline would restart pending→fulfilled forever
+    const source$ = of(7);
+    const { result } = renderHook(() => usePending(source$));
     await vi.waitFor(() => expect(result.current).toEqual({ status: "fulfilled", value: 7 }));
   });
 });

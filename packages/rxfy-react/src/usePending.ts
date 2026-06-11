@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { getAttachedReload, isSyncMarked } from "rxfy";
 import {
   BehaviorSubject,
@@ -47,15 +47,28 @@ function probeSync<T>(source: ObservableLike<T>): ProbeResult<T> {
   return captured;
 }
 
+/**
+ * Tracks an observable as a pending/fulfilled/rejected status for rendering.
+ *
+ * Contract: `source$` must be referentially stable across renders (memoize it, e.g. from
+ * useStateData or useMemo). A new identity restarts the pipeline from "pending" — intended for
+ * genuine source changes (new params), but an observable created inline in render restarts
+ * every render and never settles.
+ */
 export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IPendingStatus<T> {
   const [nonce$] = useState(() => new BehaviorSubject(0));
   const [initialProbe] = useState(() => probeSync(source$));
 
+  // Identity-stable across renders (source read via ref) so rejected statuses stay deep-equal
+  // when the source observable is recreated each render — see useObservable's loop guard.
+  const sourceRef = useRef(source$);
+  sourceRef.current = source$;
   const reload = useCallback(() => {
-    const attached = isObservable(source$) ? getAttachedReload(source$) : undefined;
+    const source = sourceRef.current;
+    const attached = isObservable(source) ? getAttachedReload(source) : undefined;
     if (attached) attached();
     else nonce$.next(nonce$.getValue() + 1);
-  }, [source$, nonce$]);
+  }, [nonce$]);
 
   const target$ = useMemo(
     () =>
