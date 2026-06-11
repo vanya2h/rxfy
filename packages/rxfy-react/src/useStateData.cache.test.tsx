@@ -21,7 +21,9 @@ const todosState = defineState({
 });
 
 function makeWrapper(registry: IModelRegistry) {
-  return ({ children }: { children: React.ReactNode }) => <StoreProvider registry={registry}>{children}</StoreProvider>;
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <StoreProvider registry={registry}>{children}</StoreProvider>;
+  };
 }
 
 function seedFulfilled(registry: IModelRegistry) {

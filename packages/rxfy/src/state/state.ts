@@ -54,7 +54,7 @@ export function defineState<
   params: z.ZodType<TParams>;
   model: TFields;
   mutations?: TMutations;
-}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations | {}> {
+}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations | Record<never, never>> {
   return {
     key: def.key,
     paramsSchema: def.params,
