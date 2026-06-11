@@ -58,4 +58,14 @@ describe("createQueryCache", () => {
     cache.delete("k");
     expect(cache.getPromise("k")).toBeUndefined();
   });
+
+  it("clears the in-flight promise on rejection without unhandled rejection", async () => {
+    const cache = createQueryCache();
+    const promise = new Promise<void>((_, reject) => setTimeout(() => reject(new Error("boom")), 0));
+    cache.setPromise("k", promise);
+    await promise.catch(() => {});
+    await Promise.resolve(); // let the cleanup microtask run
+    expect(cache.getPromise("k")).toBeUndefined();
+    expect(cache.inflight()).toEqual([]);
+  });
 });
