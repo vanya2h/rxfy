@@ -72,4 +72,25 @@ describe("StoreProvider SSR props", () => {
     expect(result.current.model(todoModel).getValue("2")).toEqual({ id: "2", title: "Late" });
     delete window.__RXFY_SSR__;
   });
+
+  it("fans late pushes out to every mounted provider and keeps chunks for later mounts", () => {
+    window.__RXFY_SSR__ = [];
+    const { result: first } = renderHook(() => useModelRegistry(), {
+      wrapper: ({ children }) => <StoreProvider ssr>{children}</StoreProvider>,
+    });
+    const { result: second } = renderHook(() => useModelRegistry(), {
+      wrapper: ({ children }) => <StoreProvider ssr>{children}</StoreProvider>,
+    });
+
+    window.__RXFY_SSR__!.push({ queries: {}, models: { todo: { "3": { id: "3", title: "Both" } } } });
+    expect(first.current.model(todoModel).getValue("3")).toEqual({ id: "3", title: "Both" });
+    expect(second.current.model(todoModel).getValue("3")).toEqual({ id: "3", title: "Both" });
+
+    // chunk stayed in the array, so a provider mounting later still ingests it
+    const { result: third } = renderHook(() => useModelRegistry(), {
+      wrapper: ({ children }) => <StoreProvider ssr>{children}</StoreProvider>,
+    });
+    expect(third.current.model(todoModel).getValue("3")).toEqual({ id: "3", title: "Both" });
+    delete window.__RXFY_SSR__;
+  });
 });

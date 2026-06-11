@@ -1,4 +1,4 @@
-import { createContext, type PropsWithChildren, useState } from "react";
+import { createContext, type PropsWithChildren, useEffect, useState } from "react";
 import { createModelRegistry, type DehydratedState, hydrate, type IModelRegistry } from "rxfy";
 import { ModelRegistryContext } from "./registry-context.js";
 
@@ -25,9 +25,17 @@ export function StoreProvider({ children, ssr = false, registry: external, dehyd
   const [registry] = useState(() => {
     const r = external ?? createModelRegistry();
     if (dehydratedState) hydrate(r, dehydratedState);
-    ingestWindowState(r);
+    // Synchronous so hydrated data is available on the first render (hydration correctness).
+    // Safe under StrictMode double-invocation: re-hydrating the same chunks is an idempotent overwrite.
+    ingestExistingChunks(r);
     return r;
   });
+
+  useEffect(() => {
+    // Chunks pushed between the initializer and mount sit in the array (push isn't patched yet) — drain them.
+    ingestExistingChunks(registry);
+    return subscribeToLateChunks(registry);
+  }, [registry]);
 
   return (
     <ModelRegistryContext.Provider value={registry}>
@@ -36,13 +44,31 @@ export function StoreProvider({ children, ssr = false, registry: external, dehyd
   );
 }
 
-function ingestWindowState(registry: IModelRegistry): void {
-  if (typeof window === "undefined") return;
+function ingestExistingChunks(registry: IModelRegistry): void {
+  if (typeof window === "undefined" || !window.__RXFY_SSR__) return;
+  for (const chunk of window.__RXFY_SSR__) hydrate(registry, chunk);
+}
+
+// Late-streamed chunks (Suspense boundaries resolving after hydration) fan out to every mounted provider.
+const listeners = new Set<IModelRegistry>();
+let patchedQueue: DehydratedState[] | null = null;
+
+function subscribeToLateChunks(registry: IModelRegistry): (() => void) | undefined {
+  if (typeof window === "undefined") return undefined;
   const queue = (window.__RXFY_SSR__ = window.__RXFY_SSR__ ?? []);
-  for (const chunk of queue) hydrate(registry, chunk);
-  // Late-streamed chunks (Suspense boundaries resolving after hydration) flow straight into the registry.
-  queue.push = (...chunks: DehydratedState[]) => {
-    for (const chunk of chunks) hydrate(registry, chunk);
-    return queue.length;
+  listeners.add(registry);
+  if (patchedQueue !== queue) {
+    patchedQueue = queue;
+    queue.push = (...chunks: DehydratedState[]) => {
+      // Keep chunks in the array so providers mounting later can still drain them.
+      const length = Array.prototype.push.apply(queue, chunks);
+      for (const chunk of chunks) {
+        for (const listener of listeners) hydrate(listener, chunk);
+      }
+      return length;
+    };
+  }
+  return () => {
+    listeners.delete(registry);
   };
 }
