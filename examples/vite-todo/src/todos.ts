@@ -11,10 +11,11 @@ const TodoSchema = z.object({
 export type Todo = z.infer<typeof TodoSchema>;
 export type Filter = "all" | "active" | "done";
 
-export const todoModel = createModel(TodoSchema, { getKey: (x) => x.id });
+export const todoModel = createModel(TodoSchema, { getKey: (x) => x.id, name: "todo" });
 export const useTodoStore = () => useModelStore(todoModel);
 
 export const todosState = defineState({
+  key: "todos",
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(todoModel) },
   mutations: {

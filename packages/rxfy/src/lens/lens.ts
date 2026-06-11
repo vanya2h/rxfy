@@ -1,4 +1,4 @@
-import { isEqual } from "lodash";
+import _ from "lodash";
 import { BehaviorSubject, Observable, Subscription } from "rxjs";
 import { distinctUntilChanged, map, tap } from "rxjs/operators";
 import { IAtom } from "../atom/atom.js";
@@ -29,10 +29,10 @@ export class Lens<TSource, TTarget> extends Observable<TTarget> implements IAtom
           source$
             .pipe(
               map((x) => lens.get(x)),
-              distinctUntilChanged(isEqual),
+              distinctUntilChanged(_.isEqual),
               tap((x) => {
                 const prev = subject$.getValue();
-                if (!isEqual(prev, x)) {
+                if (!_.isEqual(prev, x)) {
                   subject$.next(x);
                 }
               }),
@@ -60,7 +60,7 @@ export class Lens<TSource, TTarget> extends Observable<TTarget> implements IAtom
     // Always write back to source — required for SSR where no subscriber exists
     const sourceVal = this.source$.get();
     const updated = this.lens.set(value, sourceVal);
-    if (!isEqual(updated, sourceVal)) {
+    if (!_.isEqual(updated, sourceVal)) {
       this.source$.set(updated);
     }
   };

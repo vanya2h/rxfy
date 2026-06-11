@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Pending, useStateData } from "rxfy-react";
 import type { Observable } from "rxjs";
-import type { Filter, Todo } from "./todos.ts";
+import type { Filter } from "./todos.ts";
 import { createTodo, fetchTodos, todosState, toggleTodo, useTodoStore } from "./todos.ts";
 import "./App.css";
 
@@ -31,7 +31,7 @@ function TodoItem({ id }: { id: string }) {
 }
 
 type TodoListProps = {
-  data$: Observable<{ todos: Todo[] }>;
+  data$: Observable<{ todos: string[] }>;
 };
 
 function TodoList({ data$ }: TodoListProps) {
@@ -50,8 +50,8 @@ function TodoList({ data$ }: TodoListProps) {
           <p className="status">No todos here.</p>
         ) : (
           <ul className="todo-list">
-            {todos.map((todo) => (
-              <TodoItem key={todo.id} id={todo.id} />
+            {todos.map((id) => (
+              <TodoItem key={id} id={id} />
             ))}
           </ul>
         )
@@ -87,14 +87,12 @@ const FILTERS: Filter[] = ["all", "active", "done"];
 
 export default function App() {
   const [filter, setFilter] = useState<Filter>("all");
-  const store = useTodoStore();
   const params = useMemo(() => ({ filter }), [filter]);
   const { data$, mutations } = useStateData(todosState, fetchTodos, params);
 
   const handleAdd = (title: string) => {
     const todo = createTodo(title);
-    // Write to model store so TodoItem subscriptions get the data immediately
-    store.set(todo.id, todo);
+    // The mutation normalizes the entity into the model store — no manual store.set needed.
     // Newly added todos are active — don't add to "done" filtered view
     if (filter !== "done") {
       mutations.addTodo(todo);
