@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
 import { array, createModel, single } from "../model/model.js";
-import { defineState } from "./state.js";
+import { defineState, type QueryShapeOf } from "./state.js";
 
 const postModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
 const userModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
@@ -35,5 +35,22 @@ describe("defineState", () => {
       model: { posts: array(postModel), user: single(userModel) },
     });
     expect(Object.keys(state.fields)).toEqual(["posts", "user"]);
+  });
+});
+
+describe("defineState key option", () => {
+  it("stores the optional key on the descriptor", () => {
+    const model = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+    const keyed = defineState({ key: "items", params: z.object({}), model: { items: array(model) } });
+    expect(keyed.key).toBe("items");
+    const unkeyed = defineState({ params: z.object({}), model: { items: array(model) } });
+    expect(unkeyed.key).toBeUndefined();
+  });
+});
+
+describe("QueryShapeOf", () => {
+  it("maps array fields to string[] and single fields to string (type-level)", () => {
+    type Shape = { items: { id: string }[]; owner: { id: string } };
+    expectTypeOf<QueryShapeOf<Shape>>().toEqualTypeOf<{ items: string[]; owner: string }>();
   });
 });

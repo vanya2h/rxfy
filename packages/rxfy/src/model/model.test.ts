@@ -37,3 +37,12 @@ describe("single", () => {
     expect(f.model).toBe(m);
   });
 });
+
+describe("createModel name option", () => {
+  it("stores the optional name on the descriptor", () => {
+    const named = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id, name: "thing" });
+    expect(named.name).toBe("thing");
+    const unnamed = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+    expect(unnamed.name).toBeUndefined();
+  });
+});

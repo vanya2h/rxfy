@@ -2,6 +2,8 @@ import type { z } from "zod";
 
 export type ModelDescriptor<T> = {
   readonly _key: symbol;
+  /** Stable string identity for SSR dehydration — symbols cannot cross the server/client boundary. */
+  readonly name?: string;
   readonly schema: z.ZodType<T>;
   readonly getKey: (item: T) => string;
 };
@@ -13,8 +15,11 @@ export type FieldDescriptor<TShape> = {
   readonly model: ModelDescriptor<any>;
 };
 
-export function createModel<T>(schema: z.ZodType<T>, opts: { getKey: (item: T) => string }): ModelDescriptor<T> {
-  return { _key: Symbol(), schema, getKey: opts.getKey };
+export function createModel<T>(
+  schema: z.ZodType<T>,
+  opts: { getKey: (item: T) => string; name?: string },
+): ModelDescriptor<T> {
+  return { _key: Symbol(), name: opts.name, schema, getKey: opts.getKey };
 }
 
 export function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]> {
