@@ -1,4 +1,5 @@
 import { Observable, ReplaySubject } from "rxjs";
+import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { markSync } from "../ssr/sync-marker.js";
 import type { ModelDescriptor } from "./model.js";
 
@@ -13,6 +14,12 @@ export type ModelStore<T> = {
 
 export type IModelRegistry = {
   model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
+  /** SSR query cache — fulfilled/rejected entries keyed by state key + params. */
+  queries: QueryCache;
+  namedStores: () => ReadonlyMap<string, ModelStore<any>>;
+  stores: () => { descriptor: ModelDescriptor<any>; store: ModelStore<any> }[];
+  /** Queue entities for a named model; seeds the store now if it exists, or on first creation otherwise. */
+  stashHydration: (name: string, entities: Record<string, unknown>) => void;
 };
 
 export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T> {
@@ -42,13 +49,38 @@ export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<
 
 export function createModelRegistry(): IModelRegistry {
   const stores = new Map<symbol, ModelStore<any>>();
+  const descriptors = new Map<symbol, ModelDescriptor<any>>();
+  const named = new Map<string, ModelStore<any>>();
+  const stash = new Map<string, Record<string, unknown>>();
+  const queries = createQueryCache();
 
   return {
+    queries,
     model: <T>(descriptor: ModelDescriptor<T>): ModelStore<T> => {
       if (!stores.has(descriptor._key)) {
-        stores.set(descriptor._key, createModelStore(descriptor));
+        const store = createModelStore(descriptor);
+        stores.set(descriptor._key, store);
+        descriptors.set(descriptor._key, descriptor);
+        if (descriptor.name) {
+          named.set(descriptor.name, store);
+          const pending = stash.get(descriptor.name);
+          if (pending) {
+            stash.delete(descriptor.name);
+            for (const [key, value] of Object.entries(pending)) store.set(key, value as T);
+          }
+        }
       }
       return stores.get(descriptor._key) as ModelStore<T>;
+    },
+    namedStores: () => named,
+    stores: () => [...stores.keys()].map((key) => ({ descriptor: descriptors.get(key)!, store: stores.get(key)! })),
+    stashHydration: (name, entities) => {
+      const existing = named.get(name);
+      if (existing) {
+        for (const [key, value] of Object.entries(entities)) existing.set(key, value);
+      } else {
+        stash.set(name, { ...stash.get(name), ...entities });
+      }
     },
   };
 }

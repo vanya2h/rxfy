@@ -107,3 +107,42 @@ describe("model store sync value access", () => {
     expect(isSyncMarked(store.get("1"))).toBe(true);
   });
 });
+
+describe("registry SSR extensions", () => {
+  const namedModel = createModel(z.object({ id: z.string(), title: z.string() }), {
+    getKey: (x) => x.id,
+    name: "item",
+  });
+
+  it("exposes a query cache", () => {
+    const registry = createModelRegistry();
+    registry.queries.set("k", { status: "fulfilled", value: 1 });
+    expect(registry.queries.get("k")).toEqual({ status: "fulfilled", value: 1 });
+  });
+
+  it("tracks named stores", () => {
+    const registry = createModelRegistry();
+    const store = registry.model(namedModel);
+    expect(registry.namedStores().get("item")).toBe(store);
+  });
+
+  it("stashHydration seeds a store created later", () => {
+    const registry = createModelRegistry();
+    registry.stashHydration("item", { "1": { id: "1", title: "Stashed" } });
+    const store = registry.model(namedModel);
+    expect(store.getValue("1")).toEqual({ id: "1", title: "Stashed" });
+  });
+
+  it("stashHydration writes directly into an existing store", () => {
+    const registry = createModelRegistry();
+    const store = registry.model(namedModel);
+    registry.stashHydration("item", { "2": { id: "2", title: "Direct" } });
+    expect(store.getValue("2")).toEqual({ id: "2", title: "Direct" });
+  });
+
+  it("stores() enumerates descriptors with their stores", () => {
+    const registry = createModelRegistry();
+    const store = registry.model(namedModel);
+    expect(registry.stores()).toEqual([{ descriptor: namedModel, store }]);
+  });
+});
