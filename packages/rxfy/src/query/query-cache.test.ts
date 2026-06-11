@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createQueryCache } from "./query-cache.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { createQueryCache, type QueryEntry } from "./query-cache.js";
 
 describe("createQueryCache", () => {
   it("stores and retrieves fulfilled entries", () => {
@@ -67,5 +67,16 @@ describe("createQueryCache", () => {
     await Promise.resolve(); // let the cleanup microtask run
     expect(cache.getPromise("k")).toBeUndefined();
     expect(cache.inflight()).toEqual([]);
+  });
+
+  it("get accepts a type assertion for the entry value (type-level)", () => {
+    const cache = createQueryCache();
+    cache.set("todos:{}", { status: "fulfilled", value: { todos: ["1"] } });
+    const entry = cache.get<{ todos: string[] }>("todos:{}");
+    expectTypeOf(entry).toEqualTypeOf<QueryEntry<{ todos: string[] }> | undefined>();
+    if (entry?.status === "fulfilled") {
+      expectTypeOf(entry.value).toEqualTypeOf<{ todos: string[] }>();
+      expect(entry.value.todos).toEqual(["1"]);
+    }
   });
 });
