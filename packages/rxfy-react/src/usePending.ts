@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { getAttachedReload, isSyncMarked } from "rxfy";
 import {
   BehaviorSubject,
@@ -59,16 +59,11 @@ export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () =
   const [nonce$] = useState(() => new BehaviorSubject(0));
   const [initialProbe] = useState(() => probeSync(source$));
 
-  // Identity-stable across renders (source read via ref) so rejected statuses stay deep-equal
-  // when the source observable is recreated each render — see useObservable's loop guard.
-  const sourceRef = useRef(source$);
-  sourceRef.current = source$;
   const reload = useCallback(() => {
-    const source = sourceRef.current;
-    const attached = isObservable(source) ? getAttachedReload(source) : undefined;
+    const attached = isObservable(source$) ? getAttachedReload(source$) : undefined;
     if (attached) attached();
     else nonce$.next(nonce$.getValue() + 1);
-  }, [nonce$]);
+  }, [source$, nonce$]);
 
   const target$ = useMemo(
     () =>

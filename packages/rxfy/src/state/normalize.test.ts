@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createModel, array, single } from "../model/model.js";
+import { array, createModel, single } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
 import { denormalizeValue, normalizeResult } from "./normalize.js";
 

@@ -2,8 +2,8 @@ import { renderHook } from "@testing-library/react";
 import { createModel, createModelRegistry, type DehydratedState } from "rxfy";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { StoreProvider } from "./StoreProvider.js";
 import { useModelRegistry } from "./registry-context.js";
+import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 
 const testModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
