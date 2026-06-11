@@ -14,10 +14,13 @@ export type Filter = "all" | "active" | "done";
 export const todoModel = createModel(TodoSchema, { getKey: (x) => x.id });
 export const useTodoStore = () => useModelStore(todoModel);
 
-// version is a re-fetch trigger — increment it to force a new fetch
 export const todosState = defineState({
-  params: z.object({ filter: z.enum(["all", "active", "done"]), version: z.number() }),
+  params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(todoModel) },
+  mutations: {
+    addTodo: (prev, todo: Todo) => ({ ...prev, todos: [...prev.todos, todo] }),
+    removeTodo: (prev, id: string) => ({ ...prev, todos: prev.todos.filter((t) => t.id !== id) }),
+  },
 });
 
 // In-memory "database"
@@ -28,8 +31,14 @@ let db: Todo[] = [
 ];
 let nextId = 4;
 
-export async function fetchTodos({ filter }: { filter: Filter; version: number }) {
-  await new Promise((r) => setTimeout(r, 600));
+export async function fetchTodos({ filter }: { filter: Filter }, signal: AbortSignal): Promise<{ todos: Todo[] }> {
+  await new Promise<void>((resolve, reject) => {
+    const id = setTimeout(resolve, 600);
+    signal.addEventListener("abort", () => {
+      clearTimeout(id);
+      reject(signal.reason);
+    });
+  });
   const todos = filter === "all" ? db : db.filter((t) => t.done === (filter === "done"));
   return { todos };
 }

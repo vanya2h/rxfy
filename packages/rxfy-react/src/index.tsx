@@ -47,4 +47,5 @@ export { useModelStore } from "./useModelStore.js";
 export { useObservable } from "./useObservable.js";
 export type { IPendingStatus, ObservableLike } from "./usePending.js";
 export { usePending } from "./usePending.js";
+export type { BoundMutations, StateHandle } from "./useStateData.js";
 export { useStateData } from "./useStateData.js";

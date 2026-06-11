@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Pending } from "rxfy-react";
-import { useStateData } from "rxfy-react";
-import type { Filter } from "./todos.ts";
+import { Pending, useStateData } from "rxfy-react";
+import type { Observable } from "rxjs";
+import type { Filter, Todo } from "./todos.ts";
 import { createTodo, fetchTodos, todosState, toggleTodo, useTodoStore } from "./todos.ts";
 import "./App.css";
 
@@ -31,17 +31,13 @@ function TodoItem({ id }: { id: string }) {
 }
 
 type TodoListProps = {
-  filter: Filter;
-  version: number;
+  data$: Observable<{ todos: Todo[] }>;
 };
 
-function TodoList({ filter, version }: TodoListProps) {
-  const params = useMemo(() => ({ filter, version }), [filter, version]);
-  const state$ = useStateData(todosState, fetchTodos, params);
-
+function TodoList({ data$ }: TodoListProps) {
   return (
     <Pending
-      value$={state$}
+      value$={data$}
       pending={<p className="status">Loading…</p>}
       rejected={({ onReload }) => (
         <p className="status error">
@@ -91,15 +87,18 @@ const FILTERS: Filter[] = ["all", "active", "done"];
 
 export default function App() {
   const [filter, setFilter] = useState<Filter>("all");
-  const [version, setVersion] = useState(0);
   const store = useTodoStore();
+  const params = useMemo(() => ({ filter }), [filter]);
+  const { data$, mutations } = useStateData(todosState, fetchTodos, params);
 
   const handleAdd = (title: string) => {
     const todo = createTodo(title);
-    // Put the new todo in the model store immediately,
-    // then bump version to re-fetch so it appears in the list projection
+    // Write to model store so TodoItem subscriptions get the data immediately
     store.set(todo.id, todo);
-    setVersion((v) => v + 1);
+    // Newly added todos are active — don't add to "done" filtered view
+    if (filter !== "done") {
+      mutations.addTodo(todo);
+    }
   };
 
   return (
@@ -113,7 +112,7 @@ export default function App() {
           </button>
         ))}
       </div>
-      <TodoList filter={filter} version={version} />
+      <TodoList data$={data$} />
     </div>
   );
 }
