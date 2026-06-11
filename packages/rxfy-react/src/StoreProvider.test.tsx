@@ -1,8 +1,9 @@
 import { renderHook } from "@testing-library/react";
-import { createModel } from "rxfy";
+import { createModel, createModelRegistry, type DehydratedState } from "rxfy";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { StoreProvider } from "./StoreProvider.js";
+import { useModelRegistry } from "./registry-context.js";
 import { useModelStore } from "./useModelStore.js";
 
 const testModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
@@ -34,5 +35,41 @@ describe("useModelStore", () => {
 
   it("throws outside StoreProvider", () => {
     expect(() => renderHook(() => useModelStore(testModel))).toThrow("StoreProvider not found");
+  });
+});
+
+const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+
+describe("StoreProvider SSR props", () => {
+  it("uses an externally provided registry", () => {
+    const registry = createModelRegistry();
+    const { result } = renderHook(() => useModelRegistry(), {
+      wrapper: ({ children }) => <StoreProvider registry={registry}>{children}</StoreProvider>,
+    });
+    expect(result.current).toBe(registry);
+  });
+
+  it("hydrates dehydratedState into the registry", () => {
+    const dehydrated: DehydratedState = {
+      queries: { "todos:{}": { status: "fulfilled", value: { todos: ["1"] } } },
+      models: { todo: { "1": { id: "1", title: "Hydrated" } } },
+    };
+    const { result } = renderHook(() => useModelRegistry(), {
+      wrapper: ({ children }) => <StoreProvider dehydratedState={dehydrated}>{children}</StoreProvider>,
+    });
+    expect(result.current.queries.get("todos:{}")).toEqual({ status: "fulfilled", value: { todos: ["1"] } });
+    expect(result.current.model(todoModel).getValue("1")).toEqual({ id: "1", title: "Hydrated" });
+  });
+
+  it("ingests window.__RXFY_SSR__ chunks, including late pushes", () => {
+    window.__RXFY_SSR__ = [{ queries: {}, models: { todo: { "1": { id: "1", title: "Early" } } } }];
+    const { result } = renderHook(() => useModelRegistry(), {
+      wrapper: ({ children }) => <StoreProvider ssr>{children}</StoreProvider>,
+    });
+    expect(result.current.model(todoModel).getValue("1")).toEqual({ id: "1", title: "Early" });
+
+    window.__RXFY_SSR__!.push({ queries: {}, models: { todo: { "2": { id: "2", title: "Late" } } } });
+    expect(result.current.model(todoModel).getValue("2")).toEqual({ id: "2", title: "Late" });
+    delete window.__RXFY_SSR__;
   });
 });
