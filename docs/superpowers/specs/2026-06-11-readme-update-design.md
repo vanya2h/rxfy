@@ -16,8 +16,8 @@ Rewrite the three public-facing README files (`README.md`, `packages/rxfy/README
 
 1. **Title + one-liner** — `rxfy — stream-based state management built on RxJS`
 2. **Install** — `npm install rxfy rxfy-react`
-3. **Architecture table** — Package | Purpose (mirrors CLAUDE.md):
-   - `rxfy` — Core library (Atom, Edge, Store, Lens, Models/States)
+3. **Architecture table** — Public packages only (Package | Purpose):
+   - `rxfy` — Core library (Atom, Edge, Lens, Models/States)
    - `rxfy-react` — React bindings
 4. **Quick taste** — 10-line snippet using `defineState` + `useStateData` showing the recommended flow
 5. **Links** — `packages/rxfy` full API, `packages/rxfy-react` API, `examples/vite-todo`
@@ -214,7 +214,7 @@ function usePending<T>(
 ```
 
 #### `useEdge` + `Edge`
-Legacy async loading via an `IEdge`. Use `usePending` + `useStateData` for new code.
+`IEdge`-based async loading. For new code, prefer `usePending` with `useStateData`.
 
 ```ts
 function useEdge<T>(edge: IEdge<T>): IEdgeState<T>
