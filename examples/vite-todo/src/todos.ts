@@ -11,6 +11,13 @@ const TodoSchema = z.object({
 export type Todo = z.infer<typeof TodoSchema>;
 export type Filter = "all" | "active" | "done";
 
+export const FILTERS: Filter[] = ["all", "active", "done"];
+
+/** Shared by server and client entries — both must derive the same filter from a URL for hydration to match. */
+export function parseFilter(value: string | null | undefined): Filter {
+  return (FILTERS as string[]).includes(value ?? "") ? (value as Filter) : "all";
+}
+
 export const todoModel = createModel(TodoSchema, { getKey: (x) => x.id, name: "todo" });
 export const useTodoStore = () => useModelStore(todoModel);
 

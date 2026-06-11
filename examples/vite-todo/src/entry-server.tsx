@@ -4,15 +4,18 @@ import { renderToPipeableStream } from "react-dom/server";
 import { createModelRegistry, dehydrate, serializeForHtml } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import App from "./App";
+import { parseFilter } from "./todos.ts";
 
-export function render(_url: string): Promise<{ html: string; state: string }> {
+export function render(url: string): Promise<{ html: string; state: string }> {
   const registry = createModelRegistry();
+  // ?filter=all|active|done drives the initial view — the client entry parses the same param
+  const filter = parseFilter(new URL(url, "http://rxfy.local").searchParams.get("filter"));
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
       <StrictMode>
         <StoreProvider registry={registry} ssr>
-          <App />
+          <App initialFilter={filter} />
         </StoreProvider>
       </StrictMode>,
       {

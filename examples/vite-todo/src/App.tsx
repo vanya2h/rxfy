@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pending, useStateData } from "rxfy-react";
 import type { Observable } from "rxjs";
 import type { Filter } from "./todos.ts";
-import { createTodo, fetchTodos, todosState, toggleTodo, useTodoStore } from "./todos.ts";
+import { createTodo, fetchTodos, FILTERS, parseFilter, todosState, toggleTodo, useTodoStore } from "./todos.ts";
 import "./App.css";
 
 // Subscribes to a single todo reactively — updates without re-fetching the list
@@ -83,10 +83,13 @@ function AddTodo({ onAdd }: AddTodoProps) {
   );
 }
 
-const FILTERS: Filter[] = ["all", "active", "done"];
+type AppProps = {
+  /** Derived from the URL's ?filter= — the server and client entries pass the same value. */
+  initialFilter?: Filter;
+};
 
-export default function App() {
-  const [filter, setFilter] = useState<Filter>("all");
+export default function App({ initialFilter = "all" }: AppProps) {
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const params = useMemo(() => ({ filter }), [filter]);
   const { data$, mutations } = useStateData(todosState, fetchTodos, params);
 
@@ -99,13 +102,29 @@ export default function App() {
     }
   };
 
+  const selectFilter = (f: Filter) => {
+    setFilter(f);
+    // each tab change is a history entry, and reloading the address server-renders the same view
+    const url = new URL(window.location.href);
+    if (f === "all") url.searchParams.delete("filter");
+    else url.searchParams.set("filter", f);
+    window.history.pushState(null, "", url);
+  };
+
+  // back/forward navigation restores the filter the URL describes
+  useEffect(() => {
+    const onPopState = () => setFilter(parseFilter(new URLSearchParams(window.location.search).get("filter")));
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   return (
     <div className="app">
       <h1>todos</h1>
       <AddTodo onAdd={handleAdd} />
       <div className="filters">
         {FILTERS.map((f) => (
-          <button key={f} className={filter === f ? "active" : ""} onClick={() => setFilter(f)}>
+          <button key={f} className={filter === f ? "active" : ""} onClick={() => selectFilter(f)}>
             {f}
           </button>
         ))}
