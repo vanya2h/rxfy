@@ -6,6 +6,7 @@ describe("serializeError / rehydrateError", () => {
     const original = new TypeError("boom");
     const serialized = serializeError(original);
     expect(serialized).toEqual({ name: "TypeError", message: "boom" });
+    expect(serialized).not.toHaveProperty("stack");
     const rehydrated = rehydrateError(serialized);
     expect(rehydrated).toBeInstanceOf(Error);
     expect(rehydrated.name).toBe("TypeError");
@@ -23,5 +24,12 @@ describe("serializeForHtml", () => {
     expect(out).not.toContain("</script>");
     expect(out).toContain("\\u003c/script>");
     expect(JSON.parse(out)).toEqual({ html: "</script><script>alert(1)" });
+  });
+
+  it("escapes U+2028/U+2029 line separators", () => {
+    const out = serializeForHtml({ t: "  " });
+    expect(out).not.toContain(" ");
+    expect(out).not.toContain(" ");
+    expect(JSON.parse(out)).toEqual({ t: "  " });
   });
 });

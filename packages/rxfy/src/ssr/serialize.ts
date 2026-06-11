@@ -13,5 +13,10 @@ export function rehydrateError(serialized: SerializedError): Error {
 
 /** JSON for inline <script> embedding — escapes "<" so payloads cannot break out of the script tag. */
 export function serializeForHtml(value: unknown): string {
-  return JSON.stringify(value).replace(/</g, "\\u003c");
+  const u2028 = String.fromCharCode(0x2028);
+  const u2029 = String.fromCharCode(0x2029);
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(new RegExp(u2028, "g"), "\\u2028")
+    .replace(new RegExp(u2029, "g"), "\\u2029");
 }
