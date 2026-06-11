@@ -1,7 +1,17 @@
-import { useCallback, useMemo, useState } from "react";
-import type { FieldDescriptor, FieldsMap, MutationDefs, StateDescriptor } from "rxfy";
+import { useContext, useMemo, useState } from "react";
+import type { FieldsMap, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
+import {
+  attachReload,
+  denormalizeValue,
+  markSync,
+  normalizeResult,
+  rehydrateError,
+  serializeError,
+  stableStringify,
+} from "rxfy";
 import { BehaviorSubject, filter, Observable, Subscription } from "rxjs";
 import { useModelRegistry } from "./registry-context.js";
+import { SsrContext } from "./StoreProvider.js";
 
 export type BoundMutations<TShape, TMutations extends MutationDefs<TShape>> = {
   [K in keyof TMutations]: TMutations[K] extends (prev: TShape, ...args: infer A) => TShape
@@ -10,7 +20,8 @@ export type BoundMutations<TShape, TMutations extends MutationDefs<TShape>> = {
 };
 
 export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = {
-  readonly data$: Observable<TShape>;
+  /** Normalized query state — entity ids only. Read entity data through model stores. */
+  readonly data$: Observable<QueryShapeOf<TShape>>;
   readonly set: (value: TShape | ((prev: TShape) => TShape)) => void;
   readonly reload: () => void;
   readonly mutations: BoundMutations<TShape, TMutations>;
@@ -22,79 +33,120 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   params: TParams,
 ): StateHandle<TShape, TMutations> {
   const registry = useModelRegistry();
+  const ssr = useContext(SsrContext);
   const [reloadCounter, setReloadCounter] = useState(0);
 
-  const normalize = useCallback(
-    (value: TShape) => {
-      const entries = Object.entries(state.fields as FieldsMap) as [string, FieldDescriptor<any>][];
-      for (const [fieldName, fieldDesc] of entries) {
-        const modelStore = registry.model(fieldDesc.model);
-        const fieldValue = (value as Record<string, unknown>)[fieldName];
-        if (fieldDesc.kind === "array") {
-          modelStore.setMany(fieldValue as unknown[]);
-        } else {
-          modelStore.set(fieldDesc.model.getKey(fieldValue), fieldValue);
-        }
-      }
-    },
-    [state, registry],
-  );
-
   return useMemo(() => {
-    // reloadCounter is used here only to trigger a new subject when reload() is called
+    // reloadCounter is used here only to trigger a new handle when reload() is called
     void reloadCounter;
-    // subject is shared between data$, set(), and mutations via closure — no ref needed
-    const subject = new BehaviorSubject<TShape | null>(null);
+    const fields = state.fields as FieldsMap;
+    const cacheKey = state.key ? `${state.key}:${stableStringify(params)}` : undefined;
+    const isServer = typeof window === "undefined";
+    const cached = cacheKey ? registry.queries.get<QueryShapeOf<TShape>>(cacheKey) : undefined;
 
-    const data$ = new Observable<TShape>((subscriber) => {
-      let innerSub: Subscription | undefined;
-      const controller = new AbortController();
+    // SSR on-demand fetching: suspend on cache miss; React re-renders when the promise settles.
+    if (isServer && ssr && !cached) {
+      if (!cacheKey) {
+        console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
+      } else {
+        const inflight = registry.queries.getPromise(cacheKey);
+        if (inflight) throw inflight; // dedup: another component already started this fetch
+        const promise = fetchFn(params, new AbortController().signal).then(
+          (result) => {
+            // normalize BEFORE the re-render so model-store subscriptions are live during SSR
+            registry.queries.set(cacheKey, { status: "fulfilled", value: normalizeResult(registry, fields, result) });
+          },
+          (error: unknown) => {
+            registry.queries.set(cacheKey, { status: "rejected", error: serializeError(error) });
+          },
+        );
+        registry.queries.setPromise(cacheKey, promise);
+        throw promise;
+      }
+    }
 
-      fetchFn(params, controller.signal)
-        .then((result) => {
-          if (subscriber.closed) return;
-          normalize(result);
-          subject.next(result);
-          innerSub = subject.pipe(filter((v): v is TShape => v !== null)).subscribe(subscriber);
-        })
-        .catch((err) => {
-          if (!subscriber.closed) subscriber.error(err);
-        });
+    const initialIds = cached?.status === "fulfilled" ? cached.value : null;
+    // subject is shared between data$, set(), and mutations via closure
+    const subject = new BehaviorSubject<QueryShapeOf<TShape> | null>(initialIds);
+    const notNull = filter((v: QueryShapeOf<TShape> | null): v is QueryShapeOf<TShape> => v !== null);
 
-      return () => {
-        controller.abort();
-        innerSub?.unsubscribe();
-      };
-    });
+    const writeThrough = (ids: QueryShapeOf<TShape>) => {
+      subject.next(ids);
+      if (cacheKey) registry.queries.set(cacheKey, { status: "fulfilled", value: ids });
+    };
+
+    let data$: Observable<QueryShapeOf<TShape>>;
+    if (cached?.status === "rejected") {
+      // hydrated rejection: error synchronously; entry persists until reload() deletes it
+      const error = cached.error;
+      data$ = markSync(
+        new Observable<QueryShapeOf<TShape>>((subscriber) => {
+          subscriber.error(rehydrateError(error));
+        }),
+      );
+    } else if (initialIds !== null) {
+      // cache hit: emit synchronously, no fetch
+      data$ = markSync(subject.pipe(notNull));
+    } else {
+      // miss: fetch on subscribe (current behavior), normalize + write through on settle
+      data$ = new Observable<QueryShapeOf<TShape>>((subscriber) => {
+        // a previous subscription (or mutation) already populated this handle — reuse it;
+        // reload() is the explicit re-fetch path
+        if (subject.getValue() !== null) {
+          const replaySub = subject.pipe(notNull).subscribe(subscriber);
+          return () => replaySub.unsubscribe();
+        }
+
+        let innerSub: Subscription | undefined;
+        const controller = new AbortController();
+
+        fetchFn(params, controller.signal)
+          .then((result) => {
+            if (subscriber.closed) return;
+            writeThrough(normalizeResult(registry, fields, result));
+            innerSub = subject.pipe(notNull).subscribe(subscriber);
+          })
+          .catch((err: unknown) => {
+            if (!subscriber.closed) subscriber.error(err);
+          });
+
+        return () => {
+          controller.abort();
+          innerSub?.unsubscribe();
+        };
+      });
+    }
+
+    const applyUpdate = (updater: (prev: TShape) => TShape) => {
+      const currentIds = subject.getValue();
+      if (currentIds === null) return;
+      const prev = denormalizeValue<TShape>(registry, fields, currentIds);
+      writeThrough(normalizeResult(registry, fields, updater(prev)));
+    };
 
     const set = (valueOrUpdater: TShape | ((prev: TShape) => TShape)) => {
-      const current = subject.getValue();
-      let newValue: TShape;
       if (typeof valueOrUpdater === "function") {
-        if (current === null) return;
-        newValue = (valueOrUpdater as (prev: TShape) => TShape)(current);
+        applyUpdate(valueOrUpdater as (prev: TShape) => TShape);
       } else {
-        newValue = valueOrUpdater;
+        writeThrough(normalizeResult(registry, fields, valueOrUpdater));
       }
-      normalize(newValue);
-      subject.next(newValue);
     };
 
     const mutations = Object.fromEntries(
       Object.entries(state.mutations).map(([key, reducer]) => [
         key,
-        (...args: unknown[]) => {
-          const current = subject.getValue();
-          if (current === null) return;
-          const newValue = (reducer as (prev: TShape, ...args: unknown[]) => TShape)(current, ...args);
-          normalize(newValue);
-          subject.next(newValue);
-        },
+        (...args: unknown[]) =>
+          applyUpdate((prev) => (reducer as (prev: TShape, ...a: unknown[]) => TShape)(prev, ...args)),
       ]),
     ) as BoundMutations<TShape, TMutations>;
 
-    const reload = () => setReloadCounter((c) => c + 1);
+    const reload = () => {
+      if (cacheKey) registry.queries.delete(cacheKey);
+      setReloadCounter((c) => c + 1);
+    };
+
+    attachReload(data$, reload);
 
     return { data$, set, reload, mutations };
-  }, [params, fetchFn, reloadCounter, normalize, setReloadCounter, state]);
+  }, [params, fetchFn, reloadCounter, state, registry, ssr]);
 }

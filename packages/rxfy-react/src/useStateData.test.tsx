@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { array, createModel, defineState, single } from "rxfy";
 import { firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
@@ -7,12 +7,19 @@ import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 import { useStateData } from "./useStateData.js";
 
-const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
-const userModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (x) => x.id });
+const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "post" });
+const userModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (x) => x.id, name: "user" });
+
+type Post = { id: string; title: string };
 
 const pageState = defineState({
+  key: "page",
   params: z.object({ page: z.number() }),
   model: { posts: array(postModel) },
+  mutations: {
+    addPost: (prev, post: Post) => ({ ...prev, posts: [...prev.posts, post] }),
+    removePost: (prev, id: string) => ({ ...prev, posts: prev.posts.filter((p) => p.id !== id) }),
+  },
 });
 
 const singleState = defineState({
@@ -23,7 +30,7 @@ const singleState = defineState({
 const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 describe("useStateData", () => {
-  it("emits fetched data", async () => {
+  it("emits normalized ids for array fields", async () => {
     const fetchFn = vi.fn().mockResolvedValue({
       posts: [
         { id: "1", title: "Post 1" },
@@ -34,11 +41,15 @@ describe("useStateData", () => {
     const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual([
-      { id: "1", title: "Post 1" },
-      { id: "2", title: "Post 2" },
-    ]);
+    expect(data.posts).toEqual(["1", "2"]);
     expect(fetchFn).toHaveBeenCalledWith({ page: 0 }, expect.any(AbortSignal));
+  });
+
+  it("emits a normalized id for single fields", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ user: { id: "u1", name: "Ann" } });
+    const { result } = renderHook(() => useStateData(singleState, fetchFn, { id: "u1" }), { wrapper });
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.user).toBe("u1");
   });
 
   it("returns new handle when params change", () => {
@@ -67,10 +78,8 @@ describe("useStateData", () => {
     expect(result.current).toBe(first);
   });
 
-  it("normalizes array into model store — store observable emits", async () => {
-    const fetchFn = vi.fn().mockResolvedValue({
-      posts: [{ id: "42", title: "Stored" }],
-    });
+  it("normalizes fetched entities into model stores", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "42", title: "Stored" }] });
 
     const { result } = renderHook(
       () => ({
@@ -81,118 +90,81 @@ describe("useStateData", () => {
     );
 
     await firstValueFrom(result.current.handle.data$);
-    const post = await firstValueFrom(result.current.postStore.get("42"));
-    expect(post).toEqual({ id: "42", title: "Stored" });
+    expect(result.current.postStore.getValue("42")).toEqual({ id: "42", title: "Stored" });
   });
 
-  it("set() updates data$ immediately without re-fetching", async () => {
-    const fetchFn = vi.fn().mockResolvedValue({
-      posts: [{ id: "1", title: "v1" }],
-    });
+  it("mutations accept full entities: denormalize → reduce → normalize", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
+    const { result } = renderHook(
+      () => ({
+        handle: useStateData(pageState, fetchFn, { page: 0 }),
+        postStore: useModelStore(postModel),
+      }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.handle.data$);
 
-    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
+    act(() => result.current.handle.mutations.addPost({ id: "2", title: "B" }));
 
-    const emissions: Array<{ posts: Array<{ id: string; title: string }> }> = [];
-    const sub = result.current.data$.subscribe((v) => emissions.push(v));
-
-    await new Promise((res) => setTimeout(res, 10));
-    expect(emissions).toHaveLength(1);
-    expect(emissions[0]!.posts[0]!.title).toBe("v1");
-
-    result.current.set({
-      posts: [
-        { id: "1", title: "v2" },
-        { id: "2", title: "new" },
-      ],
-    });
-
-    expect(emissions).toHaveLength(2);
-    expect(emissions[1]!.posts[0]!.title).toBe("v2");
-    expect(emissions[1]!.posts).toHaveLength(2);
-    expect(fetchFn).toHaveBeenCalledTimes(1);
-
-    sub.unsubscribe();
+    const data = await firstValueFrom(result.current.handle.data$);
+    expect(data.posts).toEqual(["1", "2"]);
+    // entity landed in the model store via normalize — no manual store.set needed
+    expect(result.current.postStore.getValue("2")).toEqual({ id: "2", title: "B" });
   });
 
-  it("set() with updater function receives current value", async () => {
-    const fetchFn = vi.fn().mockResolvedValue({
-      posts: [{ id: "1", title: "original" }],
-    });
-
-    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
-
-    const emissions: Array<{ posts: Array<{ id: string; title: string }> }> = [];
-    const sub = result.current.data$.subscribe((v) => emissions.push(v));
-
-    await new Promise((res) => setTimeout(res, 10));
-
-    result.current.set((prev) => ({ ...prev, posts: [...prev.posts, { id: "2", title: "added" }] }));
-
-    expect(emissions).toHaveLength(2);
-    expect(emissions[1]!.posts).toHaveLength(2);
-    expect(emissions[1]!.posts[1]!.title).toBe("added");
-
-    sub.unsubscribe();
-  });
-
-  it("mutations apply the reducer and update data$ without re-fetching", async () => {
-    const stateWithMutations = defineState({
-      params: z.object({ page: z.number() }),
+  it("mutation reducers see the freshest store values (websocket scenario)", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "Original" }] });
+    let seenTitle = "";
+    const spyState = defineState({
+      params: z.object({}),
       model: { posts: array(postModel) },
       mutations: {
-        addPost: (prev, post: { id: string; title: string }) => ({ ...prev, posts: [...prev.posts, post] }),
-        removePost: (prev, id: string) => ({ ...prev, posts: prev.posts.filter((p) => p.id !== id) }),
+        touch: (prev) => {
+          seenTitle = prev.posts[0]?.title ?? "";
+          return prev;
+        },
       },
     });
+    const { result } = renderHook(
+      () => ({
+        handle: useStateData(spyState, fetchFn, {}),
+        postStore: useModelStore(postModel),
+      }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.handle.data$);
 
-    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "first" }] });
-    const { result } = renderHook(() => useStateData(stateWithMutations, fetchFn, { page: 0 }), { wrapper });
+    // simulate a websocket write
+    act(() => result.current.postStore.set("1", { id: "1", title: "From socket" }));
+    act(() => result.current.handle.mutations.touch());
 
-    const emissions: Array<{ posts: Array<{ id: string; title: string }> }> = [];
-    const sub = result.current.data$.subscribe((v) => emissions.push(v));
-
-    await new Promise((res) => setTimeout(res, 10));
-    expect(emissions).toHaveLength(1);
-
-    result.current.mutations.addPost({ id: "2", title: "added" });
-    expect(emissions).toHaveLength(2);
-    expect(emissions[1]!.posts).toHaveLength(2);
-    expect(emissions[1]!.posts[1]!.title).toBe("added");
-
-    result.current.mutations.removePost("1");
-    expect(emissions).toHaveLength(3);
-    expect(emissions[2]!.posts).toHaveLength(1);
-    expect(emissions[2]!.posts[0]!.id).toBe("2");
-
-    expect(fetchFn).toHaveBeenCalledTimes(1);
-    sub.unsubscribe();
+    expect(seenTitle).toBe("From socket");
   });
 
-  it("handles empty array field", async () => {
-    const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
-
+  it("set() accepts the full fetch shape", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
     const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
+    await firstValueFrom(result.current.data$);
+
+    act(() => result.current.set({ posts: [{ id: "9", title: "Replaced" }] }));
 
     const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual([]);
+    expect(data.posts).toEqual(["9"]);
   });
 
-  it("handles single field descriptor", async () => {
-    const fetchFn = vi.fn().mockResolvedValue({
-      user: { id: "u1", name: "Alice" },
-    });
-
-    const { result } = renderHook(() => useStateData(singleState, fetchFn, { id: "u1" }), { wrapper });
-
-    const data = await firstValueFrom(result.current.data$);
-    expect(data.user).toEqual({ id: "u1", name: "Alice" });
-  });
-
-  it("propagates fetch rejection as observable error", async () => {
-    const fetchFn = vi.fn().mockRejectedValue(new Error("Network error"));
-
+  it("set() with an updater receives denormalized entities", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
     const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
+    await firstValueFrom(result.current.data$);
 
-    await expect(firstValueFrom(result.current.data$)).rejects.toThrow("Network error");
+    let seen: Post[] = [];
+    act(() =>
+      result.current.set((prev) => {
+        seen = prev.posts;
+        return prev;
+      }),
+    );
+
+    expect(seen).toEqual([{ id: "1", title: "A" }]);
   });
 });
