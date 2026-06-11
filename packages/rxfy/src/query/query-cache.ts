@@ -1,12 +1,16 @@
 import type { SerializedError } from "../ssr/serialize.js";
 
-export type QueryEntry =
-  | { status: "fulfilled"; value: unknown }
+export type QueryEntry<TValue = unknown> =
+  | { status: "fulfilled"; value: TValue }
   | { status: "rejected"; error: SerializedError };
 
 export type QueryCache = {
-  get: (key: string) => QueryEntry | undefined;
-  set: (key: string, entry: QueryEntry) => void;
+  /**
+   * The cache stores entries for many states with different shapes, so per-key typing cannot be
+   * verified — the type parameter is the caller's assertion, valid at sites that know the state descriptor.
+   */
+  get: <TValue = unknown>(key: string) => QueryEntry<TValue> | undefined;
+  set: <TValue>(key: string, entry: QueryEntry<TValue>) => void;
   delete: (key: string) => void;
   entries: () => [string, QueryEntry][];
   /** In-flight promise slot — used for Suspense throws and request deduplication. Never serialized. */
@@ -20,7 +24,7 @@ export function createQueryCache(): QueryCache {
   const promises = new Map<string, Promise<unknown>>();
 
   return {
-    get: (key) => store.get(key),
+    get: <TValue = unknown>(key: string) => store.get(key) as QueryEntry<TValue> | undefined,
     set: (key, entry) => {
       store.set(key, entry);
     },
