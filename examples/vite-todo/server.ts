@@ -36,7 +36,7 @@ app.use("*all", async (req, res) => {
     const url = req.originalUrl.replace(base, "");
 
     let template: string;
-    let render: (url: string) => { html: string; head?: string };
+    let render: (url: string) => Promise<{ html: string; state: string }>;
     if (!isProduction) {
       // Always read fresh template in development
       template = await fs.readFile("./index.html", "utf-8");
@@ -48,11 +48,11 @@ app.use("*all", async (req, res) => {
       render = ((await import("./dist/server/entry-server.js")) as { render: typeof render }).render;
     }
 
-    const rendered = render(url);
+    const rendered = await render(url);
 
     const html = template
-      .replace(`<!--app-head-->`, rendered.head ?? "")
-      .replace(`<!--app-html-->`, rendered.html ?? "");
+      .replace(`<!--app-html-->`, rendered.html)
+      .replace(`<!--app-state-->`, `<script>window.__RXFY_STATE__=${rendered.state}</script>`);
 
     res.status(200).set({ "Content-Type": "text/html" }).send(html);
   } catch (e) {
