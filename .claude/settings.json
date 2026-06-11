@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter rxfy exec vitest run src/query/stable-stringify.test.ts)",
+      "Bash(pnpm --filter rxfy exec eslint src/query/stable-stringify.ts)",
+      "Bash(pnpm --filter rxfy exec eslint src/query/stable-stringify.test.ts)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(pnpm --filter rxfy exec eslint src/query/)",
+      "Bash(pnpm --filter rxfy exec vitest run)",
+      "Bash(pnpm --filter rxfy exec vitest run src/ssr/sync-marker.test.ts)",
+      "Bash(pnpm --filter rxfy run build)",
+      "Bash(pnpm --filter rxfy check-types)",
+      "Bash(pnpm --filter rxfy exec vitest run src/ssr/serialize.test.ts)",
+      "Bash(pnpm --filter rxfy exec eslint src/ssr/serialize.ts src/ssr/serialize.test.ts --fix)",
+      "Bash(pnpm --filter rxfy exec vitest run src/query/query-cache.test.ts)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}

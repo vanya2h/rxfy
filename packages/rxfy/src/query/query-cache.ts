@@ -16,25 +16,26 @@ export type QueryCache = {
 };
 
 export function createQueryCache(): QueryCache {
-  const entries = new Map<string, QueryEntry>();
+  const store = new Map<string, QueryEntry>();
   const promises = new Map<string, Promise<unknown>>();
 
   return {
-    get: (key) => entries.get(key),
+    get: (key) => store.get(key),
     set: (key, entry) => {
-      entries.set(key, entry);
+      store.set(key, entry);
     },
     delete: (key) => {
-      entries.delete(key);
+      store.delete(key);
       promises.delete(key);
     },
-    entries: () => [...entries.entries()],
+    entries: () => [...store.entries()],
     getPromise: (key) => promises.get(key),
     setPromise: (key, promise) => {
       promises.set(key, promise);
-      void promise.finally(() => {
+      const cleanup = () => {
         if (promises.get(key) === promise) promises.delete(key);
-      });
+      };
+      void promise.then(cleanup, cleanup);
     },
     inflight: () => [...promises.values()],
   };
