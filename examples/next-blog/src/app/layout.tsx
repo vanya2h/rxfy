@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { RxfyProvider } from "../providers.js";
+import { RxfyProvider } from "../providers";
 import "./globals.css";
 
 export const metadata: Metadata = {

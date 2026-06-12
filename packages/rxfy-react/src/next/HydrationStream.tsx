@@ -1,3 +1,5 @@
+"use client";
+
 import { useServerInsertedHTML } from "next/navigation";
 import { useRef } from "react";
 import { dehydrate, type DehydratedState, serializeForHtml } from "rxfy";

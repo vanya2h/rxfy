@@ -1,4 +1,4 @@
-import type { Comment, Post, User } from "./blog.js";
+import type { Comment, Post, User } from "./blog";
 
 export const db: {
   users: User[];

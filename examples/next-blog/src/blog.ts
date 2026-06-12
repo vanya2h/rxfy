@@ -1,6 +1,6 @@
 import { array, createModel, defineState, single } from "rxfy";
 import { z } from "zod";
-import { db } from "./db.js";
+import { db } from "./db";
 
 // ── Schemas & types ────────────────────────────────────────────────────────────
 

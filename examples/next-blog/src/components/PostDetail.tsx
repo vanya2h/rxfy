@@ -13,8 +13,8 @@ import {
   type Comment,
   type Post,
   type User,
-} from "../blog.js";
-import AddCommentForm from "./AddCommentForm.js";
+} from "../blog";
+import AddCommentForm from "./AddCommentForm";
 
 type DetailIds = { post: string; author: string; comments: string[] };
 

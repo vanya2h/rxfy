@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
-import { fetchPosts, postModel, postsState, type Post } from "../blog.js";
+import { fetchPosts, postModel, postsState, type Post } from "../blog";
 
 export default function PostList() {
   const { data$ } = useStateData(postsState, fetchPosts, {});

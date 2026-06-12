@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createComment, type Comment } from "../blog.js";
+import { createComment, type Comment } from "../blog";
 
 type AddCommentFormProps = {
   postId: string;
