@@ -39,7 +39,7 @@ export default function PostDetail({ postId }: { postId: string }) {
           <PostBody
             ids={ids}
             postId={postId}
-            onAddComment={(comment) => mutations.addComment(comment)}
+            onAddComment={mutations.addComment}
           />
         )}
       </Pending>
