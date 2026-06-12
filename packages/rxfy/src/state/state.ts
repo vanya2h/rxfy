@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { FieldDescriptor } from "../model/model.js";
+import type { EntityKey, FieldDescriptor } from "../model/model.js";
 
 export type FieldsMap = Record<string, FieldDescriptor<any>>;
 
@@ -7,9 +7,9 @@ export type ShapeFromFields<T extends FieldsMap> = {
   [K in keyof T]: T[K] extends FieldDescriptor<infer S> ? S : never;
 };
 
-/** The normalized shape data$ emits: array fields become string[] (entity keys), single fields become string. */
+/** The normalized shape data$ emits: array fields become entity key arrays, single fields become entity keys. */
 export type QueryShapeOf<TShape> = {
-  [K in keyof TShape]: TShape[K] extends readonly unknown[] ? string[] : string;
+  [K in keyof TShape]: TShape[K] extends readonly (infer Item)[] ? EntityKey<Item>[] : EntityKey<TShape[K]>;
 };
 
 export type MutationDefs<TShape> = {
@@ -19,7 +19,8 @@ export type MutationDefs<TShape> = {
 export type StateDescriptor<TParams, TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = {
   /** Stable string identity for the SSR query cache. States without a key opt out of SSR caching. */
   readonly key?: string;
-  readonly paramsSchema: z.ZodType<TParams>;
+  // Input is `any` so schemas whose Input differs from Output (e.g. branded ids) stay assignable.
+  readonly paramsSchema: z.ZodType<TParams, z.ZodTypeDef, any>;
   readonly fields: { [K in keyof TShape]: FieldDescriptor<TShape[K]> };
   readonly mutations: TMutations;
 };
@@ -27,7 +28,9 @@ export type StateDescriptor<TParams, TShape, TMutations extends MutationDefs<TSh
 // Overload: no mutations provided
 export function defineState<TParams, TFields extends FieldsMap>(def: {
   key?: string;
-  params: z.ZodType<TParams>;
+  // TParams is inferred from the Output position only — z.ZodType<TParams> would also place it
+  // in the Input position and widen branded types away.
+  params: z.ZodType<TParams, z.ZodTypeDef, any>;
   model: TFields;
   mutations?: undefined;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, Record<never, never>>;
@@ -39,7 +42,7 @@ export function defineState<
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
   key?: string;
-  params: z.ZodType<TParams>;
+  params: z.ZodType<TParams, z.ZodTypeDef, any>;
   model: TFields;
   mutations: TMutations;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>;
@@ -51,7 +54,7 @@ export function defineState<
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
   key?: string;
-  params: z.ZodType<TParams>;
+  params: z.ZodType<TParams, z.ZodTypeDef, any>;
   model: TFields;
   mutations?: TMutations;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations | Record<never, never>> {

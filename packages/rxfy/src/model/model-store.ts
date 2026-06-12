@@ -1,10 +1,10 @@
 import { Observable, ReplaySubject } from "rxjs";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { markSync } from "../ssr/sync-marker.js";
-import type { ModelDescriptor } from "./model.js";
+import type { EntityKey, ModelDescriptor } from "./model.js";
 
 export type ModelStore<T> = {
-  get: (key: string) => Observable<T>;
+  get: (key: EntityKey<T>) => Observable<T>;
   set: (key: string, val: T) => void;
   setMany: (items: T[]) => void;
   /** Synchronous read of the latest value — used by denormalization and dehydration. */
