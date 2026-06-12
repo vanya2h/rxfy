@@ -41,6 +41,10 @@ let nextId = 4;
 
 export async function fetchTodos({ filter }: { filter: Filter }, signal: AbortSignal): Promise<{ todos: Todo[] }> {
   await new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
     const id = setTimeout(resolve, 600);
     signal.addEventListener("abort", () => {
       clearTimeout(id);

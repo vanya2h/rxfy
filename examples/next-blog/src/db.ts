@@ -1,22 +1,4 @@
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface Post {
-  id: string;
-  userId: string;
-  title: string;
-  body: string;
-}
-
-interface Comment {
-  id: string;
-  postId: string;
-  name: string;
-  body: string;
-}
+import type { Comment, Post, User } from "./blog.js";
 
 export const db: {
   users: User[];

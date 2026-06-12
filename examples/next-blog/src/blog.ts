@@ -40,7 +40,6 @@ export const postsState = defineState({
   key: "posts",
   params: z.object({}),
   model: { posts: array(postModel) },
-  mutations: {},
 });
 
 export const postDetailState = defineState({
@@ -91,6 +90,10 @@ export function createComment(postId: string, name: string, body: string): Comme
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
     const id = setTimeout(resolve, ms);
     signal.addEventListener("abort", () => {
       clearTimeout(id);
