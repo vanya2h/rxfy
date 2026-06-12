@@ -34,6 +34,7 @@ import { z } from "zod";
 import { defineState, array } from "rxfy";
 
 const todosState = defineState({
+  key: "todos", // stable string identity for the SSR query cache
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(TodoModel) },
   mutations: {
@@ -42,15 +43,20 @@ const todosState = defineState({
 });
 ```
 
+Mutation reducers operate on the full fetch shape (entities) — when invoked through `useStateData`, rxfy denormalizes the current ids into fresh entities, runs the reducer, and normalizes the result back into model stores and ids.
+
 **Signature:**
 
 ```ts
 function defineState<TParams, TFields, TMutations>(def: {
+  key?: string;   // states without a key opt out of SSR caching
   params: z.ZodType<TParams>;
   model: TFields;
   mutations?: TMutations;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>
 ```
+
+The normalized query shape (what `data$` emits in `rxfy-react`) is derived as `QueryShapeOf<TShape>`: array fields become `string[]` (entity keys), single fields become `string`.
 
 ### `createModel`
 
@@ -62,7 +68,7 @@ import { createModel } from "rxfy";
 
 const TodoModel = createModel(
   z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
-  { getKey: (todo) => todo.id },
+  { getKey: (todo) => todo.id, name: "todo" },
 );
 ```
 
@@ -71,9 +77,11 @@ const TodoModel = createModel(
 ```ts
 function createModel<T>(
   schema: z.ZodType<T>,
-  opts: { getKey: (item: T) => string },
+  opts: { getKey: (item: T) => string; name?: string },
 ): ModelDescriptor<T>
 ```
+
+`name` is the model's stable string identity for SSR — symbols can't cross the server/client boundary, so only named models are included in `dehydrate` output. Models without a name work normally but opt out of SSR serialization (a dev warning fires if they hold data at dehydrate time).
 
 ### `array` / `single`
 
@@ -124,11 +132,72 @@ users.get("1").subscribe(console.log); // emits { id: "1", name: "Alice" }
 
 ```ts
 function createModelRegistry(): IModelRegistry
-// IModelRegistry: { model<T>(descriptor: ModelDescriptor<T>): ModelStore<T> }
+// IModelRegistry: {
+//   model<T>(descriptor: ModelDescriptor<T>): ModelStore<T>;
+//   queries: QueryCache;                                      // SSR query cache (fulfilled/rejected entries)
+//   namedStores(): ReadonlyMap<string, ModelStore<any>>;
+//   stores(): { descriptor; store }[];
+//   stashHydration(name: string, entities: Record<string, unknown>): void;
+// }
 
 function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
-// ModelStore<T>: { get(key: string): Observable<T>; set(key, val): void; setMany(items): void }
+// ModelStore<T>: {
+//   get(key: string): Observable<T>;
+//   set(key, val): void;
+//   setMany(items): void;
+//   getValue(key: string): T | undefined;   // synchronous read of the latest value
+//   valueEntries(): [string, T][];
+// }
 ```
+
+---
+
+## SSR
+
+The registry round-trips across the server/client boundary: queries serialize as normalized ids, named model stores serialize their entities. The React side (`rxfy-react`) drives fetching and ingestion — these are the core primitives it builds on.
+
+### `dehydrate` / `hydrate`
+
+```ts
+import { createModelRegistry, dehydrate, hydrate } from "rxfy";
+
+// server — after rendering settles
+const state = dehydrate(registry);
+// { queries: { "todos:{...}": { status: "fulfilled", value: { todos: ["1"] } } },
+//   models:  { todo: { "1": { id: "1", title: "..." } } } }
+
+// client — into a fresh registry before first render
+hydrate(clientRegistry, state);
+```
+
+**Signatures:**
+
+```ts
+function dehydrate(registry: IModelRegistry): DehydratedState
+function hydrate(registry: IModelRegistry, state: DehydratedState): void
+
+type DehydratedState = {
+  queries: Record<string, QueryEntry>;
+  models: Record<string, Record<string, unknown>>;
+};
+```
+
+### `serializeForHtml`
+
+JSON for inline `<script>` embedding — escapes `<` (and U+2028/U+2029) so payloads cannot break out of the script tag.
+
+```ts
+import { serializeForHtml } from "rxfy";
+
+const html = template.replace(
+  "<!--app-state-->",
+  `<script>window.__RXFY_STATE__=${serializeForHtml(dehydrate(registry))}</script>`,
+);
+```
+
+### Internal primitives
+
+`stableStringify`, `normalizeResult`, `denormalizeValue`, `createQueryCache`, `markSync`, `isSyncMarked`, `attachReload`, `getAttachedReload`, `serializeError`, `rehydrateError` are exported because `rxfy-react` consumes them across the package boundary. They are implementation plumbing, not the intended app-facing surface — prefer the APIs above.
 
 ---
 
