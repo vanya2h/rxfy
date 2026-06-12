@@ -1,0 +1,31 @@
+{
+  "name": "rxfy-example-next-blog",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.3.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "rxfy": "workspace:*",
+    "rxfy-react": "workspace:*",
+    "rxjs": "^7.8.2",
+    "zod": "^3.25.42",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.17",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vanya2h/eslint-config": "^0.4.0",
+    "eslint": "^9.27.0",
+    "typescript": "^5.8.3"
+  }
+}
