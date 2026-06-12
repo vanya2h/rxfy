@@ -47,11 +47,11 @@ createRoot(document.getElementById("root")!).render(
 function StoreProvider(props: PropsWithChildren<{
   ssr?: boolean;                    // enables server-side fetch-and-suspend in useStateData
   registry?: IModelRegistry;        // per-request registry created by server code (for dehydrate)
-  dehydratedState?: DehydratedState; // snapshot from dehydrate() for prop-based hydration
+  dehydratedState?: DehydratedState; // snapshot for custom transports — usually unnecessary, see below
 }>): JSX.Element
 ```
 
-All three props exist for [SSR](#server-side-rendering); a plain client-only app uses none of them. On the client the provider also ingests streamed `window.__RXFY_SSR__` chunks (the push protocol used by `<HydrationStream />`), including chunks that arrive after hydration starts.
+All three props exist for [SSR](#server-side-rendering); a plain client-only app uses none of them. On the client the provider automatically ingests `window.__RXFY_SSR__` chunks — both the snapshot injected by `hydrationScript` and the streamed pushes from `<HydrationStream />`, including chunks arriving after hydration starts. `dehydratedState` is only needed when the snapshot travels by some other channel (a framework loader, tests).
 
 ---
 
@@ -355,7 +355,7 @@ Wait for every Suspense boundary with `onAllReady`, then send the complete docum
 ```tsx
 // server
 import { renderToPipeableStream } from "react-dom/server";
-import { createModelRegistry, dehydrate, serializeForHtml } from "rxfy";
+import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 
 function render(): Promise<{ html: string; state: string }> {
@@ -366,7 +366,7 @@ function render(): Promise<{ html: string; state: string }> {
       {
         onAllReady() {
           // collect the stream into a string, then:
-          // resolve({ html, state: serializeForHtml(dehydrate(registry)) });
+          // resolve({ html, state: hydrationScript(dehydrate(registry)) });
         },
         onError: reject,
       },
@@ -375,16 +375,16 @@ function render(): Promise<{ html: string; state: string }> {
 }
 
 // template: <div id="root"><!--app-html--></div><!--app-state-->
-// inject:   <script>window.__RXFY_STATE__=${state}</script>
+// inject:   template.replace("<!--app-state-->", state)
 ```
 
 ```tsx
-// client
+// client — StoreProvider picks the snapshot up from the injected script automatically
 import { hydrateRoot } from "react-dom/client";
 
 hydrateRoot(
   document.getElementById("root")!,
-  <StoreProvider ssr dehydratedState={window.__RXFY_STATE__}><App /></StoreProvider>,
+  <StoreProvider ssr><App /></StoreProvider>,
 );
 ```
 
@@ -421,7 +421,7 @@ import { collectStateData } from "rxfy-react";
 const html = await collectStateData(registry, () =>
   renderToString(<StoreProvider registry={registry} ssr><App /></StoreProvider>),
 );
-const state = serializeForHtml(dehydrate(registry));
+const state = hydrationScript(dehydrate(registry));
 ```
 
 **Signature:**

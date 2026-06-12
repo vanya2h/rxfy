@@ -1,7 +1,7 @@
 import { PassThrough } from "node:stream";
 import { StrictMode } from "react";
 import { renderToPipeableStream } from "react-dom/server";
-import { createModelRegistry, dehydrate, serializeForHtml } from "rxfy";
+import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import App from "./App";
 import { parseFilter } from "./todos.ts";
@@ -24,7 +24,7 @@ export function render(url: string): Promise<{ html: string; state: string }> {
           const sink = new PassThrough();
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
-          sink.on("end", () => resolve({ html, state: serializeForHtml(dehydrate(registry)) }));
+          sink.on("end", () => resolve({ html, state: hydrationScript(dehydrate(registry)) }));
           pipe(sink);
         },
         onError(error) {

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createModel } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
-import { dehydrate, hydrate } from "./hydration.js";
+import { dehydrate, hydrate, hydrationScript } from "./hydration.js";
 
 const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
 
@@ -50,5 +50,24 @@ describe("hydrate", () => {
     expect(target.queries.get("todos:{}")).toEqual({ status: "fulfilled", value: { todos: ["1"] } });
     // store not created yet — created on first model() call, seeded from stash
     expect(target.model(todoModel).getValue("1")).toEqual({ id: "1", title: "A" });
+  });
+});
+
+describe("hydrationScript", () => {
+  it("produces an inline script pushing the snapshot onto window.__RXFY_SSR__", () => {
+    const registry = createModelRegistry();
+    registry.model(todoModel).set("1", { id: "1", title: "</script>" });
+    registry.queries.set("todos:{}", { status: "fulfilled", value: { todos: ["1"] } });
+
+    const script = hydrationScript(dehydrate(registry));
+
+    expect(script.startsWith("<script>(window.__RXFY_SSR__=window.__RXFY_SSR__||[]).push(")).toBe(true);
+    expect(script.endsWith(")</script>")).toBe(true);
+    // payload cannot break out of the script tag
+    expect(script.slice("<script>".length, -"</script>".length)).not.toContain("</script>");
+
+    // payload round-trips to the original snapshot
+    const json = script.slice(script.indexOf(".push(") + ".push(".length, -")</script>".length);
+    expect(JSON.parse(json)).toEqual(dehydrate(registry));
   });
 });

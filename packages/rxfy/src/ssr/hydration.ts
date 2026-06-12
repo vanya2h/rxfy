@@ -1,5 +1,6 @@
 import type { IModelRegistry } from "../model/model-store.js";
 import type { QueryEntry } from "../query/query-cache.js";
+import { serializeForHtml } from "./serialize.js";
 
 export type DehydratedState = {
   queries: Record<string, QueryEntry>;
@@ -37,4 +38,13 @@ export function hydrate(registry: IModelRegistry, state: DehydratedState): void 
   for (const [key, entry] of Object.entries(state.queries)) {
     registry.queries.set(key, entry);
   }
+}
+
+/**
+ * Complete inline <script> tag pushing a snapshot onto window.__RXFY_SSR__ — the queue
+ * StoreProvider drains automatically on the client, so no client-side wiring is needed.
+ * Inject it into the served HTML before the client entry script.
+ */
+export function hydrationScript(state: DehydratedState): string {
+  return `<script>(window.__RXFY_SSR__=window.__RXFY_SSR__||[]).push(${serializeForHtml(state)})</script>`;
 }

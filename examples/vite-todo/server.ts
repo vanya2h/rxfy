@@ -50,9 +50,7 @@ app.use("*all", async (req, res) => {
 
     const rendered = await render(url);
 
-    const html = template
-      .replace(`<!--app-html-->`, rendered.html)
-      .replace(`<!--app-state-->`, `<script>window.__RXFY_STATE__=${rendered.state}</script>`);
+    const html = template.replace(`<!--app-html-->`, rendered.html).replace(`<!--app-state-->`, rendered.state);
 
     res.status(200).set({ "Content-Type": "text/html" }).send(html);
   } catch (e) {

@@ -87,11 +87,11 @@ The server fetches on demand via Suspense — no prefetch API. `useStateData` su
 const registry = createModelRegistry();
 renderToPipeableStream(
   <StoreProvider registry={registry} ssr><App /></StoreProvider>,
-  { onAllReady() { /* pipe html, then inject: */ serializeForHtml(dehydrate(registry)) } },
+  { onAllReady() { /* pipe html, then inject: */ hydrationScript(dehydrate(registry)) } },
 );
 
-// client
-hydrateRoot(root, <StoreProvider ssr dehydratedState={window.__RXFY_STATE__}><App /></StoreProvider>);
+// client — no wiring needed: StoreProvider ingests the injected script automatically
+hydrateRoot(root, <StoreProvider ssr><App /></StoreProvider>);
 ```
 
 Three supported modes: streaming (Next.js App Router via `rxfy-react/next`'s `<HydrationStream />`), buffered (`renderToPipeableStream` + `onAllReady`), and two-pass `renderToString` (`collectStateData`). See the [rxfy-react SSR docs](packages/rxfy-react/README.md#server-side-rendering).

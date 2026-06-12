@@ -182,18 +182,24 @@ type DehydratedState = {
 };
 ```
 
-### `serializeForHtml`
+### `hydrationScript`
 
-JSON for inline `<script>` embedding — escapes `<` (and U+2028/U+2029) so payloads cannot break out of the script tag.
+Complete inline `<script>` tag pushing a snapshot onto `window.__RXFY_SSR__` — the queue the client `StoreProvider` drains automatically, so the client side needs no hydration wiring at all. Inject it into the served HTML before the client entry script.
 
 ```ts
-import { serializeForHtml } from "rxfy";
+import { dehydrate, hydrationScript } from "rxfy";
 
-const html = template.replace(
-  "<!--app-state-->",
-  `<script>window.__RXFY_STATE__=${serializeForHtml(dehydrate(registry))}</script>`,
-);
+const html = template.replace("<!--app-state-->", hydrationScript(dehydrate(registry)));
 ```
+
+**Signature:**
+
+```ts
+function hydrationScript(state: DehydratedState): string
+// '<script>(window.__RXFY_SSR__=window.__RXFY_SSR__||[]).push({...})</script>'
+```
+
+The payload is embedded via `serializeForHtml` (also exported) — JSON with `<` and U+2028/U+2029 escaped so it cannot break out of the script tag.
 
 ### Internal primitives
 
