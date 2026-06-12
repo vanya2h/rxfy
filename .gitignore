@@ -8,3 +8,4 @@ dist
 *.tsbuildinfo
 vite.config.ts.timestamp*
 .DS_Store
+.claude/settings.json
