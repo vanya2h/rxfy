@@ -39,7 +39,7 @@ export const commentModel = createModel(CommentSchema, { getKey: (x) => x.id, na
 export const postsState = defineState({
   key: "posts",
   params: z.object({}),
-  model: { posts: array(postModel) },
+  model: { posts: array(postModel), authors: array(userModel) },
 });
 
 export const postDetailState = defineState({
@@ -60,9 +60,14 @@ export const postDetailState = defineState({
 
 // ── Fetchers ───────────────────────────────────────────────────────────────────
 
-export async function fetchPosts(_: Record<never, never>, signal: AbortSignal): Promise<{ posts: Post[] }> {
+export async function fetchPosts(
+  _: Record<never, never>,
+  signal: AbortSignal,
+): Promise<{ posts: Post[]; authors: User[] }> {
   await delay(400, signal);
-  return { posts: db.posts };
+  const authorIds = new Set(db.posts.map((p) => p.userId));
+  const authors = db.users.filter((u) => authorIds.has(u.id));
+  return { posts: db.posts, authors };
 }
 
 export async function fetchPostDetail(

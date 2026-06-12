@@ -15,6 +15,7 @@ export default defineConfig([
       next: path.join(config.srcDir, "next/index.ts"),
     },
     external: ["next/navigation"],
+    banner: { js: '"use client";' },
   },
   // CJS — separate entries; splitting does not apply to CJS
   {

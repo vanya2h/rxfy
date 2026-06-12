@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
-import { fetchPosts, postModel, postsState, type Post } from "../blog";
+import { fetchPosts, postModel, userModel, postsState, type Post } from "../blog";
 
 export default function PostList() {
   const { data$ } = useStateData(postsState, fetchPosts, {});
@@ -42,19 +42,28 @@ function PostItem({ id }: { id: string }) {
   const post$ = useMemo(() => store.get(id), [store, id]);
 
   return (
-    <Pending value$={post$}>
+    <Pending value$={post$} pending={<li className="status">Loading…</li>}>
       {(post) => <PostItemContent post={post} />}
     </Pending>
   );
 }
 
 function PostItemContent({ post }: { post: Post }) {
+  const userStore = useModelStore(userModel);
+  const author$ = useMemo(() => userStore.get(post.userId), [userStore, post.userId]);
+
   return (
-    <li>
-      <Link href={`/posts/${post.id}`}>
-        <h2>{post.title}</h2>
-      </Link>
-      <p className="post-excerpt">{post.body.slice(0, 120)}…</p>
-    </li>
+    <Pending value$={author$} pending={<li className="status">Loading…</li>}>
+      {(author) => (
+        <li>
+          <Link href={`/posts/${post.id}`}>
+            <h2>{post.title}</h2>
+          </Link>
+          <p className="post-meta">{author.name}</p>
+          <p className="post-excerpt">{post.body.slice(0, 120)}…</p>
+        </li>
+      )}
+    </Pending>
   );
 }
+

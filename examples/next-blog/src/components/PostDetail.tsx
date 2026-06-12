@@ -120,7 +120,7 @@ function CommentItem({ id }: { id: string }) {
   const comment$ = useMemo(() => store.get(id), [store, id]);
 
   return (
-    <Pending value$={comment$}>
+    <Pending value$={comment$} pending={<li className="status">Loading…</li>}>
       {(comment) => (
         <li>
           <p className="comment-author">{comment.name}</p>
