@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { createComment, type Comment } from "../blog";
+import { type Comment, createComment, type PostId } from "../blog";
 
 type AddCommentFormProps = {
-  postId: string;
+  postId: PostId;
   onAdd: (comment: Comment) => void;
 };
 

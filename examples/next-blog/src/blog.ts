@@ -4,22 +4,30 @@ import { db } from "./db";
 
 // ── Schemas & types ────────────────────────────────────────────────────────────
 
+export const UserIdSchema = z.string().brand("UserId");
+export const PostIdSchema = z.string().brand("PostId");
+export const CommentIdSchema = z.string().brand("CommentId");
+
+export type UserId = z.infer<typeof UserIdSchema>;
+export type PostId = z.infer<typeof PostIdSchema>;
+export type CommentId = z.infer<typeof CommentIdSchema>;
+
 export const UserSchema = z.object({
-  id: z.string(),
+  id: UserIdSchema,
   name: z.string(),
   email: z.string(),
 });
 
 export const PostSchema = z.object({
-  id: z.string(),
-  userId: z.string(),
+  id: PostIdSchema,
+  userId: UserIdSchema,
   title: z.string(),
   body: z.string(),
 });
 
 export const CommentSchema = z.object({
-  id: z.string(),
-  postId: z.string(),
+  id: CommentIdSchema,
+  postId: PostIdSchema,
   name: z.string(),
   body: z.string(),
 });
@@ -44,7 +52,7 @@ export const postsState = defineState({
 
 export const postDetailState = defineState({
   key: "post-detail",
-  params: z.object({ postId: z.string() }),
+  params: z.object({ postId: PostIdSchema }),
   model: {
     post: single(postModel),
     author: single(userModel),
@@ -71,7 +79,7 @@ export async function fetchPosts(
 }
 
 export async function fetchPostDetail(
-  { postId }: { postId: string },
+  { postId }: { postId: PostId },
   signal: AbortSignal,
 ): Promise<{ post: Post; author: User; comments: Comment[] }> {
   await delay(400, signal);
@@ -85,8 +93,8 @@ export async function fetchPostDetail(
 
 // ── Mutations ──────────────────────────────────────────────────────────────────
 
-export function createComment(postId: string, name: string, body: string): Comment {
-  const comment: Comment = { id: String(db.nextCommentId++), postId, name, body };
+export function createComment(postId: PostId, name: string, body: string): Comment {
+  const comment: Comment = { id: String(db.nextCommentId++) as CommentId, postId, name, body };
   db.comments = [...db.comments, comment];
   return comment;
 }

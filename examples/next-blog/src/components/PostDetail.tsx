@@ -5,43 +5,41 @@ import { useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { combineLatest } from "rxjs";
 import {
+  type Comment,
+  type CommentId,
   commentModel,
   fetchPostDetail,
-  postDetailState,
-  postModel,
-  userModel,
-  type Comment,
   type Post,
+  postDetailState,
+  type PostId,
+  postModel,
   type User,
+  type UserId,
+  userModel,
 } from "../blog";
 import AddCommentForm from "./AddCommentForm";
 
-type DetailIds = { post: string; author: string; comments: string[] };
+type DetailIds = { post: PostId; author: UserId; comments: CommentId[] };
 
-export default function PostDetail({ postId }: { postId: string }) {
+export default function PostDetail({ postId }: { postId: PostId }) {
   const params = useMemo(() => ({ postId }), [postId]);
   const { data$, mutations } = useStateData(postDetailState, fetchPostDetail, params);
 
   return (
     <div>
-      <Link className="back-link" href="/">← All posts</Link>
+      <Link className="back-link" href="/">
+        ← All posts
+      </Link>
       <Pending
         value$={data$}
         pending={<p className="status">Loading post…</p>}
         rejected={({ onReload }) => (
           <p className="status error">
-            Failed to load.{" "}
-            <button onClick={onReload}>Retry</button>
+            Failed to load. <button onClick={onReload}>Retry</button>
           </p>
         )}
       >
-        {(ids) => (
-          <PostBody
-            ids={ids}
-            postId={postId}
-            onAddComment={mutations.addComment}
-          />
-        )}
+        {(ids) => <PostBody ids={ids} postId={postId} onAddComment={mutations.addComment} />}
       </Pending>
     </div>
   );
@@ -53,7 +51,7 @@ function PostBody({
   onAddComment,
 }: {
   ids: DetailIds;
-  postId: string;
+  postId: PostId;
   onAddComment: (comment: Comment) => void;
 }) {
   const postStore = useModelStore(postModel);
@@ -87,8 +85,8 @@ function PostArticle({
 }: {
   post: Post;
   author: User;
-  commentIds: string[];
-  postId: string;
+  commentIds: CommentId[];
+  postId: PostId;
   onAddComment: (comment: Comment) => void;
 }) {
   return (
@@ -115,7 +113,7 @@ function PostArticle({
   );
 }
 
-function CommentItem({ id }: { id: string }) {
+function CommentItem({ id }: { id: CommentId }) {
   const store = useModelStore(commentModel);
   const comment$ = useMemo(() => store.get(id), [store, id]);
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
-import { fetchPosts, postModel, userModel, postsState, type Post } from "../blog";
+import { fetchPosts, type Post, type PostId, postModel, postsState, userModel } from "../blog";
 
 export default function PostList() {
   const { data$ } = useStateData(postsState, fetchPosts, {});
@@ -16,8 +16,7 @@ export default function PostList() {
         pending={<p className="status">Loading posts…</p>}
         rejected={({ onReload }) => (
           <p className="status error">
-            Failed to load.{" "}
-            <button onClick={onReload}>Retry</button>
+            Failed to load. <button onClick={onReload}>Retry</button>
           </p>
         )}
       >
@@ -37,7 +36,7 @@ export default function PostList() {
   );
 }
 
-function PostItem({ id }: { id: string }) {
+function PostItem({ id }: { id: PostId }) {
   const store = useModelStore(postModel);
   const post$ = useMemo(() => store.get(id), [store, id]);
 
@@ -66,4 +65,3 @@ function PostItemContent({ post }: { post: Post }) {
     </Pending>
   );
 }
-
