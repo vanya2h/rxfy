@@ -15,6 +15,7 @@ export default defineConfig({
         { text: "Wrapped", link: "/core-concepts/wrapped" },
       ],
     },
+    { text: "Normalization", link: "/normalization" },
     { text: "Models & State", link: "/models-state" },
     { text: "React Bindings", link: "/react" },
     { text: "Server-Side Rendering", link: "/ssr" },

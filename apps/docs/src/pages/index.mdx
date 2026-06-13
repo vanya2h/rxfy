@@ -3,7 +3,7 @@
 **rxfy** (/ɑɹ ɪks faɪ/) — stream-based state management built on RxJS: normalized
 entities, reactive queries, and first-class SSR.
 
-State is [normalized](/models-state#what-normalized-means) — each entity is stored once,
+State is [normalized](/normalization) — each entity is stored once,
 keyed by id, and referenced by id elsewhere: `data$` emits entity **ids**, and entity data
 lives in model stores. Components render lists by id and subscribe per entity — so a single
 `store.set` (e.g. from a websocket) updates every subscriber without re-fetching anything.

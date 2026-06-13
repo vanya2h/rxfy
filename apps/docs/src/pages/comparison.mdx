@@ -5,7 +5,7 @@ idiomatic forms — **Redux Toolkit** (with RTK Query) and **MobX 6** (`observer
 older patterns they replaced.
 
 rxfy's premise is narrower than either: it is built for
-**[normalized](/models-state#what-normalized-means) server data rendered reactively**.
+**[normalized](/normalization) server data rendered reactively**.
 `data$` emits entity **ids**, entity values live in per-entity Observable
 cells, and one `store.set` (from a refetch, a mutation, or a websocket) updates exactly the
 components subscribed to that entity — no global re-selection, no refetch. Async fetching,
