@@ -1,3 +1,103 @@
 # React Bindings
 
-Content lands in a later task.
+`rxfy-react` is the official React binding for rxfy. Wrap your tree in `StoreProvider`
+(see [Getting Started](/getting-started)), then use the hooks below.
+
+## `useStateData`
+
+Fetches data, normalizes entities into model stores, and returns a `StateHandle`.
+**`data$` emits the normalized query shape — entity ids, not entities** (`array` fields
+→ `string[]`, `single` fields → `string`). Render lists by id and read entity data
+through `useModelStore`.
+
+```tsx
+import { useMemo, useState } from "react";
+import { useStateData, useModelStore, Pending } from "rxfy-react";
+import { todosState, fetchTodos, TodoModel } from "./todos";
+
+function TodoApp() {
+  const [filter, setFilter] = useState<"all" | "active" | "done">("all");
+  const params = useMemo(() => ({ filter }), [filter]);
+
+  const { data$, mutations, reload } = useStateData(todosState, fetchTodos, params);
+
+  return (
+    <Pending value$={data$} pending={<p>Loading...</p>}>
+      {({ todos }) => (
+        <>
+          <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>
+          <button onClick={() => mutations.addTodo({ id: crypto.randomUUID(), title: "new", done: false })}>
+            Add
+          </button>
+          <button onClick={reload}>Reload</button>
+        </>
+      )}
+    </Pending>
+  );
+}
+```
+
+```ts
+function useStateData<TParams, TShape, TMutations>(
+  state: StateDescriptor<TParams, TShape, TMutations>,
+  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
+  params: TParams,
+): StateHandle<TShape, TMutations>
+
+// StateHandle: {
+//   data$: Observable<QueryShapeOf<TShape>>;  // ids only
+//   set: (value: TShape | ((prev: TShape) => TShape)) => void;  // full entities
+//   reload: () => void;
+//   mutations: BoundMutations<TShape, TMutations>;  // full entities
+// }
+```
+
+**Caching** (states with a `key`): results, mutations, and `set` write through to the
+registry's query cache, so a remount with the same params starts from cached ids without
+re-fetching — while entity values always come live from model stores. `reload()` deletes
+the cache entry and re-fetches. Keyless states skip the cache and fetch per mount.
+
+## `useModelStore`
+
+Returns the `ModelStore` for a model descriptor, so a component can subscribe to a single
+normalized entity without re-fetching the full list.
+
+```tsx
+import { useMemo } from "react";
+import { useModelStore, Pending } from "rxfy-react";
+import { TodoModel } from "./models";
+
+function TodoItem({ id }: { id: string }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.get(id), [store, id]);
+  return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
+}
+```
+
+```ts
+function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+```
+
+## `Pending`
+
+Subscribes to any `ObservableLike<T>` and renders pending / rejected / fulfilled UI. The
+`rejected` render prop receives `{ status, error, onReload }` for retry flows. If
+`rejected` is omitted it renders nothing and logs the error to `console.error`.
+
+```tsx
+import { Pending } from "rxfy-react";
+
+<Pending
+  value$={data$}
+  pending={<p>Loading...</p>}
+  rejected={({ error, onReload }) => (
+    <p>Error: {String(error)} <button onClick={onReload}>Retry</button></p>
+  )}
+>
+  {(value) => <div>{JSON.stringify(value)}</div>}
+</Pending>
+```
+
+> `Pending` is powered by the lower-level `usePending` hook, which returns an
+> `IPendingStatus<T>` union (`pending` / `rejected` / `fulfilled`). The `source$` you pass
+> must be referentially stable across renders — `data$` from `useStateData` already is.
