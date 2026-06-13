@@ -3,6 +3,46 @@
 The high-level API: define typed state shapes, normalize entities, and mutate state
 without manual bookkeeping.
 
+## What "normalized" means
+
+A typical API response nests and **duplicates** entities. Here a post's `author` also left a
+comment, so the same user is embedded twice:
+
+```json
+// denormalized — user "u1" (Alice) appears in two places
+{
+  "post": { "id": "p1", "title": "Hello" },
+  "author": { "id": "u1", "name": "Alice" },
+  "commenters": [
+    { "id": "u1", "name": "Alice" },
+    { "id": "u2", "name": "Bob" }
+  ]
+}
+```
+
+Duplicated copies drift apart: rename Alice and you have to patch every copy, and any view
+still holding an old one is now wrong.
+
+**Normalizing** means storing each entity **once**, keyed by its id, in a per-model lookup
+table — then referencing it by id everywhere else. rxfy does this on every fetch: `createModel`
++ `getKey` define the id, `defineState` says which fields hold which model, and the fetch
+payload is split into model stores (entities, by id) plus a **query shape** of ids:
+
+```ts
+// UserModel store — Alice stored once, shared by author + commenters
+{ u1: { id: "u1", name: "Alice" }, u2: { id: "u2", name: "Bob" } }
+// PostModel store
+{ p1: { id: "p1", title: "Hello" } }
+
+// what data$ emits — ids only
+{ post: "p1", author: "u1", commenters: ["u1", "u2"] }
+```
+
+Now Alice lives in exactly one place. Components render by id and subscribe to that single
+entity, so one `userStore.set("u1", { ...alice, name: "Alicia" })` — from a refetch, a
+mutation, or a websocket — updates the author byline **and** the comment in the same render,
+with no re-fetch and no stale copies. That is why `data$` emits ids rather than entities.
+
 ## `createModel`
 
 Creates a typed model descriptor for normalizing and sharing entities across state
