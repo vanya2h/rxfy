@@ -23,7 +23,7 @@ type DetailIds = { post: PostId; author: UserId; comments: CommentId[] };
 
 export default function PostDetail({ postId }: { postId: PostId }) {
   const params = useMemo(() => ({ postId }), [postId]);
-  const { data$, mutations } = useStateData(postDetailState, fetchPostDetail, params);
+  const { data$, mutations, reload } = useStateData(postDetailState, fetchPostDetail, params);
 
   return (
     <div>
@@ -33,9 +33,9 @@ export default function PostDetail({ postId }: { postId: PostId }) {
       <Pending
         value$={data$}
         pending={<p className="status">Loading post…</p>}
-        rejected={({ onReload }) => (
+        rejected={() => (
           <p className="status error">
-            Failed to load. <button onClick={onReload}>Retry</button>
+            Failed to load. <button onClick={reload}>Retry</button>
           </p>
         )}
       >

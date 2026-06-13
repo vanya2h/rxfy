@@ -32,16 +32,17 @@ function TodoItem({ id }: { id: string }) {
 
 type TodoListProps = {
   data$: Observable<{ todos: string[] }>;
+  reload: () => void;
 };
 
-function TodoList({ data$ }: TodoListProps) {
+function TodoList({ data$, reload }: TodoListProps) {
   return (
     <Pending
       value$={data$}
       pending={<p className="status">Loading…</p>}
-      rejected={({ onReload }) => (
+      rejected={() => (
         <p className="status error">
-          Failed to load. <button onClick={onReload}>Retry</button>
+          Failed to load. <button onClick={reload}>Retry</button>
         </p>
       )}
     >
@@ -91,7 +92,7 @@ type AppProps = {
 export default function App({ initialFilter = "all" }: AppProps) {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const params = useMemo(() => ({ filter }), [filter]);
-  const { data$, mutations } = useStateData(todosState, fetchTodos, params);
+  const { data$, mutations, reload } = useStateData(todosState, fetchTodos, params);
 
   const handleAdd = (title: string) => {
     const todo = createTodo(title);
@@ -129,7 +130,7 @@ export default function App({ initialFilter = "all" }: AppProps) {
           </button>
         ))}
       </div>
-      <TodoList data$={data$} />
+      <TodoList data$={data$} reload={reload} />
     </div>
   );
 }

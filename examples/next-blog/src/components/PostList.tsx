@@ -6,7 +6,7 @@ import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { fetchPosts, type Post, type PostId, postModel, postsState, userModel } from "../blog";
 
 export default function PostList() {
-  const { data$ } = useStateData(postsState, fetchPosts, {});
+  const { data$, reload } = useStateData(postsState, fetchPosts, {});
 
   return (
     <div>
@@ -14,9 +14,9 @@ export default function PostList() {
       <Pending
         value$={data$}
         pending={<p className="status">Loading posts…</p>}
-        rejected={({ onReload }) => (
+        rejected={() => (
           <p className="status error">
-            Failed to load. <button onClick={onReload}>Retry</button>
+            Failed to load. <button onClick={reload}>Retry</button>
           </p>
         )}
       >
