@@ -1,6 +1,8 @@
 /* eslint-disable turbo/no-undeclared-env-vars */
 import fs from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { getRequestListener } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -92,8 +94,12 @@ app.get("*", async (c) => {
       render = (await vite!.ssrLoadModule("/src/entry-server.tsx")).render;
     } else {
       template = await fs.readFile("./dist/client/index.html", "utf-8");
-      // @ts-expect-error — built artifact has no .d.ts
-      render = (await import("./dist/server/entry-server.js")).render;
+      // Resolve the built SSR bundle from the process cwd (matching the
+      // cwd-relative fs reads above). A bare "./dist/..." dynamic import would
+      // resolve relative to this module's dir (server/), pointing at the wrong path.
+      // The built artifact has no .d.ts, so the dynamic import resolves to `any`.
+      const entryUrl = pathToFileURL(path.resolve(process.cwd(), "dist/server/entry-server.js")).href;
+      render = (await import(entryUrl)).render;
     }
     const rendered = await render(url);
     const html = template.replace("<!--app-html-->", rendered.html).replace("<!--app-state-->", rendered.state);
