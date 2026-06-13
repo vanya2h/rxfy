@@ -18,7 +18,7 @@ export function isSyncMarked(target: object): boolean {
   return (target as Marked)[RXFY_SYNC] === true;
 }
 
-/** Attaches the owning handle's reload() so Pending's onReload can invalidate the query cache. */
+/** Attaches the owning handle's reload() so consumers can invalidate the query cache via getAttachedReload. */
 export function attachReload<T extends object>(target: T, reload: () => void): T {
   (target as Marked)[RXFY_RELOAD] = reload;
   return target;
