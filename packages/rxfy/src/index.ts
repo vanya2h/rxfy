@@ -1,5 +1,4 @@
 export * from "./atom/atom.js";
-export * from "./edge/edge.js";
 export * from "./lens/lens.js";
 export * from "./model/model.js";
 export * from "./model/model-store.js";
