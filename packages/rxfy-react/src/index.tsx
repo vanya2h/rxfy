@@ -4,6 +4,7 @@ export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
 export { collectStateData } from "./ssr/collect-state-data.js";
 export type { StoreProviderProps } from "./StoreProvider.js";
 export { SsrContext, StoreProvider } from "./StoreProvider.js";
+export { useAtom } from "./useAtom.js";
 export { useModelStore } from "./useModelStore.js";
 export { useObservable } from "./useObservable.js";
 export type { ObservableLike } from "./usePending.js";
