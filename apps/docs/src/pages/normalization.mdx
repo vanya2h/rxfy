@@ -37,13 +37,18 @@ Both states declare the **same `UserModel`**. rxfy keys every `UserModel` entity
 fetched it. Each query keeps only **ids**; the entity data lives in the shared store:
 
 ```ts
-// UserModel store — one Alice, written by BOTH teamState and profileState
-{ u1: { id: "u1", name: "Alice" }, u2: { id: "u2", name: "Bob" } }
+// On the team page — data$ emits ids, not entities
+const { data$: teamData$ } = useStateData(teamState, fetchTeam, { teamId });
+teamData$; // emits { members: ["u1", "u2"] }
 
-// teamState's data$ emits ids
-{ members: ["u1", "u2"] }
-// profileState's data$ emits ids
-{ user: "u1" }
+// On the profile page — its own data$, also ids only
+const { data$: profileData$ } = useStateData(profileState, fetchProfile, { userId });
+profileData$; // emits { user: "u1" }
+
+// Either page resolves an id against the one shared store
+const users = useModelStore(UserModel);
+users.getValue("u1"); // { id: "u1", name: "Alice" }
+users.getValue("u2"); // { id: "u2", name: "Bob" }
 ```
 
 The team page resolves `"u1"` against the same store the profile page wrote to — so both are
