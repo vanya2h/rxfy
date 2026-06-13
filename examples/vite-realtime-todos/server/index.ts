@@ -65,7 +65,12 @@ app.get(
   upgradeWebSocket(() => ({
     onOpen: (_evt, ws) => addClient(ws),
     onMessage: (evt, ws) => {
-      const msg = JSON.parse(evt.data.toString()) as { type: string; topics: string[] };
+      let msg: { type: string; topics: string[] };
+      try {
+        msg = JSON.parse(evt.data.toString()) as { type: string; topics: string[] };
+      } catch {
+        return; // ignore malformed frames
+      }
       if (msg.type === "add") addDeps(ws, msg.topics);
       else if (msg.type === "remove") removeDeps(ws, msg.topics);
     },

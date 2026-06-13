@@ -27,6 +27,11 @@ export function publish(name: string, id: string, entity: unknown) {
   const topic = `${name}:${id}`;
   const message = JSON.stringify({ name, entities: [entity] });
   for (const [ws, set] of deps) {
-    if (set.has(topic)) ws.send(message);
+    if (!set.has(topic)) continue;
+    try {
+      ws.send(message);
+    } catch {
+      // connection is closing; its onClose will reap it
+    }
   }
 }

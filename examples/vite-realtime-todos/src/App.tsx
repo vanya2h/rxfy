@@ -24,7 +24,7 @@ function TodoItem({ id, onRemove }: { id: string; onRemove: (id: string) => void
     <Pending value$={todo$}>
       {(todo) => (
         <li className="todo-item">
-          <input type="checkbox" checked={todo.done} onChange={() => void apiToggleTodo(todo.id)} />
+          <input type="checkbox" checked={todo.done} onChange={() => apiToggleTodo(todo.id).catch(console.error)} />
           {editing ? (
             <input
               className="title-edit"
@@ -33,7 +33,7 @@ function TodoItem({ id, onRemove }: { id: string; onRemove: (id: string) => void
               onBlur={(e) => {
                 setEditing(false);
                 const next = e.target.value.trim();
-                if (next && next !== todo.title) void apiRenameTodo(todo.id, next);
+                if (next && next !== todo.title) apiRenameTodo(todo.id, next).catch(console.error);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.currentTarget.blur();
@@ -79,8 +79,8 @@ function TodoApp() {
   };
 
   // Wrappers so JSX event props get void-returning handlers (no-misused-promises).
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => void handleAdd(e);
-  const onRemove = (id: string) => void handleRemove(id);
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => void handleAdd(e).catch(console.error);
+  const onRemove = (id: string) => void handleRemove(id).catch(console.error);
 
   return (
     <div className="app">

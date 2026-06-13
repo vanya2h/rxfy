@@ -8,9 +8,14 @@ export function useLiveEntities<T>(model: ModelDescriptor<T>, socket: WebSocket 
   useEffect(() => {
     if (!socket) return;
     const handler = (event: MessageEvent) => {
-      const msg = JSON.parse(event.data) as { name: string; entities: unknown[] };
-      if (msg.name !== model.name) return;
-      store.setMany(msg.entities.map((row) => model.schema.parse(row)));
+      try {
+        const msg = JSON.parse(event.data) as { name: string; entities: unknown[] };
+        if (msg.name !== model.name) return;
+        store.setMany(msg.entities.map((row) => model.schema.parse(row)));
+      } catch (err) {
+        // malformed frame or schema mismatch — drop it rather than poison the store
+        console.error("rxfy live: dropped a bad push", err);
+      }
     };
     socket.addEventListener("message", handler);
     return () => socket.removeEventListener("message", handler);

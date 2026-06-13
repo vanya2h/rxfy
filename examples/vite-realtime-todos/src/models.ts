@@ -28,16 +28,21 @@ export async function fetchTodos(_params: Record<string, never>, signal: AbortSi
 }
 
 // --- REST mutations the components call ---
+async function asJson<T>(res: Response): Promise<T> {
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+  return (await res.json()) as T;
+}
+
 export function apiAddTodo(title: string): Promise<Todo> {
   return fetch("/api/todos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
-  }).then((r) => r.json() as Promise<Todo>);
+  }).then(asJson<Todo>);
 }
 
 export function apiToggleTodo(id: string): Promise<Todo> {
-  return fetch(`/api/todos/${id}/toggle`, { method: "POST" }).then((r) => r.json() as Promise<Todo>);
+  return fetch(`/api/todos/${id}/toggle`, { method: "POST" }).then(asJson<Todo>);
 }
 
 export function apiRenameTodo(id: string, title: string): Promise<Todo> {
@@ -45,9 +50,10 @@ export function apiRenameTodo(id: string, title: string): Promise<Todo> {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
-  }).then((r) => r.json() as Promise<Todo>);
+  }).then(asJson<Todo>);
 }
 
-export function apiDeleteTodo(id: string): Promise<void> {
-  return fetch(`/api/todos/${id}`, { method: "DELETE" }).then(() => undefined);
+export async function apiDeleteTodo(id: string): Promise<void> {
+  const res = await fetch(`/api/todos/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
 }

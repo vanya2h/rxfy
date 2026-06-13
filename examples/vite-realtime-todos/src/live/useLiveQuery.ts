@@ -5,8 +5,8 @@ import { useLiveClient } from "./LiveProvider.tsx";
 export function useLiveQuery<T>(model: ModelDescriptor<T>, ids: string[]) {
   const client = useLiveClient();
   const sliceKey = useId();
-  // Primitive key keeps the effect deps simple and exhaustive-deps happy.
-  const topicsKey = model.name ? ids.map((id) => `${model.name}:${id}`).join(",") : "";
+  const topics = model.name ? ids.map((id) => `${model.name}:${id}`) : [];
+  const idsKey = topics.join("\n"); // primitive effect dep that tracks the id set
 
   useEffect(() => {
     if (!client) return;
@@ -15,6 +15,8 @@ export function useLiveQuery<T>(model: ModelDescriptor<T>, ids: string[]) {
 
   useEffect(() => {
     if (!client) return;
-    client.setSlice(sliceKey, topicsKey ? topicsKey.split(",") : []);
-  }, [client, sliceKey, topicsKey]);
+    client.setSlice(sliceKey, topics);
+    // topics is recomputed each render; idsKey is the stable primitive that captures it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, sliceKey, idsKey]);
 }
