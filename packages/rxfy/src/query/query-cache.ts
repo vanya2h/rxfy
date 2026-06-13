@@ -1,38 +1,44 @@
-import type { SerializedError } from "../ssr/serialize.js";
-
-export type QueryEntry<TValue = unknown> =
-  | { status: "fulfilled"; value: TValue }
-  | { status: "rejected"; error: SerializedError };
+import { Atom, createAtom } from "../atom/atom.js";
+import { type IWrapped, StatusEnum, createIdle } from "../wrapped/wrapped.js";
 
 export type QueryCache = {
-  /**
-   * The cache stores entries for many states with different shapes, so per-key typing cannot be
-   * verified — the type parameter is the caller's assertion, valid at sites that know the state descriptor.
-   */
-  get: <TValue = unknown>(key: string) => QueryEntry<TValue> | undefined;
-  set: <TValue>(key: string, entry: QueryEntry<TValue>) => void;
+  /** Get-or-create the query's status Atom, seeded IDLE. Shared per key → dedup. */
+  getQuery: <TValue = unknown>(key: string) => Atom<IWrapped<TValue>>;
+  /** Current value without creating a cell — used by serialization and sync reads. */
+  peek: <TValue = unknown>(key: string) => IWrapped<TValue> | undefined;
   delete: (key: string) => void;
-  entries: () => [string, QueryEntry][];
-  /** In-flight promise slot — used for Suspense throws and request deduplication. Never serialized. */
+  /** Terminal-state entries (FULFILLED/REJECTED) for serialization. */
+  entries: () => [string, IWrapped][];
+  /** In-flight promise slot — SSR Suspense throws and server-side request dedup. Never serialized. */
   getPromise: (key: string) => Promise<unknown> | undefined;
   setPromise: (key: string, promise: Promise<unknown>) => void;
   inflight: () => Promise<unknown>[];
 };
 
 export function createQueryCache(): QueryCache {
-  const store = new Map<string, QueryEntry>();
+  const atoms = new Map<string, Atom<IWrapped<unknown>>>();
   const promises = new Map<string, Promise<unknown>>();
 
+  const getQuery = <TValue = unknown>(key: string): Atom<IWrapped<TValue>> => {
+    let atom = atoms.get(key);
+    if (!atom) {
+      atom = createAtom<IWrapped<unknown>>(createIdle());
+      atoms.set(key, atom);
+    }
+    return atom as Atom<IWrapped<TValue>>;
+  };
+
+  const isTerminal = (w: IWrapped<unknown>) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED;
+
   return {
-    get: <TValue = unknown>(key: string) => store.get(key) as QueryEntry<TValue> | undefined,
-    set: (key, entry) => {
-      store.set(key, entry);
-    },
+    getQuery,
+    peek: <TValue = unknown>(key: string) => atoms.get(key)?.get() as IWrapped<TValue> | undefined,
     delete: (key) => {
-      store.delete(key);
+      atoms.delete(key);
       promises.delete(key);
     },
-    entries: () => [...store.entries()],
+    entries: () =>
+      [...atoms.entries()].map(([k, a]) => [k, a.get()] as [string, IWrapped]).filter(([, w]) => isTerminal(w)),
     getPromise: (key) => promises.get(key),
     setPromise: (key, promise) => {
       promises.set(key, promise);

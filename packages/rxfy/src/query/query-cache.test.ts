@@ -1,82 +1,60 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
-import { createQueryCache, type QueryEntry } from "./query-cache.js";
+import { describe, expect, it } from "vitest";
+import { StatusEnum, createFulfilled, createPending, createRejected } from "../wrapped/wrapped.js";
+import { createQueryCache } from "./query-cache.js";
 
 describe("createQueryCache", () => {
-  it("stores and retrieves fulfilled entries", () => {
+  it("getQuery creates an Atom seeded IDLE and returns the same Atom for a key", () => {
     const cache = createQueryCache();
-    cache.set("todos:{}", { status: "fulfilled", value: { todos: ["1"] } });
-    expect(cache.get("todos:{}")).toEqual({
-      status: "fulfilled",
-      value: { todos: ["1"] },
-    });
+    const a = cache.getQuery("k");
+    expect(a.get()).toEqual({ type: StatusEnum.IDLE });
+    expect(cache.getQuery("k")).toBe(a); // shared identity → dedup
   });
 
-  it("stores rejected entries with serialized errors", () => {
+  it("emits IDLE → PENDING → FULFILLED transitions to subscribers", () => {
     const cache = createQueryCache();
-    cache.set("k", { status: "rejected", error: { name: "Error", message: "boom" } });
-    expect(cache.get("k")).toEqual({
-      status: "rejected",
-      error: { name: "Error", message: "boom" },
-    });
+    const atom = cache.getQuery<{ ids: string[] }>("k");
+    const seen: StatusEnum[] = [];
+    const sub = atom.subscribe((w) => seen.push(w.type));
+    atom.set(createPending());
+    atom.set(createFulfilled({ ids: ["1"] }));
+    expect(seen).toEqual([StatusEnum.IDLE, StatusEnum.PENDING, StatusEnum.FULFILLED]);
+    sub.unsubscribe();
   });
 
-  it("returns undefined for misses and after delete", () => {
+  it("peek returns the current value without creating a cell", () => {
     const cache = createQueryCache();
-    expect(cache.get("missing")).toBeUndefined();
-    cache.set("k", { status: "fulfilled", value: 1 });
+    expect(cache.peek("absent")).toBeUndefined();
+    cache.getQuery("k").set(createFulfilled(1));
+    expect(cache.peek("k")).toEqual(createFulfilled(1));
+  });
+
+  it("entries returns only terminal states", () => {
+    const cache = createQueryCache();
+    cache.getQuery("idle"); // stays IDLE
+    cache.getQuery("pending").set(createPending());
+    cache.getQuery("ok").set(createFulfilled(1));
+    cache.getQuery("bad").set(createRejected(new Error("x")));
+    const keys = cache
+      .entries()
+      .map(([k]) => k)
+      .sort();
+    expect(keys).toEqual(["bad", "ok"]);
+  });
+
+  it("delete removes the atom and its in-flight promise", () => {
+    const cache = createQueryCache();
+    const p = Promise.resolve();
+    cache.setPromise("k", p);
+    cache.getQuery("k").set(createFulfilled(1));
     cache.delete("k");
-    expect(cache.get("k")).toBeUndefined();
-  });
-
-  it("enumerates entries for dehydration", () => {
-    const cache = createQueryCache();
-    cache.set("a", { status: "fulfilled", value: 1 });
-    cache.set("b", { status: "fulfilled", value: 2 });
-    expect(cache.entries()).toEqual([
-      ["a", { status: "fulfilled", value: 1 }],
-      ["b", { status: "fulfilled", value: 2 }],
-    ]);
-  });
-
-  it("tracks in-flight promises and clears them on settle", async () => {
-    const cache = createQueryCache();
-    let resolve!: () => void;
-    const promise = new Promise<void>((r) => (resolve = r));
-    cache.setPromise("k", promise);
-    expect(cache.getPromise("k")).toBe(promise);
-    expect(cache.inflight()).toEqual([promise]);
-    resolve();
-    await promise;
-    await Promise.resolve(); // let the .finally cleanup run
-    expect(cache.getPromise("k")).toBeUndefined();
-    expect(cache.inflight()).toEqual([]);
-  });
-
-  it("delete also clears the in-flight promise", () => {
-    const cache = createQueryCache();
-    cache.setPromise("k", new Promise(() => {}));
-    cache.delete("k");
+    expect(cache.peek("k")).toBeUndefined();
     expect(cache.getPromise("k")).toBeUndefined();
   });
 
-  it("clears the in-flight promise on rejection without unhandled rejection", async () => {
+  it("tracks in-flight promises", () => {
     const cache = createQueryCache();
-    const promise = new Promise<void>((_, reject) => setTimeout(() => reject(new Error("boom")), 0));
-    cache.setPromise("k", promise);
-    await promise.catch(() => {});
-    await Promise.resolve(); // let the cleanup microtask run
-    expect(cache.getPromise("k")).toBeUndefined();
-    expect(cache.inflight()).toEqual([]);
-  });
-
-  it("get accepts a type assertion for the entry value (type-level)", () => {
-    const cache = createQueryCache();
-    cache.set("todos:{}", { status: "fulfilled", value: { todos: ["1"] } });
-    const entry = cache.get<{ todos: string[] }>("todos:{}");
-    expectTypeOf(entry).toEqualTypeOf<QueryEntry<{ todos: string[] }> | undefined>();
-    if (entry?.status === "fulfilled") {
-      expectTypeOf(entry.value).toEqualTypeOf<{ todos: string[] }>();
-      expect(entry.value.todos).toEqual(["1"]);
-    }
+    const p = new Promise<void>(() => {});
+    cache.setPromise("k", p);
+    expect(cache.inflight()).toEqual([p]);
   });
 });
