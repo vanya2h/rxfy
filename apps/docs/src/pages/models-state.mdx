@@ -45,7 +45,10 @@ const todosState = defineState({
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(TodoModel) },
   mutations: {
-    addTodo: (prev, todo) => ({ ...prev, todos: [...prev.todos, todo] }),
+    addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
+      ...prev,
+      todos: [...prev.todos, todo],
+    }),
   },
 });
 ```
@@ -106,7 +109,51 @@ users.get("1").subscribe(console.log); // emits { id: "1", name: "Alice" }
 > `get()` on a key that has never had `set()` called returns an Observable that never
 > emits until `set()` or `setMany()` is called for that key.
 
-## `ModelStore.entity`
+A `ModelStore<T>` exposes:
+
+```ts
+type ModelStore<T> = {
+  get(key: EntityKey<T>): Observable<T>;        // reactive read; emits on every change
+  set(key: string, val: T): void;               // write one entity
+  setMany(items: T[]): void;                     // write many; key is derived via getKey
+  getValue(key: string): T | undefined;          // synchronous read, no subscription
+  entity(key: EntityKey<T>): IAtom<T>;           // writable handle (see below)
+  valueEntries(): [string, T][];                 // snapshot of all loaded [key, value] pairs
+  added$: Observable<string>;                    // a key, the first time its entity appears
+};
+```
+
+Inside React, `useModelStore(descriptor)` returns this same store from the provider's
+registry; `useModelRegistry()` returns the underlying registry (and throws if no
+`StoreProvider` is mounted).
+
+### Observing what enters the store
+
+`added$` emits a key the **first time** an entity becomes present (the first `set`); later
+updates to that key don't re-emit. New subscribers **replay** the keys already in the store, so
+a late subscriber still learns about everything loaded so far — exactly once, with no gap.
+
+```ts
+users.added$.subscribe((key) => console.log("now live on", key));
+users.set("1", { id: "1", name: "Alice" }); // → "now live on 1"
+users.set("1", { id: "1", name: "Bob" });   // (update — no emit)
+```
+
+The registry exposes the same signal across every **named** store, tagged with the model name:
+
+```ts
+// on IModelRegistry:
+added$: Observable<{ name: string; key: string }>;
+
+registry.added$.subscribe(({ name, key }) => console.log(`${name}:${key}`)); // "user:1", ...
+```
+
+It replays entities already in the registry and follows stores created later; unnamed stores
+are skipped, since there's no `name` to address them by. This is what lets a live-update layer
+track exactly what the client holds without each query wiring its ids in by hand — see
+[Live updates over WebSockets](/guides/live-updates-websockets).
+
+## ModelStore entity
 
 `entity(key)` returns a writable `IAtom<T>` over a single entity's cell — a read/write
 handle suitable for field [Lenses](/core-concepts/lens) and form inputs. Reads reflect the
@@ -126,4 +173,4 @@ entity: (key: EntityKey<T>) => IAtom<T>
 
 It assumes the entity is already loaded — reading a key that has never been `set` yields
 `undefined` typed as `T`. For the React form-binding pattern, see
-[`useAtom` & two-way binding](/react#useatom-two-way-binding).
+[`useAtom` & two-way binding](/react#useatom-and-two-way-binding).

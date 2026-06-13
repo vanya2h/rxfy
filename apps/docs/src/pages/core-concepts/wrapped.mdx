@@ -14,6 +14,30 @@ createFulfilled("hi");    // { type: "FULFILLED", value: "hi" }
 createRejected("oops");   // { type: "REJECTED", error: "oops" }
 ```
 
+## The type
+
+`IWrapped` is a discriminated union keyed on `type` (a `StatusEnum` value). Narrow on
+`type` to access `value` (only on `FULFILLED`) or `error` (only on `REJECTED`):
+
+```ts
+enum StatusEnum {
+  IDLE = "IDLE",
+  PENDING = "PENDING",
+  FULFILLED = "FULFILLED",
+  REJECTED = "REJECTED",
+}
+
+type IWrapped<T> =
+  | { type: StatusEnum.IDLE }
+  | { type: StatusEnum.PENDING }
+  | { type: StatusEnum.FULFILLED; value: T }
+  | { type: StatusEnum.REJECTED; error: unknown };
+```
+
+The optional second type parameter narrows the union to specific states — e.g.
+`usePending` returns `IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>`
+(never `IDLE`).
+
 ## Helpers
 
 | Helper | Returns |

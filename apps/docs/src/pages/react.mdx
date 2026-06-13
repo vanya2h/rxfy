@@ -78,7 +78,7 @@ function TodoItem({ id }: { id: string }) {
 function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 ```
 
-## `useAtom` & two-way binding
+## `useAtom` and two-way binding
 
 `useAtom` binds any `IAtom<T>` — a plain `Atom`, a field [`Lens`](/core-concepts/lens), or
 a `ModelStore.entity(id)` handle — to React as `[value, setValue]`. Combined with
@@ -150,3 +150,71 @@ function Todos() {
 > (`PENDING` / `FULFILLED` / `REJECTED` — see [Wrapped](/core-concepts/wrapped)). The
 > `source$` you pass must be referentially stable across renders — `data$` from
 > `useStateData` already is.
+
+## `usePending`
+
+The hook behind `Pending`, for when you need the status value rather than rendered UI.
+It subscribes to any `ObservableLike<T>` (an `Observable<T>` or a plain value) and returns
+the current [`IWrapped<T>`](/core-concepts/wrapped) — narrowed to `PENDING` / `FULFILLED` /
+`REJECTED`, never `IDLE`. Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
+
+```tsx
+import { useMemo } from "react";
+import { usePending, useModelStore } from "rxfy-react";
+import { StatusEnum } from "rxfy";
+import { TodoModel } from "./models";
+
+function TodoTitle({ id }: { id: string }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const wrapped = usePending(todo$);
+
+  if (wrapped.type === StatusEnum.PENDING) return <span>…</span>;
+  if (wrapped.type === StatusEnum.REJECTED) return <span>error</span>;
+  return <span>{wrapped.value.title}</span>;
+}
+```
+
+```ts
+function usePending<T>(
+  source$: ObservableLike<T>,
+  getDefaultValue?: () => T,
+): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>
+
+type ObservableLike<T> = Observable<T> | T;
+```
+
+> `source$` must be referentially stable across renders — wrap inline-created sources in
+> `useMemo`.
+
+## `useObservable`
+
+Binds any plain `Observable<T>` to React, re-rendering on each new emission. Equal
+consecutive emissions are skipped (`lodash.isEqual`), so a source that re-emits an equal
+value won't re-render. Use it for raw streams; for async status prefer `usePending`, and
+for two-way `IAtom` binding prefer `useAtom`.
+
+```ts
+function useObservable<T>(observable: Observable<T>, initialValue: T): T;
+function useObservable<T>(observable: Observable<T>): T | undefined;
+```
+
+## `BehaviorSubjectRender`
+
+Renders the current value of a `BehaviorSubject<T>` directly — a thin render helper for
+streams that always hold a value (so there is no pending state to model).
+
+```tsx
+import { BehaviorSubjectRender } from "rxfy-react";
+
+<BehaviorSubjectRender value$={count$}>
+  {(count) => <span>{count}</span>}
+</BehaviorSubjectRender>;
+```
+
+```ts
+function BehaviorSubjectRender<T>(props: {
+  value$: BehaviorSubject<T>;
+  children: ReactNode | ((value: T) => ReactNode);
+}): ReactNode
+```

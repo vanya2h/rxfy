@@ -3,27 +3,41 @@
 A focused, bidirectional view into an `Atom`. Reads and writes propagate in both
 directions. Change detection uses `lodash.isEqual`.
 
+## Philosophy
+
+A Lens **is an `Atom`** — same `get()` / `set()` / `modify()` surface — that points at
+_part_ of another Atom instead of owning state. So anything taking an Atom (`useAtom`,
+another `createLens`) takes a Lens unchanged; that substitutability is the point.
+
+- **Focus, immutably.** `get` reads a slice out, `set` returns a **new** source with it
+  replaced — never a mutation. Compose lenses to reach deeply nested fields.
+- **Bidirectional and live.** Reads flow down, writes flow up, and the view re-derives
+  when the source changes elsewhere — a live window, not a snapshot.
+- **`isEqual` everywhere.** Inbound sync and write-back both skip no-op updates, so a
+  write that changes nothing won't echo back.
+
+Reach for a Lens when a consumer should own one field of a larger entity without knowing
+about the whole.
+
 ```ts
 import { createAtom, createLens, keyLens } from "rxfy";
 
 const user = createAtom({ id: "1", name: "Alice" });
 const name = createLens(user, keyLens("name"));
 
-name.get();        // "Alice"
+name.get(); // "Alice"
 name.set("Bob");
-user.get();        // { id: "1", name: "Bob" }
+user.get(); // { id: "1", name: "Bob" }
 ```
 
 ## Signatures
 
 ```ts
-function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>
-
-function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
-// ILens<S, T>: { get(source: S): T; set(current: T, source: S): S }
+function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>;
+function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>;
 ```
 
 A common use is binding a form input to one field of a stored entity: compose a `keyLens`
 over a [`ModelStore.entity(id)`](/models-state#modelstore-entity) handle and drive it with
-[`useAtom`](/react#useatom-two-way-binding). Edits flow back into the model store and reach
+[`useAtom`](/react#useatom-and-two-way-binding). Edits flow back into the model store and reach
 every subscriber of that entity.

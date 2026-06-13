@@ -1,43 +1,34 @@
 export type LiveClient = ReturnType<typeof createLiveClient>;
 
 export function createLiveClient(socket: WebSocket) {
-  const slices = new Map<string, Set<string>>(); // sliceKey -> topics
+  const desired = new Set<string>(); // every topic we've ever wanted (grows, never shrinks)
   let active = new Set<string>(); // topics the server currently knows
 
-  const desired = () => new Set([...slices.values()].flatMap((s) => [...s]));
-
-  const send = (type: "add" | "remove", topics: string[]) => {
+  const send = (topics: string[]) => {
     if (topics.length && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type, topics }));
+      socket.send(JSON.stringify({ type: "add", topics }));
     }
   };
 
+  // Send only the topics the server hasn't heard yet (desired − active), then record them.
+  // So a burst of want() calls collapses to a single "add" of just the new topics.
   const reconcile = () => {
-    const next = desired();
-    send(
-      "add",
-      [...next].filter((t) => !active.has(t)),
-    );
-    send(
-      "remove",
-      [...active].filter((t) => !next.has(t)),
-    );
-    active = next;
+    send([...desired].filter((t) => !active.has(t)));
+    active = new Set(desired);
   };
 
-  // Reconnect: the server forgot our subscriptions — replay them.
+  // Reconnect: the server forgot our subscriptions — replay the whole desired set.
   socket.addEventListener("open", () => {
     active = new Set();
     reconcile();
   });
 
   return {
-    setSlice(key: string, topics: string[]) {
-      slices.set(key, new Set(topics));
-      reconcile();
-    },
-    clearSlice(key: string) {
-      slices.delete(key);
+    // Subscribe to everything the store loads; idempotent, never unsubscribes (the store
+    // doesn't evict, so we stay live on an entity for the session).
+    want(topic: string) {
+      if (desired.has(topic)) return;
+      desired.add(topic);
       reconcile();
     },
   };

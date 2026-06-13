@@ -81,6 +81,32 @@ const html = await collectStateData(registry, () =>
 const state = hydrationScript(dehydrate(registry));
 ```
 
+## Hydration helpers
+
+The server snapshot is produced and embedded with three helpers from `rxfy`:
+
+```ts
+type DehydratedState = {
+  queries: Record<string, SerializedWrapped>;          // settled query results, by key
+  models: Record<string, Record<string, unknown>>;     // entities, by model name then id
+};
+
+// Snapshot a request's registry — only named models and keyed queries are included.
+function dehydrate(registry: IModelRegistry): DehydratedState;
+
+// Serialize a snapshot into a ready-to-inject <script> tag (HTML-safe).
+function hydrationScript(state: DehydratedState): string;
+
+// Apply a snapshot into a fresh client registry.
+function hydrate(registry: IModelRegistry, state: DehydratedState): void;
+```
+
+In the common path you never call `hydrate` directly: the embedded script populates
+`window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically. Call
+`hydrate` yourself only when you hold the registry and the snapshot directly — e.g. passing
+`dehydratedState` to `StoreProvider` for a buffered two-pass render rather than an inline
+script.
+
 ## Error handling
 
 A `fetchFn` rejection on the server is captured as a serialized rejected entry

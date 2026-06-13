@@ -44,7 +44,12 @@ const todosState = defineState({
   key: "todos",
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(TodoModel) },
-  mutations: { addTodo: (prev, todo) => ({ ...prev, todos: [...prev.todos, todo] }) },
+  mutations: {
+    addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
+      ...prev,
+      todos: [...prev.todos, todo],
+    }),
+  },
 });
 
 const { data$, mutations } = useStateData(todosState, fetchTodos, params);
@@ -69,7 +74,7 @@ or query/SSR layer; you add those yourself.
 
 The two also differ on two-way binding. MobX binds a form field by mutating the observable;
 rxfy composes a [`Lens`](/core-concepts/lens) over a [`store.entity(id)`](/models-state#modelstore-entity)
-handle and drives it with [`useAtom`](/react#useatom-two-way-binding) — the write flows back
+handle and drives it with [`useAtom`](/react#useatom-and-two-way-binding) — the write flows back
 into the normalized store and reaches every subscriber of that entity.
 
 **Reach for MobX when** you want minimal boilerplate for local/UI/client state and find

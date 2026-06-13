@@ -16,7 +16,7 @@ import { z } from "zod";
 import { createModel, defineState, array } from "rxfy";
 import { StoreProvider, useStateData, useModelStore, Pending } from "rxfy-react";
 
-const Todo = createModel(
+const TodoModel = createModel(
   z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
   { getKey: (t) => t.id, name: "todo" },
 );
@@ -24,7 +24,7 @@ const Todo = createModel(
 const todosState = defineState({
   key: "todos",
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
-  model: { todos: array(Todo) },
+  model: { todos: array(TodoModel) },
   mutations: {
     addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
       ...prev,
@@ -45,7 +45,7 @@ function TodoApp() {
 }
 
 function TodoItem({ id }: { id: string }) {
-  const store = useModelStore(Todo);
+  const store = useModelStore(TodoModel);
   const todo$ = useMemo(() => store.get(id), [store, id]);
   return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
 }

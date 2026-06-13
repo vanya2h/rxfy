@@ -53,6 +53,57 @@ describe("createModelStore", () => {
   });
 });
 
+describe("createModelStore added$", () => {
+  it("emits the key when an entity is first set", () => {
+    const store = createModelStore(postModel);
+    const keys: string[] = [];
+    store.added$.subscribe((k) => keys.push(k));
+    store.set("1", { id: "1", title: "A" });
+    expect(keys).toEqual(["1"]);
+  });
+
+  it("does not re-emit when an existing entity is updated", () => {
+    const store = createModelStore(postModel);
+    const keys: string[] = [];
+    store.added$.subscribe((k) => keys.push(k));
+    store.set("1", { id: "1", title: "A" });
+    store.set("1", { id: "1", title: "B" });
+    expect(keys).toEqual(["1"]);
+  });
+
+  it("emits each key once for setMany", () => {
+    const store = createModelStore(postModel);
+    const keys: string[] = [];
+    store.added$.subscribe((k) => keys.push(k));
+    store.setMany([
+      { id: "1", title: "A" },
+      { id: "2", title: "B" },
+    ]);
+    store.setMany([{ id: "1", title: "A2" }]);
+    expect(keys).toEqual(["1", "2"]);
+  });
+
+  it("replays already-present keys to a late subscriber", () => {
+    const store = createModelStore(postModel);
+    store.setMany([
+      { id: "1", title: "A" },
+      { id: "2", title: "B" },
+    ]);
+    const keys: string[] = [];
+    store.added$.subscribe((k) => keys.push(k));
+    store.set("3", { id: "3", title: "C" });
+    expect(keys).toEqual(["1", "2", "3"]);
+  });
+
+  it("does not emit for keys merely subscribed to via get() but never set", () => {
+    const store = createModelStore(postModel);
+    const keys: string[] = [];
+    store.added$.subscribe((k) => keys.push(k));
+    store.get("ghost").subscribe();
+    expect(keys).toEqual([]);
+  });
+});
+
 describe("createModelRegistry", () => {
   it("returns the same ModelStore for the same descriptor", () => {
     const registry = createModelRegistry();
@@ -200,5 +251,57 @@ describe("registry SSR extensions", () => {
     const registry = createModelRegistry();
     const store = registry.model(namedModel);
     expect(registry.stores()).toEqual([{ descriptor: namedModel, store }]);
+  });
+});
+
+describe("registry added$", () => {
+  const Todo = createModel(z.object({ id: z.string(), title: z.string() }), {
+    getKey: (x) => x.id,
+    name: "todo",
+  });
+  const User = createModel(z.object({ id: z.string(), name: z.string() }), {
+    getKey: (x) => x.id,
+    name: "user",
+  });
+  const Anon = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+
+  it("emits { name, key } for entities added to a named store", () => {
+    const registry = createModelRegistry();
+    const events: Array<{ name: string; key: string }> = [];
+    registry.added$.subscribe((e) => events.push(e));
+    registry.model(Todo).set("1", { id: "1", title: "A" });
+    expect(events).toEqual([{ name: "todo", key: "1" }]);
+  });
+
+  it("tags additions with the store they came from", () => {
+    const registry = createModelRegistry();
+    const events: Array<{ name: string; key: string }> = [];
+    registry.added$.subscribe((e) => events.push(e));
+    registry.model(Todo).set("t1", { id: "t1", title: "A" });
+    registry.model(User).set("u1", { id: "u1", name: "Ada" });
+    expect(events).toEqual([
+      { name: "todo", key: "t1" },
+      { name: "user", key: "u1" },
+    ]);
+  });
+
+  it("replays entities added before subscription, including stores created earlier", () => {
+    const registry = createModelRegistry();
+    registry.model(Todo).set("t1", { id: "t1", title: "A" });
+    const events: Array<{ name: string; key: string }> = [];
+    registry.added$.subscribe((e) => events.push(e));
+    registry.model(Todo).set("t2", { id: "t2", title: "B" });
+    expect(events).toEqual([
+      { name: "todo", key: "t1" },
+      { name: "todo", key: "t2" },
+    ]);
+  });
+
+  it("ignores stores without a name (no topic to address them by)", () => {
+    const registry = createModelRegistry();
+    const events: Array<{ name: string; key: string }> = [];
+    registry.added$.subscribe((e) => events.push(e));
+    registry.model(Anon).set("x", { id: "x" });
+    expect(events).toEqual([]);
   });
 });

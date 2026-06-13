@@ -37,8 +37,8 @@ Prettier config: 120 print width, double quotes, semicolons, trailing commas.
 
 | Package | Purpose |
 |---|---|
-| `packages/rxfy` | Core library — Atom, Edge, Store, Lens, Wrapped |
-| `packages/rxfy-react` | React bindings (`useEdge` hook, `<Edge>` component) |
+| `packages/rxfy` | Core library — Atom, Lens, Wrapped, Model/State, ModelStore, normalization, SSR |
+| `packages/rxfy-react` | React bindings (`useStateData`, `useModelStore`, `useAtom`, `Pending`, `StoreProvider`; `/next` subpath for streaming SSR) |
 | `packages/utils` | Shared TS utilities |
 | `packages/eslint-config` | Shared ESLint 9 flat configs (base / node / react) |
 | `packages/typescript-config` | Shared tsconfig presets (base / node / lib / react) |
@@ -46,12 +46,14 @@ Prettier config: 120 print width, double quotes, semicolons, trailing commas.
 
 ### Core Concepts (packages/rxfy)
 
-- **Atom** — extends `BehaviorSubject` with synchronous `get()`, `set()`, `modify()`. The fundamental reactive cell.
-- **Edge** — wraps async operations; tracks status as a `Wrapped<IDLE|PENDING|FULFILLED|REJECTED, TData>` discriminated union.
-- **Store** — hierarchical container composed of Atoms. `.node()` creates nested sub-stores; `.factory()` / `.factoryBatch()` create keyed item factories backed by p-queue for concurrency control.
-- **Lens** — functional optics (view + edit) for composing reads/writes into nested state. Uses `lodash.isEqual` for change detection.
-- **Wrapped** — the core discriminated union type for async state; drives the status enum pattern used throughout.
-- **Batcher** — RxJS operator that batches emissions over a 250 ms window.
+- **Atom** — extends `Observable<T>` (backed by a `BehaviorSubject`) with synchronous `get()`, `set()`, `modify()`. The fundamental reactive cell. `createAtom(value)`.
+- **Lens** — functional optics (view + edit) for composing reads/writes into nested state; is itself an `IAtom`. Uses `lodash.isEqual` for change detection. `createLens(source$, lens)`, `keyLens(key)`.
+- **Wrapped** — the core `IDLE | PENDING | FULFILLED | REJECTED` discriminated union (`IWrapped`, `StatusEnum`) for async state, with `createIdle/createPending/createFulfilled/createRejected` constructors.
+- **Model** — an entity type plus a `getKey` id extractor (`createModel`); `array()` / `single()` declare model fields. Entities normalize into a shared `ModelStore` (`get`/`set`/`setMany`/`getValue`/`entity`/`valueEntries`), coordinated by a `ModelRegistry`.
+- **State** — `defineState({ key, params, model, mutations })` declares a typed, normalized state shape; the fetch result splits into model stores plus an id-only query shape (`QueryShapeOf`). Backed by a `QueryCache` for SSR dedup.
+- **SSR** — `dehydrate` / `hydrate` / `hydrationScript` snapshot a per-request registry into the HTML and rehydrate it on the client.
+
+The React bindings (`packages/rxfy-react`) expose `useStateData`, `useModelStore`, `useModelRegistry`, `useAtom`, `useObservable`, `usePending`, the `Pending` / `BehaviorSubjectRender` components, and `StoreProvider`; the `rxfy-react/next` subpath adds `<HydrationStream />` for streaming SSR.
 
 ### Build System
 

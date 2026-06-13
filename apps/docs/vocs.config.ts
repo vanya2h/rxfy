@@ -19,5 +19,11 @@ export default defineConfig({
     { text: "Models & State", link: "/models-state" },
     { text: "React Bindings", link: "/react" },
     { text: "Server-Side Rendering", link: "/ssr" },
+    {
+      text: "Guides",
+      items: [
+        { text: "Live updates over WebSockets", link: "/guides/live-updates-websockets" },
+      ],
+    },
   ],
 });

@@ -24,11 +24,14 @@ connections that fetched it.
 - **SSR first paint.** `useStateData` fetches `/api/todos`; the server renders the fulfilled
   list and inlines a hydration script — no loading flash.
 - **Targeted live updates.** The client opens one WebSocket and tells the server which entity
-  ids it depends on (`{ type: "add" | "remove", topics }`, topic = `todo:<id>`). The server
-  keeps **one dependency set per connection** and, on a change, pushes the entity only to the
-  connections whose set includes it (`server/hub.ts`, `publish` is O(connections)). Each client
-  applies the push with `store.setMany`, so every subscriber of that entity re-renders — no
-  refetch, no re-select.
+  ids it depends on (`{ type: "add", topics }`, topic = `todo:<id>`). It derives those ids
+  straight from the model store: `registry.added$` emits every entity that lands in the store
+  (initial fetch, hydration, or a push), so the connection stays live on exactly what it has
+  loaded — no per-query wiring (`src/live/useStoreSubscriptions.ts`). The server keeps **one
+  dependency set per connection** and, on a change, pushes the entity only to the connections
+  whose set includes it (`server/hub.ts`, `publish` is O(connections)). Each client applies the
+  push with `store.setMany`, so every subscriber of that entity re-renders — no refetch, no
+  re-select.
 
 ## The boundary: values vs. list membership
 
@@ -48,7 +51,7 @@ server/db.ts          drizzle schema + in-memory sqlite + seed
 server/hub.ts         per-connection dependency sets + targeted publish
 server/index.ts       hono: SSR + REST API + /ws (single process)
 src/models.ts         createModel / defineState / fetch + REST helpers
-src/live/             liveClient, LiveProvider, useLiveQuery, useLiveEntities
+src/live/             liveClient, LiveProvider, useStoreSubscriptions, useLiveEntities
 src/App.tsx           the todo UI (entity-per-cell subscriptions)
 src/entry-*.tsx       SSR server + client entries
 ```

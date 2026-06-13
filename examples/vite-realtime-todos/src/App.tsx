@@ -1,14 +1,12 @@
 import { useMemo, useState } from "react";
-import { Pending, useObservable, useStateData } from "rxfy-react";
+import { Pending, useStateData } from "rxfy-react";
 import { LiveProvider } from "./live/LiveProvider.tsx";
-import { useLiveQuery } from "./live/useLiveQuery.ts";
 import {
   apiAddTodo,
   apiDeleteTodo,
   apiRenameTodo,
   apiToggleTodo,
   fetchTodos,
-  todoModel,
   todosState,
   useTodoStore,
 } from "./models.ts";
@@ -57,10 +55,9 @@ function TodoItem({ id, onRemove }: { id: string; onRemove: (id: string) => void
 function TodoApp() {
   const params = useMemo(() => ({}), []);
   const { data$, mutations, reload } = useStateData(todosState, fetchTodos, params);
-  const data = useObservable(data$);
 
-  // Subscribe to live updates for exactly the ids this query fetched.
-  useLiveQuery(todoModel, data?.todos ?? []);
+  // No live wiring here: LiveProvider subscribes to whatever lands in the store, so simply
+  // fetching these todos makes them live (see live/useStoreSubscriptions.ts).
 
   const [title, setTitle] = useState("");
 

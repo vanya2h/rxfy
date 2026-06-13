@@ -3,15 +3,33 @@
 A reactive cell — extends `Observable<T>` with synchronous `get()`, `set()`, and
 `modify()` backed by a `BehaviorSubject`. The fundamental reactive primitive.
 
+## Why not just a `BehaviorSubject`?
+
+An Atom is built on a `BehaviorSubject` but deliberately narrows it to a **state cell**:
+
+- **No producer methods on the surface.** Atom extends `Observable<T>`, not
+  `BehaviorSubject<T>`, so `next()`, `error()`, `complete()`, and `unsubscribe()` are
+  not exposed. Every mutation goes through `set()` / `modify()` — the write surface is
+  intention-revealing, not a raw stream you can push anything into.
+- **It can't terminate.** With no `error()` or `complete()`, an Atom has no terminal
+  state. Subscribers never have to handle "this value cell ended" — it lives for the
+  lifetime of your state.
+- **Atomic read-modify-write.** `modify(fn)` reads the current value and writes the
+  result in one call, instead of pairing `getValue()` with `next()` by hand.
+
+Reach for a raw `BehaviorSubject` (or `Subject`) when you actually want stream
+semantics — completion, errors, or an externally driven producer. Reach for an Atom
+when you want a long-lived, synchronously-readable piece of state.
+
 ```ts
 import { createAtom } from "rxfy";
 
 const count = createAtom(0);
 
-count.get();               // 0
+count.get(); // 0
 count.set(5);
 count.modify((n) => n + 1);
-count.get();               // 6
+count.get(); // 6
 
 count.subscribe((n) => console.log(n)); // emits current value, then future changes
 ```
@@ -19,7 +37,7 @@ count.subscribe((n) => console.log(n)); // emits current value, then future chan
 ## Signature
 
 ```ts
-function createAtom<T>(value: T): Atom<T>
+function createAtom<T>(value: T): Atom<T>;
 // Atom<T>: Observable<T> & {
 //   get(): T;
 //   set(val: T): void;

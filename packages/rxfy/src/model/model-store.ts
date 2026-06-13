@@ -1,4 +1,4 @@
-import { filter, type Observable } from "rxjs";
+import { filter, Observable, Subject } from "rxjs";
 import { Atom, createAtom, type IAtom } from "../atom/atom.js";
 import { createLens } from "../lens/lens.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
@@ -17,6 +17,13 @@ export type ModelStore<T> = {
    * Assumes the entity is already loaded; returns `undefined` typed as `T` if the key has not been set.
    */
   entity: (key: EntityKey<T>) => IAtom<T>;
+  /**
+   * Emits a key the first time its entity becomes present (the first `set`); updates to an existing
+   * entity do not re-emit. New subscribers replay the keys already present, so a late subscriber
+   * still learns about everything in the store. Lets a live-update layer track exactly what the
+   * store holds without each query wiring its ids in by hand.
+   */
+  added$: Observable<string>;
 };
 
 export type IModelRegistry = {
@@ -27,10 +34,20 @@ export type IModelRegistry = {
   stores: () => { descriptor: ModelDescriptor<any>; store: ModelStore<any> }[];
   /** Queue entities for a named model; seeds the store now if it exists, or on first creation otherwise. */
   stashHydration: (name: string, entities: Record<string, unknown>) => void;
+  /**
+   * Every entity added to any *named* store, tagged with that store's `name` (the half of a
+   * `name:key` topic). Unnamed stores are skipped — there's no name to address them by. Replays
+   * what's already in the registry to new subscribers, and follows stores created after subscribe.
+   * A live-update client can drive its subscriptions straight off this instead of per-query wiring.
+   */
+  added$: Observable<{ name: string; key: string }>;
 };
 
 export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T> {
   const cells = new Map<string, Atom<T | undefined>>();
+  // Keys with a present value, in insertion order — the snapshot replayed to new added$ subscribers.
+  const present = new Set<string>();
+  const added = new Subject<string>();
 
   const getCell = (key: string): Atom<T | undefined> => {
     let cell = cells.get(key);
@@ -43,11 +60,23 @@ export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<
 
   const set = (key: string, val: T): void => {
     getCell(key).set(val);
+    // First appearance only: record it and announce. Re-sets to an existing key are updates, not adds.
+    if (val !== undefined && !present.has(key)) {
+      present.add(key);
+      added.next(key);
+    }
   };
 
   return {
     get: (key) => markSync(getCell(key).pipe(filter((v): v is T => v !== undefined))),
     set,
+    // Subscribe to future adds first, then replay the current snapshot — single-threaded, so a key
+    // is delivered by exactly one path (no gap, no duplicate).
+    added$: new Observable<string>((subscriber) => {
+      const sub = added.subscribe(subscriber);
+      for (const key of present) subscriber.next(key);
+      return sub;
+    }),
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
     getValue: (key) => cells.get(key)?.get(),
     entity: (key) =>
@@ -72,6 +101,8 @@ export function createModelRegistry(): IModelRegistry {
   const named = new Map<string, ModelStore<any>>();
   const stash = new Map<string, Record<string, unknown>>();
   const queries = createQueryCache();
+  // Fires once per named store as it's created, so added$ subscribers can hook stores born later.
+  const namedCreated = new Subject<{ name: string; store: ModelStore<any> }>();
 
   return {
     queries,
@@ -90,6 +121,9 @@ export function createModelRegistry(): IModelRegistry {
             stash.delete(descriptor.name);
             for (const [key, value] of Object.entries(pending)) store.set(key, value as T);
           }
+          // Announce after seeding: an already-subscribed added$ hooks the store now and replays
+          // the just-stashed keys (the store buffered them in `present`).
+          namedCreated.next({ name: descriptor.name, store });
         }
       }
       return stores.get(descriptor._key) as ModelStore<T>;
@@ -104,5 +138,15 @@ export function createModelRegistry(): IModelRegistry {
         stash.set(name, { ...stash.get(name), ...entities });
       }
     },
+    added$: new Observable<{ name: string; key: string }>((subscriber) => {
+      const subs = [namedCreated.subscribe(({ name, store }) => hook(name, store))];
+      function hook(name: string, store: ModelStore<any>) {
+        subs.push(store.added$.subscribe((key) => subscriber.next({ name, key })));
+      }
+      // Hook stores that already exist (their added$ replays their present keys); namedCreated
+      // covers any born later. Existing stores never go through namedCreated, so no double-hook.
+      for (const [name, store] of named) hook(name, store);
+      return () => subs.forEach((s) => s.unsubscribe());
+    }),
   };
 }
