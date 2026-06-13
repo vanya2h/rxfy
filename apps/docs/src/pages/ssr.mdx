@@ -1,3 +1,89 @@
 # Server-Side Rendering
 
-Content lands in a later task.
+SSR is on-demand — there is no prefetch API. Components declare their data with
+`useStateData` exactly as on the client; on the server (`<StoreProvider ssr>`) a cache
+miss suspends until the fetch settles. Results (fulfilled or rejected) are captured in the
+registry, serialized into the HTML, and ingested on the client so the first paint is
+already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
+
+**Requirements:** give models a `name` and states a `key` (stable string identities), and
+write `fetchFn` to work in both environments (it runs on the server during SSR and on the
+client for reloads).
+
+## Buffered mode (any Node server)
+
+Wait for every Suspense boundary with `onAllReady`, then send the complete document. This
+is the recommended non-Next mode.
+
+```tsx
+import { renderToPipeableStream } from "react-dom/server";
+import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { StoreProvider } from "rxfy-react";
+
+const registry = createModelRegistry(); // one per request
+renderToPipeableStream(
+  <StoreProvider registry={registry} ssr><App /></StoreProvider>,
+  {
+    onAllReady() {
+      // collect the stream to a string, then inject:
+      //   template.replace("<!--app-state-->", hydrationScript(dehydrate(registry)))
+    },
+  },
+);
+```
+
+```tsx
+// client — StoreProvider ingests the injected script automatically
+import { hydrateRoot } from "react-dom/client";
+
+hydrateRoot(
+  document.getElementById("root")!,
+  <StoreProvider ssr><App /></StoreProvider>,
+);
+```
+
+## Streaming mode (Next.js App Router)
+
+`rxfy-react/next` ships `<HydrationStream />`: on each stream flush it emits newly settled
+queries and entities as `window.__RXFY_SSR__.push(...)` script tags; the client
+`StoreProvider` ingests them, including chunks arriving after hydration starts.
+
+```tsx
+// app/providers.tsx
+"use client";
+import { StoreProvider } from "rxfy-react";
+import { HydrationStream } from "rxfy-react/next";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <StoreProvider ssr>
+      <HydrationStream />
+      {children}
+    </StoreProvider>
+  );
+}
+```
+
+`next` is an optional peer dependency — only this subpath needs it.
+
+## Two-pass mode (strict `renderToString`)
+
+For environments without React stream APIs, `collectStateData` loops render passes until
+nothing suspends (each fetch waterfall level costs one extra pass):
+
+```ts
+import { renderToString } from "react-dom/server";
+import { collectStateData } from "rxfy-react";
+
+const html = await collectStateData(registry, () =>
+  renderToString(<StoreProvider registry={registry} ssr><App /></StoreProvider>),
+);
+const state = hydrationScript(dehydrate(registry));
+```
+
+## Error handling
+
+A `fetchFn` rejection on the server is captured as a serialized rejected entry
+(`{ name, message }`, stack stripped) and hydrates as rejected state — the server HTML
+shows your `<Pending rejected>` UI, and its `onReload` retries client-side with a real
+fetch.
