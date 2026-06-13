@@ -108,6 +108,37 @@ describe("model store sync value access", () => {
   });
 });
 
+describe("createModelStore cell semantics", () => {
+  const Post = createModel(z.object({ id: z.string(), title: z.string() }), {
+    getKey: (p) => p.id,
+    name: "post-cell-test",
+  });
+
+  it("get() emits nothing before the first set, then the value", () => {
+    const store = createModelStore(Post);
+    const emissions: unknown[] = [];
+    const sub = store.get("p1").subscribe((v) => emissions.push(v));
+    expect(emissions).toEqual([]); // no undefined leaks out
+    store.set("p1", { id: "p1", title: "Hello" });
+    expect(emissions).toEqual([{ id: "p1", title: "Hello" }]);
+    sub.unsubscribe();
+  });
+
+  it("getValue() reads synchronously and returns undefined for unknown keys", () => {
+    const store = createModelStore(Post);
+    expect(store.getValue("missing")).toBeUndefined();
+    store.set("p1", { id: "p1", title: "Hi" });
+    expect(store.getValue("p1")).toEqual({ id: "p1", title: "Hi" });
+  });
+
+  it("valueEntries() lists only set entries", () => {
+    const store = createModelStore(Post);
+    store.get("subscribed-but-unset").subscribe();
+    store.set("p1", { id: "p1", title: "A" });
+    expect(store.valueEntries()).toEqual([["p1", { id: "p1", title: "A" }]]);
+  });
+});
+
 describe("registry SSR extensions", () => {
   const namedModel = createModel(z.object({ id: z.string(), title: z.string() }), {
     getKey: (x) => x.id,

@@ -1,4 +1,5 @@
-import { Observable, ReplaySubject } from "rxjs";
+import { filter, type Observable } from "rxjs";
+import { Atom, createAtom } from "../atom/atom.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { markSync } from "../ssr/sync-marker.js";
 import type { EntityKey, ModelDescriptor } from "./model.js";
@@ -23,27 +24,30 @@ export type IModelRegistry = {
 };
 
 export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T> {
-  const subjects = new Map<string, ReplaySubject<T>>();
-  const values = new Map<string, T>();
+  const cells = new Map<string, Atom<T | undefined>>();
 
-  const getSubject = (key: string): ReplaySubject<T> => {
-    if (!subjects.has(key)) {
-      subjects.set(key, new ReplaySubject<T>(1));
+  const getCell = (key: string): Atom<T | undefined> => {
+    let cell = cells.get(key);
+    if (!cell) {
+      cell = createAtom<T | undefined>(undefined);
+      cells.set(key, cell);
     }
-    return subjects.get(key)!;
+    return cell;
   };
 
   const set = (key: string, val: T): void => {
-    values.set(key, val);
-    getSubject(key).next(val);
+    getCell(key).set(val);
   };
 
   return {
-    get: (key) => markSync(getSubject(key).asObservable()),
+    get: (key) => markSync(getCell(key).pipe(filter((v): v is T => v !== undefined))),
     set,
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
-    getValue: (key) => values.get(key),
-    valueEntries: () => [...values.entries()],
+    getValue: (key) => cells.get(key)?.get(),
+    valueEntries: () =>
+      [...cells.entries()]
+        .filter(([, cell]) => cell.get() !== undefined)
+        .map(([key, cell]) => [key, cell.get() as T] as [string, T]),
   };
 }
 
