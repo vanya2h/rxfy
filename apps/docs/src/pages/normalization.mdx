@@ -51,16 +51,15 @@ reading one source of truth, not two snapshots that can disagree.
 
 ## Why it matters
 
-Because Alice is a single cell, an update reaches everyone at once. One
-`userStore.set("u1", { ...alice, name: "Alicia" })` — from an edit on the profile page, a
-mutation, or a websocket push — updates the profile header **and** the team row in the same
-render, with no re-fetch and no stale copies. That is why `data$` emits ids rather than
-entities.
+Because Alice is a single cell, an update reaches everyone at once — whether it comes from an
+edit on the profile page, a mutation, or a websocket push:
 
-> **Both states consume the update.** The team page and the profile page each read the user
-> through the shared `UserModel` store (via [`useModelStore`](/react#usemodelstore)), so the
-> new name appears under **both** — even though only one of them wrote it. Neither query
-> re-runs and neither `data$` re-emits: the ids are unchanged, only the entity behind them.
+```ts
+userStore.set("u1", { ...alice, name: "Alicia" });
+```
+
+That one write updates the profile header **and** the team row in the same render, with no
+re-fetch and no stale copies. It is why `data$` emits ids rather than entities.
 
 This holds within a single query too: if a fetch returns the same user as an `author` and a
 `commenter`, both fields normalize to the one cell.
