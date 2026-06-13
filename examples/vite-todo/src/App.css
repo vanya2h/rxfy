@@ -1,124 +1,94 @@
 .app {
-  width: 480px;
-  margin: 0 auto;
-  padding: 40px 0;
+  max-width: 32rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
 }
 
 h1 {
-  font-size: 5rem;
-  font-weight: 100;
-  color: rgba(175, 47, 47, 0.25);
-  text-align: center;
-  margin: 0 0 24px;
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
 }
 
 .add-form {
   display: flex;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  gap: 0.5rem;
+  margin: 1rem 0;
 }
 
 .add-form input {
   flex: 1;
-  padding: 16px;
-  font-size: 1rem;
-  border: none;
-  background: #fafafa;
-  color: #333;
-  outline: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(125, 125, 125, 0.4);
+  background: transparent;
+  color: inherit;
 }
 
-.add-form button {
-  padding: 0 20px;
-  font-size: 1rem;
-  border-radius: 0;
-  border: none;
-  background: #b83f45;
+.add-form button,
+.status button {
+  padding: 0.5rem 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: #646cff;
   color: white;
   cursor: pointer;
 }
 
-.add-form button:hover {
-  background: #9e3038;
-  border-color: transparent;
-}
-
 .filters {
   display: flex;
-  gap: 4px;
-  margin-bottom: 4px;
+  gap: 0.5rem;
+  margin: 1rem 0;
 }
 
 .filters button {
   flex: 1;
-  padding: 8px;
-  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(125, 125, 125, 0.4);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
   color: inherit;
   opacity: 0.6;
+  cursor: pointer;
+  text-transform: capitalize;
 }
 
 .filters button:hover {
   opacity: 1;
-  border-color: rgba(175, 47, 47, 0.3);
 }
 
 .filters button.active {
   opacity: 1;
-  border-color: rgba(175, 47, 47, 0.5);
+  border-color: #646cff;
+  color: #646cff;
 }
 
 .todo-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .todo-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #fafafa;
-  color: #333;
-  border-bottom: 1px solid #ededed;
-}
-
-.todo-item:last-child {
-  border-bottom: none;
-}
-
-.todo-item input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: #b83f45;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(125, 125, 125, 0.2);
 }
 
 .todo-item span {
   flex: 1;
-  font-size: 1rem;
 }
 
 .todo-item span.done {
   text-decoration: line-through;
-  color: #aaa;
+  opacity: 0.5;
 }
 
 .status {
-  text-align: center;
-  padding: 24px;
-  opacity: 0.6;
-  margin: 0;
-  background: #fafafa;
-  color: #333;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  opacity: 0.7;
 }
 
 .status.error {
-  color: #b83f45;
-  opacity: 1;
+  color: #ff6b6b;
 }
