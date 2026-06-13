@@ -49,6 +49,17 @@ fetched it. Each query keeps only **ids**; the entity data lives in the shared s
 The team page resolves `"u1"` against the same store the profile page wrote to — so both are
 reading one source of truth, not two snapshots that can disagree.
 
+The flow, end to end — two independent fetches, one shared store, both pages rendering by id:
+
+```mermaid
+flowchart TD
+  TF["teamState · fetchTeam()"] -->|"normalize (entities by id)"| S
+  PF["profileState · fetchProfile()"] -->|"normalize (entities by id)"| S
+  S[("UserModel store<br/>u1: Alice · u2: Bob<br/><b>single source of truth</b>")]
+  S -->|"reads u1, u2"| TV["Team page<br/>useModelStore"]
+  S -->|"reads u1"| PV["Profile page<br/>useModelStore"]
+```
+
 ## Why it matters
 
 Because Alice is a single cell, an update reaches everyone at once — whether it comes from an
