@@ -1,3 +1,54 @@
 # rxfy
 
-Documentation scaffold — content lands in the next tasks.
+**rxfy** (/ɑɹ ɪks faɪ/) — stream-based state management built on RxJS: normalized
+entities, reactive queries, and first-class SSR.
+
+State is normalized: `data$` emits entity **ids**, and entity data lives in model
+stores. Components render lists by id and subscribe per entity — so a single
+`store.set` (e.g. from a websocket) updates every subscriber without re-fetching
+anything.
+
+## Quick taste
+
+```tsx
+import { useMemo } from "react";
+import { z } from "zod";
+import { createModel, defineState, array } from "rxfy";
+import { StoreProvider, useStateData, useModelStore, Pending } from "rxfy-react";
+
+const Todo = createModel(
+  z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
+  { getKey: (t) => t.id, name: "todo" },
+);
+
+const todosState = defineState({
+  key: "todos",
+  params: z.object({ filter: z.enum(["all", "active", "done"]) }),
+  model: { todos: array(Todo) },
+  mutations: {
+    addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
+      ...prev,
+      todos: [...prev.todos, todo],
+    }),
+  },
+});
+
+function TodoApp() {
+  const { data$, mutations } = useStateData(todosState, fetchTodos, { filter: "all" });
+  return (
+    <Pending value$={data$} pending={<p>Loading...</p>}>
+      {({ todos }) => (
+        <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>
+      )}
+    </Pending>
+  );
+}
+
+function TodoItem({ id }: { id: string }) {
+  const store = useModelStore(Todo);
+  const todo$ = useMemo(() => store.get(id), [store, id]);
+  return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
+}
+```
+
+Continue to [Getting Started](/getting-started).
