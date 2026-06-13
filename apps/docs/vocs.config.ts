@@ -11,7 +11,6 @@ export default defineConfig({
       items: [
         { text: "Atom", link: "/core-concepts/atom" },
         { text: "Lens", link: "/core-concepts/lens" },
-        { text: "Edge", link: "/core-concepts/edge" },
         { text: "Wrapped", link: "/core-concepts/wrapped" },
       ],
     },

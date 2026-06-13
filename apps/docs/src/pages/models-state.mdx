@@ -102,3 +102,25 @@ users.get("1").subscribe(console.log); // emits { id: "1", name: "Alice" }
 
 > `get()` on a key that has never had `set()` called returns an Observable that never
 > emits until `set()` or `setMany()` is called for that key.
+
+## `ModelStore.entity`
+
+`entity(key)` returns a writable `IAtom<T>` over a single entity's cell — a read/write
+handle suitable for field [Lenses](/core-concepts/lens) and form inputs. Reads reflect the
+store; `.set(next)` writes back (equivalent to `store.set(key, next)`), so the change
+propagates to every subscriber of that entity.
+
+```ts
+const post$ = users.entity("1"); // IAtom<User>
+post$.get(); // { id: "1", name: "Alice" }
+post$.set({ id: "1", name: "Bob" }); // === users.set("1", { id: "1", name: "Bob" })
+```
+
+```ts
+// on ModelStore<T>:
+entity: (key: EntityKey<T>) => IAtom<T>
+```
+
+It assumes the entity is already loaded — reading a key that has never been `set` yields
+`undefined` typed as `T`. For the React form-binding pattern, see
+[`useAtom` & two-way binding](/react#useatom-two-way-binding).

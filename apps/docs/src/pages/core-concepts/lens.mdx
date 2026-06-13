@@ -22,3 +22,8 @@ function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>
 function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
 // ILens<S, T>: { get(source: S): T; set(current: T, source: S): S }
 ```
+
+A common use is binding a form input to one field of a stored entity: compose a `keyLens`
+over a [`ModelStore.entity(id)`](/models-state#modelstore-entity) handle and drive it with
+[`useAtom`](/react#useatom-two-way-binding). Edits flow back into the model store and reach
+every subscriber of that entity.

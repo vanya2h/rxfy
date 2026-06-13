@@ -1,8 +1,9 @@
 # Wrapped
 
 `IWrapped` is the discriminated union for async state — the `IDLE / PENDING /
-FULFILLED / REJECTED` pattern used throughout rxfy (it is what an [Edge](/core-concepts/edge)
-tracks). Construct values with the helpers:
+FULFILLED / REJECTED` pattern used throughout rxfy. It is what the query cache holds
+per key (each query is an `Atom<IWrapped<…>>`) and what the [`usePending`](/react#usepending)
+hook returns. Construct values with the helpers:
 
 ```ts
 import { createIdle, createPending, createFulfilled, createRejected } from "rxfy";
