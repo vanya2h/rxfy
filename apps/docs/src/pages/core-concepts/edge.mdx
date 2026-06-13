@@ -1,0 +1,36 @@
+# Edge
+
+Manages an async data load lifecycle. Queues the load via `p-queue`, tracking
+`IDLE → PENDING → FULFILLED | REJECTED` state in an `Atom`.
+
+```ts
+import PQueue from "p-queue";
+import { of } from "rxjs";
+import { createAtom, createEdge, createIdle } from "rxfy";
+
+const queue = new PQueue({ concurrency: 5 });
+const state$ = createAtom(createIdle<{ id: string }>());
+const edge = createEdge(state$, queue, () => of({ id: "42" }));
+
+edge.toObservable().subscribe((user) => console.log(user));
+await edge.next(); // trigger a reload
+```
+
+## Signature
+
+```ts
+function createEdge<T>(
+  state$: IAtom<IEdgeState<T>>,
+  queue: PQueue,
+  loader: () => Observable<T>,
+): IEdge<T>
+
+// IEdge<T>: {
+//   subject$: IAtom<IEdgeState<T>>;
+//   toObservable(): Observable<T>;
+//   next(): Promise<IWrapped<T, StatusEnum.FULFILLED | StatusEnum.REJECTED>>;
+// }
+```
+
+For React, prefer `useStateData` (see [React Bindings](/react)) over wiring Edges by
+hand. The status union it tracks is described in [Wrapped](/core-concepts/wrapped).

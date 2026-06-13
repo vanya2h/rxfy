@@ -1,0 +1,24 @@
+# Lens
+
+A focused, bidirectional view into an `Atom`. Reads and writes propagate in both
+directions. Change detection uses `lodash.isEqual`.
+
+```ts
+import { createAtom, createLens, keyLens } from "rxfy";
+
+const user = createAtom({ id: "1", name: "Alice" });
+const name = createLens(user, keyLens("name"));
+
+name.get();        // "Alice"
+name.set("Bob");
+user.get();        // { id: "1", name: "Bob" }
+```
+
+## Signatures
+
+```ts
+function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>
+
+function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
+// ILens<S, T>: { get(source: S): T; set(current: T, source: S): S }
+```

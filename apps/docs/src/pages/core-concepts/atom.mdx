@@ -1,3 +1,28 @@
 # Atom
 
-Content lands in a later task.
+A reactive cell — extends `Observable<T>` with synchronous `get()`, `set()`, and
+`modify()` backed by a `BehaviorSubject`. The fundamental reactive primitive.
+
+```ts
+import { createAtom } from "rxfy";
+
+const count = createAtom(0);
+
+count.get();               // 0
+count.set(5);
+count.modify((n) => n + 1);
+count.get();               // 6
+
+count.subscribe((n) => console.log(n)); // emits current value, then future changes
+```
+
+## Signature
+
+```ts
+function createAtom<T>(value: T): Atom<T>
+// Atom<T>: Observable<T> & {
+//   get(): T;
+//   set(val: T): void;
+//   modify(fn: (val: T) => T): void;
+// }
+```

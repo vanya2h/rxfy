@@ -1,0 +1,32 @@
+# Wrapped
+
+`IWrapped` is the discriminated union for async state — the `IDLE / PENDING /
+FULFILLED / REJECTED` pattern used throughout rxfy (it is what an [Edge](/core-concepts/edge)
+tracks). Construct values with the helpers:
+
+```ts
+import { createIdle, createPending, createFulfilled, createRejected } from "rxfy";
+
+createIdle<string>();     // { type: "IDLE" }
+createPending<string>();  // { type: "PENDING" }
+createFulfilled("hi");    // { type: "FULFILLED", value: "hi" }
+createRejected("oops");   // { type: "REJECTED", error: "oops" }
+```
+
+## Helpers
+
+| Helper | Returns |
+|---|---|
+| `createIdle<T>()` | `{ type: "IDLE" }` |
+| `createPending<T>()` | `{ type: "PENDING" }` |
+| `createFulfilled<T>(value)` | `{ type: "FULFILLED", value }` |
+| `createRejected<T>(error)` | `{ type: "REJECTED", error }` |
+
+## Signatures
+
+```ts
+function createIdle<T>(): IWrapped<T, StatusEnum.IDLE>
+function createPending<T>(): IWrapped<T, StatusEnum.PENDING>
+function createFulfilled<T>(value: T): IWrapped<T, StatusEnum.FULFILLED>
+function createRejected<T>(error: unknown): IWrapped<T, StatusEnum.REJECTED>
+```
