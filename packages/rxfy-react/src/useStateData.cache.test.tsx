@@ -149,4 +149,26 @@ describe("useStateData cache integration", () => {
 
     expect(registry.queries.entries()).toEqual([]);
   });
+
+  it("client dedup: two components sharing the same keyed state + params trigger fetchFn exactly once", async () => {
+    const registry = createModelRegistry();
+    const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "42", title: "Shared" }] });
+    const wrapper = makeWrapper(registry);
+
+    // Both hooks receive the same registry via context — they will resolve to the same cacheKey "todos:{}"
+    // and therefore share the same query Atom in the registry.
+    const hookA = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
+    const hookB = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
+
+    // Subscribing to both data$ observables: the first subscription flips the Atom IDLE → PENDING
+    // and starts the fetch; the second sees PENDING and does NOT start a second fetch.
+    const [dataA, dataB] = await Promise.all([
+      firstValueFrom(hookA.result.current.data$),
+      firstValueFrom(hookB.result.current.data$),
+    ]);
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(dataA).toEqual({ todos: ["42"] });
+    expect(dataB).toEqual({ todos: ["42"] });
+  });
 });
