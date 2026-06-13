@@ -36,19 +36,29 @@ Both states declare the **same `UserModel`**. rxfy keys every `UserModel` entity
 (`getKey`) and stores it **once**, in a single `UserModel` store — no matter which state
 fetched it. Each query keeps only **ids**; the entity data lives in the shared store:
 
-```ts
-// On the team page — data$ emits ids, not entities
-const { data$: teamData$ } = useStateData(teamState, fetchTeam, { teamId });
-teamData$; // emits { members: ["u1", "u2"] }
+```tsx
+// Team page — data$ emits ids: { members: ["u1", "u2"] }
+function TeamList({ teamId }: { teamId: string }) {
+  const { data$ } = useStateData(teamState, fetchTeam, { teamId });
+  return (
+    <Pending value$={data$}>
+      {({ members }) => members.map((id) => <UserName key={id} id={id} />)}
+    </Pending>
+  );
+}
 
-// On the profile page — its own data$, also ids only
-const { data$: profileData$ } = useStateData(profileState, fetchProfile, { userId });
-profileData$; // emits { user: "u1" }
+// Profile page — its own data$ emits ids: { user: "u1" }
+function Profile({ userId }: { userId: string }) {
+  const { data$ } = useStateData(profileState, fetchProfile, { userId });
+  return <Pending value$={data$}>{({ user }) => <UserName id={user} />}</Pending>;
+}
 
-// Either page resolves an id against the one shared store
-const users = useModelStore(UserModel);
-users.getValue("u1"); // { id: "u1", name: "Alice" }
-users.getValue("u2"); // { id: "u2", name: "Bob" }
+// Both pages render the same entity by id, read from the one shared store
+function UserName({ id }: { id: string }) {
+  const store = useModelStore(UserModel);
+  const user$ = useMemo(() => store.get(id), [store, id]);
+  return <Pending value$={user$}>{(user) => <span>{user.name}</span>}</Pending>;
+}
 ```
 
 The team page resolves `"u1"` against the same store the profile page wrote to — so both are
