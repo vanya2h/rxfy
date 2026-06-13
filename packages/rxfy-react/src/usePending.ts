@@ -1,17 +1,7 @@
 import _ from "lodash";
-import { useCallback, useMemo, useState } from "react";
-import { getAttachedReload, isSyncMarked } from "rxfy";
-import {
-  BehaviorSubject,
-  catchError,
-  concat,
-  distinctUntilChanged,
-  isObservable,
-  map,
-  Observable,
-  of,
-  switchMap,
-} from "rxjs";
+import { useMemo, useState } from "react";
+import { createFulfilled, createPending, createRejected, isSyncMarked, type IWrapped } from "rxfy";
+import { catchError, concat, distinctUntilChanged, isObservable, map, Observable, of } from "rxjs";
 import { useObservable } from "./useObservable.js";
 
 export type ObservableLike<T> = Observable<T> | T;
@@ -20,14 +10,6 @@ function toObservable<T>(val: ObservableLike<T>): Observable<T> {
   if (isObservable(val)) return val;
   return of(val);
 }
-
-type Status = "pending" | "rejected" | "fulfilled";
-
-export type IPendingStatus<T, K extends Status = Status> = {
-  pending: { status: "pending" };
-  rejected: { status: "rejected"; error: unknown; onReload: () => void };
-  fulfilled: { status: "fulfilled"; value: T };
-}[K];
 
 type ProbeResult<T> = { kind: "value"; value: T } | { kind: "error"; error: unknown } | null;
 
@@ -48,54 +30,37 @@ function probeSync<T>(source: ObservableLike<T>): ProbeResult<T> {
 }
 
 /**
- * Tracks an observable as a pending/fulfilled/rejected status for rendering.
+ * Tracks an observable as an IWrapped status for rendering.
  *
  * Contract: `source$` must be referentially stable across renders (memoize it, e.g. from
- * useStateData or useMemo). A new identity restarts the pipeline from "pending" — intended for
- * genuine source changes (new params), but an observable created inline in render restarts
- * every render and never settles.
+ * useStateData or useMemo). A new identity restarts the pipeline from PENDING — intended for
+ * genuine source changes (new params / reload), but an observable created inline in render
+ * restarts every render and never settles.
+ *
+ * Reload is not part of the status object; trigger it via the StateHandle's reload()
+ * or getAttachedReload(source$).
  */
-export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IPendingStatus<T> {
-  const [nonce$] = useState(() => new BehaviorSubject(0));
+export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IWrapped<T> {
   const [initialProbe] = useState(() => probeSync(source$));
 
-  const reload = useCallback(() => {
-    const attached = isObservable(source$) ? getAttachedReload(source$) : undefined;
-    if (attached) attached();
-    else nonce$.next(nonce$.getValue() + 1);
-  }, [source$, nonce$]);
-
-  const target$ = useMemo(
-    () =>
-      nonce$.pipe(
-        switchMap(() => {
-          const emitsSync = isObservable(source$) && isSyncMarked(source$);
-          const pendingEmission = getDefaultValue || emitsSync ? [] : [of<IPendingStatus<T>>({ status: "pending" })];
-          return concat(
-            ...pendingEmission,
-            toObservable(source$).pipe(
-              map((value): IPendingStatus<T> => ({ status: "fulfilled", value })),
-              catchError((error) =>
-                of<IPendingStatus<T>>({
-                  status: "rejected",
-                  error,
-                  onReload: reload,
-                }),
-              ),
-            ),
-          );
-        }),
-        distinctUntilChanged(_.isEqual),
+  const target$ = useMemo(() => {
+    const emitsSync = isObservable(source$) && isSyncMarked(source$);
+    const pendingEmission = getDefaultValue || emitsSync ? [] : [of<IWrapped<T>>(createPending())];
+    return concat(
+      ...pendingEmission,
+      toObservable(source$).pipe(
+        map((value): IWrapped<T> => createFulfilled(value)),
+        catchError((error) => of<IWrapped<T>>(createRejected(error))),
       ),
-    [source$, nonce$, getDefaultValue, reload],
-  );
+    ).pipe(distinctUntilChanged(_.isEqual));
+  }, [source$, getDefaultValue]);
 
-  const initialState = useMemo<IPendingStatus<T>>(() => {
-    if (initialProbe?.kind === "value") return { status: "fulfilled", value: initialProbe.value };
-    if (initialProbe?.kind === "error") return { status: "rejected", error: initialProbe.error, onReload: reload };
-    if (getDefaultValue) return { status: "fulfilled", value: getDefaultValue() };
-    return { status: "pending" };
-  }, [initialProbe, getDefaultValue, reload]);
+  const initialState = useMemo<IWrapped<T>>(() => {
+    if (initialProbe?.kind === "value") return createFulfilled(initialProbe.value);
+    if (initialProbe?.kind === "error") return createRejected(initialProbe.error);
+    if (getDefaultValue) return createFulfilled(getDefaultValue());
+    return createPending();
+  }, [initialProbe, getDefaultValue]);
 
   return useObservable(target$, initialState);
 }

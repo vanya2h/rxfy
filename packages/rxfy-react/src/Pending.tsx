@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
+import { type IWrapped, StatusEnum } from "rxfy";
 import { BehaviorSubject, distinctUntilChanged, noop, skip, tap } from "rxjs";
 import { IRenderable, render } from "./render.js";
-import { IPendingStatus, ObservableLike, usePending } from "./usePending.js";
+import { ObservableLike, usePending } from "./usePending.js";
 
 export type IPendingProps<T> = {
   value$: ObservableLike<T>;
   pending?: IRenderable<void>;
-  rejected?: IRenderable<IPendingStatus<T, "rejected">>;
+  rejected?: IRenderable<IWrapped<T, StatusEnum.REJECTED>>;
   children: IRenderable<T>;
   getDefaultValue?: () => T;
 };
@@ -21,17 +22,17 @@ export function Pending<T>({
   const status = usePending(value$, getDefaultValue);
 
   useEffect(() => {
-    if (status.status === "rejected") {
+    if (status.type === StatusEnum.REJECTED) {
       console.error(status.error);
     }
   }, [status]);
 
-  switch (status.status) {
-    case "pending":
+  switch (status.type) {
+    case StatusEnum.PENDING:
       return render(undefined, pending);
-    case "rejected":
+    case StatusEnum.REJECTED:
       return render(status, rejected);
-    case "fulfilled":
+    case StatusEnum.FULFILLED:
       return render(status.value, children);
     default:
       return null;
