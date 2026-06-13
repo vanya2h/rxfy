@@ -57,6 +57,11 @@ mutation, or a websocket push — updates the profile header **and** the team ro
 render, with no re-fetch and no stale copies. That is why `data$` emits ids rather than
 entities.
 
+> **Both states consume the update.** The team page and the profile page each read the user
+> through the shared `UserModel` store (via [`useModelStore`](/react#usemodelstore)), so the
+> new name appears under **both** — even though only one of them wrote it. Neither query
+> re-runs and neither `data$` re-emits: the ids are unchanged, only the entity behind them.
+
 This holds within a single query too: if a fetch returns the same user as an `author` and a
 `commenter`, both fields normalize to the one cell.
 
