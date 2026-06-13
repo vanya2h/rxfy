@@ -12,7 +12,10 @@ export type ModelStore<T> = {
   /** Synchronous read of the latest value — used by denormalization and dehydration. */
   getValue: (key: string) => T | undefined;
   valueEntries: () => [string, T][];
-  /** Writable handle over a single entity's cell — for field Lenses and form binding. */
+  /**
+   * Writable handle over a single entity's cell — for field Lenses and form binding.
+   * Assumes the entity is already loaded; returns `undefined` typed as `T` if the key has not been set.
+   */
   entity: (key: EntityKey<T>) => IAtom<T>;
 };
 
