@@ -16,7 +16,12 @@ drawn from the existing READMEs (not placeholders).
 - The existing root `docs/` directory holds superpowers plans/specs — it is **not** a
   docs site, so Vocs must live elsewhere.
 - Library packages: `rxfy` (core), `rxfy-react` (React bindings), `utils`.
-- Core concepts (from `CLAUDE.md`): Atom, Edge, Store, Lens, Wrapped, Batcher.
+- Public API surface (verified from `packages/rxfy/src/index.ts`): `atom`, `edge`,
+  `lens`, `model` + `model-store`, `state`, `wrapped`, `query`, `ssr`. **There is no
+  `Store` class with `.node()`/`.factory()`** — `CLAUDE.md` is stale on that point.
+  `Batcher` exists in source but is **not** exported (internal), so it is not documented.
+- The library's headline surface is the high-level Models/State API plus the React
+  bindings; the four reactive primitives (Atom, Lens, Edge, Wrapped) sit underneath.
 - Existing READMEs (`README.md`, `packages/rxfy`, `packages/rxfy-react`) are the source
   of truth for content.
 
@@ -86,12 +91,13 @@ export default defineConfig({
       text: "Core Concepts",
       items: [
         { text: "Atom", link: "/core-concepts/atom" },
-        { text: "Edge", link: "/core-concepts/edge" },
-        { text: "Store", link: "/core-concepts/store" },
         { text: "Lens", link: "/core-concepts/lens" },
+        { text: "Edge", link: "/core-concepts/edge" },
         { text: "Wrapped", link: "/core-concepts/wrapped" },
       ],
     },
+    { text: "Models & State", link: "/models-state" },
+    { text: "React Bindings", link: "/react" },
     { text: "Server-Side Rendering", link: "/ssr" },
   ],
 });
@@ -105,11 +111,12 @@ src/pages/
 ├── index.mdx                  # Introduction — README intro + quick taste
 ├── getting-started.mdx        # Install + minimal usage
 ├── core-concepts/
-│   ├── atom.mdx
-│   ├── edge.mdx
-│   ├── store.mdx
-│   ├── lens.mdx
-│   └── wrapped.mdx
+│   ├── atom.mdx               # createAtom — get/set/modify
+│   ├── lens.mdx               # createLens / keyLens
+│   ├── edge.mdx               # createEdge — async lifecycle
+│   └── wrapped.mdx            # IWrapped / StatusEnum helpers
+├── models-state.mdx           # createModel, defineState, array/single
+├── react.mdx                  # StoreProvider, useStateData, useModelStore, Pending
 └── ssr.mdx                    # SSR modes, from README + rxfy-react SSR docs
 ```
 
