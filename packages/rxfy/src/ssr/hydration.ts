@@ -1,9 +1,8 @@
 import type { IModelRegistry } from "../model/model-store.js";
-import type { QueryEntry } from "../query/query-cache.js";
-import { serializeForHtml } from "./serialize.js";
+import { type SerializedWrapped, deserializeWrapped, serializeForHtml, serializeWrapped } from "./serialize.js";
 
 export type DehydratedState = {
-  queries: Record<string, QueryEntry>;
+  queries: Record<string, SerializedWrapped>;
   models: Record<string, Record<string, unknown>>;
 };
 
@@ -13,8 +12,9 @@ const warnedUnnamed = new WeakSet<object>();
 /** Serializes the registry's query cache (ids) and named model stores (entities) to a JSON-safe snapshot. */
 export function dehydrate(registry: IModelRegistry): DehydratedState {
   const queries: DehydratedState["queries"] = {};
-  for (const [key, entry] of registry.queries.entries()) {
-    queries[key] = entry;
+  for (const [key, wrapped] of registry.queries.entries()) {
+    const serialized = serializeWrapped(wrapped);
+    if (serialized) queries[key] = serialized;
   }
 
   const models: DehydratedState["models"] = {};
@@ -36,7 +36,7 @@ export function hydrate(registry: IModelRegistry, state: DehydratedState): void 
     registry.stashHydration(name, entities);
   }
   for (const [key, entry] of Object.entries(state.queries)) {
-    registry.queries.set(key, entry);
+    registry.queries.getQuery(key).set(deserializeWrapped(entry));
   }
 }
 
