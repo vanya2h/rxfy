@@ -44,10 +44,14 @@ export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<
     set,
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
     getValue: (key) => cells.get(key)?.get(),
-    valueEntries: () =>
-      [...cells.entries()]
-        .filter(([, cell]) => cell.get() !== undefined)
-        .map(([key, cell]) => [key, cell.get() as T] as [string, T]),
+    valueEntries: () => {
+      const result: [string, T][] = [];
+      for (const [key, cell] of cells) {
+        const value = cell.get();
+        if (value !== undefined) result.push([key, value]);
+      }
+      return result;
+    },
   };
 }
 
