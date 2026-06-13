@@ -1,6 +1,7 @@
 import { firstValueFrom } from "rxjs";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { createLens, keyLens } from "../lens/lens.js";
 import { isSyncMarked } from "../ssr/sync-marker.js";
 import { createModel } from "./model.js";
 import { createModelRegistry, createModelStore } from "./model-store.js";
@@ -136,6 +137,30 @@ describe("createModelStore cell semantics", () => {
     store.get("subscribed-but-unset").subscribe();
     store.set("p1", { id: "p1", title: "A" });
     expect(store.valueEntries()).toEqual([["p1", { id: "p1", title: "A" }]]);
+  });
+});
+
+describe("ModelStore.entity", () => {
+  const Post = createModel(z.object({ id: z.string(), title: z.string() }), {
+    getKey: (p) => p.id,
+    name: "post-entity-test",
+  });
+
+  it("exposes a writable IAtom over an entity; writes reach the store", () => {
+    const store = createModelStore(Post);
+    store.set("p1", { id: "p1", title: "Old" });
+    const post$ = store.entity("p1");
+    expect(post$.get()).toEqual({ id: "p1", title: "Old" });
+    post$.set({ id: "p1", title: "New" });
+    expect(store.getValue("p1")).toEqual({ id: "p1", title: "New" });
+  });
+
+  it("a field Lens over the entity round-trips to the store", () => {
+    const store = createModelStore(Post);
+    store.set("p1", { id: "p1", title: "Old" });
+    const title$ = createLens(store.entity("p1"), keyLens<{ id: string; title: string }, "title">("title"));
+    title$.set("Edited");
+    expect(store.getValue("p1")).toEqual({ id: "p1", title: "Edited" });
   });
 });
 

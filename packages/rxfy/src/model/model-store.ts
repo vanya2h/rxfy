@@ -1,5 +1,6 @@
 import { filter, type Observable } from "rxjs";
-import { Atom, createAtom } from "../atom/atom.js";
+import { Atom, type IAtom, createAtom } from "../atom/atom.js";
+import { createLens } from "../lens/lens.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { markSync } from "../ssr/sync-marker.js";
 import type { EntityKey, ModelDescriptor } from "./model.js";
@@ -11,6 +12,8 @@ export type ModelStore<T> = {
   /** Synchronous read of the latest value — used by denormalization and dehydration. */
   getValue: (key: string) => T | undefined;
   valueEntries: () => [string, T][];
+  /** Writable handle over a single entity's cell — for field Lenses and form binding. */
+  entity: (key: EntityKey<T>) => IAtom<T>;
 };
 
 export type IModelRegistry = {
@@ -44,6 +47,11 @@ export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<
     set,
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
     getValue: (key) => cells.get(key)?.get(),
+    entity: (key) =>
+      createLens<T | undefined, T>(getCell(key as string), {
+        get: (source) => source as T,
+        set: (current) => current,
+      }),
     valueEntries: () => {
       const result: [string, T][] = [];
       for (const [key, cell] of cells) {
