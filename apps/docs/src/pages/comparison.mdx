@@ -1,0 +1,88 @@
+# Comparison
+
+How rxfy relates to two popular state libraries. The comparison is against their modern,
+idiomatic forms — **Redux Toolkit** (with RTK Query) and **MobX 6** (`observer`) — not the
+older patterns they replaced.
+
+rxfy's premise is narrower than either: it is built for **normalized server data rendered
+reactively**. `data$` emits entity **ids**, entity values live in per-entity Observable
+cells, and one `store.set` (from a refetch, a mutation, or a websocket) updates exactly the
+components subscribed to that entity — no global re-selection, no refetch. Async fetching,
+normalization, and SSR are one integrated API rather than three libraries wired together.
+
+## At a glance
+
+| | rxfy | Redux Toolkit | MobX 6 |
+|---|---|---|---|
+| **Mental model** | Normalized entity stores + reactive queries | One immutable store updated by reducers | Mutable observable objects |
+| **Reactivity** | RxJS `Observable`s; subscribe per entity | `useSelector` over the store | Transparent read-tracking via `observer` |
+| **Writes** | `store.set` / immutable entity values | Dispatch actions → reducers (immutable) | Mutate observables directly |
+| **Data fetching** | Built in (`useStateData`) | RTK Query (separate slice) or thunks | Roll your own / `flow` |
+| **Normalization** | Built in (`createModel` + `defineState`) | Manual (`createEntityAdapter`) | Not provided |
+| **SSR** | First-class: suspend-on-demand, streaming, hydration | Manual `preloadedState`, or RTK Query SSR | Manual snapshot/serialize |
+| **Schema/validation** | Zod, built in | None | None |
+| **Boilerplate** | Low | Moderate | Very low |
+| **Core deps** | `rxjs`, `zod`, `lodash` | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` |
+| **Learning curve** | RxJS familiarity helps | Moderate | Low |
+
+## vs Redux Toolkit
+
+Redux centralizes state in a single immutable store updated by reducers; components read
+through selectors and `useSelector`, and RTK Query layers on caching and data fetching.
+It is mature, framework-agnostic, and has excellent devtools and time-travel debugging.
+
+rxfy shares Redux's normalized, immutable-at-the-value-level approach but is **stream-first**
+rather than selector-first. Instead of every `useSelector` re-running when the store
+changes, each entity is its own `Observable` cell, so a write notifies only that entity's
+subscribers. And where Redux composes a slice, RTK Query, and manual SSR wiring, rxfy folds
+fetching + normalization + SSR into `useStateData`:
+
+```tsx
+// rxfy: define the shape once, fetch + normalize + cache + SSR come with it
+const todosState = defineState({
+  key: "todos",
+  params: z.object({ filter: z.enum(["all", "active", "done"]) }),
+  model: { todos: array(TodoModel) },
+  mutations: { addTodo: (prev, todo) => ({ ...prev, todos: [...prev.todos, todo] }) },
+});
+
+const { data$, mutations } = useStateData(todosState, fetchTodos, params);
+```
+
+**Reach for Redux Toolkit when** you want the largest ecosystem, time-travel devtools, a
+framework-agnostic single source of truth, or your state is mostly synchronous client state.
+**Reach for rxfy when** normalized server data, per-entity reactive rendering, and SSR are
+the core problem.
+
+## vs MobX
+
+MobX makes plain objects observable and lets you mutate them directly; `observer` components
+re-render based on exactly the fields they read, tracked transparently through proxies. It
+is the least-ceremony option here and very intuitive for local and UI state.
+
+rxfy trades MobX's mutable transparency for **explicit streams and immutable values**. You
+compose `Observable`s and get the full RxJS operator set, and because values are plain
+immutable snapshots they serialize and hydrate cleanly — central to rxfy's SSR story, where
+mutable proxy graphs are harder to capture. MobX, by contrast, has no built-in normalization
+or query/SSR layer; you add those yourself.
+
+The two also differ on two-way binding. MobX binds a form field by mutating the observable;
+rxfy composes a [`Lens`](/core-concepts/lens) over a [`store.entity(id)`](/models-state#modelstore-entity)
+handle and drives it with [`useAtom`](/react#useatom-two-way-binding) — the write flows back
+into the normalized store and reaches every subscriber of that entity.
+
+**Reach for MobX when** you want minimal boilerplate for local/UI/client state and find
+direct mutation intuitive. **Reach for rxfy when** you need normalized shared server state,
+reactive queries, and first-class SSR.
+
+## When rxfy is a good fit
+
+- Your app is driven by **normalized server data** that several views render at once.
+- You want a single live entity update (refetch, mutation, websocket) to reach every
+  subscriber **without re-fetching or re-selecting**.
+- **SSR with no loading flash and no hydration mismatch** matters.
+- Your team is comfortable with **RxJS**, or willing to learn the small surface rxfy uses.
+
+If your state is mostly local UI state, you need a large plugin ecosystem or time-travel
+debugging, or RxJS is a non-starter for your team, Redux Toolkit or MobX will likely serve
+you better — and that's a fine outcome.

@@ -6,6 +6,7 @@ export default defineConfig({
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Getting Started", link: "/getting-started" },
+    { text: "Comparison", link: "/comparison" },
     {
       text: "Core Concepts",
       items: [
