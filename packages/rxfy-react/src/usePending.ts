@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useMemo, useState } from "react";
-import { createFulfilled, createPending, createRejected, isSyncMarked, type IWrapped } from "rxfy";
+import { createFulfilled, createPending, createRejected, isSyncMarked, type IWrapped, StatusEnum } from "rxfy";
 import { catchError, concat, distinctUntilChanged, isObservable, map, Observable, of } from "rxjs";
 import { useObservable } from "./useObservable.js";
 
@@ -40,7 +40,10 @@ function probeSync<T>(source: ObservableLike<T>): ProbeResult<T> {
  * Reload is not part of the status object; trigger it via the StateHandle's reload()
  * or getAttachedReload(source$).
  */
-export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IWrapped<T> {
+export function usePending<T>(
+  source$: ObservableLike<T>,
+  getDefaultValue?: () => T,
+): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED> {
   const [initialProbe] = useState(() => probeSync(source$));
 
   const target$ = useMemo(() => {

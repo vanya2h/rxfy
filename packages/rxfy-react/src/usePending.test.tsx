@@ -42,7 +42,7 @@ describe("usePending sync probe", () => {
     expect(result.current).toEqual({ type: StatusEnum.FULFILLED, value: 7 });
   });
 
-  it("still resolves async sources (unchanged behavior)", async () => {
+  it("resolves a synchronous non-marked observable to FULFILLED without a pending flash", async () => {
     // hoisted: source$ must be referentially stable across renders (see usePending JSDoc) —
     // a completing observable recreated inline would restart pending→fulfilled forever
     const source$ = of(7);
