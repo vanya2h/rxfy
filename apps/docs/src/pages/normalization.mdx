@@ -70,36 +70,9 @@ fetched it. Each query then keeps only **ids**; the entity data lives in the sha
    useModelStore                      useModelStore
 ```
 
-In code, each page subscribes to its own `data$` (which carries only ids) and renders the same
-by-id component, which reads the entity from the shared store:
-
-```tsx
-// Team page — data$ emits ids: { members: ["u1", "u2"] }
-function TeamList({ teamId }: { teamId: string }) {
-  const { data$ } = useStateData(teamState, fetchTeam, { teamId });
-  return (
-    <Pending value$={data$}>
-      {({ members }) => members.map((id) => <UserName key={id} id={id} />)}
-    </Pending>
-  );
-}
-
-// Profile page — its own data$ emits ids: { user: "u1" }
-function Profile({ userId }: { userId: string }) {
-  const { data$ } = useStateData(profileState, fetchProfile, { userId });
-  return <Pending value$={data$}>{({ user }) => <UserName id={user} />}</Pending>;
-}
-
-// Both pages render the same entity by id, read from the one shared store
-function UserName({ id }: { id: string }) {
-  const store = useModelStore(UserModel);
-  const user$ = useMemo(() => store.get(id), [store, id]);
-  return <Pending value$={user$}>{(user) => <span>{user.name}</span>}</Pending>;
-}
-```
-
-The team page resolves `"u1"` against the same store the profile page wrote to — so both render
-the same user, not two snapshots that can disagree.
+Each page subscribes to its own `data$` (ids only) and reads entities by id from the shared
+store. The team page resolves `"u1"` against the same store the profile page wrote to — so both
+render the same user, not two snapshots that can disagree.
 
 ## Why it matters
 
