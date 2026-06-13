@@ -43,6 +43,7 @@ describe("two-way form sync", () => {
     fireEvent.change(screen.getByLabelText("title"), { target: { value: "World" } });
 
     expect(screen.getByTestId("label").textContent).toBe("World");
+    expect((screen.getByLabelText("title") as HTMLInputElement).value).toBe("World");
     expect(registry.model(Post).getValue("p1")).toEqual({ id: "p1", title: "World" });
   });
 });
