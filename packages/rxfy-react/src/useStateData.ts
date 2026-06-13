@@ -1,15 +1,20 @@
 import { useContext, useMemo, useState } from "react";
-import type { FieldsMap, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
+import type { FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
 import {
+  Atom,
   attachReload,
+  createAtom,
+  createFulfilled,
+  createIdle,
+  createPending,
+  createRejected,
   denormalizeValue,
   markSync,
   normalizeResult,
-  rehydrateError,
-  serializeError,
   stableStringify,
+  StatusEnum,
 } from "rxfy";
-import { BehaviorSubject, filter, Observable, Subscription } from "rxjs";
+import { filter, Observable, of, switchMap, throwError } from "rxjs";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
 
@@ -37,90 +42,73 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   const [reloadCounter, setReloadCounter] = useState(0);
 
   return useMemo(() => {
-    // reloadCounter is used here only to trigger a new handle when reload() is called
-    void reloadCounter;
+    void reloadCounter; // reload() bumps this to rebuild the handle
     const fields = state.fields as FieldsMap;
     const cacheKey = state.key ? `${state.key}:${stableStringify(params)}` : undefined;
     const isServer = typeof window === "undefined";
-    const cached = cacheKey ? registry.queries.get<QueryShapeOf<TShape>>(cacheKey) : undefined;
 
-    // SSR on-demand fetching: suspend on cache miss; React re-renders when the promise settles.
-    if (isServer && ssr && !cached) {
+    // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
+    const atom$: Atom<IWrapped<QueryShapeOf<TShape>>> = cacheKey
+      ? registry.queries.getQuery<QueryShapeOf<TShape>>(cacheKey)
+      : createAtom<IWrapped<QueryShapeOf<TShape>>>(createIdle());
+
+    const settle = (run: Promise<TShape>) =>
+      run.then(
+        (result) => atom$.set(createFulfilled(normalizeResult(registry, fields, result))),
+        (error: unknown) => atom$.set(createRejected(error)),
+      );
+
+    // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
+    if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
       if (!cacheKey) {
         console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
       } else {
         const inflight = registry.queries.getPromise(cacheKey);
         if (inflight) throw inflight; // dedup: another component already started this fetch
-        const promise = fetchFn(params, new AbortController().signal).then(
-          (result) => {
-            // normalize BEFORE the re-render so model-store subscriptions are live during SSR
-            registry.queries.set(cacheKey, { status: "fulfilled", value: normalizeResult(registry, fields, result) });
-          },
-          (error: unknown) => {
-            registry.queries.set(cacheKey, { status: "rejected", error: serializeError(error) });
-          },
-        );
+        atom$.set(createPending());
+        const promise = settle(fetchFn(params, new AbortController().signal));
         registry.queries.setPromise(cacheKey, promise);
         throw promise;
       }
     }
 
-    const initialIds = cached?.status === "fulfilled" ? cached.value : null;
-    // subject is shared between data$, set(), and mutations via closure
-    const subject = new BehaviorSubject<QueryShapeOf<TShape> | null>(initialIds);
-    const notNull = filter((v: QueryShapeOf<TShape> | null): v is QueryShapeOf<TShape> => v !== null);
+    const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
-    const writeThrough = (ids: QueryShapeOf<TShape>) => {
-      subject.next(ids);
-      if (cacheKey) registry.queries.set(cacheKey, { status: "fulfilled", value: ids });
-    };
+    // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows pending).
+    const derived$ = atom$.pipe(
+      filter((w) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED),
+      switchMap((w) => (w.type === StatusEnum.FULFILLED ? of(w.value) : throwError(() => toError(w.error)))),
+    );
 
     let data$: Observable<QueryShapeOf<TShape>>;
-    if (cached?.status === "rejected") {
-      // hydrated rejection: error synchronously; entry persists until reload() deletes it
-      const error = cached.error;
-      data$ = markSync(
-        new Observable<QueryShapeOf<TShape>>((subscriber) => {
-          subscriber.error(rehydrateError(error));
-        }),
-      );
-    } else if (initialIds !== null) {
-      // cache hit: emit synchronously, no fetch
-      data$ = markSync(subject.pipe(notNull));
+    const initial = atom$.get().type;
+    const settled = initial === StatusEnum.FULFILLED || initial === StatusEnum.REJECTED;
+    if (settled) {
+      // cache hit / hydrated: emit synchronously, no fetch (markSync lets usePending probe it at render)
+      data$ = markSync(derived$);
     } else {
-      // miss: fetch on subscribe (current behavior), normalize + write through on settle
+      // IDLE or shared in-flight PENDING: fetch on subscribe only if still IDLE, else just wait for settle
       data$ = new Observable<QueryShapeOf<TShape>>((subscriber) => {
-        // a previous subscription (or mutation) already populated this handle — reuse it;
-        // reload() is the explicit re-fetch path
-        if (subject.getValue() !== null) {
-          const replaySub = subject.pipe(notNull).subscribe(subscriber);
-          return () => replaySub.unsubscribe();
+        const sub = derived$.subscribe(subscriber);
+        let controller: AbortController | undefined;
+        if (atom$.get().type === StatusEnum.IDLE) {
+          atom$.set(createPending());
+          controller = new AbortController();
+          void settle(fetchFn(params, controller.signal));
         }
-
-        let innerSub: Subscription | undefined;
-        const controller = new AbortController();
-
-        fetchFn(params, controller.signal)
-          .then((result) => {
-            if (subscriber.closed) return;
-            writeThrough(normalizeResult(registry, fields, result));
-            innerSub = subject.pipe(notNull).subscribe(subscriber);
-          })
-          .catch((err: unknown) => {
-            if (!subscriber.closed) subscriber.error(err);
-          });
-
         return () => {
-          controller.abort();
-          innerSub?.unsubscribe();
+          controller?.abort();
+          sub.unsubscribe();
         };
       });
     }
 
+    const writeThrough = (ids: QueryShapeOf<TShape>) => atom$.set(createFulfilled(ids));
+
     const applyUpdate = (updater: (prev: TShape) => TShape) => {
-      const currentIds = subject.getValue();
-      if (currentIds === null) return;
-      const prev = denormalizeValue<TShape>(registry, fields, currentIds);
+      const current = atom$.get();
+      if (current.type !== StatusEnum.FULFILLED) return;
+      const prev = denormalizeValue<TShape>(registry, fields, current.value);
       writeThrough(normalizeResult(registry, fields, updater(prev)));
     };
 

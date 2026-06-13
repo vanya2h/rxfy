@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { renderToString } from "react-dom/server";
-import { createModel, createModelRegistry, type DehydratedState } from "rxfy";
+import { createFulfilled, createModel, createModelRegistry, type DehydratedState, StatusEnum } from "rxfy";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { StoreProvider } from "../StoreProvider.js";
@@ -34,11 +34,11 @@ describe("HydrationStream", () => {
     expect(flush()).toBeNull();
 
     registry.model(todoModel).set("1", { id: "1", title: "A" });
-    registry.queries.set("todos:{}", { status: "fulfilled", value: { todos: ["1"] } });
+    registry.queries.getQuery<{ todos: string[] }>("todos:{}").set(createFulfilled({ todos: ["1"] }));
 
     const first = extractPayload(flush());
     expect(first).toEqual({
-      queries: { "todos:{}": { status: "fulfilled", value: { todos: ["1"] } } },
+      queries: { "todos:{}": { type: StatusEnum.FULFILLED, value: { todos: ["1"] } } },
       models: { todo: { "1": { id: "1", title: "A" } } },
     });
 
@@ -59,7 +59,7 @@ describe("HydrationStream", () => {
         <HydrationStream />
       </StoreProvider>,
     );
-    registry.queries.set("k", { status: "fulfilled", value: "</script>" });
+    registry.queries.getQuery<string>("k").set(createFulfilled("</script>"));
     const html = renderToString(<>{insertedCallbacks[0]!()}</>);
     expect(html).not.toContain("</script><script>");
     expect(html).toContain("\\u003c/script>");

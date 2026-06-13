@@ -2,7 +2,7 @@
 import { PassThrough } from "node:stream";
 import { Suspense } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
-import { array, createModel, createModelRegistry, defineState, dehydrate, type IModelRegistry } from "rxfy";
+import { array, createModel, createModelRegistry, defineState, dehydrate, type IModelRegistry, StatusEnum } from "rxfy";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Pending } from "../Pending.js";
@@ -99,7 +99,7 @@ describe("buffered SSR (renderToPipeableStream + onAllReady)", () => {
 
     const payload = dehydrate(registry);
     expect(payload.queries["todos:{}"]).toEqual({
-      status: "rejected",
+      type: StatusEnum.REJECTED,
       error: { name: "Error", message: "api down" },
     });
   });

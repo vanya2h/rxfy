@@ -45,6 +45,14 @@ describe("useStateData", () => {
     expect(fetchFn).toHaveBeenCalledWith({ page: 0 }, expect.any(AbortSignal));
   });
 
+  it("surfaces a rejected fetch as an error on data$", async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error("network down"));
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 7 }), { wrapper });
+
+    await expect(firstValueFrom(result.current.data$)).rejects.toThrow("network down");
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
   it("emits a normalized id for single fields", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ user: { id: "u1", name: "Ann" } });
     const { result } = renderHook(() => useStateData(singleState, fetchFn, { id: "u1" }), { wrapper });

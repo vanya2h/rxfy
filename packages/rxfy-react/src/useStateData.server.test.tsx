@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { Suspense } from "react";
 import { renderToString } from "react-dom/server";
-import { array, createModel, createModelRegistry, defineState, type IModelRegistry } from "rxfy";
+import { array, createModel, createModelRegistry, defineState, type IModelRegistry, StatusEnum } from "rxfy";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Pending } from "./Pending.js";
@@ -80,17 +80,18 @@ describe("useStateData server suspend (ssr mode)", () => {
     expect(registry.model(todoModel).getValue("1")).toEqual({ id: "1", title: "A" });
   });
 
-  it("fetch rejection is captured as a serialized rejected entry", async () => {
+  it("fetch rejection is captured as a rejected query entry", async () => {
     const registry = createModelRegistry();
     const fetchFn = vi.fn().mockRejectedValue(new TypeError("backend down"));
 
     renderApp(registry, fetchFn);
     await Promise.all(registry.queries.inflight());
 
-    expect(registry.queries.get("todos:{}")).toEqual({
-      status: "rejected",
-      error: { name: "TypeError", message: "backend down" },
-    });
+    const entry = registry.queries.peek("todos:{}");
+    expect(entry?.type).toBe(StatusEnum.REJECTED);
+    const error = entry?.type === StatusEnum.REJECTED ? entry.error : undefined;
+    expect(error).toBeInstanceOf(TypeError);
+    expect((error as Error).message).toBe("backend down");
   });
 
   it("ssr=false: never suspends, never fetches on the server (backward compatible)", () => {

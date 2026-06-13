@@ -1,5 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
-import { array, createModel, createModelRegistry, defineState, type IModelRegistry } from "rxfy";
+import {
+  array,
+  createFulfilled,
+  createModel,
+  createModelRegistry,
+  createRejected,
+  defineState,
+  type IModelRegistry,
+} from "rxfy";
 import { firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -28,7 +36,7 @@ function makeWrapper(registry: IModelRegistry) {
 
 function seedFulfilled(registry: IModelRegistry) {
   registry.model(todoModel).set("1", { id: "1", title: "Hydrated" });
-  registry.queries.set("todos:{}", { status: "fulfilled", value: { todos: ["1"] } });
+  registry.queries.getQuery<{ todos: string[] }>("todos:{}").set(createFulfilled({ todos: ["1"] }));
 }
 
 describe("useStateData cache integration", () => {
@@ -56,7 +64,7 @@ describe("useStateData cache integration", () => {
     });
     await firstValueFrom(result.current.data$);
 
-    expect(registry.queries.get("todos:{}")).toEqual({ status: "fulfilled", value: { todos: ["9"] } });
+    expect(registry.queries.peek("todos:{}")).toEqual(createFulfilled({ todos: ["9"] }));
   });
 
   it("mutations write through to the cache (remounts see mutated data)", () => {
@@ -69,7 +77,7 @@ describe("useStateData cache integration", () => {
     });
     act(() => result.current.mutations.addTodo({ id: "2", title: "New" }));
 
-    expect(registry.queries.get("todos:{}")).toEqual({ status: "fulfilled", value: { todos: ["1", "2"] } });
+    expect(registry.queries.peek("todos:{}")).toEqual(createFulfilled({ todos: ["1", "2"] }));
     expect(registry.model(todoModel).getValue("2")).toEqual({ id: "2", title: "New" });
   });
 
@@ -110,9 +118,11 @@ describe("useStateData cache integration", () => {
     expect(registry.model(todoModel).getValue("1")).toEqual({ id: "1", title: "Fresh" });
   });
 
-  it("hydrated rejection: data$ errors synchronously with a rehydrated Error", () => {
+  it("hydrated rejection: data$ errors synchronously with the rejected Error", () => {
     const registry = createModelRegistry();
-    registry.queries.set("todos:{}", { status: "rejected", error: { name: "FetchError", message: "boom" } });
+    const fetchError = new Error("boom");
+    fetchError.name = "FetchError";
+    registry.queries.getQuery("todos:{}").set(createRejected(fetchError));
     const fetchFn = vi.fn();
 
     const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
