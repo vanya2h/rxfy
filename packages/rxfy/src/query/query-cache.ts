@@ -2,13 +2,13 @@ import { Atom, createAtom } from "../atom/atom.js";
 import { type IWrapped, StatusEnum, createIdle } from "../wrapped/wrapped.js";
 
 export type QueryCache = {
-  /** Get-or-create the query's status Atom, seeded IDLE. Shared per key → dedup. */
+  /** Get-or-create the query's status Atom, seeded IDLE. Shared per key → dedup. Note: TValue is an unchecked assertion — the cache stores Atom<IWrapped<unknown>> internally, matching how peek works. */
   getQuery: <TValue = unknown>(key: string) => Atom<IWrapped<TValue>>;
   /** Current value without creating a cell — used by serialization and sync reads. */
   peek: <TValue = unknown>(key: string) => IWrapped<TValue> | undefined;
   delete: (key: string) => void;
   /** Terminal-state entries (FULFILLED/REJECTED) for serialization. */
-  entries: () => [string, IWrapped][];
+  entries: () => [string, IWrapped<unknown>][];
   /** In-flight promise slot — SSR Suspense throws and server-side request dedup. Never serialized. */
   getPromise: (key: string) => Promise<unknown> | undefined;
   setPromise: (key: string, promise: Promise<unknown>) => void;
@@ -38,7 +38,9 @@ export function createQueryCache(): QueryCache {
       promises.delete(key);
     },
     entries: () =>
-      [...atoms.entries()].map(([k, a]) => [k, a.get()] as [string, IWrapped]).filter(([, w]) => isTerminal(w)),
+      [...atoms.entries()]
+        .map(([k, a]) => [k, a.get()] as [string, IWrapped<unknown>])
+        .filter(([, w]) => isTerminal(w)),
     getPromise: (key) => promises.get(key),
     setPromise: (key, promise) => {
       promises.set(key, promise);

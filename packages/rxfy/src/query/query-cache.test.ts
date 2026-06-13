@@ -57,4 +57,26 @@ describe("createQueryCache", () => {
     cache.setPromise("k", p);
     expect(cache.inflight()).toEqual([p]);
   });
+
+  it("getQuery after delete returns a fresh IDLE atom", () => {
+    const cache = createQueryCache();
+    const first = cache.getQuery("k");
+    first.set(createFulfilled(1));
+    cache.delete("k");
+    const second = cache.getQuery("k");
+    expect(second).not.toBe(first);
+    expect(second.get()).toEqual({ type: StatusEnum.IDLE });
+  });
+
+  it("clears the in-flight promise from inflight() after it settles", async () => {
+    const cache = createQueryCache();
+    let resolve!: () => void;
+    const p = new Promise<void>((r) => (resolve = r));
+    cache.setPromise("k", p);
+    expect(cache.inflight()).toEqual([p]);
+    resolve();
+    await p;
+    expect(cache.inflight()).toEqual([]);
+    expect(cache.getPromise("k")).toBeUndefined();
+  });
 });

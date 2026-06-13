@@ -24,7 +24,7 @@ describe("dehydrate", () => {
     registry.model(todoModel).set("1", { id: "1", title: "A" });
     registry.queries
       .getQuery("k")
-      .set({ type: StatusEnum.REJECTED, error: { name: "Error", message: "boom" } } as any);
+      .set({ type: StatusEnum.REJECTED, error: { name: "Error", message: "boom" } });
     const state = dehydrate(registry);
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
   });
