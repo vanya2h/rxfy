@@ -10,6 +10,7 @@
     "changeset:publish": "turbo run build && changeset publish",
     "changeset:version": "changeset version",
     "check-types": "turbo run check-types",
+    "docs": "turbo run dev --filter=docs",
     "lint": "turbo run lint",
     "sort-pkg": "sort-package-json \"package.json\" \"code/packages/*/package.json\" \"code/apps/*/package.json\"",
     "test": "turbo run test"
