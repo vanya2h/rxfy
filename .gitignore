@@ -9,3 +9,4 @@ dist
 vite.config.ts.timestamp*
 .DS_Store
 .claude/settings.json
+apps/docs/src/pages.gen.ts
