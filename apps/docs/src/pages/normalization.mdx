@@ -51,13 +51,23 @@ reading one source of truth, not two snapshots that can disagree.
 
 The flow, end to end — two independent fetches, one shared store, both pages rendering by id:
 
-```mermaid
-flowchart TD
-  TF["teamState · fetchTeam()"] -->|"normalize (entities by id)"| S
-  PF["profileState · fetchProfile()"] -->|"normalize (entities by id)"| S
-  S[("UserModel store<br/>u1: Alice · u2: Bob<br/><b>single source of truth</b>")]
-  S -->|"reads u1, u2"| TV["Team page<br/>useModelStore"]
-  S -->|"reads u1"| PV["Profile page<br/>useModelStore"]
+```text
+   teamState                          profileState
+   fetchTeam()                        fetchProfile()
+        \                                /
+         \         normalize            /
+          \     (entities by id)       /
+           v                          v
+        +--------------------------------+
+        |         UserModel store        |
+        |      u1: Alice  ·  u2: Bob      |
+        |      single source of truth     |
+        +--------------------------------+
+           |                          |
+           |  reads u1, u2            |  reads u1
+           v                          v
+   Team page                          Profile page
+   useModelStore                      useModelStore
 ```
 
 ## Why it matters
