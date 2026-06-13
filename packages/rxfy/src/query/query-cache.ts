@@ -1,5 +1,5 @@
 import { Atom, createAtom } from "../atom/atom.js";
-import { type IWrapped, StatusEnum, createIdle } from "../wrapped/wrapped.js";
+import { createIdle, type IWrapped, StatusEnum } from "../wrapped/wrapped.js";
 
 export type QueryCache = {
   /** Get-or-create the query's status Atom, seeded IDLE. Shared per key → dedup. Note: TValue is an unchecked assertion — the cache stores Atom<IWrapped<unknown>> internally, matching how peek works. */

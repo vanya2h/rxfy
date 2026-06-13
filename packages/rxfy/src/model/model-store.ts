@@ -1,5 +1,5 @@
 import { filter, type Observable } from "rxjs";
-import { Atom, type IAtom, createAtom } from "../atom/atom.js";
+import { Atom, createAtom, type IAtom } from "../atom/atom.js";
 import { createLens } from "../lens/lens.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { markSync } from "../ssr/sync-marker.js";

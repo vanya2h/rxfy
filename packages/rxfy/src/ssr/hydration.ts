@@ -1,5 +1,5 @@
 import type { IModelRegistry } from "../model/model-store.js";
-import { type SerializedWrapped, deserializeWrapped, serializeForHtml, serializeWrapped } from "./serialize.js";
+import { deserializeWrapped, type SerializedWrapped, serializeForHtml, serializeWrapped } from "./serialize.js";
 
 export type DehydratedState = {
   queries: Record<string, SerializedWrapped>;

@@ -22,9 +22,7 @@ describe("dehydrate", () => {
   it("is JSON round-trip safe", () => {
     const registry = createModelRegistry();
     registry.model(todoModel).set("1", { id: "1", title: "A" });
-    registry.queries
-      .getQuery("k")
-      .set({ type: StatusEnum.REJECTED, error: { name: "Error", message: "boom" } });
+    registry.queries.getQuery("k").set({ type: StatusEnum.REJECTED, error: { name: "Error", message: "boom" } });
     const state = dehydrate(registry);
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
   });

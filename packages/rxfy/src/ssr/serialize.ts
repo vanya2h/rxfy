@@ -1,4 +1,4 @@
-import { type IWrapped, StatusEnum, createFulfilled, createRejected } from "../wrapped/wrapped.js";
+import { createFulfilled, createRejected, type IWrapped, StatusEnum } from "../wrapped/wrapped.js";
 
 export type SerializedError = { name: string; message: string };
 

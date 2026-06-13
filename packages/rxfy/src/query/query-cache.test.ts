@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { StatusEnum, createFulfilled, createPending, createRejected } from "../wrapped/wrapped.js";
+import { createFulfilled, createPending, createRejected, StatusEnum } from "../wrapped/wrapped.js";
 import { createQueryCache } from "./query-cache.js";
 
 describe("createQueryCache", () => {
