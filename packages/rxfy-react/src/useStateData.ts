@@ -1,7 +1,6 @@
 import { useContext, useMemo, useState } from "react";
-import type { FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
+import type { Atom, FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
 import {
-  Atom,
   attachReload,
   createAtom,
   createFulfilled,
@@ -74,6 +73,8 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
+    // REJECTED is only ever the terminal state of an initial fetch — post-FULFILLED writes
+    // (set/mutations) are always FULFILLED — so erroring/tearing down the stream here is safe.
     // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows pending).
     const derived$ = atom$.pipe(
       filter((w) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED),
