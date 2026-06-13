@@ -4,58 +4,67 @@ Normalization is the idea rxfy is built around: store each entity **once**, keye
 and reference it by id everywhere else. This page explains what that means and why it matters;
 [Models & State](/models-state) covers the API that does it.
 
-## The problem: duplicated entities
+## The problem: the same entity on two pages
 
-A typical API response nests and **duplicates** entities. Here a post's `author` also left a
-comment, so the same user is embedded twice:
-
-```json
-// denormalized — user "u1" (Alice) appears in two places
-{
-  "post": { "id": "p1", "title": "Hello" },
-  "author": { "id": "u1", "name": "Alice" },
-  "commenters": [
-    { "id": "u1", "name": "Alice" },
-    { "id": "u2", "name": "Bob" }
-  ]
-}
-```
-
-Duplicated copies drift apart: rename Alice and you have to find and patch every copy, and any
-view still holding an old one is now wrong.
-
-## Storing each entity once
-
-**Normalizing** means storing each entity once, keyed by its id, in a per-model lookup table —
-then referencing it by id everywhere else. rxfy does this on every fetch: `createModel` +
-`getKey` define the id, `defineState` says which fields hold which model, and the fetch payload
-is split into model stores (entities, by id) plus a **query shape** of ids:
+A **team page** lists users; a **profile page** shows one user in detail. They are separate
+features with their own fetches and their own state — but they overlap: Alice (`u1`) is both a
+team member and the profile being viewed.
 
 ```ts
-// UserModel store — Alice stored once, shared by author + commenters
-{ u1: { id: "u1", name: "Alice" }, u2: { id: "u2", name: "Bob" } }
-// PostModel store
-{ p1: { id: "p1", title: "Hello" } }
+// Team page — its own state
+const teamState = defineState({
+  key: "team",
+  params: z.object({ teamId: z.string() }),
+  model: { members: array(UserModel) },
+});
 
-// what data$ emits — ids only
-{ post: "p1", author: "u1", commenters: ["u1", "u2"] }
+// Profile page — its own, separate state
+const profileState = defineState({
+  key: "profile",
+  params: z.object({ userId: z.string() }),
+  model: { user: single(UserModel) },
+});
 ```
+
+If each page kept its **own copy** of the user — local component state, or a per-feature store
+slice — you'd have two Alices. Rename her on the profile page and the team row stays stale
+until it happens to re-fetch. The two copies have drifted, and one of them is now wrong.
+
+## One store, shared by id
+
+Both states declare the **same `UserModel`**. rxfy keys every `UserModel` entity by its id
+(`getKey`) and stores it **once**, in a single `UserModel` store — no matter which state
+fetched it. Each query keeps only **ids**; the entity data lives in the shared store:
+
+```ts
+// UserModel store — one Alice, written by BOTH teamState and profileState
+{ u1: { id: "u1", name: "Alice" }, u2: { id: "u2", name: "Bob" } }
+
+// teamState's data$ emits ids
+{ members: ["u1", "u2"] }
+// profileState's data$ emits ids
+{ user: "u1" }
+```
+
+The team page resolves `"u1"` against the same store the profile page wrote to — so both are
+reading one source of truth, not two snapshots that can disagree.
 
 ## Why it matters
 
-Now Alice lives in exactly one place. Components render by id and subscribe to that single
-entity, so one `userStore.set("u1", { ...alice, name: "Alicia" })` — from a refetch, a
-mutation, or a websocket — updates the author byline **and** the comment in the same render,
-with no re-fetch and no stale copies. That is why `data$` emits ids rather than entities.
+Because Alice is a single cell, an update reaches everyone at once. One
+`userStore.set("u1", { ...alice, name: "Alicia" })` — from an edit on the profile page, a
+mutation, or a websocket push — updates the profile header **and** the team row in the same
+render, with no re-fetch and no stale copies. That is why `data$` emits ids rather than
+entities.
 
-Two entities of the same model with the same id are the same cell, even across different
-queries: a user returned by a "current user" fetch and by a "post authors" list is stored
-once, so both views stay in lockstep.
+This holds within a single query too: if a fetch returns the same user as an `author` and a
+`commenter`, both fields normalize to the one cell.
 
 ## In rxfy
 
 - [`createModel`](/models-state#createmodel) defines an entity type and its id (`getKey`).
 - [`defineState`](/models-state#definestate) declares which fields hold which model; the fetch
-  result is normalized into stores + an id-only query shape automatically.
+  result is normalized into the shared model stores plus an id-only query shape automatically.
 - [`data$`](/react#usestatedata) emits that id shape; [`useModelStore`](/react#usemodelstore)
-  reads an entity by id and re-renders only when that entity changes.
+  reads an entity by id and re-renders only when that entity changes — across every page that
+  references it.
