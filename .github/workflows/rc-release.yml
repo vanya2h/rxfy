@@ -16,6 +16,14 @@ jobs:
     environment: staging
 
     steps:
+      - name: Verify required secrets
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          : "${PAT_TOKEN:?PAT_TOKEN secret is not set — add it to the 'staging' environment (Settings → Environments)}"
+          : "${NPM_TOKEN:?NPM_TOKEN secret is not set — add it to the 'staging' environment (Settings → Environments)}"
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
