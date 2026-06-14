@@ -48,10 +48,10 @@ jobs:
 
       - name: Enter pre-release mode
         run: |
-          if [ ! -f .changeset/pre.json ]; then
+          if ! grep -q '"mode": *"pre"' .changeset/pre.json 2>/dev/null; then
             npx changeset pre enter rc
             git add .changeset/pre.json
-            git commit -m "chore: enter pre-release mode [skip ci]"
+            git diff --cached --quiet || git commit -m "chore: enter pre-release mode [skip ci]"
           fi
 
       - name: Version packages
