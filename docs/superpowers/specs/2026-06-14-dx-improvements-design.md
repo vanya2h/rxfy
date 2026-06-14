@@ -142,12 +142,14 @@ function createLens<TSource, TTarget>(
 ```
 
 Default `equals` = `_.isEqual` (current behavior, fully backwards compatible). Thread it through the
-three comparison sites in `Lens`:
+two `TTarget` comparison sites in `Lens`:
 - the `distinctUntilChanged` on the source → subject sync,
-- the `tap` write guard,
-- the `set` write-back guard.
+- the `tap` write guard.
 
-`useObservable` / `usePending` are untouched.
+The `set` write-back guard (`lens.ts:63`) is intentionally left on `_.isEqual`: it compares
+`updated`/`sourceVal`, which are `TSource` (the whole source object), not `TTarget` — the
+`TTarget` comparator does not apply there, and it runs only on explicit `set()` (not the hot
+emission path). `useObservable` / `usePending` are untouched.
 
 ## Item 4 — Docs
 
@@ -183,8 +185,8 @@ Error handling, Testing, Live updates over WebSockets.
     all entities present.
   - `entity()` guard — `model-store.test.ts`: throws with a descriptive message when read before
     load; works unchanged after `set`.
-  - `createLens` `equals` — `lens.test.ts`: custom comparator suppresses / allows emissions as
-    expected; default behavior unchanged when `opts` omitted.
+  - `createLens` `equals` — `lens.test.ts`: custom comparator suppresses / allows emissions on the
+    `TTarget` path as expected; default behavior unchanged when `opts` omitted.
 - **React (`rxfy-react`):**
   - `useEntity` / `useEntity$` — new test file: pending before load, fulfilled after `set`, no
     pending flash for a pre-seeded (hydrated) store.
