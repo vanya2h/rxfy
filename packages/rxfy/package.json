@@ -1,6 +1,6 @@
 {
   "name": "rxfy",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "description": "stream-based data management",
   "homepage": "https://github.com/vanya2h/rxfy#readme",
   "bugs": {
