@@ -25,10 +25,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vanya2h/rxfy.git"
+    "url": "git+https://github.com/vanya2h/rxfy.git",
+    "directory": "packages/rxfy-react"
   },
+  "license": "MIT",
   "author": "hi@vanya2h.me",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.js",

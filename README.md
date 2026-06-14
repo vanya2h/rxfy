@@ -104,3 +104,7 @@ Three supported modes: streaming (Next.js App Router via `rxfy-react/next`'s `<H
 - [rxfy: Core API reference](packages/rxfy/README.md)
 - [rxfy-react: React bindings reference](packages/rxfy-react/README.md)
 - [Example app with working SSR (vite-todo)](examples/vite-todo)
+
+## License
+
+[MIT](LICENSE)

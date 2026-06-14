@@ -24,15 +24,23 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vanya2h/rxfy.git"
+    "url": "git+https://github.com/vanya2h/rxfy.git",
+    "directory": "packages/rxfy"
   },
+  "license": "MIT",
   "author": "hi@vanya2h.me",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "main": "./dist/index.js",
