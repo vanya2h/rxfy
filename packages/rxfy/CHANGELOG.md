@@ -1,5 +1,11 @@
 # rxfy
 
+## 1.0.1
+
+### Patch Changes
+
+- 9385b4e: Point package `homepage` at the documentation website (https://rxfy.vanya2h.me) and add documentation links to the READMEs.
+
 ## 1.0.0
 
 ### Major Changes
