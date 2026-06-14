@@ -53,7 +53,7 @@ Prettier config: 120 print width, double quotes, semicolons, trailing commas.
 - **State** — `defineState({ key, params, model, mutations })` declares a typed, normalized state shape; the fetch result splits into model stores plus an id-only query shape (`QueryShapeOf`). Backed by a `QueryCache` for SSR dedup.
 - **SSR** — `dehydrate` / `hydrate` / `hydrationScript` snapshot a per-request registry into the HTML and rehydrate it on the client.
 
-The React bindings (`packages/rxfy-react`) expose `useStateData`, `useModelStore`, `useModelRegistry`, `useAtom`, `useObservable`, `usePending`, the `Pending` / `BehaviorSubjectRender` components, and `StoreProvider`; the `rxfy-react/next` subpath adds `<HydrationStream />` for streaming SSR.
+The React bindings (`packages/rxfy-react`) expose `useStateData`, `useModelStore`, `useModelRegistry`, `useAtom`, `useObservable`, `usePending`, the `Pending` component, and `StoreProvider`; the `rxfy-react/next` subpath adds `<HydrationStream />` for streaming SSR.
 
 ### Build System
 

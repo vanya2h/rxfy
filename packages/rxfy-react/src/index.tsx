@@ -1,5 +1,5 @@
-export type { IBehaviorSubjectRenderProps, IPendingProps } from "./Pending.js";
-export { BehaviorSubjectRender, Pending } from "./Pending.js";
+export type { IPendingProps } from "./Pending.js";
+export { Pending } from "./Pending.js";
 export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
 export { collectStateData } from "./ssr/collect-state-data.js";
 export type { StoreProviderProps } from "./StoreProvider.js";

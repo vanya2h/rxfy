@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { type IWrapped, StatusEnum } from "rxfy";
-import { BehaviorSubject, distinctUntilChanged, noop, skip, tap } from "rxjs";
 import { IRenderable, render } from "./render.js";
 import { ObservableLike, usePending } from "./usePending.js";
 
@@ -37,26 +36,4 @@ export function Pending<T>({
     default:
       return null;
   }
-}
-
-export type IBehaviorSubjectRenderProps<T> = {
-  value$: BehaviorSubject<T>;
-  children: IRenderable<T>;
-};
-
-export function BehaviorSubjectRender<T>({ value$, children }: IBehaviorSubjectRenderProps<T>) {
-  const [state, setState] = useState<T>(() => value$.getValue());
-
-  useEffect(() => {
-    const sub = value$
-      .pipe(
-        skip(1),
-        distinctUntilChanged(),
-        tap((x) => setState(x)),
-      )
-      .subscribe(noop);
-    return () => sub.unsubscribe();
-  }, [value$]);
-
-  return render(state, children);
 }
