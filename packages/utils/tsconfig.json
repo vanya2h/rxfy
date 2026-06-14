@@ -1,7 +1,0 @@
-{
-  "extends": "@vanya2h/typescript-config/node",
-  "compilerOptions": {
-    "types": ["vitest/globals"]
-  },
-  "exclude": ["node_modules", "dist", ".turbo"]
-}

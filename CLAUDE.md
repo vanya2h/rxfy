@@ -39,10 +39,7 @@ Prettier config: 120 print width, double quotes, semicolons, trailing commas.
 |---|---|
 | `packages/rxfy` | Core library — Atom, Lens, Wrapped, Model/State, ModelStore, normalization, SSR |
 | `packages/rxfy-react` | React bindings (`useStateData`, `useModelStore`, `useAtom`, `Pending`, `StoreProvider`; `/next` subpath for streaming SSR) |
-| `packages/utils` | Shared TS utilities |
-| `packages/eslint-config` | Shared ESLint 9 flat configs (base / node / react) |
-| `packages/typescript-config` | Shared tsconfig presets (base / node / lib / react) |
-| `examples/vite-todo` | Demo app |
+| `examples/*`, `apps/docs` | Demo apps and documentation site (private, never published) |
 
 ### Core Concepts (packages/rxfy)
 

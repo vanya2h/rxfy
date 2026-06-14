@@ -10,7 +10,7 @@ Follow these steps:
 
    - **Git tags** — `changeset publish` creates per-package tags like `rxfy@0.2.1`. If any exist, use the most recent:
      ```
-     git tag -l "rxfy@*" "rxfy-react@*" "rxfy-utils@*" --sort=-version:refname | head -5
+     git tag -l "rxfy@*" "rxfy-react@*" --sort=-version:refname | head -5
      ```
    - **Version commit** — otherwise find the most recent changesets version bump commit (default message `Version Packages`):
      ```
@@ -73,7 +73,7 @@ Follow these steps:
 <!-- Note any dependency additions, removals, or version bumps. Omit if none. -->
 ```
 
-   The publishable packages are `rxfy`, `rxfy-react`, and `rxfy-utils`. Packages under `examples/` and `apps/` are private and are never released.
+   The publishable packages are `rxfy` and `rxfy-react`. Packages under `examples/` and `apps/` are private and are never released.
 
 9. Omit any section that has no entries rather than leaving it empty.
 

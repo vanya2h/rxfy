@@ -42,7 +42,6 @@ Map changed files to packages by their directory prefix:
 | ---------------------- | ------------ |
 | `packages/rxfy/`       | `rxfy`       |
 | `packages/rxfy-react/` | `rxfy-react` |
-| `packages/utils/`      | `rxfy-utils` |
 
 Files under `examples/` and `apps/` are private (not published) — they never need a changeset.
 
