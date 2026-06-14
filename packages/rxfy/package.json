@@ -2,6 +2,22 @@
   "name": "rxfy",
   "version": "1.0.1",
   "description": "stream-based data management",
+  "keywords": [
+    "rxjs",
+    "reactive",
+    "observable",
+    "state-management",
+    "store",
+    "data-management",
+    "normalization",
+    "normalized-state",
+    "atom",
+    "lens",
+    "optics",
+    "ssr",
+    "zod",
+    "typescript"
+  ],
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
     "url": "https://github.com/vanya2h/rxfy/issues"

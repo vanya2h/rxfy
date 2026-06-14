@@ -2,6 +2,23 @@
   "name": "rxfy-react",
   "version": "1.0.1",
   "description": "rxfy bindings for react",
+  "keywords": [
+    "rxfy",
+    "react",
+    "rxjs",
+    "reactive",
+    "observable",
+    "hooks",
+    "state-management",
+    "store",
+    "normalization",
+    "normalized-state",
+    "ssr",
+    "suspense",
+    "streaming-ssr",
+    "next",
+    "typescript"
+  ],
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
     "url": "https://github.com/vanya2h/rxfy/issues"
