@@ -1,6 +1,6 @@
 # rxfy
 
-Stream-based state management built on RxJS — normalized entities, reactive queries, and first-class SSR.
+rxfy lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
 ## Packages
 
@@ -18,7 +18,7 @@ npm install rxfy rxfy-react
 
 ## Quick taste
 
-State is normalized: `data$` emits entity **ids**, and entity data lives in model stores. Components render lists by id and subscribe per entity — so a single `store.set` (e.g. from a websocket) updates every subscriber without re-fetching anything.
+You define models with `createModel` and the states that fetch them with `defineState`; rxfy splits each result into normalized model stores plus an id-only query shape. Every entity lives in exactly one place, keyed by id, and components subscribe to it directly — so a single `store.set` (a refetch, a mutation, or a websocket push) reaches every view showing that entity, with no duplicated data and no list re-fetch. RxJS streams are the delivery mechanism; SSR snapshots the same store and rehydrates it with zero client fetches.
 
 ```tsx
 import { useMemo } from "react";

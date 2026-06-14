@@ -24,11 +24,26 @@ client that subscribes to whatever lands in the model store — via the
 
 Two envelopes flow over the socket. The client names each entity by **topic** — a
 `name:id` string pairing the model's `name` with an entity id — and adds topics to its
-dependency set. The server pushes matching entities back:
+dependency set. The server pushes matching entities back.
+
+A topic is just a string at runtime, but giving it a **branded template literal type** —
+shared by both sides, like the schema — means only a value built by the `topic()` constructor
+satisfies `Topic`, so a bare `"todo:u1"` or a `name`/`id` passed in the wrong order won't
+type-check:
+
+```ts
+// shared/topic.ts — imported by client and server
+declare const brand: unique symbol;
+
+// `name:id`, e.g. "todo:u1" — the `& { brand }` makes it nominal, not just structural.
+export type Topic = `${string}:${string}` & { readonly [brand]: "Topic" };
+
+export const topic = (name: string, id: string): Topic => `${name}:${id}` as Topic;
+```
 
 ```ts
 // client → server: add/remove entities in this connection's dependency set
-type DepsMessage = { type: "add" | "remove"; topics: string[] }; // e.g. ["todo:u1", "todo:u2"]
+type DepsMessage = { type: "add" | "remove"; topics: Topic[] }; // e.g. ["todo:u1", "todo:u2"]
 
 // server → client: entities that changed, grouped by model
 type EntityPush = { name: string; entities: unknown[] };
@@ -85,36 +100,41 @@ walks the connections and delivers to those whose set includes the changed entit
 ```ts
 // server/hub.ts
 import type { WSContext } from "hono/ws";
+import { topic, type Topic } from "../shared/topic";
 
-// connection -> the entities it depends on, e.g. {"todo:u1", "todo:u2"}
-const deps = new Map<WSContext, Set<string>>();
+export class Hub {
+  // connection -> the entities it depends on, e.g. {"todo:u1", "todo:u2"}
+  private readonly deps = new Map<WSContext, Set<Topic>>();
 
-export function addClient(ws: WSContext) {
-  deps.set(ws, new Set());
-}
+  addClient(ws: WSContext) {
+    this.deps.set(ws, new Set());
+  }
 
-export function removeClient(ws: WSContext) {
-  deps.delete(ws);
-}
+  removeClient(ws: WSContext) {
+    this.deps.delete(ws);
+  }
 
-export function addDeps(ws: WSContext, topics: string[]) {
-  const set = deps.get(ws);
-  if (set) for (const topic of topics) set.add(topic);
-}
+  addDeps(ws: WSContext, topics: Topic[]) {
+    const set = this.deps.get(ws);
+    if (set) for (const t of topics) set.add(t);
+  }
 
-export function removeDeps(ws: WSContext, topics: string[]) {
-  const set = deps.get(ws);
-  if (set) for (const topic of topics) set.delete(topic);
-}
+  removeDeps(ws: WSContext, topics: Topic[]) {
+    const set = this.deps.get(ws);
+    if (set) for (const t of topics) set.delete(t);
+  }
 
-// Push one entity to the connections whose dependency graph includes it.
-export function publish(name: string, id: string, entity: unknown) {
-  const topic = `${name}:${id}`;
-  const message = JSON.stringify({ name, entities: [entity] });
-  for (const [ws, set] of deps) {
-    if (set.has(topic)) ws.send(message);
+  // Push one entity to the connections whose dependency graph includes it.
+  publish(name: string, id: string, entity: unknown) {
+    const t = topic(name, id);
+    const message = JSON.stringify({ name, entities: [entity] });
+    for (const [ws, set] of this.deps) {
+      if (set.has(t)) ws.send(message);
+    }
   }
 }
+
+export const hub = new Hub();
 ```
 
 `publish` is O(connections), not O(entities) — the trade for keeping memory at one set per
@@ -134,7 +154,8 @@ import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { db, todos } from "./db";
-import { addClient, removeClient, addDeps, removeDeps, publish } from "./hub";
+import { hub } from "./hub";
+import type { Topic } from "../shared/topic";
 
 const app = new Hono();
 const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
@@ -155,20 +176,20 @@ app.post("/todos/:id/toggle", async (c) => {
     .where(eq(todos.id, id))
     .returning();
 
-  publish("todo", updated.id, updated); // <- targeted live update
+  hub.publish("todo", updated.id, updated); // <- targeted live update
   return c.json(updated);
 });
 
 app.get(
   "/ws",
   upgradeWebSocket(() => ({
-    onOpen: (_evt, ws) => addClient(ws),
+    onOpen: (_evt, ws) => hub.addClient(ws),
     onMessage: (evt, ws) => {
-      const msg = JSON.parse(evt.data.toString()) as { type: string; topics: string[] };
-      if (msg.type === "add") addDeps(ws, msg.topics);
-      if (msg.type === "remove") removeDeps(ws, msg.topics);
+      const msg = JSON.parse(evt.data.toString()) as { type: string; topics: Topic[] };
+      if (msg.type === "add") hub.addDeps(ws, msg.topics);
+      if (msg.type === "remove") hub.removeDeps(ws, msg.topics);
     },
-    onClose: (_evt, ws) => removeClient(ws),
+    onClose: (_evt, ws) => hub.removeClient(ws),
   })),
 );
 
@@ -198,13 +219,15 @@ doesn't evict — once you've loaded an entity you stay live on it for the sessi
 
 ```ts
 // liveClient.ts
+import type { Topic } from "../shared/topic";
+
 export type LiveClient = ReturnType<typeof createLiveClient>;
 
 export function createLiveClient(socket: WebSocket) {
-  const desired = new Set<string>(); // every topic we've ever wanted (grows, never shrinks)
-  let active = new Set<string>();    // topics the server currently knows
+  const desired = new Set<Topic>(); // every topic we've ever wanted (grows, never shrinks)
+  let active = new Set<Topic>();    // topics the server currently knows
 
-  const send = (topics: string[]) => {
+  const send = (topics: Topic[]) => {
     if (topics.length && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify({ type: "add", topics }));
     }
@@ -224,7 +247,7 @@ export function createLiveClient(socket: WebSocket) {
   });
 
   return {
-    want(topic: string) {
+    want(topic: Topic) {
       if (desired.has(topic)) return; // already subscribed (or queued) — nothing to send
       desired.add(topic);
       reconcile();
@@ -249,6 +272,7 @@ on exactly the store's contents. No component passes ids anywhere; there's no `u
 // useStoreSubscriptions.ts
 import { useEffect } from "react";
 import { useModelRegistry } from "rxfy-react";
+import { topic } from "../shared/topic";
 import { useLiveClient } from "./LiveProvider";
 
 export function useStoreSubscriptions() {
@@ -256,7 +280,7 @@ export function useStoreSubscriptions() {
   const client = useLiveClient();
 
   useEffect(() => {
-    const sub = registry.added$.subscribe(({ name, key }) => client.want(`${name}:${key}`));
+    const sub = registry.added$.subscribe(({ name, key }) => client.want(topic(name, key)));
     return () => sub.unsubscribe();
   }, [registry, client]);
 }

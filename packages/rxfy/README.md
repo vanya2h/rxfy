@@ -1,6 +1,6 @@
 # rxfy
 
-rxfy (/ɑɹ ɪks faɪ/) — stream-based state management built on RxJS.
+rxfy (/ɑɹ ɪks faɪ/) — declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
 ## Install
 

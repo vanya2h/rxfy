@@ -1,6 +1,6 @@
 # rxfy-react
 
-`rxfy-react` — official React bindings for [`rxfy`](../rxfy/README.md).
+`rxfy-react` — official React bindings for [`rxfy`](../rxfy/README.md). Subscribe React components to normalized entities — each renders the one shared copy and updates live.
 
 ## Install
 

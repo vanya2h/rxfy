@@ -81,7 +81,15 @@ export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<
     getValue: (key) => cells.get(key)?.get(),
     entity: (key) =>
       createLens<T | undefined, T>(getCell(key as string), {
-        get: (source) => source as T,
+        get: (source) => {
+          if (source === undefined) {
+            throw new Error(
+              `rxfy: entity "${key}" for model "${descriptor.name ?? "<unnamed>"}" is not loaded — ` +
+                `guard with <Pending>/useEntity or seed it first`,
+            );
+          }
+          return source;
+        },
         set: (current) => current,
       }),
     valueEntries: () => {
