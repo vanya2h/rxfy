@@ -11,6 +11,7 @@
     "changeset:version": "changeset version",
     "check-types": "turbo run check-types",
     "docs": "turbo run dev --filter=docs",
+    "docs:docker": "docker compose up --build docs",
     "lint": "turbo run lint",
     "sort-pkg": "sort-package-json \"package.json\" \"code/packages/*/package.json\" \"code/apps/*/package.json\"",
     "test": "turbo run test"
