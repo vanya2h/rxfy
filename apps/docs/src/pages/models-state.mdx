@@ -4,7 +4,7 @@ The high-level API: define typed state shapes, normalize entities, and mutate st
 without manual bookkeeping.
 
 > New to the term? [Normalization](/normalization) explains what "normalized" means and why
-> rxfy emits entity ids — start there, then come back for the API.
+> rxfy emits entity ids; start there, then come back for the API.
 
 ## `createModel`
 
@@ -28,7 +28,7 @@ function createModel<T>(
 ): ModelDescriptor<T>
 ```
 
-`name` is the model's stable string identity for SSR — only named models are included
+`name` is the model's stable string identity for SSR; only named models are included
 in `dehydrate` output. Models without a name work normally but opt out of SSR
 serialization (a dev warning fires if they hold data at dehydrate time).
 
@@ -64,13 +64,13 @@ function defineState<TParams, TFields, TMutations>(def: {
 
 Mutation reducers operate on the full fetch shape (entities). When invoked through
 `useStateData`, rxfy denormalizes the current ids into fresh entities, runs the reducer,
-and normalizes the result back into model stores and ids. The normalized query shape —
-what `data$` emits — is derived as `QueryShapeOf<TShape>`: array fields become `string[]`
+and normalizes the result back into model stores and ids. The normalized query shape
+(what `data$` emits) is derived as `QueryShapeOf<TShape>`: array fields become `string[]`
 (entity keys), single fields become `string`.
 
 ## `array` / `single`
 
-Field descriptor helpers — declare whether a `defineState` model field holds an array or
+Field descriptor helpers that declare whether a `defineState` model field holds an array or
 a single item.
 
 ```ts
@@ -131,12 +131,12 @@ registry; `useModelRegistry()` returns the underlying registry (and throws if no
 
 `added$` emits a key the **first time** an entity becomes present (the first `set`); later
 updates to that key don't re-emit. New subscribers **replay** the keys already in the store, so
-a late subscriber still learns about everything loaded so far — exactly once, with no gap.
+a late subscriber still learns about everything loaded so far, exactly once, with no gap.
 
 ```ts
 users.added$.subscribe((key) => console.log("now live on", key));
 users.set("1", { id: "1", name: "Alice" }); // → "now live on 1"
-users.set("1", { id: "1", name: "Bob" });   // (update — no emit)
+users.set("1", { id: "1", name: "Bob" });   // (update, no emit)
 ```
 
 The registry exposes the same signal across every **named** store, tagged with the model name:
@@ -150,12 +150,12 @@ registry.added$.subscribe(({ name, key }) => console.log(`${name}:${key}`)); // 
 
 It replays entities already in the registry and follows stores created later; unnamed stores
 are skipped, since there's no `name` to address them by. This is what lets a live-update layer
-track exactly what the client holds without each query wiring its ids in by hand — see
+track exactly what the client holds without each query wiring its ids in by hand; see
 [Live updates over WebSockets](/guides/live-updates-websockets).
 
 ## ModelStore entity
 
-`entity(key)` returns a writable `IAtom<T>` over a single entity's cell — a read/write
+`entity(key)` returns a writable `IAtom<T>` over a single entity's cell, a read/write
 handle suitable for field [Lenses](/core-concepts/lens) and form inputs. Reads reflect the
 store; `.set(next)` writes back (equivalent to `store.set(key, next)`), so the change
 propagates to every subscriber of that entity.
@@ -171,6 +171,6 @@ post$.set({ id: "1", name: "Bob" }); // === users.set("1", { id: "1", name: "Bob
 entity: (key: EntityKey<T>) => IAtom<T>
 ```
 
-It assumes the entity is already loaded — reading a key that has never been `set` yields
+It assumes the entity is already loaded; reading a key that has never been `set` yields
 `undefined` typed as `T`. For the React form-binding pattern, see
 [`useAtom` & two-way binding](/react#useatom-and-two-way-binding).

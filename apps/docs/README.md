@@ -21,5 +21,5 @@ Pages live in `src/pages/` as MDX; the sidebar is configured in `vocs.config.ts`
 `pnpm update` on `waku` without first confirming the installed Vocs version still
 works against the newer waku. Revisit this pin when bumping Vocs.
 
-The Waku-generated `src/pages.gen.ts` route-types file is gitignored — it is
+The Waku-generated `src/pages.gen.ts` route-types file is gitignored; it is
 regenerated on every build/dev.

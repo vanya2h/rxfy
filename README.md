@@ -6,7 +6,7 @@ rxfy is a small library that lets you declare typed models and the states that q
 
 | Package | Purpose |
 |---|---|
-| [`rxfy`](packages/rxfy) | Core library — Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy`](packages/rxfy) | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
 | [`rxfy-react`](packages/rxfy-react) | Official React bindings (`rxfy-react/next` for Next.js App Router) |
 
 ## Install
@@ -18,7 +18,7 @@ npm install rxfy rxfy-react
 
 ## Quick taste
 
-You define models with `createModel` and the states that fetch them with `defineState`; rxfy splits each result into normalized model stores plus an id-only query shape. Every entity lives in exactly one place, keyed by id, and components subscribe to it directly — so a single `store.set` (a refetch, a mutation, or a websocket push) reaches every view showing that entity, with no duplicated data and no list re-fetch. RxJS streams are the delivery mechanism; SSR snapshots the same store and rehydrates it with zero client fetches.
+You define models with `createModel` and the states that fetch them with `defineState`; rxfy splits each result into normalized model stores plus an id-only query shape. Every entity lives in exactly one place, keyed by id, and components subscribe to it directly, so a single `store.set` (a refetch, a mutation, or a websocket push) reaches every view showing that entity, with no duplicated data and no list re-fetch. RxJS streams are the delivery mechanism; SSR snapshots the same store and rehydrates it with zero client fetches.
 
 ```tsx
 import { useMemo } from "react";
@@ -36,7 +36,7 @@ const todosState = defineState({
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(Todo) },
   mutations: {
-    // reducers see full entities — rxfy normalizes the result back into stores + ids
+    // reducers see full entities; rxfy normalizes the result back into stores + ids
     addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
       ...prev,
       todos: [...prev.todos, todo],
@@ -70,7 +70,7 @@ function TodoApp() {
   );
 }
 
-// subscribes to one entity — updates live on any store.set, no list re-fetch
+// subscribes to one entity; updates live on any store.set, no list re-fetch
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(Todo);
   const todo$ = useMemo(() => store.get(id), [store, id]);
@@ -80,7 +80,7 @@ function TodoItem({ id }: { id: string }) {
 
 ## SSR
 
-The server fetches on demand via Suspense — no prefetch API. `useStateData` suspends on a cache miss, results are captured as fulfilled/rejected entries, `dehydrate` serializes them into the HTML, and the hydrated client renders the same markup on first paint with **zero client fetches**.
+The server fetches on demand via Suspense; there is no prefetch API. `useStateData` suspends on a cache miss, results are captured as fulfilled/rejected entries, `dehydrate` serializes them into the HTML, and the hydrated client renders the same markup on first paint with **zero client fetches**.
 
 ```tsx
 // server (buffered mode)
@@ -90,7 +90,7 @@ renderToPipeableStream(
   { onAllReady() { /* pipe html, then inject: */ hydrationScript(dehydrate(registry)) } },
 );
 
-// client — no wiring needed: StoreProvider ingests the injected script automatically
+// client: no wiring needed, StoreProvider ingests the injected script automatically
 hydrateRoot(root, <StoreProvider ssr><App /></StoreProvider>);
 ```
 
@@ -98,6 +98,6 @@ Three supported modes: streaming (Next.js App Router via `rxfy-react/next`'s `<H
 
 ## Links
 
-- [rxfy — Core API reference](packages/rxfy/README.md)
-- [rxfy-react — React bindings reference](packages/rxfy-react/README.md)
+- [rxfy: Core API reference](packages/rxfy/README.md)
+- [rxfy-react: React bindings reference](packages/rxfy-react/README.md)
 - [Example app with working SSR (vite-todo)](examples/vite-todo)

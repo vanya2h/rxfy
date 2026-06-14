@@ -1,16 +1,16 @@
 # Comparison
 
-How rxfy relates to three popular state libraries. The comparison is against their modern,
-idiomatic forms — **Redux Toolkit** (with RTK Query), **MobX 6**, and
-**Jotai**.
+How rxfy relates to three popular state libraries, compared against their modern,
+idiomatic forms: **Redux Toolkit** (with RTK Query), **MobX 6**, and **Jotai**.
 
 rxfy's premise is narrower than any of them: you **declare typed models and the states that
 query them**, then access their data as **reactive observables**.
-[Normalization](/normalization) is the storage strategy underneath — it keeps your app
+[Normalization](/normalization) is the storage strategy underneath, and it keeps your app
 consistent and reactive at no extra cost. `data$` emits entity **ids**, values live in
 per-entity Observable cells, and one `store.set` (refetch, mutation, or websocket) updates
-exactly the components subscribed to that entity — no global re-selection, no refetch. A
-`defineState` declaration bundles fetching, normalization, and SSR into one reactive state.
+the components subscribed to that entity and nothing else: no global re-selection, no
+refetch. A `defineState` declaration bundles fetching, normalization, and SSR into one
+reactive state.
 
 ## At a glance
 
@@ -63,13 +63,13 @@ the core problem.
 ## vs MobX
 
 MobX makes plain objects observable and lets you mutate them directly; `observer` components
-re-render on exactly the fields they read, tracked through proxies. It is the least-ceremony
-option here and very intuitive for local and UI state.
+re-render on the fields they read, tracked through proxies. It is the least-ceremony
+option here, intuitive for local and UI state.
 
 rxfy trades that mutable transparency for **explicit streams and immutable values**. Plain
-immutable snapshots serialize and hydrate cleanly — central to rxfy's SSR story, where mutable
-proxy graphs are harder to capture — and MobX gives you no built-in normalization or query/SSR
-layer anyway. Two-way binding shows the difference: MobX mutates the observable, while rxfy
+immutable snapshots serialize and rehydrate as-is, which is central to rxfy's SSR story, where
+mutable proxy graphs are harder to capture; MobX gives you no built-in normalization or
+query/SSR layer anyway. Two-way binding shows the difference: MobX mutates the observable, while rxfy
 composes a [`Lens`](/core-concepts/lens) over a
 [`store.entity(id)`](/models-state#modelstore-entity) and drives it with
 [`useAtom`](/react#useatom-and-two-way-binding), so the write flows back into the normalized
@@ -81,7 +81,7 @@ reactive states, and first-class SSR.
 
 ## vs Jotai
 
-Jotai builds state from the bottom up out of **atoms** — tiny, composable units that
+Jotai builds state from the bottom up out of **atoms**, tiny composable units that
 components subscribe to via `useAtom`. It is minimal, unopinionated, and excellent for local
 and shared client state without a central store.
 
@@ -91,7 +91,7 @@ of its own, resolved against a store (usually a React `Provider`). An rxfy
 exposes synchronous `get()`/`set()`, and composes with the full operator set outside React.
 Scope differs too: Jotai is a content-agnostic primitive, so normalization, validation, and a
 fetch/SSR pipeline are things you assemble (often via `jotai-tanstack-query`). rxfy is
-narrower and batteries-included for one job — `defineState` + `createModel` give you fetching,
+narrower and batteries-included for one job: `defineState` + `createModel` give you fetching,
 normalization, Zod validation, and streaming SSR as one API.
 
 **Reach for Jotai when** you want a minimal, flexible atomic primitive for local and shared
@@ -108,5 +108,5 @@ problem.
 - Your team is comfortable with **RxJS**, or willing to learn the small surface rxfy uses.
 
 If your state is mostly local UI state, you need a large plugin ecosystem or time-travel
-debugging, or RxJS is a non-starter for your team, Redux Toolkit or MobX will likely serve
-you better — and that's a fine outcome.
+debugging, or RxJS is a non-starter for your team, Redux Toolkit or MobX will serve you
+better.

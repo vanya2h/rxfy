@@ -2,14 +2,28 @@
 
 ## Install
 
+Install the two rxfy packages:
+
 ```bash
 npm install rxfy rxfy-react
-# peer deps: rxjs zod lodash react react-dom
 ```
 
-`rxfy` peer dependencies: `rxjs ^7`, `zod ^3`, `lodash ^4`. `rxfy-react` additionally
-needs `react`/`react-dom` 18+ (and `next >=14` only for the `rxfy-react/next` subpath).
-In a TypeScript project also add `@types/react` as a dev dependency.
+rxfy declares `rxjs`, `zod`, and `lodash` as **peer dependencies**: it expects your app to
+provide them rather than bundling its own copies, so the whole app shares one instance of
+each (one RxJS, one Zod). npm does not install peer dependencies automatically, so add them
+yourself:
+
+```bash
+npm install rxjs zod lodash
+```
+
+Version ranges: `rxjs ^7`, `zod ^3`, `lodash ^4`. `rxfy-react` additionally needs
+`react`/`react-dom` 18+ (which your React app already has), plus `next >=14` if you use the
+`rxfy-react/next` subpath. In a TypeScript project, also add `@types/react` as a dev dependency:
+
+```bash
+npm install --save-dev @types/react
+```
 
 ## Wrap your app
 
@@ -33,6 +47,10 @@ A plain client-only app passes no props to `StoreProvider`. The SSR props
 
 ## Next steps
 
-- [Models & State](/models-state) — the high-level API for normalized data.
-- [React Bindings](/react) — hooks and rendering helpers.
-- [Core Concepts](/core-concepts/atom) — the reactive primitives underneath.
+Start with the [Tutorial: Build a Todo app](/guides/todo-app): build a working app end to end and watch the core pieces fit together.
+
+## See also
+
+- [Models & State](/models-state): the high-level API for normalized data.
+- [React Bindings](/react): hooks and rendering helpers.
+- [Core Concepts](/core-concepts/atom): the reactive primitives underneath.

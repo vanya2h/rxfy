@@ -6,7 +6,7 @@
 ## `useStateData`
 
 Fetches data, normalizes entities into model stores, and returns a `StateHandle`.
-**`data$` emits the normalized query shape — entity ids, not entities** (`array` fields
+**`data$` emits the normalized query shape: entity ids, not entities** (`array` fields
 → `string[]`, `single` fields → `string`). Render lists by id and read entity data
 through `useModelStore`.
 
@@ -54,7 +54,7 @@ function useStateData<TParams, TShape, TMutations>(
 
 **Caching** (states with a `key`): results, mutations, and `set` write through to the
 registry's query cache, so a remount with the same params starts from cached ids without
-re-fetching — while entity values always come live from model stores. `reload()` deletes
+re-fetching, while entity values always come live from model stores. `reload()` deletes
 the cache entry and re-fetches. Keyless states skip the cache and fetch per mount.
 
 ## `useModelStore`
@@ -80,8 +80,8 @@ function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 
 ## `useAtom` and two-way binding
 
-`useAtom` binds any `IAtom<T>` — a plain `Atom`, a field [`Lens`](/core-concepts/lens), or
-a `ModelStore.entity(id)` handle — to React as `[value, setValue]`. Combined with
+`useAtom` binds any `IAtom<T>` (a plain `Atom`, a field [`Lens`](/core-concepts/lens), or
+a `ModelStore.entity(id)` handle) to React as `[value, setValue]`. Combined with
 `store.entity(id)` and `keyLens`, it gives two-way form binding that stays in sync across
 every component subscribed to that entity:
 
@@ -102,7 +102,7 @@ function EditTitle({ id }: { id: string }) {
 ```
 
 Typing writes through the field `Lens` into the model store's entity cell, so the edit
-instantly reaches every other subscriber of that todo — a list row, a detail header — with
+reaches every other subscriber of that todo (a list row, a detail header) with
 no re-fetch. `store.entity(id)` assumes the entity is already loaded (see
 [Models & State](/models-state#modelstore-entity)).
 
@@ -110,13 +110,13 @@ no re-fetch. `store.entity(id)` assumes the entity is already loaded (see
 function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
 ```
 
-> `atom$` must be referentially stable across renders — wrap `store.entity(id)` and the
+> `atom$` must be referentially stable across renders; wrap `store.entity(id)` and the
 > `Lens` in `useMemo` as above.
 
 ## `Pending`
 
 Subscribes to any `ObservableLike<T>` and renders pending / rejected / fulfilled UI. The
-`rejected` render prop receives the rejected `IWrapped` — `{ type, error }`. If `rejected`
+`rejected` render prop receives the rejected `IWrapped` (`{ type, error }`). If `rejected`
 is omitted it renders nothing and logs the error to `console.error`.
 
 Reload is not carried on the status object: get it from the `useStateData` handle's
@@ -147,15 +147,15 @@ function Todos() {
 ```
 
 > `Pending` is powered by the lower-level `usePending` hook, which returns an `IWrapped<T>`
-> (`PENDING` / `FULFILLED` / `REJECTED` — see [Wrapped](/core-concepts/wrapped)). The
-> `source$` you pass must be referentially stable across renders — `data$` from
+> (`PENDING` / `FULFILLED` / `REJECTED`; see [Wrapped](/core-concepts/wrapped)). The
+> `source$` you pass must be referentially stable across renders, and `data$` from
 > `useStateData` already is.
 
 ## `usePending`
 
 The hook behind `Pending`, for when you need the status value rather than rendered UI.
 It subscribes to any `ObservableLike<T>` (an `Observable<T>` or a plain value) and returns
-the current [`IWrapped<T>`](/core-concepts/wrapped) — narrowed to `PENDING` / `FULFILLED` /
+the current [`IWrapped<T>`](/core-concepts/wrapped), narrowed to `PENDING` / `FULFILLED` /
 `REJECTED`, never `IDLE`. Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
 
 ```tsx
@@ -184,7 +184,7 @@ function usePending<T>(
 type ObservableLike<T> = Observable<T> | T;
 ```
 
-> `source$` must be referentially stable across renders — wrap inline-created sources in
+> `source$` must be referentially stable across renders; wrap inline-created sources in
 > `useMemo`.
 
 ## `useObservable`
@@ -197,24 +197,4 @@ for two-way `IAtom` binding prefer `useAtom`.
 ```ts
 function useObservable<T>(observable: Observable<T>, initialValue: T): T;
 function useObservable<T>(observable: Observable<T>): T | undefined;
-```
-
-## `BehaviorSubjectRender`
-
-Renders the current value of a `BehaviorSubject<T>` directly — a thin render helper for
-streams that always hold a value (so there is no pending state to model).
-
-```tsx
-import { BehaviorSubjectRender } from "rxfy-react";
-
-<BehaviorSubjectRender value$={count$}>
-  {(count) => <span>{count}</span>}
-</BehaviorSubjectRender>;
-```
-
-```ts
-function BehaviorSubjectRender<T>(props: {
-  value$: BehaviorSubject<T>;
-  children: ReactNode | ((value: T) => ReactNode);
-}): ReactNode
 ```

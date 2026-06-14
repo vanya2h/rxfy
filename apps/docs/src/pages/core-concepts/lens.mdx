@@ -5,14 +5,14 @@ directions. Change detection uses `lodash.isEqual`.
 
 ## Philosophy
 
-A Lens **is an `Atom`** — same `get()` / `set()` / `modify()` surface — that points at
+A Lens **is an `Atom`** (same `get()` / `set()` / `modify()` surface) that points at
 _part_ of another Atom instead of owning state. So anything taking an Atom (`useAtom`,
 another `createLens`) takes a Lens unchanged; that substitutability is the point.
 
 - **Focus, immutably.** `get` reads a slice out, `set` returns a **new** source with it
-  replaced — never a mutation. Compose lenses to reach deeply nested fields.
+  replaced, never a mutation. Compose lenses to reach deeply nested fields.
 - **Bidirectional and live.** Reads flow down, writes flow up, and the view re-derives
-  when the source changes elsewhere — a live window, not a snapshot.
+  when the source changes elsewhere: a live window, not a snapshot.
 - **`isEqual` everywhere.** Inbound sync and write-back both skip no-op updates, so a
   write that changes nothing won't echo back.
 

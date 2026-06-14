@@ -4,7 +4,7 @@ Load a list one page at a time and append each page into a single growing list, 
 row normalized like any other entity. [`useStateData`](/react#usestatedata) owns the first
 page (and its cache / SSR); you fetch later pages yourself and merge them with `set`.
 
-The cursor is **view state**, not entity data — it tells you where to resume, so it lives in
+The cursor is **view state**, not entity data; it tells you where to resume, so it lives in
 the component, outside the normalized store.
 
 ## Append pages with `set`
@@ -52,7 +52,7 @@ function Feed() {
 }
 ```
 
-`data$` emits `{ items: string[] }` — ids only — so each page's new ids append to the list
+`data$` emits `{ items: string[] }` (ids only), so each page's new ids append to the list
 while the row data lives in the `FeedItemModel` store. A row that appears on two pages (a
 duplicate the server returned) resolves to one cell, not two.
 
@@ -91,7 +91,7 @@ returns.
   would be a separate cached query and replace the previous list instead of extending it.
   Stable params plus manual `set` is what accumulates one list.
 - **A new filter resets the list.** Changing `params` (a different `filter`) starts a fresh
-  query — page one of the new filter. Reset `cursor.current` to `null` when the filter
+  query, page one of the new filter. Reset `cursor.current` to `null` when the filter
   changes so the next `loadMore` starts over.
 - **Reloading.** `reload()` re-fetches the first page only. To restore a deep scroll
   position after a reload, re-run your `loadMore` calls, or page the data server-side by an

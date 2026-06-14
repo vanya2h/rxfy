@@ -1,6 +1,6 @@
 # rxfy
 
-rxfy (/ɑɹ ɪks faɪ/) — a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
+rxfy (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
 ## Install
 
@@ -23,7 +23,7 @@ npm install rxfy
 
 ## High-level API
 
-The recommended approach — define typed state shapes, normalize entities, and mutate state without manual bookkeeping.
+Define typed state shapes, normalize entities, and mutate state without manual bookkeeping.
 
 ### `defineState`
 
@@ -43,7 +43,7 @@ const todosState = defineState({
 });
 ```
 
-Mutation reducers operate on the full fetch shape (entities) — when invoked through `useStateData`, rxfy denormalizes the current ids into fresh entities, runs the reducer, and normalizes the result back into model stores and ids.
+Mutation reducers operate on the full fetch shape (entities). When invoked through `useStateData`, rxfy denormalizes the current ids into fresh entities, runs the reducer, and normalizes the result back into model stores and ids.
 
 **Signature:**
 
@@ -81,11 +81,11 @@ function createModel<T>(
 ): ModelDescriptor<T>
 ```
 
-`name` is the model's stable string identity for SSR — symbols can't cross the server/client boundary, so only named models are included in `dehydrate` output. Models without a name work normally but opt out of SSR serialization (a dev warning fires if they hold data at dehydrate time).
+`name` is the model's stable string identity for SSR; symbols can't cross the server/client boundary, so only named models are included in `dehydrate` output. Models without a name work normally but opt out of SSR serialization (a dev warning fires if they hold data at dehydrate time).
 
 ### `array` / `single`
 
-Field descriptor helpers — declare whether a `defineState` model field holds an array or a single item.
+Field descriptor helpers that declare whether a `defineState` model field holds an array or a single item.
 
 ```ts
 import { array, single } from "rxfy";
@@ -156,19 +156,19 @@ function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 
 ## SSR
 
-The registry round-trips across the server/client boundary: queries serialize as normalized ids, named model stores serialize their entities. The React side (`rxfy-react`) drives fetching and ingestion — these are the core primitives it builds on.
+The registry round-trips across the server/client boundary: queries serialize as normalized ids, named model stores serialize their entities. The React side (`rxfy-react`) drives fetching and ingestion; these are the core primitives it builds on.
 
 ### `dehydrate` / `hydrate`
 
 ```ts
 import { createModelRegistry, dehydrate, hydrate } from "rxfy";
 
-// server — after rendering settles
+// server: after rendering settles
 const state = dehydrate(registry);
 // { queries: { "todos:{...}": { status: "fulfilled", value: { todos: ["1"] } } },
 //   models:  { todo: { "1": { id: "1", title: "..." } } } }
 
-// client — into a fresh registry before first render
+// client: into a fresh registry before first render
 hydrate(clientRegistry, state);
 ```
 
@@ -186,7 +186,7 @@ type DehydratedState = {
 
 ### `hydrationScript`
 
-Complete inline `<script>` tag pushing a snapshot onto `window.__RXFY_SSR__` — the queue the client `StoreProvider` drains automatically, so the client side needs no hydration wiring at all. Inject it into the served HTML before the client entry script.
+Complete inline `<script>` tag pushing a snapshot onto `window.__RXFY_SSR__`, the queue the client `StoreProvider` drains automatically, so the client side needs no hydration wiring. Inject it into the served HTML before the client entry script.
 
 ```ts
 import { dehydrate, hydrationScript } from "rxfy";
@@ -201,11 +201,11 @@ function hydrationScript(state: DehydratedState): string
 // '<script>(window.__RXFY_SSR__=window.__RXFY_SSR__||[]).push({...})</script>'
 ```
 
-The payload is embedded via `serializeForHtml` (also exported) — JSON with `<` and U+2028/U+2029 escaped so it cannot break out of the script tag.
+The payload is embedded via `serializeForHtml` (also exported): JSON with `<` and U+2028/U+2029 escaped so it cannot break out of the script tag.
 
 ### Internal primitives
 
-`stableStringify`, `normalizeResult`, `denormalizeValue`, `createQueryCache`, `markSync`, `isSyncMarked`, `attachReload`, `getAttachedReload`, `serializeError`, `rehydrateError` are exported because `rxfy-react` consumes them across the package boundary. They are implementation plumbing, not the intended app-facing surface — prefer the APIs above.
+`stableStringify`, `normalizeResult`, `denormalizeValue`, `createQueryCache`, `markSync`, `isSyncMarked`, `attachReload`, `getAttachedReload`, `serializeError`, `rehydrateError` are exported because `rxfy-react` consumes them across the package boundary. They are implementation plumbing, not the intended app-facing surface; prefer the APIs above.
 
 ---
 
@@ -215,7 +215,7 @@ Lower-level building blocks. Use these for custom reactive patterns or when the 
 
 ### `Atom` / `createAtom`
 
-A reactive cell — extends `Observable<T>` with synchronous `get()`, `set()`, and `modify()` backed by a `BehaviorSubject`.
+A reactive cell that extends `Observable<T>` with synchronous `get()`, `set()`, and `modify()`, backed by a `BehaviorSubject`.
 
 ```ts
 import { createAtom } from "rxfy";
@@ -263,7 +263,7 @@ function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
 
 ### `IWrapped` / `StatusEnum` / helpers
 
-Discriminated union for async state — the `IDLE / PENDING / FULFILLED / REJECTED` pattern used throughout rxfy. It is what the query cache holds per key and what `usePending` returns in `rxfy-react`; also available for custom async primitives.
+Discriminated union for async state, the `IDLE / PENDING / FULFILLED / REJECTED` pattern used throughout rxfy. It is what the query cache holds per key and what `usePending` returns in `rxfy-react`; also available for custom async primitives.
 
 ```ts
 import { createIdle, createPending, createFulfilled, createRejected } from "rxfy";
@@ -294,5 +294,5 @@ function createRejected<T>(error: unknown): IWrapped<T, StatusEnum.REJECTED>
 
 ## See also
 
-- [rxfy-react](../rxfy-react/README.md) — React bindings
-- [examples/vite-todo](../../examples/vite-todo) — full working example
+- [rxfy-react](../rxfy-react/README.md): React bindings
+- [examples/vite-todo](../../examples/vite-todo): full working example

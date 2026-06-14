@@ -1,6 +1,6 @@
 # rxfy-react
 
-`rxfy-react` — official React bindings for [`rxfy`](../rxfy/README.md). Subscribe React components to normalized entities — each renders the one shared copy and updates live.
+`rxfy-react` is the official React bindings for [`rxfy`](../rxfy/README.md). Subscribe React components to normalized entities; each renders the one shared copy and updates live.
 
 ## Install
 
@@ -22,7 +22,7 @@ npm install rxfy rxfy-react
 }
 ```
 
-`next` is **optional** — only needed for the `rxfy-react/next` subpath (Next.js App Router streaming).
+`next` is **optional**; only needed for the `rxfy-react/next` subpath (Next.js App Router streaming).
 
 ---
 
@@ -47,11 +47,11 @@ createRoot(document.getElementById("root")!).render(
 function StoreProvider(props: PropsWithChildren<{
   ssr?: boolean;                    // enables server-side fetch-and-suspend in useStateData
   registry?: IModelRegistry;        // per-request registry created by server code (for dehydrate)
-  dehydratedState?: DehydratedState; // snapshot for custom transports — usually unnecessary, see below
+  dehydratedState?: DehydratedState; // snapshot for custom transports; usually unnecessary, see below
 }>): JSX.Element
 ```
 
-All three props exist for [SSR](#server-side-rendering); a plain client-only app uses none of them. On the client the provider automatically ingests `window.__RXFY_SSR__` chunks — both the snapshot injected by `hydrationScript` and the streamed pushes from `<HydrationStream />`, including chunks arriving after hydration starts. `dehydratedState` is only needed when the snapshot travels by some other channel (a framework loader, tests).
+All three props exist for [SSR](#server-side-rendering); a plain client-only app uses none of them. On the client the provider automatically ingests `window.__RXFY_SSR__` chunks: both the snapshot injected by `hydrationScript` and the streamed pushes from `<HydrationStream />`, including chunks arriving after hydration starts. `dehydratedState` is only needed when the snapshot travels by some other channel (a framework loader, tests).
 
 ---
 
@@ -59,9 +59,9 @@ All three props exist for [SSR](#server-side-rendering); a plain client-only app
 
 ### `useStateData`
 
-Fetches data, normalizes entities into model stores, and returns a `StateHandle`. **`data$` emits the normalized query shape — entity ids, not entities** (`array` fields → `string[]`, `single` fields → `string`). Render lists by id and read entity data through [`useModelStore`](#usemodelstore); that's the only place entity values live, so a stale read is impossible by construction.
+Fetches data, normalizes entities into model stores, and returns a `StateHandle`. **`data$` emits the normalized query shape: entity ids, not entities** (`array` fields → `string[]`, `single` fields → `string`). Render lists by id and read entity data through [`useModelStore`](#usemodelstore); that's the only place entity values live, so a stale read is impossible by construction.
 
-`fetchFn` returns the full fetch shape (entities) and receives an `AbortSignal` that fires on cleanup. `mutations` and `set` also operate on full entities: rxfy denormalizes the current ids into the freshest store values, runs your reducer, and normalizes the result back — one call updates both membership and entity data.
+`fetchFn` returns the full fetch shape (entities) and receives an `AbortSignal` that fires on cleanup. `mutations` and `set` also operate on full entities: rxfy denormalizes the current ids into the freshest store values, runs your reducer, and normalizes the result back, so one call updates both membership and entity data.
 
 ```tsx
 import { useMemo, useState } from "react";
@@ -113,13 +113,13 @@ function useStateData<TParams, TShape, TMutations>(
 // }
 ```
 
-**Caching semantics** (states with a `key`): results, mutations, and `set` write through to the registry's query cache, so a remount with the same params starts from the cached ids without re-fetching — while entity values always come live from model stores (a websocket-style `store.set` between mounts is never clobbered). `reload()` deletes the cache entry and re-fetches. Keyless states skip the cache entirely and fetch per mount.
+**Caching semantics** (states with a `key`): results, mutations, and `set` write through to the registry's query cache, so a remount with the same params starts from the cached ids without re-fetching, while entity values always come live from model stores (a websocket-style `store.set` between mounts is never clobbered). `reload()` deletes the cache entry and re-fetches. Keyless states skip the cache entirely and fetch per mount.
 
-**During SSR** (inside `<StoreProvider ssr>` on the server): a cache miss calls `fetchFn` and suspends until it settles; concurrent components with the same key share one fetch. Rejections are captured and hydrate as rejected state — `<Pending rejected>` renders them with a working retry. See [Server-side rendering](#server-side-rendering).
+**During SSR** (inside `<StoreProvider ssr>` on the server): a cache miss calls `fetchFn` and suspends until it settles; concurrent components with the same key share one fetch. Rejections are captured and hydrate as rejected state; `<Pending rejected>` renders them with a working retry. See [Server-side rendering](#server-side-rendering).
 
 ### `useModelStore`
 
-Returns the `ModelStore` for a model descriptor. Lets a component subscribe to a single normalized entity that was populated by `useStateData` or a direct `store.set` call — without re-fetching the full list.
+Returns the `ModelStore` for a model descriptor. Lets a component subscribe to a single normalized entity that was populated by `useStateData` or a direct `store.set` call, without re-fetching the full list.
 
 ```tsx
 import { useMemo } from "react";
@@ -153,11 +153,11 @@ function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 // }
 ```
 
-> **Note:** `store.get(id)` returns an Observable that never emits until `set` or `setMany` is called for that key. It stays in pending state until data arrives — typically populated by a `useStateData` call that includes this model in its `model` field.
+> **Note:** `store.get(id)` returns an Observable that never emits until `set` or `setMany` is called for that key. It stays in pending state until data arrives, typically populated by a `useStateData` call that includes this model in its `model` field.
 
 ### `useAtom`
 
-Binds any `IAtom<T>` — a plain `Atom`, a field `Lens`, or a `ModelStore.entity(id)` handle — to React as `[value, setValue]`. Paired with `store.entity(id)` and `keyLens`, it gives two-way form binding that stays in sync across every component subscribed to that entity: typing writes through the field `Lens` into the entity cell, so the edit reaches the list row, the detail header, and any other subscriber with no re-fetch.
+Binds any `IAtom<T>` (a plain `Atom`, a field `Lens`, or a `ModelStore.entity(id)` handle) to React as `[value, setValue]`. Paired with `store.entity(id)` and `keyLens`, it gives two-way form binding that stays in sync across every component subscribed to that entity: typing writes through the field `Lens` into the entity cell, so the edit reaches the list row, the detail header, and any other subscriber with no re-fetch.
 
 ```tsx
 import { useMemo } from "react";
@@ -181,7 +181,7 @@ function EditTitle({ id }: { id: string }) {
 function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
 ```
 
-> `atom$` must be referentially stable across renders — wrap `store.entity(id)` and the `Lens` in `useMemo` as above. `store.entity(id)` assumes the entity is already loaded.
+> `atom$` must be referentially stable across renders; wrap `store.entity(id)` and the `Lens` in `useMemo` as above. `store.entity(id)` assumes the entity is already loaded.
 
 ---
 
@@ -189,7 +189,7 @@ function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
 
 ### `Pending`
 
-Subscribes to any `ObservableLike<T>` and renders the appropriate UI for pending, rejected, or fulfilled state. The `rejected` render prop receives the rejected `IWrapped` — `{ type, error }`. If `rejected` is not provided, it defaults to rendering nothing and logging the error to `console.error`.
+Subscribes to any `ObservableLike<T>` and renders the appropriate UI for pending, rejected, or fulfilled state. The `rejected` render prop receives the rejected `IWrapped` (`{ type, error }`). If `rejected` is not provided, it defaults to rendering nothing and logging the error to `console.error`.
 
 Reload is not carried on the status object: get it from the `useStateData` handle's `reload()` (or `getAttachedReload(source$)` from `rxfy` for a standalone observable).
 
@@ -226,30 +226,6 @@ function Pending<T>(props: {
 // ObservableLike<T> = Observable<T> | T
 ```
 
-### `BehaviorSubjectRender`
-
-Renders from a `BehaviorSubject`. Captures the current value at mount via `getValue()` and re-renders on subsequent emissions. Emissions that occur between mount and the subscription setup may be missed — use `<Pending>` for live observable data.
-
-```tsx
-import { BehaviorSubjectRender } from "rxfy-react";
-import { BehaviorSubject } from "rxjs";
-
-const count$ = new BehaviorSubject(0);
-
-<BehaviorSubjectRender value$={count$}>
-  {(n) => <span>{n}</span>}
-</BehaviorSubjectRender>
-```
-
-**Signature:**
-
-```tsx
-function BehaviorSubjectRender<T>(props: {
-  value$: BehaviorSubject<T>;
-  children: IRenderable<T>;
-}): JSX.Element
-```
-
 ---
 
 ## Low-level hooks
@@ -277,9 +253,9 @@ function usePending<T>(
 ): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>
 ```
 
-> **Reload** is not part of the status object — trigger it via the `useStateData` handle's `reload()` or `getAttachedReload(source$)` from `rxfy`.
+> **Reload** is not part of the status object; trigger it via the `useStateData` handle's `reload()` or `getAttachedReload(source$)` from `rxfy`.
 >
-> **Contract:** `source$` must be referentially stable across renders (memoize it — `data$` from `useStateData` already is). A new identity restarts the pipeline from `PENDING`; an observable created inline in render restarts every render and never settles.
+> **Contract:** `source$` must be referentially stable across renders (memoize it; `data$` from `useStateData` already is). A new identity restarts the pipeline from `PENDING`; an observable created inline in render restarts every render and never settles.
 
 ### `useObservable`
 
@@ -299,7 +275,7 @@ function useObservable<T>(observable: Observable<T>, initialValue: T): T
 function useObservable<T>(observable: Observable<T>): T | undefined
 ```
 
-Emissions that are deep-equal (`lodash.isEqual`) to the current value are skipped — re-emitting an identical value does not re-render.
+Emissions that are deep-equal (`lodash.isEqual`) to the current value are skipped; re-emitting an identical value does not re-render.
 
 ---
 
@@ -317,7 +293,7 @@ const registry = createModelRegistry();
   <App />
 </ModelRegistryContext.Provider>
 
-// inside any child — throws if no provider is found above
+// inside any child; throws if no provider is found above
 const registry = useModelRegistry();
 ```
 
@@ -332,13 +308,13 @@ function useModelRegistry(): IModelRegistry
 
 ## Server-side rendering
 
-SSR is on-demand: there is no prefetch API. Components declare their data with `useStateData` exactly as on the client; on the server (`<StoreProvider ssr>`) a cache miss suspends until the fetch settles. Results — fulfilled or rejected — are captured in the registry, serialized into the HTML, and ingested on the client so the first paint is already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
+SSR is on-demand: there is no prefetch API. Components declare their data with `useStateData` exactly as on the client; on the server (`<StoreProvider ssr>`) a cache miss suspends until the fetch settles. Results (fulfilled or rejected) are captured in the registry, serialized into the HTML, and ingested on the client so the first paint is already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
 
 Requirements: give models a `name` and states a `key` (stable string identities), and write `fetchFn` to work in both environments (it runs on the server during SSR and on the client for reloads).
 
 ### Buffered mode (any Node server)
 
-Wait for every Suspense boundary with `onAllReady`, then send the complete document. This is the recommended non-Next mode — [examples/vite-todo](../../examples/vite-todo) runs it end to end.
+Wait for every Suspense boundary with `onAllReady`, then send the complete document. This is the recommended non-Next mode; [examples/vite-todo](../../examples/vite-todo) runs it end to end.
 
 ```tsx
 // server
@@ -367,7 +343,7 @@ function render(): Promise<{ html: string; state: string }> {
 ```
 
 ```tsx
-// client — StoreProvider picks the snapshot up from the injected script automatically
+// client: StoreProvider picks the snapshot up from the injected script automatically
 import { hydrateRoot } from "react-dom/client";
 
 hydrateRoot(
@@ -378,7 +354,7 @@ hydrateRoot(
 
 ### Streaming mode (Next.js App Router)
 
-`rxfy-react/next` ships `<HydrationStream />`: on each stream flush it emits newly settled queries and newly written entities as `window.__RXFY_SSR__.push(...)` script tags; the client `StoreProvider` ingests them — including chunks arriving after hydration starts.
+`rxfy-react/next` ships `<HydrationStream />`: on each stream flush it emits newly settled queries and newly written entities as `window.__RXFY_SSR__.push(...)` script tags; the client `StoreProvider` ingests them, including chunks arriving after hydration starts.
 
 ```tsx
 // app/providers.tsx
@@ -396,7 +372,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`next` is an optional peer dependency — only this subpath needs it.
+`next` is an optional peer dependency; only this subpath needs it.
 
 ### Two-pass mode (strict `renderToString`)
 
@@ -420,11 +396,11 @@ function collectStateData(registry: IModelRegistry, render: () => string): Promi
 
 ### Error handling
 
-A `fetchFn` rejection on the server is captured as a serialized rejected entry (`{ name, message }`, stack stripped) and hydrates as rejected state — the server HTML shows your `<Pending rejected>` UI, and the handle's `reload()` retries client-side with a real fetch.
+A `fetchFn` rejection on the server is captured as a serialized rejected entry (`{ name, message }`, stack stripped) and hydrates as rejected state: the server HTML shows your `<Pending rejected>` UI, and the handle's `reload()` retries client-side with a real fetch.
 
 ---
 
 ## See also
 
-- [rxfy — Core API](../rxfy/README.md)
-- [examples/vite-todo](../../examples/vite-todo) — full working example with buffered SSR and URL-driven state
+- [rxfy: Core API](../rxfy/README.md)
+- [examples/vite-todo](../../examples/vite-todo): full working example with buffered SSR and URL-driven state

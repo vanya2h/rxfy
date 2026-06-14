@@ -1,12 +1,12 @@
 # rxfy
 
-**rxfy** (/ɑɹ ɪks faɪ/) — a small library that lets you declare typed models and the states that query them, then access
+**rxfy** (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access
 their data as reactive observables. [Normalization](/normalization) keeps your app consistent
 and reactive at no extra cost.
 
 You define models with `createModel` and the states that fetch them with `defineState`; rxfy
 splits each result into normalized model stores plus an id-only query shape. Every entity lives
-in exactly one place, keyed by id, and components subscribe to it directly — so a single
+in exactly one place, keyed by id, and components subscribe to it directly, so a single
 `store.set` (a refetch, a mutation, or a websocket push) reaches every view showing that entity,
 with no duplicated data and no list re-fetch. RxJS streams are the delivery mechanism; SSR
 snapshots the same store and rehydrates it with zero client fetches.

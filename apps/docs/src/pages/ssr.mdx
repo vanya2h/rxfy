@@ -1,6 +1,6 @@
 # Server-Side Rendering
 
-SSR is on-demand — there is no prefetch API. Components declare their data with
+SSR is on-demand; there is no prefetch API. Components declare their data with
 `useStateData` exactly as on the client; on the server (`<StoreProvider ssr>`) a cache
 miss suspends until the fetch settles. Results (fulfilled or rejected) are captured in the
 registry, serialized into the HTML, and ingested on the client so the first paint is
@@ -33,7 +33,7 @@ renderToPipeableStream(
 ```
 
 ```tsx
-// client — StoreProvider ingests the injected script automatically
+// client: StoreProvider ingests the injected script automatically
 import { hydrateRoot } from "react-dom/client";
 
 hydrateRoot(
@@ -64,7 +64,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`next` is an optional peer dependency — only this subpath needs it.
+`next` is an optional peer dependency; only this subpath needs it.
 
 ## Two-pass mode (strict `renderToString`)
 
@@ -91,7 +91,7 @@ type DehydratedState = {
   models: Record<string, Record<string, unknown>>;     // entities, by model name then id
 };
 
-// Snapshot a request's registry — only named models and keyed queries are included.
+// Snapshot a request's registry; only named models and keyed queries are included.
 function dehydrate(registry: IModelRegistry): DehydratedState;
 
 // Serialize a snapshot into a ready-to-inject <script> tag (HTML-safe).
@@ -103,7 +103,7 @@ function hydrate(registry: IModelRegistry, state: DehydratedState): void;
 
 In the common path you never call `hydrate` directly: the embedded script populates
 `window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically. Call
-`hydrate` yourself only when you hold the registry and the snapshot directly — e.g. passing
+`hydrate` yourself only when you hold the registry and the snapshot directly, e.g. passing
 `dehydratedState` to `StoreProvider` for a buffered two-pass render rather than an inline
 script.
 
@@ -111,5 +111,5 @@ script.
 
 A `fetchFn` rejection on the server is captured as a serialized rejected entry
 (`{ type: "REJECTED", error: { name, message } }`, stack stripped) and hydrates as rejected
-state — the server HTML shows your `<Pending rejected>` UI, and the handle's `reload()`
+state: the server HTML shows your `<Pending rejected>` UI, and the handle's `reload()`
 retries client-side with a real fetch.

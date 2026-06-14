@@ -6,25 +6,25 @@ and reference it by id everywhere else.
 > **Mental model:** entities are rows in a table keyed by id · a query holds a list of those
 > ids · components render by id.
 
-This page explains what that means and why it matters; the APIs it uses — `defineState`,
-`useStateData`, `Pending`, `useModelStore` — are covered in [Models & State](/models-state) and
+This page explains what that means and why it matters. The APIs it uses (`defineState`,
+`useStateData`, `Pending`, `useModelStore`) are covered in [Models & State](/models-state) and
 [React Bindings](/react), and appear here only to make the idea concrete.
 
 ## The problem: the same entity on two pages
 
 A **team page** lists users; a **profile page** shows one user in detail. They are separate
-features with their own fetches and their own state — but they overlap: Alice (`u1`) is both a
+features with their own fetches and their own state, but they overlap: Alice (`u1`) is both a
 team member and the profile being viewed.
 
 ```ts
-// Team page — its own state
+// Team page: its own state
 const teamState = defineState({
   key: "team",
   params: z.object({ teamId: z.string() }),
   model: { members: array(UserModel) },
 });
 
-// Profile page — its own, separate state
+// Profile page: its own, separate state
 const profileState = defineState({
   key: "profile",
   params: z.object({ userId: z.string() }),
@@ -32,8 +32,8 @@ const profileState = defineState({
 });
 ```
 
-If each page kept its **own copy** of the user — local component state, or a per-feature store
-slice — you'd have two Alices. Rename her on the profile page and the team row stays stale
+If each page kept its **own copy** of the user (local component state, or a per-feature store
+slice), you'd have two Alices. Rename her on the profile page and the team row stays stale
 until it happens to re-fetch. The two copies have drifted, and one of them is now wrong.
 
 ## One store, shared by id
@@ -48,7 +48,7 @@ const UserModel = createModel(
 ```
 
 Because both `teamState` and `profileState` declare `UserModel`, rxfy keys every user by that
-`getKey` id and stores it **once**, in a single `UserModel` store — no matter which state
+`getKey` id and stores it **once**, in a single `UserModel` store, no matter which state
 fetched it. Each query then keeps only **ids**; the entity data lives in the shared store:
 
 ```text
@@ -71,13 +71,13 @@ fetched it. Each query then keeps only **ids**; the entity data lives in the sha
 ```
 
 Each page subscribes to its own `data$` (ids only) and reads entities by id from the shared
-store. The team page resolves `"u1"` against the same store the profile page wrote to — so both
+store. The team page resolves `"u1"` against the same store the profile page wrote to, so both
 render the same user, not two snapshots that can disagree.
 
 ## Why it matters
 
 Because Alice is a single cell, an update reaches everyone at once. Edit her on the profile
-page — say from a button handler — and the write goes straight to the shared store:
+page, say from a button handler, and the write goes straight to the shared store:
 
 ```tsx
 function RenameButton({ id }: { id: string }) {
@@ -90,25 +90,25 @@ function RenameButton({ id }: { id: string }) {
 }
 ```
 
-That one write — equally from a mutation or a websocket push — updates the profile header
+That one write, equally from a mutation or a websocket push, updates the profile header
 **and** the team row in the same render, with no re-fetch and no stale copies. It is why
 `data$` emits ids rather than entities.
 
 The same dedup happens within one query: if a state has the user as two separate fields (say an
 `author` and a list of `commenters`), both fields resolve to the one cell. Mutations take the
-same path — see [Models & State](/models-state#definestate).
+same path; see [Models & State](/models-state#definestate).
 
 ## What it costs
 
 Normalization isn't free, and the trade is deliberate:
 
 - You declare a **model + `getKey`** for each entity type (`createModel`).
-- Components **render by id** — a `useModelStore(...).get(id)` hop — instead of reading entity
+- Components **render by id** (a `useModelStore(...).get(id)` hop) instead of reading entity
   data inline from the query.
 - Mutations **denormalize → reduce → renormalize**, so reducers still work with whole entities.
 
 In return you get one source of truth, per-entity subscriptions, and live updates with no
-re-fetching — and the payoff grows with how often the same data appears across your app.
+re-fetching. The more often the same data appears across your app, the more this buys you.
 
 ## In rxfy
 
@@ -116,5 +116,5 @@ re-fetching — and the payoff grows with how often the same data appears across
 - [`defineState`](/models-state#definestate) declares which fields hold which model; the fetch
   result is normalized into the shared model stores plus an id-only query shape automatically.
 - [`data$`](/react#usestatedata) emits that id shape; [`useModelStore`](/react#usemodelstore)
-  reads an entity by id and re-renders only when that entity changes — across every page that
+  reads an entity by id and re-renders only when that entity changes, across every page that
   references it.

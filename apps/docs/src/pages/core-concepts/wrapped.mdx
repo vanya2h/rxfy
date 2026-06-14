@@ -1,6 +1,6 @@
 # Wrapped
 
-`IWrapped` is the discriminated union for async state — the `IDLE / PENDING /
+`IWrapped` is the discriminated union for async state, the `IDLE / PENDING /
 FULFILLED / REJECTED` pattern used throughout rxfy. It is what the query cache holds
 per key (each query is an `Atom<IWrapped<…>>`) and what the [`usePending`](/react#usepending)
 hook returns. Construct values with the helpers:
@@ -34,7 +34,7 @@ type IWrapped<T> =
   | { type: StatusEnum.REJECTED; error: unknown };
 ```
 
-The optional second type parameter narrows the union to specific states — e.g.
+The optional second type parameter narrows the union to specific states, e.g.
 `usePending` returns `IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>`
 (never `IDLE`).
 

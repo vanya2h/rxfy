@@ -1,6 +1,6 @@
-# Tutorial: Build a Todo app
+# Build a Todo app
 
-This lesson takes you from an empty project to a working, interactive todo app — a
+This lesson takes you from an empty project to a working, interactive todo app: a
 list you can add to, toggle, and edit, with every view of a todo staying in sync. You
 will write a model, a state, and three small components. Follow the steps in order and
 paste each block where it says; by the end the app runs.
@@ -9,7 +9,7 @@ No backend is required. The "fetch" is an in-memory array so you can run everyth
 locally, and the same `fetchFn` signature works against a real API later.
 
 > Want the API details behind a step? Each links to its reference page. Read those
-> after the lesson — here, just build.
+> after the lesson; for now, build.
 
 ## Before you start
 
@@ -21,7 +21,7 @@ npm install rxfy rxfy-react
 npm install rxjs zod lodash
 ```
 
-## Step 1 — Wrap the app in `StoreProvider`
+## Step 1: Wrap the app in `StoreProvider`
 
 `StoreProvider` holds the store that the hooks read and write. Wrap your root once:
 
@@ -38,7 +38,7 @@ createRoot(document.getElementById("root")!).render(
 );
 ```
 
-## Step 2 — Define a model
+## Step 2: Define a model
 
 A [model](/models-state#createmodel) is an entity type plus how to read its id. Each todo
 gets stored once under that id, so every component renders the same copy.
@@ -48,19 +48,19 @@ gets stored once under that id, so every component renders the same copy.
 import { z } from "zod";
 import { createModel } from "rxfy";
 
-export const TodoModel = createModel(
-  z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
-  { getKey: (todo) => todo.id, name: "todo" },
-);
+export const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
+  getKey: (todo) => todo.id,
+  name: "todo",
+});
 
 export type Todo = z.infer<typeof TodoModel.schema>;
 ```
 
-## Step 3 — Define a state and a fake fetch
+## Step 3: Define a state and a fake fetch
 
 A [state](/models-state#definestate) declares the params it takes, the model fields it
-returns, and the mutations that change it. Add two mutations now — one to add a todo, one
-to toggle `done`:
+returns, and the mutations that change it. Add three mutations now: add a todo, toggle
+`done`, and save an edited todo (Step 6 uses the last one):
 
 ```ts
 // todos.ts (continued)
@@ -79,11 +79,15 @@ export const todosState = defineState({
       ...prev,
       todos: prev.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
     }),
+    updateTodo: (prev, next: Todo) => ({
+      ...prev,
+      todos: prev.todos.map((t) => (t.id === next.id ? next : t)),
+    }),
   },
 });
 ```
 
-Reducers work with whole todos, not ids — rxfy normalizes the result back into the store
+Reducers work with whole todos, not ids; rxfy normalizes the result back into the store
 for you.
 
 Now the fetch. It returns the full shape (`{ todos: Todo[] }`) and respects the `filter`
@@ -97,16 +101,14 @@ const seed: Todo[] = [
 ];
 
 export async function fetchTodos({ filter }: { filter: "all" | "active" | "done" }) {
-  const todos = seed.filter((t) =>
-    filter === "all" ? true : filter === "done" ? t.done : !t.done,
-  );
+  const todos = seed.filter((t) => (filter === "all" ? true : filter === "done" ? t.done : !t.done));
   return { todos };
 }
 ```
 
-## Step 4 — Render the list
+## Step 4: Render the list
 
-`useStateData` runs the fetch, normalizes the todos, and hands back `data$` — the list of
+`useStateData` runs the fetch, normalizes the todos, and hands back `data$`, the list of
 todo **ids**, not the todos themselves. You render the ids and let each row read its own
 todo (Step 5). `Pending` shows a fallback until the data arrives.
 
@@ -142,12 +144,12 @@ export function App() {
 
 Two things are wired here already: `mutations.addTodo` appends a todo and the list
 re-renders with its new id, and `mutations.toggleTodo` flips `done` on one todo. Both
-update the store in place — no re-fetch.
+update the store in place, no re-fetch. (`updateTodo` gets wired in Step 6.)
 
 `params` is wrapped in `useMemo` so its identity is stable; a fresh object every render
 would restart the fetch.
 
-## Step 5 — Render one todo
+## Step 5: Render one todo
 
 Each row reads its own todo from the store by id. Because the row subscribes to that one
 entity, it re-renders when (and only when) that todo changes:
@@ -176,36 +178,91 @@ export function TodoItem({ id, onToggle }: { id: string; onToggle: () => void })
 ```
 
 Run the app. You should see two todos, an **Add** button that appends a third, and
-checkboxes that toggle. Adding or toggling updates the list with no spinner — the store
+checkboxes that toggle. Adding or toggling updates the list with no spinner; the store
 already holds the data.
 
-## Step 6 — Edit a title, see it everywhere
+## Step 6: Edit a title with a form, save on submit
 
-Last step: make the title editable, and prove the store is one shared copy. `store.entity(id)`
-is a writable handle on a todo; a [`Lens`](/core-concepts/lens) focuses one field of it;
-[`useAtom`](/react#useatom-and-two-way-binding) binds that field to an input. Writes flow
-back into the store, so every component showing this todo updates as you type.
+Last step: edit a todo through a form that keeps its changes local until you submit. A form
+wants a draft the user can type into (and discard) without touching the rest of the app;
+you persist it only on **Save**.
+
+Hold that draft in a local [`Atom`](/core-concepts/atom) seeded from the todo, focus the
+field you're editing with a [`Lens`](/core-concepts/lens), and bind it with
+[`useAtom`](/react#useatom-and-two-way-binding). The form never reads or writes the store;
+on submit it hands the edited todo to an `onSave` callback, and the parent does the write.
 
 ```tsx
 // EditTitle.tsx
 import { useMemo } from "react";
-import { createLens, keyLens } from "rxfy";
-import { useAtom, useModelStore } from "rxfy-react";
-import { TodoModel } from "./todos";
+import { createAtom, createLens, keyLens } from "rxfy";
+import { useAtom } from "rxfy-react";
+import { Todo } from "./todos";
 
-export function EditTitle({ id }: { id: string }) {
-  const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.entity(id), [store, id]);
-  const title$ = useMemo(() => createLens(todo$, keyLens("title")), [todo$]);
+export function EditTitle({ todo, onSave }: { todo: Todo; onSave: (todo: Todo) => void }) {
+  const draft$ = useMemo(() => createAtom(todo), [todo]);
+  const title$ = useMemo(() => createLens(draft$, keyLens("title")), [draft$]);
   const [title, setTitle] = useAtom(title$);
 
-  return <input value={title} onChange={(e) => setTitle(e.target.value)} />;
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(draft$.get());
+      }}
+    >
+      <input value={title} onChange={(e) => setTitle(e.target.value)} />
+      <button type="submit">Save</button>
+    </form>
+  );
 }
 ```
 
-Drop `<EditTitle id={todo.id} />` into the `TodoItem` render and type in it. The text in
-the list row changes in the same keystroke, because the row and the input read the same
-entity cell — not two copies.
+`draft$` is a plain `Atom<Todo>` that lives only in this component; `title$` is a `Lens`
+onto its `title` field, and `useAtom` binds that field to the input. Typing updates the
+draft, not the store; the list row keeps showing the saved title until you submit.
+
+Now render the form in `TodoItem` and let it report saves upward:
+
+```tsx
+// TodoItem.tsx: render <EditTitle> instead of the static title
+import { EditTitle } from "./EditTitle";
+import { Todo } from "./todos";
+
+export function TodoItem({
+  id,
+  onToggle,
+  onRename,
+}: {
+  id: string;
+  onToggle: () => void;
+  onRename: (todo: Todo) => void;
+}) {
+  // ...store and todo$ as before...
+  return (
+    <Pending value$={todo$}>
+      {(todo) => (
+        <li>
+          <input type="checkbox" checked={todo.done} onChange={onToggle} />
+          <EditTitle todo={todo} onSave={onRename} />
+        </li>
+      )}
+    </Pending>
+  );
+}
+```
+
+Finally, wire `onRename` to the write in `App`; `mutations.updateTodo` is the save:
+
+```tsx
+// App.tsx: pass onRename alongside onToggle
+<TodoItem key={id} id={id} onToggle={() => mutations.toggleTodo(id)} onRename={mutations.updateTodo} />
+```
+
+Type a new title and press **Save**. The edit doesn't show until you submit; then
+`updateTodo` replaces the todo in the store and every view of it re-renders, no re-fetch.
+`onSave` is your write boundary: here it runs a mutation, but against a real backend this is
+where you'd `await` a `PATCH` before (or after) updating the store.
 
 ## What you built
 
@@ -215,6 +272,7 @@ entity cell — not two copies.
 
 ## Where to go next
 
-- [Normalization](/normalization) — why `data$` emits ids, and what it buys you.
-- [Models & State](/models-state) and [React Bindings](/react) — the full API.
-- [Optimistic mutations](/guides/optimistic-mutations) and [Two-way form binding](/guides/form-binding) — common next tasks.
+- [Normalization](/normalization): why `data$` emits ids, and what it buys you.
+- [Models & State](/models-state) and [React Bindings](/react): the full API.
+- [Atom](/core-concepts/atom) and [Lens](/core-concepts/lens): the draft-and-save form here, in depth.
+- [Live updates over WebSockets](/guides/live-updates-websockets) and [Pagination](/guides/pagination): common next tasks.
