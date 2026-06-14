@@ -75,8 +75,12 @@ jobs:
         run: git push --follow-tags
 
       - name: Sync version bumps to develop
+        # Best-effort housekeeping: packages are already published, so a sync
+        # hiccup must not fail the job. `changeset version` leaves pre.json
+        # modified-but-uncommitted, so force the switch to discard that churn.
+        continue-on-error: true
         run: |
           git fetch origin develop
-          git checkout develop
+          git checkout -f develop
           git merge staging --no-edit -X theirs
           git push origin develop
