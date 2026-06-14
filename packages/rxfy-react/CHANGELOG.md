@@ -1,5 +1,15 @@
 # rxfy-react
 
+## 1.0.2-rc.1
+
+### Patch Changes
+
+- 565775e: Add npm `keywords` to package manifests for better discoverability.
+- eb8539f: Add MIT license, repository `directory`, and `sideEffects: false` to package manifests; refine `rxfy` exports with per-condition type declarations.
+- Updated dependencies [565775e]
+- Updated dependencies [eb8539f]
+  - rxfy@1.0.2-rc.1
+
 ## 1.0.2-rc.0
 
 ### Patch Changes
