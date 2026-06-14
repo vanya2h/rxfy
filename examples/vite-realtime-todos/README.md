@@ -3,7 +3,7 @@
 Normalized rxfy state driven by **server-pushed updates over WebSockets**, with targeted
 per-connection delivery. Built with Vite SSR · Hono · Drizzle (SQLite, in-memory).
 
-See the guide: [Live updates over WebSockets](../../apps/docs/src/pages/guides/live-updates-websockets.mdx).
+See the guide: [Live updates over WebSockets](https://rxfy.vanya2h.me/guides/live-updates-websockets) ([source](../../apps/docs/src/pages/guides/live-updates-websockets.mdx)).
 
 ## Run
 

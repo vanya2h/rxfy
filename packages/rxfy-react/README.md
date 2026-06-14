@@ -2,6 +2,8 @@
 
 `rxfy-react` is the official React bindings for [`rxfy`](../rxfy/README.md). Subscribe React components to normalized entities; each renders the one shared copy and updates live.
 
+📚 **Documentation: [rxfy.vanya2h.me](https://rxfy.vanya2h.me)**
+
 ## Install
 
 ```bash
@@ -402,5 +404,6 @@ A `fetchFn` rejection on the server is captured as a serialized rejected entry (
 
 ## See also
 
+- [Documentation website](https://rxfy.vanya2h.me)
 - [rxfy: Core API](../rxfy/README.md)
 - [examples/vite-todo](../../examples/vite-todo): full working example with buffered SSR and URL-driven state

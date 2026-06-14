@@ -2,6 +2,8 @@
 
 rxfy (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
+📚 **Documentation: [rxfy.vanya2h.me](https://rxfy.vanya2h.me)**
+
 ## Install
 
 ```bash
@@ -294,5 +296,6 @@ function createRejected<T>(error: unknown): IWrapped<T, StatusEnum.REJECTED>
 
 ## See also
 
+- [Documentation website](https://rxfy.vanya2h.me)
 - [rxfy-react](../rxfy-react/README.md): React bindings
 - [examples/vite-todo](../../examples/vite-todo): full working example

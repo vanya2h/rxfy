@@ -1,6 +1,6 @@
 # rxfy docs
 
-Documentation site for rxfy, built with [Vocs](https://vocs.dev).
+Documentation site for rxfy, built with [Vocs](https://vocs.dev). Live at [rxfy.vanya2h.me](https://rxfy.vanya2h.me).
 
 ## Develop
 
