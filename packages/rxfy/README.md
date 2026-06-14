@@ -1,6 +1,6 @@
 # rxfy
 
-rxfy (/ɑɹ ɪks faɪ/) — declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
+rxfy (/ɑɹ ɪks faɪ/) — a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
 ## Install
 
@@ -142,11 +142,13 @@ function createModelRegistry(): IModelRegistry
 
 function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 // ModelStore<T>: {
-//   get(key: string): Observable<T>;
-//   set(key, val): void;
-//   setMany(items): void;
-//   getValue(key: string): T | undefined;   // synchronous read of the latest value
-//   valueEntries(): [string, T][];
+//   get(key: string): Observable<T>;         // reactive read; emits on every change
+//   set(key, val): void;                      // write one entity
+//   setMany(items): void;                     // write many; key derived via getKey
+//   getValue(key: string): T | undefined;     // synchronous read of the latest value
+//   entity(key: string): IAtom<T>;            // writable handle over one entity's cell
+//   valueEntries(): [string, T][];            // snapshot of all loaded [key, value] pairs
+//   added$: Observable<string>;               // a key, the first time its entity appears
 // }
 ```
 
@@ -259,42 +261,9 @@ function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
 // ILens<S, T>: { get(source: S): T; set(current: T, source: S): S }
 ```
 
-### `Edge` / `createEdge`
-
-Manages an async data load lifecycle. Queues the load via `p-queue`, tracking `IDLE → PENDING → FULFILLED | REJECTED` state in an `Atom`.
-
-```ts
-import PQueue from "p-queue";
-import { of } from "rxjs";
-import { createAtom, createEdge, createIdle } from "rxfy";
-
-const queue = new PQueue({ concurrency: 5 });
-const state$ = createAtom(createIdle<{ id: string }>());
-const edge = createEdge(state$, queue, () => of({ id: "42" }));
-
-edge.toObservable().subscribe((user) => console.log(user));
-await edge.next(); // trigger a reload
-```
-
-**Signature:**
-
-```ts
-function createEdge<T>(
-  state$: IAtom<IEdgeState<T>>,
-  queue: PQueue,
-  loader: () => Observable<T>,
-): IEdge<T>
-
-// IEdge<T>: {
-//   subject$: IAtom<IEdgeState<T>>;
-//   toObservable(): Observable<T>;
-//   next(): Promise<IWrapped<T, StatusEnum.FULFILLED | StatusEnum.REJECTED>>;
-// }
-```
-
 ### `IWrapped` / `StatusEnum` / helpers
 
-Discriminated union for async state. Used internally by `Edge`; available for custom async primitives.
+Discriminated union for async state — the `IDLE / PENDING / FULFILLED / REJECTED` pattern used throughout rxfy. It is what the query cache holds per key and what `usePending` returns in `rxfy-react`; also available for custom async primitives.
 
 ```ts
 import { createIdle, createPending, createFulfilled, createRejected } from "rxfy";

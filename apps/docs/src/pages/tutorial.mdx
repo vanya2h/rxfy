@@ -1,0 +1,220 @@
+# Tutorial: Build a Todo app
+
+This lesson takes you from an empty project to a working, interactive todo app — a
+list you can add to, toggle, and edit, with every view of a todo staying in sync. You
+will write a model, a state, and three small components. Follow the steps in order and
+paste each block where it says; by the end the app runs.
+
+No backend is required. The "fetch" is an in-memory array so you can run everything
+locally, and the same `fetchFn` signature works against a real API later.
+
+> Want the API details behind a step? Each links to its reference page. Read those
+> after the lesson — here, just build.
+
+## Before you start
+
+You need a React 18+ app with TypeScript (a fresh Vite `react-ts` project works). Install
+the packages and their peers:
+
+```bash
+npm install rxfy rxfy-react
+npm install rxjs zod lodash
+```
+
+## Step 1 — Wrap the app in `StoreProvider`
+
+`StoreProvider` holds the store that the hooks read and write. Wrap your root once:
+
+```tsx
+// main.tsx
+import { createRoot } from "react-dom/client";
+import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
+
+createRoot(document.getElementById("root")!).render(
+  <StoreProvider>
+    <App />
+  </StoreProvider>,
+);
+```
+
+## Step 2 — Define a model
+
+A [model](/models-state#createmodel) is an entity type plus how to read its id. Each todo
+gets stored once under that id, so every component renders the same copy.
+
+```ts
+// todos.ts
+import { z } from "zod";
+import { createModel } from "rxfy";
+
+export const TodoModel = createModel(
+  z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
+  { getKey: (todo) => todo.id, name: "todo" },
+);
+
+export type Todo = z.infer<typeof TodoModel.schema>;
+```
+
+## Step 3 — Define a state and a fake fetch
+
+A [state](/models-state#definestate) declares the params it takes, the model fields it
+returns, and the mutations that change it. Add two mutations now — one to add a todo, one
+to toggle `done`:
+
+```ts
+// todos.ts (continued)
+import { defineState, array } from "rxfy";
+
+export const todosState = defineState({
+  key: "todos",
+  params: z.object({ filter: z.enum(["all", "active", "done"]) }),
+  model: { todos: array(TodoModel) },
+  mutations: {
+    addTodo: (prev, title: string) => ({
+      ...prev,
+      todos: [...prev.todos, { id: crypto.randomUUID(), title, done: false }],
+    }),
+    toggleTodo: (prev, id: string) => ({
+      ...prev,
+      todos: prev.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    }),
+  },
+});
+```
+
+Reducers work with whole todos, not ids — rxfy normalizes the result back into the store
+for you.
+
+Now the fetch. It returns the full shape (`{ todos: Todo[] }`) and respects the `filter`
+param. Swap this for a real `fetch()` later; the signature is the same:
+
+```ts
+// todos.ts (continued)
+const seed: Todo[] = [
+  { id: "1", title: "Learn rxfy", done: false },
+  { id: "2", title: "Build a todo app", done: false },
+];
+
+export async function fetchTodos({ filter }: { filter: "all" | "active" | "done" }) {
+  const todos = seed.filter((t) =>
+    filter === "all" ? true : filter === "done" ? t.done : !t.done,
+  );
+  return { todos };
+}
+```
+
+## Step 4 — Render the list
+
+`useStateData` runs the fetch, normalizes the todos, and hands back `data$` — the list of
+todo **ids**, not the todos themselves. You render the ids and let each row read its own
+todo (Step 5). `Pending` shows a fallback until the data arrives.
+
+```tsx
+// App.tsx
+import { useMemo, useState } from "react";
+import { useStateData, Pending } from "rxfy-react";
+import { todosState, fetchTodos } from "./todos";
+import { TodoItem } from "./TodoItem";
+
+export function App() {
+  const [filter] = useState<"all" | "active" | "done">("all");
+  const params = useMemo(() => ({ filter }), [filter]);
+
+  const { data$, mutations } = useStateData(todosState, fetchTodos, params);
+
+  return (
+    <Pending value$={data$} pending={<p>Loading…</p>}>
+      {({ todos }) => (
+        <>
+          <ul>
+            {todos.map((id) => (
+              <TodoItem key={id} id={id} onToggle={() => mutations.toggleTodo(id)} />
+            ))}
+          </ul>
+          <button onClick={() => mutations.addTodo("New todo")}>Add</button>
+        </>
+      )}
+    </Pending>
+  );
+}
+```
+
+Two things are wired here already: `mutations.addTodo` appends a todo and the list
+re-renders with its new id, and `mutations.toggleTodo` flips `done` on one todo. Both
+update the store in place — no re-fetch.
+
+`params` is wrapped in `useMemo` so its identity is stable; a fresh object every render
+would restart the fetch.
+
+## Step 5 — Render one todo
+
+Each row reads its own todo from the store by id. Because the row subscribes to that one
+entity, it re-renders when (and only when) that todo changes:
+
+```tsx
+// TodoItem.tsx
+import { useMemo } from "react";
+import { useModelStore, Pending } from "rxfy-react";
+import { TodoModel } from "./todos";
+
+export function TodoItem({ id, onToggle }: { id: string; onToggle: () => void }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.get(id), [store, id]);
+
+  return (
+    <Pending value$={todo$}>
+      {(todo) => (
+        <li>
+          <input type="checkbox" checked={todo.done} onChange={onToggle} />
+          {todo.title}
+        </li>
+      )}
+    </Pending>
+  );
+}
+```
+
+Run the app. You should see two todos, an **Add** button that appends a third, and
+checkboxes that toggle. Adding or toggling updates the list with no spinner — the store
+already holds the data.
+
+## Step 6 — Edit a title, see it everywhere
+
+Last step: make the title editable, and prove the store is one shared copy. `store.entity(id)`
+is a writable handle on a todo; a [`Lens`](/core-concepts/lens) focuses one field of it;
+[`useAtom`](/react#useatom-and-two-way-binding) binds that field to an input. Writes flow
+back into the store, so every component showing this todo updates as you type.
+
+```tsx
+// EditTitle.tsx
+import { useMemo } from "react";
+import { createLens, keyLens } from "rxfy";
+import { useAtom, useModelStore } from "rxfy-react";
+import { TodoModel } from "./todos";
+
+export function EditTitle({ id }: { id: string }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.entity(id), [store, id]);
+  const title$ = useMemo(() => createLens(todo$, keyLens("title")), [todo$]);
+  const [title, setTitle] = useAtom(title$);
+
+  return <input value={title} onChange={(e) => setTitle(e.target.value)} />;
+}
+```
+
+Drop `<EditTitle id={todo.id} />` into the `TodoItem` render and type in it. The text in
+the list row changes in the same keystroke, because the row and the input read the same
+entity cell — not two copies.
+
+## What you built
+
+- A **model** that stores each todo once, keyed by id.
+- A **state** that fetches and mutates todos without manual store bookkeeping.
+- Components that render by id, so an edit reaches every view of a todo with no re-fetch.
+
+## Where to go next
+
+- [Normalization](/normalization) — why `data$` emits ids, and what it buys you.
+- [Models & State](/models-state) and [React Bindings](/react) — the full API.
+- [Optimistic mutations](/guides/optimistic-mutations) and [Two-way form binding](/guides/form-binding) — common next tasks.

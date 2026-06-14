@@ -1,12 +1,12 @@
 # rxfy
 
-rxfy lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
+rxfy is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
 ## Packages
 
 | Package | Purpose |
 |---|---|
-| [`rxfy`](packages/rxfy) | Core library — Atom, Edge, Lens, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy`](packages/rxfy) | Core library — Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
 | [`rxfy-react`](packages/rxfy-react) | Official React bindings (`rxfy-react/next` for Next.js App Router) |
 
 ## Install

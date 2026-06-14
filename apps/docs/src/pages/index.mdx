@@ -1,6 +1,6 @@
 # rxfy
 
-**rxfy** (/ɑɹ ɪks faɪ/) — declare typed models and the states that query them, then access
+**rxfy** (/ɑɹ ɪks faɪ/) — a small library that lets you declare typed models and the states that query them, then access
 their data as reactive observables. [Normalization](/normalization) keeps your app consistent
 and reactive at no extra cost.
 
@@ -19,10 +19,10 @@ import { z } from "zod";
 import { createModel, defineState, array } from "rxfy";
 import { StoreProvider, useStateData, useModelStore, Pending } from "rxfy-react";
 
-const TodoModel = createModel(
-  z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
-  { getKey: (t) => t.id, name: "todo" },
-);
+const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
+  getKey: (t) => t.id,
+  name: "todo",
+});
 
 const todosState = defineState({
   key: "todos",
@@ -41,7 +41,11 @@ function TodoApp() {
   return (
     <Pending value$={data$} pending={<p>Loading...</p>}>
       {({ todos }) => (
-        <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>
+        <ul>
+          {todos.map((id) => (
+            <TodoItem key={id} id={id} />
+          ))}
+        </ul>
       )}
     </Pending>
   );

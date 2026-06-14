@@ -1,30 +1,31 @@
 # Comparison
 
 How rxfy relates to three popular state libraries. The comparison is against their modern,
-idiomatic forms — **Redux Toolkit** (with RTK Query), **MobX 6** (`observer`), and
-**Jotai** — not the older patterns they replaced.
+idiomatic forms — **Redux Toolkit** (with RTK Query), **MobX 6**, and
+**Jotai**.
 
 rxfy's premise is narrower than any of them: you **declare typed models and the states that
-query them**, and [normalization](/normalization) is the storage strategy that keeps your app
-consistent. `data$` emits entity **ids**, values live in per-entity Observable cells, and one
-`store.set` (refetch, mutation, or websocket) updates exactly the components subscribed to that
-entity — no global re-selection, no refetch. A `defineState` declaration bundles fetching,
-normalization, and SSR into one reactive state, not three libraries wired together.
+query them**, then access their data as **reactive observables**.
+[Normalization](/normalization) is the storage strategy underneath — it keeps your app
+consistent and reactive at no extra cost. `data$` emits entity **ids**, values live in
+per-entity Observable cells, and one `store.set` (refetch, mutation, or websocket) updates
+exactly the components subscribed to that entity — no global re-selection, no refetch. A
+`defineState` declaration bundles fetching, normalization, and SSR into one reactive state.
 
 ## At a glance
 
 ✅ built in · ➖ possible, but you wire it up · ❌ not addressed
 
-| | rxfy | Redux Toolkit | MobX 6 | Jotai |
-|---|---|---|---|---|
-| **Model** | Reactive states over normalized entities | Immutable store + reducers | Mutable observables | Composable atoms |
-| **Reactivity** | Per-entity stream | Store selectors | Read-tracked proxies | Per-atom |
-| **Data fetching** | ✅ | ➖ RTK Query | ❌ | ➖ async atoms |
-| **Normalization** | ✅ | ➖ manual | ❌ | ➖ manual |
-| **SSR** | ✅ | ➖ manual | ❌ | ➖ helpers |
-| **Validation** | ✅ Zod | ❌ | ❌ | ❌ |
-| **Boilerplate** | Low | Moderate | Very low | Very low |
-| **Core deps** | `rxjs`, `zod`, `lodash` | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai` |
+|                   | rxfy                                     | Redux Toolkit                     | MobX 6                    | Jotai            |
+| ----------------- | ---------------------------------------- | --------------------------------- | ------------------------- | ---------------- |
+| **Model**         | Reactive states over normalized entities | Immutable store + reducers        | Mutable observables       | Composable atoms |
+| **Reactivity**    | Only the changed entity's subscribers    | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers |
+| **Data fetching** | ✅                                       | ➖ RTK Query                      | ❌                        | ➖ async atoms   |
+| **Normalization** | ✅                                       | ➖ manual                         | ❌                        | ➖ manual        |
+| **SSR**           | ✅                                       | ➖ manual                         | ❌                        | ➖ helpers       |
+| **Validation**    | ✅ Zod                                   | ❌                                | ❌                        | ❌               |
+| **Boilerplate**   | Low                                      | Moderate                          | Very low                  | Very low         |
+| **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          |
 
 ## vs Redux Toolkit
 

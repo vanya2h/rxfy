@@ -143,15 +143,45 @@ function TodoItem({ id }: { id: string }) {
 ```ts
 function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 // ModelStore<T>: {
-//   get(key: string): Observable<T>;
+//   get(key: string): Observable<T>;        // reactive read; emits on every change
 //   set(key, val): void;
 //   setMany(items): void;
-//   getValue(key: string): T | undefined;  // synchronous read
+//   getValue(key: string): T | undefined;   // synchronous read
+//   entity(key: string): IAtom<T>;          // writable handle over one entity's cell
 //   valueEntries(): [string, T][];
+//   added$: Observable<string>;             // a key, the first time its entity appears
 // }
 ```
 
 > **Note:** `store.get(id)` returns an Observable that never emits until `set` or `setMany` is called for that key. It stays in pending state until data arrives — typically populated by a `useStateData` call that includes this model in its `model` field.
+
+### `useAtom`
+
+Binds any `IAtom<T>` — a plain `Atom`, a field `Lens`, or a `ModelStore.entity(id)` handle — to React as `[value, setValue]`. Paired with `store.entity(id)` and `keyLens`, it gives two-way form binding that stays in sync across every component subscribed to that entity: typing writes through the field `Lens` into the entity cell, so the edit reaches the list row, the detail header, and any other subscriber with no re-fetch.
+
+```tsx
+import { useMemo } from "react";
+import { createLens, keyLens } from "rxfy";
+import { useAtom, useModelStore } from "rxfy-react";
+import { TodoModel } from "./models";
+
+function EditTitle({ id }: { id: string }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.entity(id), [store, id]); // IAtom<Todo>
+  const title$ = useMemo(() => createLens(todo$, keyLens("title")), [todo$]);
+  const [title, setTitle] = useAtom(title$);
+
+  return <input value={title} onChange={(e) => setTitle(e.target.value)} />;
+}
+```
+
+**Signature:**
+
+```ts
+function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
+```
+
+> `atom$` must be referentially stable across renders — wrap `store.entity(id)` and the `Lens` in `useMemo` as above. `store.entity(id)` assumes the entity is already loaded.
 
 ---
 
@@ -159,17 +189,21 @@ function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
 
 ### `Pending`
 
-Subscribes to any `ObservableLike<T>` and renders the appropriate UI for pending, rejected, or fulfilled state. The `rejected` render prop receives `{ status, error, onReload }` for retry flows. If `rejected` is not provided, it defaults to rendering nothing and logging the error to `console.error`.
+Subscribes to any `ObservableLike<T>` and renders the appropriate UI for pending, rejected, or fulfilled state. The `rejected` render prop receives the rejected `IWrapped` — `{ type, error }`. If `rejected` is not provided, it defaults to rendering nothing and logging the error to `console.error`.
+
+Reload is not carried on the status object: get it from the `useStateData` handle's `reload()` (or `getAttachedReload(source$)` from `rxfy` for a standalone observable).
 
 ```tsx
-import { Pending } from "rxfy-react";
+import { Pending, useStateData } from "rxfy-react";
+
+const { data$, reload } = useStateData(todosState, fetchTodos, params);
 
 <Pending
   value$={data$}
   pending={<p>Loading...</p>}
-  rejected={({ error, onReload }) => (
+  rejected={({ error }) => (
     <p>
-      Error: {String(error)} <button onClick={onReload}>Retry</button>
+      Error: {String(error)} <button onClick={reload}>Retry</button>
     </p>
   )}
 >
@@ -183,7 +217,7 @@ import { Pending } from "rxfy-react";
 function Pending<T>(props: {
   value$: ObservableLike<T>;
   pending?: IRenderable<void>;
-  rejected?: IRenderable<IPendingStatus<T, "rejected">>;
+  rejected?: IRenderable<IWrapped<T, StatusEnum.REJECTED>>;  // { type, error }
   children: IRenderable<T>;
   getDefaultValue?: () => T;
 }): JSX.Element
@@ -222,15 +256,16 @@ function BehaviorSubjectRender<T>(props: {
 
 ### `usePending`
 
-Tracks any `ObservableLike<T>` and returns `IPendingStatus<T>`. This is the hook powering `<Pending>`.
+Tracks any `ObservableLike<T>` and returns the current [`IWrapped<T>`](../rxfy/README.md), narrowed to `PENDING` / `FULFILLED` / `REJECTED` (never `IDLE`). This is the hook powering `<Pending>`. Narrow on `type` to read `value` (only on `FULFILLED`) or `error` (only on `REJECTED`). Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
 
 ```ts
 import { usePending } from "rxfy-react";
+import { StatusEnum } from "rxfy";
 
-const status = usePending(data$);
-// { status: "pending" }
-// { status: "rejected"; error: unknown; onReload: () => void }
-// { status: "fulfilled"; value: T }
+const wrapped = usePending(data$);
+if (wrapped.type === StatusEnum.PENDING) return <span>…</span>;
+if (wrapped.type === StatusEnum.REJECTED) return <span>error</span>;
+return <span>{JSON.stringify(wrapped.value)}</span>;
 ```
 
 **Signature:**
@@ -239,59 +274,12 @@ const status = usePending(data$);
 function usePending<T>(
   source$: ObservableLike<T>,
   getDefaultValue?: () => T,
-): IPendingStatus<T>
+): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>
 ```
 
-**Type:**
-
-```ts
-type IPendingStatus<T> =
-  | { status: "pending" }
-  | { status: "rejected"; error: unknown; onReload: () => void }
-  | { status: "fulfilled"; value: T }
-```
-
-> **Note:** When wrapping `data$` from `useStateData`, `onReload` calls the handle's `reload()` (rxfy attaches it to the observable) — it invalidates the query cache entry and re-fetches. For other observables, `onReload` falls back to re-subscribing the source.
+> **Reload** is not part of the status object — trigger it via the `useStateData` handle's `reload()` or `getAttachedReload(source$)` from `rxfy`.
 >
-> **Contract:** `source$` must be referentially stable across renders (memoize it — `data$` from `useStateData` already is). A new identity restarts the pipeline from `"pending"`; an observable created inline in render restarts every render and never settles.
-
-### `useEdge` + `Edge`
-
-`IEdge`-based async loading. For new code, prefer `usePending` with `useStateData`.
-
-```tsx
-import { useEdge, Edge } from "rxfy-react";
-
-// Hook form — returns IEdgeState<T>
-const state = useEdge(myEdge);
-
-// Component form
-<Edge
-  edge={myEdge}
-  pending={<span>Loading...</span>}
-  rejected={(err) => <span>{String(err)}</span>}
->
-  {(value) => <div>{JSON.stringify(value)}</div>}
-</Edge>
-```
-
-**Signatures:**
-
-```ts
-function useEdge<T>(edge: IEdge<T>): IEdgeState<T>
-// IEdgeState<T> = IWrapped<T> from rxfy — same IDLE/PENDING/FULFILLED/REJECTED union
-```
-
-```tsx
-function Edge<T>(props: {
-  edge: IEdge<T>;
-  children: IRenderFn<T>;
-  rejected?: IRenderFn<unknown>;
-  pending?: React.ReactNode;
-}): JSX.Element
-
-// IRenderFn<T> = React.ReactNode | ((data: T) => React.ReactNode)
-```
+> **Contract:** `source$` must be referentially stable across renders (memoize it — `data$` from `useStateData` already is). A new identity restarts the pipeline from `PENDING`; an observable created inline in render restarts every render and never settles.
 
 ### `useObservable`
 
@@ -432,7 +420,7 @@ function collectStateData(registry: IModelRegistry, render: () => string): Promi
 
 ### Error handling
 
-A `fetchFn` rejection on the server is captured as a serialized rejected entry (`{ name, message }`, stack stripped) and hydrates as rejected state — the server HTML shows your `<Pending rejected>` UI, and its `onReload` retries client-side with a real fetch.
+A `fetchFn` rejection on the server is captured as a serialized rejected entry (`{ name, message }`, stack stripped) and hydrates as rejected state — the server HTML shows your `<Pending rejected>` UI, and the handle's `reload()` retries client-side with a real fetch.
 
 ---
 

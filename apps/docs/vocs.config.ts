@@ -6,6 +6,7 @@ export default defineConfig({
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Getting Started", link: "/getting-started" },
+    { text: "Tutorial: Build a Todo app", link: "/tutorial" },
     { text: "Comparison", link: "/comparison" },
     {
       text: "Core Concepts",
@@ -22,6 +23,9 @@ export default defineConfig({
     {
       text: "Guides",
       items: [
+        { text: "Two-way form binding", link: "/guides/form-binding" },
+        { text: "Optimistic mutations", link: "/guides/optimistic-mutations" },
+        { text: "Pagination and infinite scroll", link: "/guides/pagination" },
         { text: "Live updates over WebSockets", link: "/guides/live-updates-websockets" },
       ],
     },
