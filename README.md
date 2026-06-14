@@ -2,6 +2,8 @@
 
 rxfy is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. Normalization keeps your app consistent and reactive at no extra cost. Built on RxJS.
 
+📚 **Documentation: [rxfy.vanya2h.me](https://rxfy.vanya2h.me)**
+
 ## Packages
 
 | Package | Purpose |
@@ -98,6 +100,7 @@ Three supported modes: streaming (Next.js App Router via `rxfy-react/next`'s `<H
 
 ## Links
 
+- [Documentation website](https://rxfy.vanya2h.me)
 - [rxfy: Core API reference](packages/rxfy/README.md)
 - [rxfy-react: React bindings reference](packages/rxfy-react/README.md)
 - [Example app with working SSR (vite-todo)](examples/vite-todo)
