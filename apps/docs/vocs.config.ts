@@ -2,7 +2,7 @@ import { defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "rxfy",
-  description: "Stream-based state management built on RxJS",
+  description: "A small library for typed, normalized and reactive state. Built on RxJS.",
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Getting Started", link: "/getting-started" },
