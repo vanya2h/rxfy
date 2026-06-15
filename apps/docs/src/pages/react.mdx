@@ -42,6 +42,7 @@ function useStateData<TParams, TShape, TMutations>(
   state: StateDescriptor<TParams, TShape, TMutations>,
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
   params: TParams,
+  options?: { defaultData?: TShape },
 ): StateHandle<TShape, TMutations>
 
 // StateHandle: {
@@ -56,6 +57,42 @@ function useStateData<TParams, TShape, TMutations>(
 registry's query cache, so a remount with the same params starts from cached ids without
 re-fetching, while entity values always come live from model stores. `reload()` deletes
 the cache entry and re-fetches. Keyless states skip the cache and fetch per mount.
+
+### `defaultData` — seeding state from a framework loader
+
+Pass `defaultData` to pre-populate the state from data already fetched by the framework
+(e.g. a react-router `loader`). The data is normalized into model stores immediately and
+`fetchFn` is **not called** on first render. If the cache entry is already populated
+(e.g. a remount), `defaultData` is ignored.
+
+```tsx
+import { useLoaderData } from "react-router";
+import { useStateData, Pending } from "rxfy-react";
+import { todosState, fetchTodos } from "./todos";
+
+export async function loader() {
+  return fetchTodos({ filter: "all" }, new AbortController().signal);
+}
+
+export default function TodoPage() {
+  const loaderData = useLoaderData();
+  const params = { filter: "all" };
+
+  const { data$, mutations } = useStateData(todosState, fetchTodos, params, {
+    defaultData: loaderData,
+  });
+
+  return (
+    <Pending value$={data$}>
+      {({ todos }) => <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>}
+    </Pending>
+  );
+}
+```
+
+> When `params` changes (navigation to a new route), the new cache key starts `IDLE` and
+> `defaultData` is applied again — so the next loader's data seeds the next page without
+> a redundant fetch.
 
 ## `useModelStore`
 
