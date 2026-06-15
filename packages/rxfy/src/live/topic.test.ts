@@ -12,8 +12,7 @@ describe("modelTopic", () => {
   });
 
   it("Topic type is a branded string", () => {
-    const t: Topic = modelTopic(TodoModel, "u1");
-    expect(typeof t).toBe("string");
+    expectTypeOf(modelTopic(TodoModel, "u1")).toEqualTypeOf<Topic>();
   });
 
   it("throws when model has no name", () => {
