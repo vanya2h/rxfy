@@ -1,7 +1,7 @@
 # Why rxfy?
 
 rxfy exists because the common patterns for managing normalized server data leave you writing
-the same coordination glue, over and over.
+the same coordination glue over and over.
 
 ## The problem
 
@@ -18,7 +18,7 @@ component renders the same entity from a different query, and now you have two c
 diverge. Which one is right?
 
 **Coordinate the cache manually.** Invalidate queries, call `setQueryData`, tune `staleTime`.
-This works but you're maintaining a graph of dependencies between cached queries by hand. It's
+This works, but you're maintaining a graph of dependencies between cached queries by hand. It's
 easy to miss one, and the first sign of the bug is usually a stale UI in production.
 
 The SSR case compounds it. You server-render the page with data, ship the HTML to the client,
@@ -34,11 +34,11 @@ subscriber automatically. There is no list to refetch because the list only hold
 entities themselves live elsewhere, in their own slots. A mutation, a refetch, or a websocket
 push writes to the slot; everything subscribed to that slot updates. Nothing else.
 
-The server and client share the same slot model. Hydration is a snapshot restore: the server
+The server and client share this model. Hydration is a snapshot restore: the server
 fills the slots, serializes them, and the client picks up exactly where the server left off.
 No second fetch. No mismatch.
 
-This is normalization — not as a data-fetching convention you bolt on after the fact, but as
+This is normalization — not as a convention layered on top, but as
 the storage strategy the library is built around from the start.
 
 ## The principles
@@ -52,5 +52,4 @@ directly to the entity they need, not to a selector over a global store. A write
 exactly that slot's subscribers. Nothing else re-runs.
 
 **Declaration over wiring.** `defineState` bundles the fetch params, model shape, mutation
-logic, and SSR snapshot into one declaration. You describe what the state is; rxfy handles
-normalization, caching, and hydration.
+logic, and SSR snapshot into one declaration. You describe what the state is; rxfy handles the rest.
