@@ -31,6 +31,10 @@ function createModel<T>(
 in `dehydrate` output. Models without a name work normally but opt out of SSR
 serialization (a dev warning fires if they hold data at dehydrate time).
 
+> **Live updates:** Named models also integrate with `modelTopic` — see the
+> [Live updates guide](/guides/live-updates-websockets) for how `name` connects a model
+> to a WebSocket subscription.
+
 ## Low-level storage
 
 `createModelRegistry` / `createModelStore` are the normalized storage primitives. In
