@@ -1,5 +1,13 @@
 # rxfy-react
 
+## 1.1.0
+
+### Minor Changes
+
+- e899eaa: Upgrade zod peer dependency to `^4.0.0`. Consumers must upgrade zod to v4.
+
+  Also removes unused production dependencies `p-queue` and `object-hash`.
+
 ## 1.1.0-rc.1
 
 ### Minor Changes
