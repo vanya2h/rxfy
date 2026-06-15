@@ -96,7 +96,7 @@ walks the connections and delivers to those whose set includes the changed entit
 ```ts
 // server/hub.ts
 import type { WSContext } from "hono/ws";
-import { modelTopic, type Topic } from "rxfy";
+import { type Topic } from "rxfy";
 
 export class Hub {
   // connection -> the entities it depends on, e.g. {"todo:u1", "todo:u2"}
@@ -122,7 +122,7 @@ export class Hub {
 
   // Push one entity to the connections whose dependency graph includes it.
   publish(name: string, id: string, entity: unknown) {
-    const t = modelTopic(name, id);
+    const t = `${name}:${id}` as Topic;
     const message = JSON.stringify({ name, entities: [entity] });
     for (const [ws, set] of this.deps) {
       if (set.has(t)) ws.send(message);
