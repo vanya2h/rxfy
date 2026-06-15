@@ -13,8 +13,8 @@ the connections that hold that id.
 This guide wires that up end to end: a [Drizzle](https://orm.drizzle.team) +
 [Hono](https://hono.dev) server that tracks each connection's dependency set, and a small
 client that subscribes to whatever lands in the model store (via the
-[`registry.added$`](/models-state#observing-what-enters-the-store) stream) and ingests pushes
-with [`store.setMany`](/models-state#modelstore-entity). Your existing `useStateData` /
+[`registry.added$`](/core-concepts/model#observing-what-enters-the-store) stream) and ingests pushes
+with [`store.setMany`](/core-concepts/model#modelstore-entity). Your existing `useStateData` /
 `useModelStore` components don't change; nothing in them is live-aware.
 
 > rxfy ships **no** WebSocket helper. Everything below is user-land code, a thin layer
@@ -262,7 +262,7 @@ entity. No `remove`, no slices, no refcounting; the store's lifecycle *is* the s
 
 ### Drive subscriptions from the store
 
-This is where the core [`registry.added$`](/models-state#observing-what-enters-the-store)
+This is where the core [`registry.added$`](/core-concepts/model#observing-what-enters-the-store)
 stream earns its place. It emits `{ name, key }` the first time any **named** entity lands in
 the store (from the initial `useStateData` fetch, from SSR hydration, or from a live push) and
 **replays what's already there** to a late subscriber. One subscription, mounted once, keeps
@@ -430,7 +430,7 @@ server has nothing more to push for it.)
 So when a row is **created or deleted** and must appear in or vanish from a list, that's a
 change to the query's id array, not an entity value. Handle it with the tools built for it:
 
-- **Same client.** A [`useStateData` mutation](/models-state#definestate) updates the local
+- **Same client.** A [`useStateData` mutation](/core-concepts/state#definestate) updates the local
   id list right away (and the entity cells under it).
 - **Other clients.** Call the handle's `reload()` to re-pull the list, or push a list-level
   message that replaces the query's ids. The per-entity socket above handles single entities;

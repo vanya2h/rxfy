@@ -38,6 +38,6 @@ function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>;
 ```
 
 A common use is binding a form input to one field of a stored entity: compose a `keyLens`
-over a [`ModelStore.entity(id)`](/models-state#modelstore-entity) handle and drive it with
+over a [`ModelStore.entity(id)`](/core-concepts/model#modelstore-entity) handle and drive it with
 [`useAtom`](/react#useatom-and-two-way-binding). Edits flow back into the model store and reach
 every subscriber of that entity.

@@ -1,15 +1,14 @@
-# Models & State
+# Model
 
-The high-level API: define typed state shapes, normalize entities, and mutate state
-without manual bookkeeping.
+A typed entity descriptor that plugs into normalized storage. `createModel` defines the
+shape and id-extraction logic; `ModelStore` is the reactive store that holds live entities.
 
-> New to the term? [Normalization](/normalization) explains what "normalized" means and why
-> rxfy emits entity ids; start there, then come back for the API.
+> New to normalization? [Normalization](/normalization) explains why rxfy stores entity ids
+> rather than entity objects — start there, then come back for the API.
 
 ## `createModel`
 
-Creates a typed model descriptor for normalizing and sharing entities across state
-slices.
+Creates a typed model descriptor for normalizing and sharing entities across state slices.
 
 ```ts
 import { z } from "zod";
@@ -31,64 +30,6 @@ function createModel<T>(
 `name` is the model's stable string identity for SSR; only named models are included
 in `dehydrate` output. Models without a name work normally but opt out of SSR
 serialization (a dev warning fires if they hold data at dehydrate time).
-
-## `defineState`
-
-Defines a typed state shape: fetch params schema, model fields, and optional mutations.
-
-```ts
-import { z } from "zod";
-import { defineState, array } from "rxfy";
-
-const todosState = defineState({
-  key: "todos", // stable identity for the SSR query cache; omit to opt out of caching
-  params: z.object({ filter: z.enum(["all", "active", "done"]) }),
-  model: { todos: array(TodoModel) },
-  mutations: {
-    addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
-      ...prev,
-      todos: [...prev.todos, todo],
-    }),
-  },
-});
-```
-
-```ts
-function defineState<TParams, TFields, TMutations>(def: {
-  key?: string;
-  params: z.ZodType<TParams>;
-  model: TFields;
-  mutations?: TMutations;
-}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>
-```
-
-Mutation reducers operate on the full fetch shape (entities). When invoked through
-`useStateData`, rxfy denormalizes the current ids into fresh entities, runs the reducer,
-and normalizes the result back into model stores and ids. The normalized query shape
-(what `data$` emits) is derived as `QueryShapeOf<TShape>`: array fields become `string[]`
-(entity keys), single fields become `string`.
-
-## `array` / `single`
-
-Field descriptor helpers that declare whether a `defineState` model field holds an array or
-a single item.
-
-```ts
-import { array, single } from "rxfy";
-
-const userPageState = defineState({
-  params: z.object({ userId: z.string() }),
-  model: {
-    user: single(UserModel),    // one item
-    friends: array(UserModel),  // array of items
-  },
-});
-```
-
-```ts
-function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>
-function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>
-```
 
 ## Low-level storage
 

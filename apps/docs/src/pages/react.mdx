@@ -104,7 +104,7 @@ function EditTitle({ id }: { id: string }) {
 Typing writes through the field `Lens` into the model store's entity cell, so the edit
 reaches every other subscriber of that todo (a list row, a detail header) with
 no re-fetch. `store.entity(id)` assumes the entity is already loaded (see
-[Models & State](/models-state#modelstore-entity)).
+[Model](/core-concepts/model#modelstore-entity)).
 
 ```ts
 function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
@@ -116,7 +116,7 @@ function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
 ## `Pending`
 
 Subscribes to any `ObservableLike<T>` and renders pending / rejected / fulfilled UI. The
-`rejected` render prop receives the rejected `IWrapped` (`{ type, error }`). If `rejected`
+`rejected` render prop receives `{ error: unknown }`. If `rejected`
 is omitted it renders nothing and logs the error to `console.error`.
 
 Reload is not carried on the status object: get it from the `useStateData` handle's
@@ -146,16 +146,14 @@ function Todos() {
 }
 ```
 
-> `Pending` is powered by the lower-level `usePending` hook, which returns an `IWrapped<T>`
-> (`PENDING` / `FULFILLED` / `REJECTED`; see [Wrapped](/core-concepts/wrapped)). The
-> `source$` you pass must be referentially stable across renders, and `data$` from
-> `useStateData` already is.
+> `Pending` is powered by the lower-level `usePending` hook. The `source$` you pass must be
+> referentially stable across renders, and `data$` from `useStateData` already is.
 
 ## `usePending`
 
 The hook behind `Pending`, for when you need the status value rather than rendered UI.
 It subscribes to any `ObservableLike<T>` (an `Observable<T>` or a plain value) and returns
-the current [`IWrapped<T>`](/core-concepts/wrapped), narrowed to `PENDING` / `FULFILLED` /
+the current `IWrapped<T>`, narrowed to `PENDING` / `FULFILLED` /
 `REJECTED`, never `IDLE`. Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
 
 ```tsx

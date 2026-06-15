@@ -11,13 +11,13 @@ export default defineConfig({
     {
       text: "Core Concepts",
       items: [
+        { text: "Model", link: "/core-concepts/model" },
+        { text: "State", link: "/core-concepts/state" },
         { text: "Atom", link: "/core-concepts/atom" },
         { text: "Lens", link: "/core-concepts/lens" },
-        { text: "Wrapped", link: "/core-concepts/wrapped" },
       ],
     },
     { text: "Normalization", link: "/normalization" },
-    { text: "Models & State", link: "/models-state" },
     { text: "React Bindings", link: "/react" },
     { text: "Server-Side Rendering", link: "/ssr" },
     {

@@ -13,16 +13,26 @@ snapshots the same store and rehydrates it with zero client fetches.
 
 ## Quick taste
 
+**Step 1 — Define the model.**
+
+A model binds a Zod schema to an id extractor. Every entity of this type lives in exactly one store slot, keyed by `getKey`.
+
 ```tsx
-import { useMemo } from "react";
 import { z } from "zod";
-import { createModel, defineState, array } from "rxfy";
-import { StoreProvider, useStateData, useModelStore, Pending } from "rxfy-react";
+import { createModel } from "rxfy";
 
 const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
   getKey: (t) => t.id,
   name: "todo",
 });
+```
+
+**Step 2 — Define state and mutations.**
+
+`defineState` declares the fetch params, which models the response contains, and how mutations transform it. rxfy normalizes the result into model stores automatically.
+
+```tsx
+import { defineState, array } from "rxfy";
 
 const todosState = defineState({
   key: "todos",
@@ -35,11 +45,23 @@ const todosState = defineState({
     }),
   },
 });
+```
+
+**Step 3 — Fetch and render the list.**
+
+`useStateData` wires the state to your fetch function and returns a reactive `data$` stream. `Pending` handles the loading and error states declaratively. The query shape carries only ids — not full entities.
+
+```tsx
+import { Pending, useStateData } from "rxfy-react";
 
 function TodoApp() {
   const { data$, mutations } = useStateData(todosState, fetchTodos, { filter: "all" });
   return (
-    <Pending value$={data$} pending={<p>Loading...</p>}>
+    <Pending
+      value$={data$}
+      pending={<p>Loading...</p>}
+      rejected={({ error }) => <p>Something went wrong: {String(error)}</p>}
+    >
       {({ todos }) => (
         <ul>
           {todos.map((id) => (
@@ -50,6 +72,15 @@ function TodoApp() {
     </Pending>
   );
 }
+```
+
+**Step 4 — Subscribe to individual entities.**
+
+Each item subscribes to its own store slot. A single `store.set` — from a refetch, mutation, or websocket push — updates every component showing that entity, with no list re-fetch.
+
+```tsx
+import { useMemo } from "react";
+import { useModelStore } from "rxfy-react";
 
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(TodoModel);

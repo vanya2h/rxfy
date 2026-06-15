@@ -40,7 +40,7 @@ createRoot(document.getElementById("root")!).render(
 
 ## Step 2: Define a model
 
-A [model](/models-state#createmodel) is an entity type plus how to read its id. Each todo
+A [model](/core-concepts/model#createmodel) is an entity type plus how to read its id. Each todo
 gets stored once under that id, so every component renders the same copy.
 
 ```ts
@@ -58,7 +58,7 @@ export type Todo = z.infer<typeof TodoModel.schema>;
 
 ## Step 3: Define a state and a fake fetch
 
-A [state](/models-state#definestate) declares the params it takes, the model fields it
+A [state](/core-concepts/state#definestate) declares the params it takes, the model fields it
 returns, and the mutations that change it. Add three mutations now: add a todo, toggle
 `done`, and save an edited todo (Step 6 uses the last one):
 
@@ -273,6 +273,6 @@ where you'd `await` a `PATCH` before (or after) updating the store.
 ## Where to go next
 
 - [Normalization](/normalization): why `data$` emits ids, and what it buys you.
-- [Models & State](/models-state) and [React Bindings](/react): the full API.
+- [Model](/core-concepts/model), [State](/core-concepts/state), and [React Bindings](/react): the full API.
 - [Atom](/core-concepts/atom) and [Lens](/core-concepts/lens): the draft-and-save form here, in depth.
 - [Live updates over WebSockets](/guides/live-updates-websockets) and [Pagination](/guides/pagination): common next tasks.
