@@ -31,14 +31,10 @@ shared by both sides like the schema, means only a value built by the `topic()` 
 satisfies `Topic`, so a bare `"todo:u1"` or a `name`/`id` passed in the wrong order won't
 type-check:
 
+`Topic` is provided by `rxfy` — no local file needed:
+
 ```ts
-// shared/topic.ts (imported by client and server)
-declare const brand: unique symbol;
-
-// `name:id`, e.g. "todo:u1". The `& { brand }` makes it nominal, not just structural.
-export type Topic = `${string}:${string}` & { readonly [brand]: "Topic" };
-
-export const topic = (name: string, id: string): Topic => `${name}:${id}` as Topic;
+import { type Topic, modelTopic } from "rxfy";
 ```
 
 ```ts
@@ -100,7 +96,7 @@ walks the connections and delivers to those whose set includes the changed entit
 ```ts
 // server/hub.ts
 import type { WSContext } from "hono/ws";
-import { topic, type Topic } from "../shared/topic";
+import { modelTopic, type Topic } from "rxfy";
 
 export class Hub {
   // connection -> the entities it depends on, e.g. {"todo:u1", "todo:u2"}
@@ -126,7 +122,7 @@ export class Hub {
 
   // Push one entity to the connections whose dependency graph includes it.
   publish(name: string, id: string, entity: unknown) {
-    const t = topic(name, id);
+    const t = modelTopic(name, id);
     const message = JSON.stringify({ name, entities: [entity] });
     for (const [ws, set] of this.deps) {
       if (set.has(t)) ws.send(message);
@@ -155,7 +151,7 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { db, todos } from "./db";
 import { hub } from "./hub";
-import type { Topic } from "../shared/topic";
+import type { Topic } from "rxfy";
 
 const app = new Hono();
 const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
@@ -217,48 +213,26 @@ doesn't evict; once you've loaded an entity you stay live on it for the session.
 > shed subscriptions (very long sessions, strict fan-out budgets), add a remove path keyed on
 > store eviction; most apps never do.
 
+`createSubscriptionManager` is provided by `rxfy`:
+
 ```ts
-// liveClient.ts
-import type { Topic } from "../shared/topic";
-
-export type LiveClient = ReturnType<typeof createLiveClient>;
-
-export function createLiveClient(socket: WebSocket) {
-  const desired = new Set<Topic>(); // every topic we've ever wanted (grows, never shrinks)
-  let active = new Set<Topic>();    // topics the server currently knows
-
-  const send = (topics: Topic[]) => {
-    if (topics.length && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: "add", topics }));
-    }
-  };
-
-  // Tell the server only about topics it hasn't been told yet (desired − active), then record
-  // that it now knows them. So a burst of `want` calls collapses to one `add` of just the new ones.
-  const reconcile = () => {
-    send([...desired].filter((t) => !active.has(t)));
-    active = new Set(desired);
-  };
-
-  // Reconnect: the server forgot us, so `active` is empty again; replay the whole desired set.
-  socket.addEventListener("open", () => {
-    active = new Set();
-    reconcile();
-  });
-
-  return {
-    want(topic: Topic) {
-      if (desired.has(topic)) return; // already subscribed (or queued); nothing to send
-      desired.add(topic);
-      reconcile();
-    },
-  };
-}
+import { createSubscriptionManager, type SubscriptionManager } from "rxfy";
+export type { SubscriptionManager };
 ```
 
-`active` is the client's memory of what the server knows; `desired` is everything it wants.
-`reconcile` sends only the gap between them, so `want` is idempotent and cheap to call once per
-entity. No `remove`, no slices, no refcounting; the store's lifecycle *is* the subscription's.
+Call it with a `send` function that writes to the socket:
+
+```ts
+// LiveProvider.tsx (excerpt)
+const manager = createSubscriptionManager((topics) => {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "add", topics }));
+  }
+});
+
+// On reconnect — replays the full desired set to the new connection
+socket.addEventListener("open", () => manager.reconnect());
+```
 
 ### Drive subscriptions from the store
 
@@ -272,8 +246,8 @@ the connection live on the store's contents. No component passes ids anywhere; t
 ```ts
 // useStoreSubscriptions.ts
 import { useEffect } from "react";
+import { type Topic } from "rxfy";
 import { useModelRegistry } from "rxfy-react";
-import { topic } from "../shared/topic";
 import { useLiveClient } from "./LiveProvider";
 
 export function useStoreSubscriptions() {
@@ -281,7 +255,9 @@ export function useStoreSubscriptions() {
   const client = useLiveClient();
 
   useEffect(() => {
-    const sub = registry.added$.subscribe(({ name, key }) => client.want(topic(name, key)));
+    const sub = registry.added$.subscribe(({ name, key }) =>
+      client.want(`${name}:${key}` as Topic),
+    );
     return () => sub.unsubscribe();
   }, [registry, client]);
 }
@@ -328,12 +304,12 @@ store, "here's a change").
 ```tsx
 // LiveProvider.tsx
 import { createContext, useContext, useEffect, useMemo } from "react";
-import { createLiveClient, type LiveClient } from "./liveClient";
+import { createSubscriptionManager, type SubscriptionManager } from "rxfy";
 import { useStoreSubscriptions } from "./useStoreSubscriptions";
 import { useLiveEntities } from "./useLiveEntities";
 import { TodoModel } from "./models";
 
-const LiveContext = createContext<LiveClient | null>(null);
+const LiveContext = createContext<SubscriptionManager | null>(null);
 
 export function useLiveClient() {
   const client = useContext(LiveContext);
@@ -349,9 +325,20 @@ function LiveBridge({ socket }: { socket: WebSocket }) {
 
 export function LiveProvider({ children }: { children: React.ReactNode }) {
   const socket = useMemo(() => new WebSocket("ws://localhost:3000/ws"), []);
-  const client = useMemo(() => createLiveClient(socket), [socket]);
+  const client = useMemo(
+    () =>
+      createSubscriptionManager((topics) => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "add", topics }));
+        }
+      }),
+    [socket],
+  );
 
-  useEffect(() => () => socket.close(), [socket]);
+  useEffect(() => {
+    socket.addEventListener("open", () => client.reconnect());
+    return () => socket.close();
+  }, [socket, client]);
 
   return (
     <LiveContext.Provider value={client}>
@@ -440,7 +427,7 @@ change to the query's id array, not an entity value. Handle it with the tools bu
 
 - **Initial state still comes from `useStateData`** (or [SSR](/ssr)): the socket only carries
   *changes*, so first paint is fulfilled before the socket has said anything.
-- **On reconnect**, `createLiveClient` replays the full desired set (every topic loaded this
+- **On reconnect**, `createSubscriptionManager` replays the full desired set via `manager.reconnect()` (every topic loaded this
   session, since the server forgot all of it), and a `reload()` of the active queries re-pulls
   any entity values missed while offline.
 - **Validation failures** (`model.schema.parse` throwing) surface a malformed push instead of
