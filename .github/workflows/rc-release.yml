@@ -7,7 +7,9 @@ on:
 
 concurrency:
   group: release
-  cancel-in-progress: false
+  # Cancel any in-flight run when a new push arrives so stale runs never
+  # publish based on superseded code (e.g. after a force-push cleanup).
+  cancel-in-progress: true
 
 jobs:
   rc-release:
@@ -46,7 +48,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check for pending changesets
+        id: changesets
+        run: |
+          count=$(find .changeset -maxdepth 1 -name "*.md" ! -name "README.md" | wc -l | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" -eq "0" ]; then
+            echo "No pending changesets — nothing to release."
+          fi
+
       - name: Enter pre-release mode
+        if: steps.changesets.outputs.count != '0'
         run: |
           if ! grep -q '"mode": *"pre"' .changeset/pre.json 2>/dev/null; then
             npx changeset pre enter rc
@@ -55,29 +67,36 @@ jobs:
           fi
 
       - name: Version packages
+        if: steps.changesets.outputs.count != '0'
         run: npx changeset version
 
       - name: Push version bumps
+        if: steps.changesets.outputs.count != '0'
         run: git push
 
       - name: Re-install dependencies
+        if: steps.changesets.outputs.count != '0'
         run: pnpm install --frozen-lockfile
 
       - name: Build
+        if: steps.changesets.outputs.count != '0'
         run: pnpm run build
 
       - name: Publish RC packages
+        if: steps.changesets.outputs.count != '0'
         run: pnpm changeset publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Push release tags
+        if: steps.changesets.outputs.count != '0'
         run: git push --follow-tags
 
       - name: Sync version bumps to develop
         # Best-effort housekeeping: packages are already published, so a sync
         # hiccup must not fail the job. `changeset version` leaves pre.json
         # modified-but-uncommitted, so force the switch to discard that churn.
+        if: steps.changesets.outputs.count != '0'
         continue-on-error: true
         run: |
           git fetch origin develop
