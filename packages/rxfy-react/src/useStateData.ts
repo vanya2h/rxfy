@@ -13,7 +13,7 @@ import {
   stableStringify,
   StatusEnum,
 } from "rxfy";
-import { filter, Observable, of, switchMap, throwError } from "rxjs";
+import { filter, merge, Observable, of, ReplaySubject, share, switchMap, throwError, timer } from "rxjs";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
 
@@ -62,10 +62,19 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData)));
     }
 
-    const settle = (run: Promise<TShape>) =>
+    // `signal` is passed for client fetches so a teardown-aborted fetch is dropped instead of
+    // latching a spurious result/REJECTED into the (possibly shared) query atom. SSR fetches
+    // omit it (their throwaway signal never aborts), preserving the original behavior.
+    const settle = (run: Promise<TShape>, signal?: AbortSignal) =>
       run.then(
-        (result) => atom$.set(createFulfilled(normalizeResult(registry, fields, result))),
-        (error: unknown) => atom$.set(createRejected(error)),
+        (result) => {
+          if (signal?.aborted) return;
+          atom$.set(createFulfilled(normalizeResult(registry, fields, result)));
+        },
+        (error: unknown) => {
+          if (signal?.aborted) return;
+          atom$.set(createRejected(error));
+        },
       );
 
     // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
@@ -99,20 +108,31 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       // cache hit / hydrated: emit synchronously, no fetch (markSync lets usePending probe it at render)
       data$ = markSync(derived$);
     } else {
-      // IDLE or shared in-flight PENDING: fetch on subscribe only if still IDLE, else just wait for settle
-      data$ = new Observable<QueryShapeOf<TShape>>((subscriber) => {
-        const sub = derived$.subscribe(subscriber);
+      // IDLE or shared in-flight PENDING. Start the fetch as a subscribe-time side effect and
+      // multicast via share(). The deferred resetOnRefCountZero (timer(0)) means a synchronous
+      // unsubscribe→resubscribe — a StrictMode remount, or one of several subscribers leaving —
+      // does NOT tear the fetch down: the re-subscription cancels the pending reset, so the
+      // in-flight request survives instead of being aborted into a spurious REJECTED.
+      const fetchOnSubscribe$ = new Observable<never>(() => {
         let controller: AbortController | undefined;
         if (atom$.get().type === StatusEnum.IDLE) {
           atom$.set(createPending());
           controller = new AbortController();
-          void settle(fetchFn(params, controller.signal));
+          void settle(fetchFn(params, controller.signal), controller.signal);
         }
         return () => {
+          // Genuine teardown (refcount stayed at zero): roll an unsettled query back to IDLE so
+          // the next subscriber refetches, then abort. settle() drops the abort rejection.
+          if (controller && atom$.get().type === StatusEnum.PENDING) atom$.set(createIdle());
           controller?.abort();
-          sub.unsubscribe();
         };
       });
+      // ReplaySubject(1) connector so a late subscriber still receives the current value
+      // (preserving the atom's BehaviorSubject replay semantics that consumers rely on);
+      // resetOnRefCountZero clears that buffer on a genuine teardown.
+      data$ = merge(derived$, fetchOnSubscribe$).pipe(
+        share({ connector: () => new ReplaySubject(1), resetOnRefCountZero: () => timer(0) }),
+      );
     }
 
     const writeThrough = (ids: QueryShapeOf<TShape>) => atom$.set(createFulfilled(ids));
