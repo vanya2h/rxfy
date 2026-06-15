@@ -1,4 +1,4 @@
-Analyze the current changes, create a branch with a meaningful name, and open a PR against `develop` with a comprehensive description.
+Analyze the current changes, create a branch with a meaningful name, and open a PR against `develop` with a short, scannable description.
 
 ## Steps
 
@@ -112,7 +112,7 @@ If already on a feature branch (i.e. not `develop`, `staging`, or `main`), skip 
 
 ### 8. Open the PR
 
-Use `gh pr create` with base `develop`:
+Use `gh pr create` with base `develop`. **Keep the whole body under ~200 words.** Be terse — the reviewer reads the diff for detail; the description orients them, it does not reproduce the diff.
 
 ```bash
 gh pr create \
@@ -121,30 +121,32 @@ gh pr create \
   --body "$(cat <<'EOF'
 ## Summary
 
-<1-3 sentences: what problem this solves or what feature it adds>
+<1-2 sentences: what this does and why. No more.>
 
 ## What changed
 
-<Bulleted list grouped by area. Focus on behavioral/structural changes, not file-level noise. Highlight anything that might surprise a reviewer.>
+<3-6 bullets, one line each, grouped by area. Behavioral/structural changes only — no file-by-file recap, no nested bullets, no code blocks. Skip the obvious.>
 
 ## How to test
 
-<Bulleted checklist of scenarios a reviewer can follow to verify correctness>
-
-## Notes
-
-<Optional: breaking changes, migration steps, trade-offs, follow-up work>
+<2-4 bullets: the key commands/scenarios to verify. Skip if a reviewer can't meaningfully run anything.>
 EOF
 )"
 ```
 
-Omit the **Notes** section if there is nothing notable.
+Length rules (enforce these):
+
+- Summary: at most 2 sentences.
+- What changed: at most 6 single-line bullets; no sub-bullets, no fenced code, no inline diff dumps.
+- How to test: at most 4 bullets, or omit the section.
+- **No "Notes" section.** If there is a genuine breaking change or required migration, fold it into a single bold line at the end of **What changed** (e.g. `- **Breaking:** …`). Otherwise leave it out.
+- Do not paste large code snippets, full command output, or restate every commit.
 
 ### 9. Return the PR URL to the user.
 
 ## Guidelines
 
-- Be concise but thorough — a reviewer should understand the full scope from the description alone.
+- Default to short. A reviewer should grasp the scope in ~15 seconds; the diff carries the detail.
 - Group related changes (e.g., "New onboarding flow" rather than listing each file).
-- If there are breaking changes or required migrations, call them out explicitly in **Notes**.
+- Call out a breaking change or required migration as a single bold bullet — don't expand it into prose.
 - Do NOT include `Co-Authored-By` lines or metadata in the PR body.

@@ -1,0 +1,36 @@
+{
+  "name": "rxfy-example-rr7-blog",
+  "version": "0.1.0",
+  "private": true,
+  "description": "example React Router v7 SSR blog app",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "react-router-serve ./build/server/index.js",
+    "clean": "rimraf build .react-router",
+    "lint": "eslint .",
+    "check-types": "react-router typegen && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@react-router/dev": "^7.9.0",
+    "@react-router/node": "^7.9.0",
+    "@react-router/serve": "^7.9.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vanya2h/eslint-config": "^0.4.0",
+    "eslint": "^9.27.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^7.9.0",
+    "rimraf": "^6.0.1",
+    "rxfy": "workspace:*",
+    "rxfy-react": "workspace:*",
+    "rxjs": "^7.8.2",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "zod": "^4.4.3"
+  }
+}

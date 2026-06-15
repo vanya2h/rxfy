@@ -42,3 +42,15 @@ A blog app using Next.js App Router with streaming SSR. Demonstrates branded Zod
 ```bash
 pnpm --filter rxfy-example-next-blog dev
 ```
+
+---
+
+## rr7-blog
+
+**[examples/rr7-blog](https://github.com/vanya2h/rxfy/tree/main/examples/rr7-blog)**
+
+The same blog domain as `next-blog`, but on React Router 7 (framework mode) with buffered SSR — a direct side-by-side of two SSR strategies. Here rxfy is the **single data layer**: a customized `entry.server` creates a per-request registry, renders with `renderToPipeableStream` + `onAllReady`, and injects `hydrationScript(dehydrate(registry))` before `</body>`; the client drains it for a zero-refetch first paint. React Router loaders are reserved for **routing only** — an index redirect and URL-param validation — never data fetching.
+
+```bash
+pnpm --filter rxfy-example-rr7-blog dev
+```
