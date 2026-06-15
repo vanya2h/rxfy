@@ -223,4 +223,63 @@ describe("useStateData", () => {
       expect(fetchFn).not.toHaveBeenCalled();
     });
   });
+
+  describe("teardown during an in-flight fetch", () => {
+    // A fetch that rejects when its AbortSignal fires (the realistic case — fetch(), the
+    // example's delay() helper, etc. all reject on abort), otherwise resolves after a tick.
+    const abortableFetch = (posts: Post[]) =>
+      vi.fn(
+        (_params: { page: number }, signal: AbortSignal) =>
+          new Promise<{ posts: Post[] }>((resolve, reject) => {
+            if (signal.aborted) return reject(signal.reason);
+            const id = setTimeout(() => resolve({ posts }), 10);
+            signal.addEventListener("abort", () => {
+              clearTimeout(id);
+              reject(signal.reason);
+            });
+          }),
+      );
+
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    it("still loads after a synchronous unsubscribe→resubscribe (StrictMode remount)", async () => {
+      const fetchFn = abortableFetch([{ id: "1", title: "P1" }]);
+      const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 1 }), { wrapper });
+      const data$ = result.current.data$;
+
+      // React StrictMode subscribes, tears down, and resubscribes synchronously on mount.
+      const sub1 = data$.subscribe({ next: () => {}, error: () => {} });
+      sub1.unsubscribe();
+      const seen: { posts: string[] }[] = [];
+      const errors: unknown[] = [];
+      const sub2 = data$.subscribe({ next: (v) => seen.push(v), error: (e) => errors.push(e) });
+
+      await wait(30);
+      sub2.unsubscribe();
+
+      // The remount must not surface the abort as an error, and the data must arrive.
+      expect(errors).toEqual([]);
+      expect(seen.at(-1)).toEqual({ posts: ["1"] });
+    });
+
+    it("serves a remaining subscriber when another unsubscribes mid-flight", async () => {
+      const fetchFn = abortableFetch([{ id: "2", title: "P2" }]);
+      const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 2 }), { wrapper });
+      const data$ = result.current.data$;
+
+      const seenA: unknown[] = [];
+      const errorsB: unknown[] = [];
+      const seenB: { posts: string[] }[] = [];
+      const subA = data$.subscribe({ next: (v) => seenA.push(v), error: () => {} });
+      const subB = data$.subscribe({ next: (v) => seenB.push(v), error: (e) => errorsB.push(e) });
+
+      subA.unsubscribe(); // A leaves while the shared fetch is still in flight
+
+      await wait(30);
+      subB.unsubscribe();
+
+      expect(errorsB).toEqual([]);
+      expect(seenB.at(-1)).toEqual({ posts: ["2"] });
+    });
+  });
 });
