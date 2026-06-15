@@ -41,7 +41,7 @@ export default function handleRequest(
             responseHeaders.set("Content-Type", "text/html");
             resolve(
               new Response(html, {
-                status: shellRendered ? responseStatusCode : 500,
+                status: responseStatusCode,
                 headers: responseHeaders,
               }),
             );
@@ -53,6 +53,8 @@ export default function handleRequest(
           reject(error);
         },
         onError(error: unknown) {
+          // Errors before the shell renders are reported via onShellError (reject);
+          // once the shell is committed, log late errors here.
           responseStatusCode = 500;
           if (shellRendered) console.error(error);
         },
