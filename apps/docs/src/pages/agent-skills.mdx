@@ -1,0 +1,33 @@
+# Agent Skills
+
+rxfy ships two **agent skills** — structured reference files that AI coding assistants (Claude Code, GitHub Copilot Agent, Codex, and others) load on demand to get accurate, rxfy-specific guidance without hallucinating APIs.
+
+Without a skill an agent has only its training data: it may invent hook signatures, confuse normalized ids with entity data, or silently omit the `name`/`key` fields that SSR requires. With a skill it has the real API surface and the common pitfalls already in context.
+
+## Install
+
+Run this from any project that uses rxfy:
+
+```bash
+npx skills add vanya2h/rxfy
+```
+
+## What the skills cover
+
+**`rxfy`** answers:
+
+- How to define models (`createModel`) and states (`defineState`)
+- The normalized data flow: `useStateData` returns ids, `useModelStore` gives entities
+- `useAtom`, `usePending`, `<Pending>` — async rendering patterns
+- Mutations: why they receive full entities and return full entities
+- Lens composition with `createLens` / `keyLens`
+- Common mistakes: inline observable creation, `store.entity()` guards, atom stability
+
+**`rxfy-ssr`** answers:
+
+- The two required fields for SSR: `name` on models, `key` on states
+- Buffered SSR with `renderToPipeableStream` + `onAllReady`
+- Streaming SSR with `<HydrationStream />` (Next.js App Router)
+- Two-pass SSR with `collectStateData`
+- `StoreProvider` SSR props (`ssr`, `registry`, `dehydratedState`)
+- Why data is missing on the client and how to fix it

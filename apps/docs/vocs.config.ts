@@ -7,6 +7,7 @@ export default defineConfig({
     { text: "Introduction", link: "/" },
     { text: "Why rxfy?", link: "/why" },
     { text: "Getting Started", link: "/getting-started" },
+    { text: "Agent Skills", link: "/agent-skills" },
 
     { text: "Comparison", link: "/comparison" },
     {

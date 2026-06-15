@@ -4,6 +4,18 @@ rxfy (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models an
 
 📚 **Documentation: [rxfy.vanya2h.me](https://rxfy.vanya2h.me)**
 
+## Agent skills
+
+AI coding agents (Claude Code, Codex, etc.) can load context-aware guidance for this library:
+
+```bash
+npx skills add vanya2h/rxfy
+```
+
+Two skills are installed: `rxfy` (core API, React hooks, mutations) and `rxfy-ssr` (SSR setup). See [Agent Skills](https://rxfy.vanya2h.me/agent-skills) for details.
+
+---
+
 ## Install
 
 ```bash
