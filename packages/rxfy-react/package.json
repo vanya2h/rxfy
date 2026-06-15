@@ -1,6 +1,6 @@
 {
   "name": "rxfy-react",
-  "version": "1.0.5",
+  "version": "1.1.0-rc.1",
   "description": "rxfy bindings for react",
   "keywords": [
     "rxfy",
@@ -62,35 +62,31 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/lodash": "^4.17.17",
-    "@types/react": "^19.2.14",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.27.0",
-    "immutable": "^5.1.2",
     "jiti": "^2.4.2",
     "jsdom": "^26.1.0",
     "lodash": "^4.17.21",
-    "p-queue": "^8.1.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "rimraf": "^6.0.1",
     "rxfy": "workspace:*",
     "@vanya2h/eslint-config": "^0.4.0",
     "@vanya2h/typescript-config": "^0.4.0",
     "rxjs": "^7.8.2",
     "tsup": "^8.5.0",
-    "tsx": "^4.19.4",
     "vitest": "^3.1.4",
-    "zod": "^3.25.42"
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "@types/react": "^18.0.0 || ^19.0.0",
     "lodash": "^4.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
-    "rxfy": "workspace:*",
     "next": ">=14"
   },
   "publishConfig": {
