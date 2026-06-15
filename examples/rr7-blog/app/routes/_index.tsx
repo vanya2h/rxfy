@@ -1,3 +1,10 @@
+import { redirect } from "react-router";
+
+export function loader() {
+  // Routing concern only — no domain data is fetched here. rxfy owns data.
+  return redirect("/posts");
+}
+
 export default function Index() {
-  return <h1>rxfy + React Router 7 SSR</h1>;
+  return null;
 }
