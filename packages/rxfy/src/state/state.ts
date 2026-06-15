@@ -20,7 +20,7 @@ export type StateDescriptor<TParams, TShape, TMutations extends MutationDefs<TSh
   /** Stable string identity for the SSR query cache. States without a key opt out of SSR caching. */
   readonly key?: string;
   // Input is `any` so schemas whose Input differs from Output (e.g. branded ids) stay assignable.
-  readonly paramsSchema: z.ZodType<TParams, z.ZodTypeDef, any>;
+  readonly paramsSchema: z.ZodType<TParams, any>;
   readonly fields: { [K in keyof TShape]: FieldDescriptor<TShape[K]> };
   readonly mutations: TMutations;
 };
@@ -30,7 +30,7 @@ export function defineState<TParams, TFields extends FieldsMap>(def: {
   key?: string;
   // TParams is inferred from the Output position only — z.ZodType<TParams> would also place it
   // in the Input position and widen branded types away.
-  params: z.ZodType<TParams, z.ZodTypeDef, any>;
+  params: z.ZodType<TParams, any>;
   model: TFields;
   mutations?: undefined;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, Record<never, never>>;
@@ -42,7 +42,7 @@ export function defineState<
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
   key?: string;
-  params: z.ZodType<TParams, z.ZodTypeDef, any>;
+  params: z.ZodType<TParams, any>;
   model: TFields;
   mutations: TMutations;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>;
@@ -54,7 +54,7 @@ export function defineState<
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
   key?: string;
-  params: z.ZodType<TParams, z.ZodTypeDef, any>;
+  params: z.ZodType<TParams, any>;
   model: TFields;
   mutations?: TMutations;
 }): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations | Record<never, never>> {
