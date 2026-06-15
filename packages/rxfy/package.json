@@ -1,6 +1,6 @@
 {
   "name": "rxfy",
-  "version": "1.0.3-rc.0",
+  "version": "1.0.3",
   "description": "stream-based data management",
   "keywords": [
     "rxjs",
