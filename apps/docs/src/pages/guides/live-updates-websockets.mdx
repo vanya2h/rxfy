@@ -27,7 +27,7 @@ Two envelopes flow over the socket. The client names each entity by **topic**, a
 dependency set. The server pushes matching entities back.
 
 A topic is a string at runtime, but giving it a **branded template literal type**,
-shared by both sides like the schema, means only a value built by the `topic()` constructor
+shared by both sides like the schema, means only a value built by `modelTopic()`
 satisfies `Topic`, so a bare `"todo:u1"` or a `name`/`id` passed in the wrong order won't
 type-check:
 
@@ -36,6 +36,16 @@ type-check:
 ```ts
 import { type Topic, modelTopic } from "rxfy";
 ```
+
+Use `modelTopic` on the client when you have a `ModelDescriptor` and an entity id:
+
+```ts
+// e.g. for a manual subscription
+client.want(modelTopic(TodoModel, id));
+```
+
+(The `useStoreSubscriptions` hook below derives topics from `registry.added$` which emits
+strings, so it uses the `` `${name}:${key}` as Topic `` cast instead.)
 
 ```ts
 // client → server: add/remove entities in this connection's dependency set
