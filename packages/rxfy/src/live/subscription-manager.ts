@@ -11,8 +11,10 @@ export function createSubscriptionManager(send: (topics: Topic[]) => void): {
 
   const reconcile = () => {
     const gap = [...desired].filter((t) => !active.has(t));
-    if (gap.length) send(gap);
-    active = new Set(desired);
+    if (gap.length) {
+      send(gap);
+      active = new Set(desired);
+    }
   };
 
   return {

@@ -40,7 +40,7 @@ describe("createSubscriptionManager", () => {
     const mgr = createSubscriptionManager(send);
     mgr.want(t1);
     send.mockClear();
-    mgr.want(t1); // already active
+    mgr.want(t1); // early-return: already in desired set
     expect(send).not.toHaveBeenCalled();
   });
 
