@@ -1,5 +1,6 @@
 ---
 "rxfy": minor
+"rxfy-react": minor
 ---
 
 Add `modelTopic` and `createSubscriptionManager` for live-update integrations.
