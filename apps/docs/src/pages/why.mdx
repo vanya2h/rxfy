@@ -1,55 +1,31 @@
 # Why rxfy?
 
-rxfy exists because the common patterns for managing normalized server data leave you writing
-the same coordination glue over and over.
+Every data-rich app faces the same coordination burden: keep entities consistent when they change, invalidate caches after mutations, rehydrate server state on the client. Most projects wire this up from scratch.
 
 ## The problem
 
-Imagine you have a list of todos. You update one — mark it done, rename it from a detail view,
-or receive a websocket push that the server already made the change. Now what?
+You have a list of todos. You update one: mark it done, rename it from a detail view, or get a websocket push that the server already made the change.
 
-Most apps reach for one of three approaches, and each one has a cost:
+Most apps reach for one of three options.
 
-**Refetch the list.** Correct, but you're sending a network round-trip to retrieve data you
-already have. The latency is real, and for large lists or slow networks it shows.
+- **Refetch the list.** You send a network round-trip to retrieve data you already have. On large lists or slow networks, the latency shows.
+- **Patch in place.** You update the item in the list array. It works until a second component renders the same entity from a different query. Now you have two copies that can diverge.
+- **Coordinate the cache manually.** Invalidate queries, call `setQueryData`, tune `staleTime`. You're maintaining a dependency graph between cached queries by hand. Miss one, and the first symptom is a stale UI in production.
 
-**Patch in place.** You update the item in the list array directly. Works — until a second
-component renders the same entity from a different query, and now you have two copies that can
-diverge. Which one is right?
-
-**Coordinate the cache manually.** Invalidate queries, call `setQueryData`, tune `staleTime`.
-This works, but you're maintaining a graph of dependencies between cached queries by hand. It's
-easy to miss one, and the first sign of the bug is usually a stale UI in production.
-
-The SSR case compounds it. You server-render the page with data, ship the HTML to the client,
-and now need to rehydrate that data so the client doesn't refetch what it already has. Every
-library approaches this differently. Most leave you writing the wiring yourself.
+SSR compounds it. You server-render the page with data, ship the HTML, then need to rehydrate so the client skips what it already fetched. Each library handles this differently, and most leave the wiring to you.
 
 ## The insight
 
-These problems share a root cause: the same entity lives in more than one place.
+All three options are workarounds for the same thing: your app holds multiple copies of the same entity. The list has one copy. The detail component fetches another. The cache might have a third. Every write has to find and update all of them.
 
-If every entity lives in exactly one slot, keyed by its id, a single write reaches every
-subscriber automatically. There is no list to refetch because the list only holds ids — the
-entities themselves live elsewhere, in their own slots. A mutation, a refetch, or a websocket
-push writes to the slot; everything subscribed to that slot updates. Nothing else.
+Remove the copies and the workarounds become unnecessary.
 
-The server and client share this model. Hydration is a snapshot restore: the server
-fills the slots, serializes them, and the client picks up exactly where the server left off.
-No second fetch. No mismatch.
+Put every entity in one place, keyed by its id. Components don't hold data; they subscribe to an id. When something writes to that slot, every subscriber sees the update. The list doesn't re-fetch; it was never holding the data.
 
-This is normalization — not as a convention layered on top, but as
-the storage strategy the library is built around from the start.
+The same model works for SSR. The server fills the slots and serializes them. The client restores the snapshot and skips what it already has.
 
 ## The principles
 
-**One entity, one place.** `createModel` declares the Zod schema and an id extractor. Every
-entity of that type lands in one `ModelStore` slot. `store.set` is the only write path —
-there is no way to accidentally fork a copy.
-
-**Streams as delivery.** Each store slot is an RxJS `Observable`. Components subscribe
-directly to the entity they need, not to a selector over a global store. A write notifies
-exactly that slot's subscribers. Nothing else re-runs.
-
-**Declaration over wiring.** `defineState` bundles the fetch params, model shape, mutation
-logic, and SSR snapshot into one declaration. You describe what the state is; rxfy handles the rest.
+- **One entity, one place.** `createModel` declares the Zod schema and an id extractor. Every entity lands in one `ModelStore` slot. `store.set` is the only write path; you can't fork a copy.
+- **Streams as delivery.** Each store slot is an RxJS `Observable`. Components subscribe to the entity they need. A write notifies that slot's subscribers and nothing else re-runs.
+- **Declaration over wiring.** `defineState` bundles the fetch params, model shape, mutation logic, and SSR snapshot into one declaration. You describe what the state is; rxfy handles the rest.
