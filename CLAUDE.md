@@ -29,6 +29,8 @@ pnpm changeset:publish   # publish to npm
 
 Prettier config: 120 print width, double quotes, semicolons, trailing commas.
 
+After any public API change to a published package (`rxfy`, `rxfy-react`), create a changeset with `pnpm changeset` before opening a PR. Use `minor` for new exports, `patch` for fixes, `major` for breaking changes.
+
 ## Architecture
 
 **rxfy** is a pnpm + Turbo monorepo providing a stream-based state management library built on RxJS.
