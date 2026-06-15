@@ -175,4 +175,52 @@ describe("useStateData", () => {
 
     expect(seen).toEqual([{ id: "1", title: "A" }]);
   });
+
+  describe("defaultData option", () => {
+    it("does not call fetchFn on first load when defaultData is provided", async () => {
+      const fetchFn = vi.fn();
+      const defaultData = { posts: [{ id: "1", title: "Loader Post" }] };
+
+      const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }, { defaultData }), { wrapper });
+
+      const data = await firstValueFrom(result.current.data$);
+      expect(data.posts).toEqual(["1"]);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it("normalizes defaultData entities into model stores without fetching", async () => {
+      const fetchFn = vi.fn();
+      const defaultData = { posts: [{ id: "99", title: "From Loader" }] };
+
+      const { result } = renderHook(
+        () => ({
+          handle: useStateData(pageState, fetchFn, { page: 0 }, { defaultData }),
+          postStore: useModelStore(postModel),
+        }),
+        { wrapper },
+      );
+
+      await firstValueFrom(result.current.handle.data$);
+      expect(result.current.postStore.getValue("99")).toEqual({ id: "99", title: "From Loader" });
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+
+    it("applies new defaultData when params change (new cache key starts IDLE)", async () => {
+      const fetchFn = vi.fn();
+      const defaultData0 = { posts: [{ id: "a", title: "Page 0" }] };
+      const defaultData1 = { posts: [{ id: "b", title: "Page 1" }] };
+
+      const { result, rerender } = renderHook(
+        ({ page, defaultData }: { page: number; defaultData: typeof defaultData0 }) =>
+          useStateData(pageState, fetchFn, { page }, { defaultData }),
+        { wrapper, initialProps: { page: 0, defaultData: defaultData0 } },
+      );
+
+      expect((await firstValueFrom(result.current.data$)).posts).toEqual(["a"]);
+
+      rerender({ page: 1, defaultData: defaultData1 });
+      expect((await firstValueFrom(result.current.data$)).posts).toEqual(["b"]);
+      expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
 });
