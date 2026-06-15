@@ -1,6 +1,6 @@
 {
   "name": "rxfy-react",
-  "version": "1.0.3",
+  "version": "1.0.4-rc.0",
   "description": "rxfy bindings for react",
   "keywords": [
     "rxfy",

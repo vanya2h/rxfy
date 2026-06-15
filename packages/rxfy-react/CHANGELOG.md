@@ -1,5 +1,13 @@
 # rxfy-react
 
+## 1.0.4-rc.0
+
+### Patch Changes
+
+- 72c9d7f: Rewrote package READMEs to be minimal and reference-based; added agent skills install instructions and links to documentation, guides, and examples.
+- Updated dependencies [72c9d7f]
+  - rxfy@1.0.4-rc.0
+
 ## 1.0.3
 
 ### Patch Changes
