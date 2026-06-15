@@ -16,8 +16,6 @@ describe("modelTopic", () => {
   });
 
   it("throws when model has no name", () => {
-    expect(() => modelTopic(UnnamedModel, "u1")).toThrow(
-      "rxfy: modelTopic requires a named model",
-    );
+    expect(() => modelTopic(UnnamedModel, "u1")).toThrow("rxfy: modelTopic requires a named model");
   });
 });

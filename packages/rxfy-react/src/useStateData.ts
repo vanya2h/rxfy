@@ -31,14 +31,20 @@ export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
 
+export type UseStateDataOptions<TShape> = {
+  defaultData?: TShape;
+};
+
 export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>>(
   state: StateDescriptor<TParams, TShape, TMutations>,
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
   params: TParams,
+  options?: UseStateDataOptions<TShape>,
 ): StateHandle<TShape, TMutations> {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
   const [reloadCounter, setReloadCounter] = useState(0);
+  const { defaultData } = options ?? {};
 
   return useMemo(() => {
     void reloadCounter; // reload() bumps this to rebuild the handle
@@ -50,6 +56,11 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     const atom$: Atom<IWrapped<QueryShapeOf<TShape>>> = cacheKey
       ? registry.queries.getQuery<QueryShapeOf<TShape>>(cacheKey)
       : createAtom<IWrapped<QueryShapeOf<TShape>>>(createIdle());
+
+    // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated yet.
+    if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
+      atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData)));
+    }
 
     const settle = (run: Promise<TShape>) =>
       run.then(
@@ -137,5 +148,5 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     attachReload(data$, reload);
 
     return { data$, set, reload, mutations };
-  }, [params, fetchFn, reloadCounter, state, registry, ssr]);
+  }, [params, fetchFn, reloadCounter, state, registry, ssr, defaultData]);
 }

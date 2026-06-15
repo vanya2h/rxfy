@@ -13,6 +13,7 @@
     "docs": "turbo run dev --filter=docs",
     "docs:docker": "docker compose up --build docs",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
     "sort-pkg": "sort-package-json \"package.json\" \"code/packages/*/package.json\" \"code/apps/*/package.json\"",
     "test": "turbo run test"
   },

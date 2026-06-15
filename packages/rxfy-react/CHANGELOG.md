@@ -1,5 +1,12 @@
 # rxfy-react
 
+## 1.0.5-rc.0
+
+### Patch Changes
+
+- ec4af29: Add `defaultData` option to `useStateData` — seeds the state from pre-fetched data (e.g. a react-router loader) without triggering a fetch on first load.
+  - rxfy@1.0.5-rc.0
+
 ## 1.0.4
 
 ### Patch Changes

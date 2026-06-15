@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createModel } from "../model/model.js";
-import { modelTopic } from "./topic.js";
 import { createSubscriptionManager } from "./subscription-manager.js";
+import { modelTopic } from "./topic.js";
 
 const TodoModel = createModel(z.object({ id: z.string() }), { getKey: (t) => t.id, name: "todo" });
 const t1 = modelTopic(TodoModel, "1");
