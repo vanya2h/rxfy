@@ -5,6 +5,7 @@ export default defineConfig({
   description: "A small library for typed, normalized and reactive state. Built on RxJS.",
   sidebar: [
     { text: "Introduction", link: "/" },
+    { text: "Why rxfy?", link: "/why" },
     { text: "Getting Started", link: "/getting-started" },
 
     { text: "Comparison", link: "/comparison" },
