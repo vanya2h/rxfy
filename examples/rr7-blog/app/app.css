@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.container { max-width: 720px; margin: 0 auto; padding: 2rem 1.25rem; }
+a { color: #3b82f6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.status { opacity: 0.7; }
+.status.error { color: #ef4444; }
+.post-list { list-style: none; padding: 0; display: grid; gap: 1.5rem; }
+.post-list h2 { margin: 0 0 0.25rem; }
+.post-meta { margin: 0; font-size: 0.85rem; opacity: 0.7; }
+.post-excerpt { margin: 0.25rem 0 0; opacity: 0.85; }
+.back-link { display: inline-block; margin-bottom: 1rem; }
+.author-block { font-size: 0.9rem; opacity: 0.8; margin-bottom: 1rem; }
+.post-body { white-space: pre-wrap; }
+.comment-list { list-style: none; padding: 0; display: grid; gap: 1rem; }
+.comment-author { margin: 0; font-weight: 600; }
+.comment-body { margin: 0.15rem 0 0; }
+.add-comment { margin-top: 2rem; display: grid; gap: 0.75rem; }
+.add-comment input, .add-comment textarea { width: 100%; padding: 0.5rem; font: inherit; }
+.add-comment button { justify-self: start; padding: 0.5rem 1rem; cursor: pointer; }
