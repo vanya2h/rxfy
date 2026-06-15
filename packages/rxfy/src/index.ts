@@ -1,5 +1,6 @@
 export * from "./atom/atom.js";
 export * from "./lens/lens.js";
+export * from "./live/index.js";
 export * from "./model/model.js";
 export * from "./model/model-store.js";
 export * from "./query/query-cache.js";
@@ -10,4 +11,3 @@ export * from "./ssr/sync-marker.js";
 export * from "./state/normalize.js";
 export * from "./state/state.js";
 export * from "./wrapped/wrapped.js";
-export * from "./live/index.js";
