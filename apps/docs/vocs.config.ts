@@ -30,5 +30,6 @@ export default defineConfig({
         { text: "Live updates over WebSockets", link: "/guides/live-updates-websockets" },
       ],
     },
+    { text: "Examples", link: "/examples" },
   ],
 });
