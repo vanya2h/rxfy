@@ -61,4 +61,15 @@ describe("createSubscriptionManager", () => {
     mgr.reconnect();
     expect(send).not.toHaveBeenCalled();
   });
+
+  it("retries the topic on reconnect after send throws", () => {
+    const send = vi.fn().mockImplementationOnce(() => {
+      throw new Error("not connected");
+    });
+    const mgr = createSubscriptionManager(send);
+    expect(() => mgr.want(t1)).toThrow("not connected");
+    send.mockReset();
+    mgr.reconnect(); // active was not advanced, so t1 is still in the gap
+    expect(send).toHaveBeenCalledWith([t1]);
+  });
 });
