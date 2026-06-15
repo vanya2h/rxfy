@@ -1,13 +1,14 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "rc",
   "initialVersions": {
     "docs": "0.0.0",
     "rxfy-example-next-blog": "0.1.0",
+    "rxfy-example-rr7-blog": "0.1.0",
     "rxfy-example-realtime-todos": "0.1.0",
     "rxfy-example-todo-app": "0.1.0",
-    "rxfy": "1.0.5",
-    "rxfy-react": "1.0.5"
+    "rxfy": "1.1.0",
+    "rxfy-react": "1.1.0"
   },
   "changesets": []
 }
