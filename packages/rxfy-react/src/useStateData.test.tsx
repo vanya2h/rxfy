@@ -162,6 +162,36 @@ describe("useStateData", () => {
     expect(data.posts).toEqual(["9"]);
   });
 
+  it("setRaw() updater accepts denormalized entities and writes them to the store", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "one" }] });
+    const { result } = renderHook(
+      () => ({
+        handle: useStateData({ state: pageState, fetchFn, params: { page: 0 } }),
+        postStore: useModelStore(postModel),
+      }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.handle.data$);
+
+    act(() => result.current.handle.setRaw((prev) => ({ ...prev, posts: [...prev.posts, { id: "2", title: "two" }] })));
+
+    const data = await firstValueFrom(result.current.handle.data$);
+    expect(data.posts).toEqual(["1", "2"]);
+    // the new entity was normalized into the model store — no manual normalizeResult call
+    expect(result.current.postStore.getValue("2")).toEqual({ id: "2", title: "two" });
+  });
+
+  it("setRaw() with an id-only value passes ids through unchanged", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "one" }] });
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), { wrapper });
+    await firstValueFrom(result.current.data$);
+
+    act(() => result.current.setRaw({ posts: ["1"] }));
+
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.posts).toEqual(["1"]);
+  });
+
   it("set() with an updater receives denormalized entities", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
     const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), { wrapper });

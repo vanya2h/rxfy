@@ -1,5 +1,13 @@
 import { useContext, useMemo, useState } from "react";
-import type { Atom, FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
+import type {
+  Atom,
+  FieldsMap,
+  IWrapped,
+  MutationDefs,
+  QueryShapeOf,
+  StateDescriptor,
+  WritableQueryShapeOf,
+} from "rxfy";
 import {
   attachReload,
   createAtom,
@@ -10,6 +18,7 @@ import {
   denormalizeValue,
   markSync,
   normalizeResult,
+  normalizeWritable,
   stableStringify,
   StatusEnum,
 } from "rxfy";
@@ -31,13 +40,16 @@ export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record
   readonly data$: Observable<QueryShapeOf<TShape>>;
   readonly set: (value: Updater<TShape>) => void;
   /**
-   * Low-level sibling of `set` that writes the normalized **id shape** directly — no normalize and
-   * no denormalize round-trip. The caller is responsible for putting any new entities in their
-   * model stores first (e.g. via `normalizeResult`). The updater form receives the current ids;
-   * it is a no-op until the query is FULFILLED. Use for append / prepend / reorder / dedup where
-   * re-normalizing the whole list (`set`) would be O(N).
+   * Low-level sibling of `set` that writes the **id shape** directly — no denormalize round-trip.
+   * Its value may contain ids, denormalized entities, or a mix in model-field slots: object
+   * entities are written to their stores (validated in dev), strings pass through as ids. The
+   * updater receives the current ids and must return the writable shape; it is a no-op until the
+   * query is FULFILLED. Use for append / prepend / reorder / dedup where re-normalizing the whole
+   * list (`set`) would be O(N).
    */
-  readonly setRaw: (ids: Updater<QueryShapeOf<TShape>>) => void;
+  readonly setRaw: (
+    ids: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
+  ) => void;
   readonly reload: () => void;
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
@@ -197,13 +209,15 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       }
     };
 
-    const setRaw = (idsOrUpdater: Updater<QueryShapeOf<TShape>>) => {
+    const setRaw = (
+      idsOrUpdater: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
+    ) => {
       if (typeof idsOrUpdater === "function") {
         const current = atom$.get();
         if (current.type !== StatusEnum.FULFILLED) return;
-        writeThrough((idsOrUpdater as (prev: QueryShapeOf<TShape>) => QueryShapeOf<TShape>)(current.value));
+        writeThrough(normalizeWritable(registry, fields, idsOrUpdater(current.value)));
       } else {
-        writeThrough(idsOrUpdater);
+        writeThrough(normalizeWritable(registry, fields, idsOrUpdater));
       }
     };
 
