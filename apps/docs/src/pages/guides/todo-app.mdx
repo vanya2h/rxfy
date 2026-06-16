@@ -189,7 +189,7 @@ you persist it only on **Save**.
 
 Hold that draft in a local [`Atom`](/core-concepts/atom) seeded from the todo, focus the
 field you're editing with a [`Lens`](/core-concepts/lens), and bind it with
-[`useAtom`](/react#useatom-and-two-way-binding). The form never reads or writes the store;
+[`useAtom`](/react/use-atom). The form never reads or writes the store;
 on submit it hands the edited todo to an `onSave` callback, and the parent does the write.
 
 ```tsx
@@ -272,7 +272,7 @@ where you'd `await` a `PATCH` before (or after) updating the store.
 
 ## Where to go next
 
-- [Normalization](/normalization): why `data$` emits ids, and what it buys you.
+- [Normalization](/core-concepts/normalization): why `data$` emits ids, and what it buys you.
 - [Model](/core-concepts/model), [State](/core-concepts/state), and [React Bindings](/react): the full API.
 - [Atom](/core-concepts/atom) and [Lens](/core-concepts/lens): the draft-and-save form here, in depth.
 - [Live updates over WebSockets](/guides/live-updates-websockets) and [Pagination](/guides/pagination): common next tasks.

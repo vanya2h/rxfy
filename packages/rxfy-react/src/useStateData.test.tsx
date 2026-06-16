@@ -229,6 +229,37 @@ describe("useStateData", () => {
     });
   });
 
+  describe("data$ identity stability", () => {
+    it("keeps the same handle when params identity changes but the value is equal", async () => {
+      const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
+      const { result, rerender } = renderHook(({ params }) => useStateData({ state: pageState, fetchFn, params }), {
+        wrapper,
+        initialProps: { params: { page: 0 } },
+      });
+      const first = result.current;
+      await firstValueFrom(result.current.data$);
+
+      rerender({ params: { page: 0 } }); // brand-new object, same value
+      expect(result.current).toBe(first);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not reset data$ or refetch when defaultData changes", async () => {
+      const fetchFn = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ defaultData }) => useStateData({ state: pageState, fetchFn, params: { page: 0 }, defaultData }),
+        { wrapper, initialProps: { defaultData: { posts: [{ id: "1", title: "A" }] } } },
+      );
+      const first = result.current.data$;
+      await firstValueFrom(result.current.data$);
+
+      rerender({ defaultData: { posts: [{ id: "2", title: "B" }] } }); // changed default
+      expect(result.current.data$).toBe(first);
+      expect(fetchFn).not.toHaveBeenCalled();
+      expect((await firstValueFrom(result.current.data$)).posts).toEqual(["1"]); // still the original seed
+    });
+  });
+
   describe("teardown during an in-flight fetch", () => {
     // A fetch that rejects when its AbortSignal fires (the realistic case — fetch(), the
     // example's delay() helper, etc. all reject on abort), otherwise resolves after a tick.

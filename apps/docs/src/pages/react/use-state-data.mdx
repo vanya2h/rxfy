@@ -1,0 +1,168 @@
+# useStateData
+
+Fetches data, normalizes entities into model stores, and returns a `StateHandle`.
+**`data$` emits the normalized query shape: entity ids, not entities** (`array` fields
+→ `string[]`, `single` fields → `string`). Render lists by id and read entity data
+through [`useModelStore`](/react/use-model-store).
+
+```tsx
+import { useMemo, useState } from "react";
+import { useStateData, useModelStore, Pending } from "rxfy-react";
+import { todosState, fetchTodos, TodoModel } from "./todos";
+
+function TodoApp() {
+  const [filter, setFilter] = useState<"all" | "active" | "done">("all");
+  const params = useMemo(() => ({ filter }), [filter]);
+
+  const { data$, mutations, reload } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
+
+  return (
+    <Pending value$={data$} pending={<p>Loading...</p>}>
+      {({ todos }) => (
+        <>
+          <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>
+          <button onClick={() => mutations.addTodo({ id: crypto.randomUUID(), title: "new", done: false })}>
+            Add
+          </button>
+          <button onClick={reload}>Reload</button>
+        </>
+      )}
+    </Pending>
+  );
+}
+```
+
+```ts
+function useStateData<TParams, TShape, TMutations>(config: {
+  state: StateDescriptor<TParams, TShape, TMutations>;
+  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
+  params: TParams;
+  defaultData?: TShape;
+}): StateHandle<TShape, TMutations>
+```
+
+The returned `StateHandle<TShape, TMutations>` exposes:
+
+```ts
+type StateHandle<TShape, TMutations> = {
+  data$: Observable<QueryShapeOf<TShape>>; // ids only; stable identity across renders & reloads
+  set(value: Updater<TShape>): void; // full entities (normalize/denormalize)
+  setRaw(ids: Updater<QueryShapeOf<TShape>>): void; // id shape only, no round-trip
+  reload(): void;
+  mutations: BoundMutations<TShape, TMutations>; // full entities
+};
+
+type Updater<T> = T | ((prev: T) => T);
+```
+
+See [`set` vs `setRaw`](#set-vs-setraw--writing-entities-vs-writing-the-id-list) below for the
+full reference on writing entities.
+
+**Caching** (states with a `key`): results, mutations, and `set` write through to the
+registry's query cache, so a remount with the same params starts from cached ids without
+re-fetching, while entity values always come live from model stores. `reload()` re-fetches
+**in place** — it flips the shared query atom to pending and fetches into it, so every
+component reading the same keyed state updates together and `data$` keeps its identity (the
+current data stays visible until the refetch settles). Keyless states skip the cache and
+fetch per mount.
+
+`data$` keeps a **stable identity** across re-renders, across a changing `defaultData`, and
+across a `params` object whose value is unchanged (the query is keyed by the params value, not
+its reference) — so consumers like [`Pending`](/react/pending) don't reset. `set` and `setRaw`
+cancel any in-flight fetch before committing, so an explicit write is never clobbered by a late
+result.
+
+## `defaultData` — seeding state from a framework loader
+
+Pass `defaultData` to pre-populate the state from data already fetched by the framework
+(e.g. a react-router `loader`). The data is normalized into model stores immediately and
+`fetchFn` is **not called** on first render. If the cache entry is already populated
+(e.g. a remount), `defaultData` is ignored.
+
+```tsx
+import { useLoaderData } from "react-router";
+import { useStateData, Pending } from "rxfy-react";
+import { todosState, fetchTodos } from "./todos";
+
+export async function loader() {
+  return fetchTodos({ filter: "all" }, new AbortController().signal);
+}
+
+export default function TodoPage() {
+  const loaderData = useLoaderData();
+  const params = { filter: "all" };
+
+  const { data$, mutations } = useStateData({
+    state: todosState,
+    fetchFn: fetchTodos,
+    params,
+    defaultData: loaderData,
+  });
+
+  return (
+    <Pending value$={data$}>
+      {({ todos }) => <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>}
+    </Pending>
+  );
+}
+```
+
+> When `params` changes (navigation to a new route), the new cache key starts `IDLE` and
+> `defaultData` is applied again — so the next loader's data seeds the next page without
+> a redundant fetch.
+
+`defaultData` is the right fit when the framework already owns data fetching and you want to
+hand rxfy a head start. The alternative is to let **rxfy own SSR end to end**: components fetch
+on the server (Suspense), the per-request registry is dehydrated into the HTML, and the client
+hydrates it — so you never pass `defaultData` at all, and the framework loader stays a
+**routing-only** concern (URL validation, redirects, param extraction). The
+[rr7-blog example](/examples#rr7-blog) takes exactly this approach on React Router 7: its
+loaders never fetch domain data. See the [SSR guide](/ssr) for wiring it up.
+
+## `set` vs `setRaw` — writing entities vs writing the id list
+
+`set` is the high-level writer: you hand it the **denormalized shape** (full entities) and it
+does the round-trip — splits entities into the model stores and the ids back into `data$`. The
+updater form (`set(prev => …)`) first **denormalizes** the current ids into entities so your
+reducer sees full objects. That round-trip is O(list length): it rebuilds and re-writes every
+entity in the query, even ones that didn't change.
+
+`setRaw` is the low-level sibling: you write the **normalized id shape** directly (the same shape
+`data$` emits), with no normalize and no denormalize step.
+
+```ts
+set:    (value: Updater<TShape>) => void;                // full entities
+setRaw: (ids:   Updater<QueryShapeOf<TShape>>) => void;  // id shape
+// Updater<T> = T | ((prev: T) => T)
+```
+
+Because `setRaw` never touches the model stores, **you are responsible for putting any new
+entities there first** — typically with `normalizeResult`, which writes a shape's entities and
+returns its ids. Use `setRaw` whenever re-normalizing the whole list with `set` would be wasteful:
+appending a page, prepending, reordering, de-duplicating, or optimistically removing a row.
+
+```tsx
+import { useModelRegistry } from "rxfy-react";
+import { normalizeResult } from "rxfy";
+import { feedState, FeedItemModel } from "./feed";
+
+function useAppendPage() {
+  const registry = useModelRegistry();
+  const { setRaw } = useStateData({ state: feedState, fetchFn: fetchFirst, params });
+
+  return (page: { items: FeedItem[] }) => {
+    // 1. write only the new page's entities → their ids   (O(page size))
+    const { items: newIds } = normalizeResult(registry, feedState.fields, { items: page.items });
+    // 2. concatenate ids onto the current list — existing rows are never re-written
+    setRaw((prev) => ({ items: [...prev.items, ...newIds] }));
+  };
+}
+```
+
+The updater form reads the current ids and is a **no-op until the query is `FULFILLED`** (there's
+no list to amend yet). For the common pagination case you don't call `setRaw` yourself —
+[`useStatePagedData`](/react/use-state-paged-data) composes it for you.
+
+> `setRaw` writes ids that may not have matching entities in the store yet. Always populate the
+> stores **before** (or in the same tick as) the `setRaw` call, or components reading those ids
+> will suspend / throw "entity not loaded".

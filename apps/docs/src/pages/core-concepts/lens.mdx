@@ -1,23 +1,23 @@
 # Lens
 
-A focused, bidirectional view into an `Atom`. Reads and writes propagate in both
-directions. Change detection uses `lodash.isEqual`.
+A focused, two-way view into an `Atom`: read a slice out, then write it back. Change
+detection uses `lodash.isEqual`.
 
 ## Philosophy
 
-A Lens **is an `Atom`** (same `get()` / `set()` / `modify()` surface) that points at
-_part_ of another Atom instead of owning state. So anything taking an Atom (`useAtom`,
-another `createLens`) takes a Lens unchanged; that substitutability is the point.
+A Lens **is an `Atom`** with the same `get()` / `set()` / `modify()` surface, but it points
+at _part_ of another Atom instead of owning state. So anything that takes an Atom (`useAtom`,
+another `createLens`) takes a Lens too.
 
-- **Focus, immutably.** `get` reads a slice out, `set` returns a **new** source with it
-  replaced, never a mutation. Compose lenses to reach deeply nested fields.
-- **Bidirectional and live.** Reads flow down, writes flow up, and the view re-derives
-  when the source changes elsewhere: a live window, not a snapshot.
-- **`isEqual` everywhere.** Inbound sync and write-back both skip no-op updates, so a
-  write that changes nothing won't echo back.
+- **Immutable focus.** `get` reads a slice out; `set` returns a **new** source with the slice
+  replaced and leaves the original alone. Compose lenses to reach nested fields.
+- **Two-way and live.** Reads flow down, writes flow up, and the view re-derives when the
+  source changes elsewhere.
+- **Dedupe both ways.** Inbound sync and write-back skip no-op updates, so writing an
+  unchanged value won't echo back.
 
-Reach for a Lens when a consumer should own one field of a larger entity without knowing
-about the whole.
+Reach for a Lens when a consumer needs one field of a larger entity without knowing about
+the rest.
 
 ```ts
 import { createAtom, createLens, keyLens } from "rxfy";
@@ -37,7 +37,22 @@ function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>;
 function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>;
 ```
 
-A common use is binding a form input to one field of a stored entity: compose a `keyLens`
-over a [`ModelStore.entity(id)`](/core-concepts/model#modelstore-entity) handle and drive it with
-[`useAtom`](/react#useatom-and-two-way-binding). Edits flow back into the model store and reach
-every subscriber of that entity.
+The signatures name two different shapes. `ILens<S, T>` is the **optic** you pass in, a pure
+view/edit pair that `keyLens` builds for you. `Lens<S, T>` is what `createLens` returns: a
+reactive cell implementing [`IAtom<T>`](/core-concepts/atom), so it drops in anywhere an `Atom`
+is expected.
+
+```ts
+type ILens<S, T> = {
+  get(source: S): T; // read the focused slice out of the source
+  set(current: T, source: S): S; // return a NEW source with the slice replaced (immutable)
+};
+
+// createLens(...) returns a Lens<S, T>, which implements IAtom<T>:
+type Lens<S, T> = IAtom<T>; // get(): T; set(val: T): void; modify(fn: (val: T) => T): void
+```
+
+To bind a form input to one field of a stored entity, compose a `keyLens` over a
+[`ModelStore.entity(id)`](/core-concepts/model#modelstore-entity) handle and drive it with
+[`useAtom`](/react/use-atom). Edits flow back into the model store and reach every subscriber
+of that entity.

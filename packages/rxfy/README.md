@@ -26,7 +26,7 @@ npm install rxfy
 - [State](https://rxfy.vanya2h.me/core-concepts/state) — `defineState`, mutations
 - [Atom](https://rxfy.vanya2h.me/core-concepts/atom) — `createAtom`
 - [Lens](https://rxfy.vanya2h.me/core-concepts/lens) — `createLens`, `keyLens`
-- [Normalization](https://rxfy.vanya2h.me/normalization)
+- [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/ssr) — `dehydrate`, `hydrate`, `hydrationScript`
 - [rxfy-react](../rxfy-react/README.md) — React bindings
 

@@ -5,7 +5,7 @@ idiomatic forms: **Redux Toolkit** (with RTK Query), **MobX 6**, and **Jotai**.
 
 rxfy's premise is narrower than any of them: you **declare typed models and the states that
 query them**, then access their data as **reactive observables**.
-[Normalization](/normalization) is the storage strategy underneath, and it keeps your app
+[Normalization](/core-concepts/normalization) is the storage strategy underneath, and it keeps your app
 consistent and reactive at no extra cost. `data$` emits entity **ids**, values live in
 per-entity Observable cells, and one `store.set` (refetch, mutation, or websocket) updates
 the components subscribed to that entity and nothing else: no global re-selection, no
@@ -72,7 +72,7 @@ mutable proxy graphs are harder to capture; MobX gives you no built-in normaliza
 query/SSR layer anyway. Two-way binding shows the difference: MobX mutates the observable, while rxfy
 composes a [`Lens`](/core-concepts/lens) over a
 [`store.entity(id)`](/core-concepts/model#modelstore-entity) and drives it with
-[`useAtom`](/react#useatom-and-two-way-binding), so the write flows back into the normalized
+[`useAtom`](/react/use-atom), so the write flows back into the normalized
 store and reaches every subscriber.
 
 **Reach for MobX when** you want minimal boilerplate for local/UI/client state and find

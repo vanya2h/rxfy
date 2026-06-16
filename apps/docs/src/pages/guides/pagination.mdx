@@ -1,7 +1,7 @@
 # Pagination and infinite scroll
 
 Load a list one page at a time and append each page into a single growing list, with every
-row normalized like any other entity. [`useStatePagedData`](/react#usestatepageddata) owns the
+row normalized like any other entity. [`useStatePagedData`](/react/use-state-paged-data) owns the
 whole flow: page 0 is fetched, cached, and SSR'd through `useStateData`, while `loadMore()`
 fetches later pages and appends them for you.
 
@@ -113,5 +113,5 @@ needed — `loadMore` ignores calls made while a page is already in flight.
 - **Reloading.** `reload()` re-fetches the first page only and resets pagination. To restore a
   deep scroll position after a reload, re-run your `loadMore` calls.
 - **Need full control?** For anything `useStatePagedData` can't express (keyset cursors over
-  entity fields, prepending, bidirectional paging), use [`useStateData`](/react#usestatedata)
+  entity fields, prepending, bidirectional paging), use [`useStateData`](/react/use-state-data)
   directly and append pages with `set((prev) => …)`.

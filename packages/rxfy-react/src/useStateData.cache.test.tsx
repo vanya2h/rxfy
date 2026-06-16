@@ -102,7 +102,7 @@ describe("useStateData cache integration", () => {
     expect(second.result.current.store.getValue("1")).toEqual({ id: "1", title: "From socket" });
   });
 
-  it("reload() deletes the cache entry and re-fetches", async () => {
+  it("reload() re-fetches in place and keeps data$ identity", async () => {
     const registry = createModelRegistry();
     seedFulfilled(registry);
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "Fresh" }] });
@@ -110,12 +110,55 @@ describe("useStateData cache integration", () => {
     const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
+    const before = result.current.data$;
     act(() => result.current.reload());
 
     const data = await firstValueFrom(result.current.data$);
     expect(fetchFn).toHaveBeenCalledOnce();
     expect(data).toEqual({ todos: ["1"] });
     expect(registry.model(todoModel).getValue("1")).toEqual({ id: "1", title: "Fresh" });
+    // reload mutates the shared atom rather than rebuilding the handle — data$ stays the same object.
+    expect(result.current.data$).toBe(before);
+  });
+
+  it("reload() updates every subscriber sharing a keyed state (no split-brain)", async () => {
+    const registry = createModelRegistry();
+    seedFulfilled(registry);
+    const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "2", title: "Fresh" }] });
+    const wrapper = makeWrapper(registry);
+
+    // Two independent components on the same keyed state + params → same shared query atom.
+    const a = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
+    const b = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
+
+    const seenB: { todos: string[] }[] = [];
+    const sub = b.result.current.data$.subscribe((v) => seenB.push(v));
+
+    act(() => a.result.current.reload()); // A triggers the reload…
+    await firstValueFrom(a.result.current.data$);
+
+    // …and B (which never called reload) sees the fresh result too.
+    expect(seenB.at(-1)).toEqual({ todos: ["2"] });
+    sub.unsubscribe();
+  });
+
+  it("an explicit set() cancels an in-flight fetch and wins", async () => {
+    const registry = createModelRegistry();
+    let resolveFetch: (v: { todos: Todo[] }) => void = () => {};
+    const fetchFn = vi.fn(() => new Promise<{ todos: Todo[] }>((res) => (resolveFetch = res)));
+
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
+      wrapper: makeWrapper(registry),
+    });
+    const sub = result.current.data$.subscribe({ next: () => {}, error: () => {} }); // start the fetch
+
+    act(() => result.current.set({ todos: [{ id: "set", title: "Explicit" }] }));
+    // The fetch resolves *after* the set — its result must be dropped (the set aborted it).
+    act(() => resolveFetch({ todos: [{ id: "late", title: "Late fetch" }] }));
+
+    const data = await firstValueFrom(result.current.data$);
+    expect(data).toEqual({ todos: ["set"] });
+    sub.unsubscribe();
   });
 
   it("hydrated rejection: data$ errors synchronously with the rejected Error", () => {

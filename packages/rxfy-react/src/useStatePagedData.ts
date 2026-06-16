@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ModelDescriptor, StateDescriptor } from "rxfy";
-import { array, attachReload, getAttachedReload, isSyncMarked, markSync, normalizeResult } from "rxfy";
+import { array, attachReload, isSyncMarked, markSync, normalizeResult } from "rxfy";
 import { map, type Observable } from "rxjs";
 import { useModelRegistry } from "./registry-context.js";
 import { useStateData } from "./useStateData.js";
@@ -95,16 +95,33 @@ export function useStatePagedData<T, TParams, TPage, TCursor>(
     idsRef.current = [];
   }, [handle]);
 
-  // Unwrap the internal { items } shape to a bare id array, preserving the SSR sync marker and the
-  // attached reload (a plain .pipe drops both symbol markers, breaking <Pending> / getAttachedReload).
+  // useStateData.reload() now refetches page 0 in place without minting a new handle, so the
+  // handle-identity resets above no longer fire for a reload. Reset pagination here and forward.
+  const reload = useCallback(() => {
+    loadingRef.current = false;
+    hasMoreRef.current = true;
+    pageIndexRef.current = 1;
+    idsRef.current = [];
+    setIsLoading(false);
+    setHasMoreState(true);
+    handle.reload();
+  }, [handle]);
+
+  // Unwrap the internal { items } shape to a bare id array, preserving the SSR sync marker (a plain
+  // .pipe drops the symbol marker, breaking <Pending>'s render-time probe).
   const data$ = useMemo(() => {
     const inner = handle.data$;
     const mapped = inner.pipe(map((shape) => shape.items));
     if (isSyncMarked(inner)) markSync(mapped);
-    const reload = getAttachedReload(inner);
-    if (reload) attachReload(mapped, reload);
     return mapped;
   }, [handle.data$]);
+
+  // Attach our pagination-aware reload (not the inner one) so <Pending>'s retry resets pages too.
+  // Done in an effect, not the memo: reload closes over the pagination refs, and storing a
+  // ref-capturing callback during render is disallowed.
+  useLayoutEffect(() => {
+    attachReload(data$, reload);
+  }, [data$, reload]);
 
   // Keep idsRef current for getCursor + mirror hasMore into render state on each emission.
   useEffect(() => {
@@ -146,7 +163,7 @@ export function useStatePagedData<T, TParams, TPage, TCursor>(
   }, [handle, params, registry, state]);
 
   return useMemo(
-    () => ({ data$, loadMore, isLoading, hasMore, reload: handle.reload }),
-    [data$, loadMore, isLoading, hasMore, handle.reload],
+    () => ({ data$, loadMore, isLoading, hasMore, reload }),
+    [data$, loadMore, isLoading, hasMore, reload],
   );
 }

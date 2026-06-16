@@ -53,7 +53,7 @@ const [value, setValue] = useAtom(atom$); // atom$ must be stable across renders
 
 | Hook | Returns | Notes |
 |------|---------|-------|
-| `useStateData({ state, fetchFn, params })` | `StateHandle` | Re-fetches when `params` identity changes |
+| `useStateData({ state, fetchFn, params })` | `StateHandle` | Re-fetches when `params` value changes; `data$` identity stays stable |
 | `useModelStore(descriptor)` | `ModelStore<T>` | Same descriptor → same store in the registry |
 | `useAtom(atom$)` | `[T, set]` | Memoize atom$ — new identity resets |
 | `usePending(source$)` | `IWrapped<T>` | Low-level; prefer `<Pending>` for rendering |

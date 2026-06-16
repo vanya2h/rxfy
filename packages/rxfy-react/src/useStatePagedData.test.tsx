@@ -12,8 +12,9 @@ const postModel = createModel(z.object({ id: z.string(), title: z.string() }), {
 type Post = { id: string; title: string };
 type PostPage = { items: Post[]; nextCursor: number };
 
-// Stable references — config callbacks may be fresh each render (the hook stabilizes them),
-// but `params` must be referentially stable or useStateData rebuilds + refetches every render.
+// Stable references for the tests. Config callbacks may be fresh each render (the hook stabilizes
+// them) and useStateData now keys on the params *value*, so identity churn no longer refetches —
+// but a stable PARAMS keeps these assertions about call counts unambiguous.
 const PARAMS = {};
 const getCursor = ({ ids }: { ids: string[]; pageIndex: number }) => ids.length;
 const select = ({ page }: { page: PostPage }) => page.items;
