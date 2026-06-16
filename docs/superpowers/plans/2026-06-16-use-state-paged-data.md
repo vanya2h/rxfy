@@ -1,5 +1,10 @@
 # useStatePagedData Implementation Plan
 
+> **Historical record.** This plan built the original `state`+`initial`+`merge` API. The shipped
+> hook was later revised to take a single `model` (always `array(model)`) with a flat `string[]`
+> `data$`, a `select(page) => T[]` callback, and an O(page-size) append via a new `StateHandle.setRaw`.
+> See the [React Bindings reference](/react#usestatepageddata) for the current API.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a reusable `useStatePagedData` hook to `rxfy-react` that wraps `useStateData` and owns pagination / infinite-scroll mechanics (cursor computation, page accumulation, concurrency guard, loading + end-of-list flags, reset-on-reload).

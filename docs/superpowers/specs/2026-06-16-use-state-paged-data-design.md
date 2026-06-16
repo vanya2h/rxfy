@@ -2,7 +2,13 @@
 
 **Date:** 2026-06-16
 **Package:** `rxfy-react`
-**Status:** Approved (pending implementation)
+**Status:** Implemented, then revised — see note below.
+
+> **Superseded design detail (kept as a record).** This spec describes the original API
+> (`state` descriptor + `initial` + `merge(prev, page)`). The shipped hook diverged: it takes a
+> single `model` (always `array(model)`), `data$` emits a flat `string[]`, the page callback is
+> `select(page) => T[]`, and appending is O(page-size) via a new `setRaw` primitive on
+> `StateHandle`. The current API lives in the [React Bindings reference](/react#usestatepageddata).
 
 ## Problem
 
