@@ -1,5 +1,29 @@
 # rxfy-react
 
+## 1.2.0
+
+### Minor Changes
+
+- de03c5b: `useStateData`'s `setRaw` now accepts denormalized entity objects (or a mix of ids and entities) in model-field slots and normalizes them on write — appending a page no longer needs a manual `normalizeResult` call, and the "entity not loaded" footgun is gone. Object elements are written to their model stores (schema-validated in development); string ids pass through unchanged, so existing id-only `setRaw` calls are unaffected. The updater form still receives `prev` as ids, keeping appends O(page size).
+
+  Adds the `normalizeWritable` helper and the `WritableQueryShapeOf` type to `rxfy`.
+
+- ea6840c: **Breaking:** `useStateData` now takes a single config object instead of positional arguments. Replace `useStateData(state, fetchFn, params, { defaultData })` with `useStateData({ state, fetchFn, params, defaultData })`. This matches the shape of `useStatePagedData` and makes the optional `defaultData` a flat field rather than a separate options argument.
+
+  Also exports the `UseStateDataConfig` and `Updater<T>` types. `Updater<T>` (`T | ((prev: T) => T)`) is the `useState`-style setter union used by `set` and `setRaw`.
+
+  Reworks the internals for a stabler `data# rxfy-react:
+
+  - **`reload()` refetches in place.** It now flips the shared query atom to PENDING and refetches into it, instead of deleting the cache entry and rebuilding the handle. Every component subscribed to the same keyed state sees the refreshed result (previously only the caller did — others were stranded on stale data), and `data# rxfy-react keeps a stable identity across a reload (a FULFILLED → reload no longer flashes a new subscription; it revalidates in place). A reload recovering from a REJECTED state still resubscribes, since an Rx error is terminal.
+  - **`data# rxfy-react identity is stable** across re-renders, a changing `defaultData`, and an identity-unstable-but-value-equal `params` (the query is now keyed by the params _value_). `defaultData` changes never reset the stream — only the first load reads it.
+  - **`set` / `setRaw` abort any in-flight fetch** before committing FULFILLED, so an explicit write can't be clobbered by a late-arriving fetch result.
+
+  `useStatePagedData.reload()` resets its own pagination state to match the new in-place reload semantics.
+
+- 209cd87: Add `useStatePagedData` — a focused hook for paginated / infinite-scroll lists of a single entity type. You give it a `model` (the list is always `array(model)`) and a `key`; `data# rxfy-react emits a flat `string[]`of ids. Page 0 is SSR'd and hydrated through`useStateData`; `loadMore()`fetches and appends later pages via a pluggable`getCursor`and`select`, with built-in `isLoading`and`hasMore`. Appending is O(page size) — only the new page's entities are written, never the whole list.
+
+  Also adds `setRaw` to `StateHandle`: a low-level sibling of `set` that writes the normalized id shape directly (no normalize/denormalize round-trip), for append / prepend / reorder / dedup without re-normalizing the full list.
+
 ## 1.2.0-rc.0
 
 ### Minor Changes
