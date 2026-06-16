@@ -92,7 +92,7 @@ type AppProps = {
 export default function App({ initialFilter = "all" }: AppProps) {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const params = useMemo(() => ({ filter }), [filter]);
-  const { data$, mutations, reload } = useStateData(todosState, fetchTodos, params);
+  const { data$, mutations, reload } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 
   const handleAdd = (title: string) => {
     const todo = createTodo(title);

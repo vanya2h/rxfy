@@ -52,7 +52,7 @@ const todosState = defineState({
   },
 });
 
-const { data$, mutations } = useStateData(todosState, fetchTodos, params);
+const { data$, mutations } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 ```
 
 **Reach for Redux Toolkit when** you want the largest ecosystem, time-travel devtools, a

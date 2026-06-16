@@ -39,20 +39,25 @@ export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
 
-export type UseStateDataOptions<TShape> = {
+export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>> = {
+  /** The typed, normalized state descriptor (`defineState`). */
+  state: StateDescriptor<TParams, TShape, TMutations>;
+  /** Fetches the full denormalized shape; `params` identity drives refetch. */
+  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
+  params: TParams;
+  /** Seed value (e.g. from a router loader) used until the first fetch settles. */
   defaultData?: TShape;
 };
 
-export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>>(
-  state: StateDescriptor<TParams, TShape, TMutations>,
-  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
-  params: TParams,
-  options?: UseStateDataOptions<TShape>,
-): StateHandle<TShape, TMutations> {
+export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>>({
+  state,
+  fetchFn,
+  params,
+  defaultData,
+}: UseStateDataConfig<TParams, TShape, TMutations>): StateHandle<TShape, TMutations> {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
   const [reloadCounter, setReloadCounter] = useState(0);
-  const { defaultData } = options ?? {};
 
   return useMemo(() => {
     void reloadCounter; // reload() bumps this to rebuild the handle

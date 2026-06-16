@@ -32,7 +32,7 @@ RxJS-backed normalized state management. Entities live in shared `ModelStore`s k
 </StoreProvider>
 
 // 2. Fetch and normalize
-const { data$, mutations, set, reload } = useStateData(myState, fetchFn, params);
+const { data$, mutations, set, reload } = useStateData({ state: myState, fetchFn, params });
 // data$ emits QueryShapeOf<TShape> — arrays become id[], singles become an id string
 
 // 3. Render async state
@@ -53,7 +53,7 @@ const [value, setValue] = useAtom(atom$); // atom$ must be stable across renders
 
 | Hook | Returns | Notes |
 |------|---------|-------|
-| `useStateData(state, fetchFn, params)` | `StateHandle` | Re-fetches when `params` identity changes |
+| `useStateData({ state, fetchFn, params })` | `StateHandle` | Re-fetches when `params` identity changes |
 | `useModelStore(descriptor)` | `ModelStore<T>` | Same descriptor → same store in the registry |
 | `useAtom(atom$)` | `[T, set]` | Memoize atom$ — new identity resets |
 | `usePending(source$)` | `IWrapped<T>` | Low-level; prefer `<Pending>` for rendering |

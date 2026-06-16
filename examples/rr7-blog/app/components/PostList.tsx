@@ -4,7 +4,7 @@ import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { fetchPosts, type Post, type PostId, postModel, postsState, userModel } from "../blog";
 
 export default function PostList() {
-  const { data$, reload } = useStateData(postsState, fetchPosts, {});
+  const { data$, reload } = useStateData({ state: postsState, fetchFn: fetchPosts, params: {} });
 
   return (
     <div>

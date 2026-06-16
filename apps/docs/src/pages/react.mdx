@@ -19,7 +19,7 @@ function TodoApp() {
   const [filter, setFilter] = useState<"all" | "active" | "done">("all");
   const params = useMemo(() => ({ filter }), [filter]);
 
-  const { data$, mutations, reload } = useStateData(todosState, fetchTodos, params);
+  const { data$, mutations, reload } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 
   return (
     <Pending value$={data$} pending={<p>Loading...</p>}>
@@ -79,7 +79,10 @@ export default function TodoPage() {
   const loaderData = useLoaderData();
   const params = { filter: "all" };
 
-  const { data$, mutations } = useStateData(todosState, fetchTodos, params, {
+  const { data$, mutations } = useStateData({
+    state: todosState,
+    fetchFn: fetchTodos,
+    params,
     defaultData: loaderData,
   });
 
@@ -123,7 +126,7 @@ import { feedState, FeedItemModel } from "./feed";
 
 function useAppendPage() {
   const registry = useModelRegistry();
-  const { setRaw } = useStateData(feedState, fetchFirst, params);
+  const { setRaw } = useStateData({ state: feedState, fetchFn: fetchFirst, params });
 
   return (page: { items: FeedItem[] }) => {
     // 1. write only the new page's entities → their ids   (O(page size))
@@ -292,7 +295,7 @@ import { todosState, fetchTodos } from "./todos";
 function Todos() {
   const [filter] = useState<"all" | "active" | "done">("all");
   const params = useMemo(() => ({ filter }), [filter]);
-  const { data$, reload } = useStateData(todosState, fetchTodos, params);
+  const { data$, reload } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 
   return (
     <Pending

@@ -54,7 +54,7 @@ const todosState = defineState({
 import { Pending, useStateData } from "rxfy-react";
 
 function TodoApp() {
-  const { data$, mutations } = useStateData(todosState, fetchTodos, { filter: "all" });
+  const { data$, mutations } = useStateData({ state: todosState, fetchFn: fetchTodos, params: { filter: "all" } });
   return (
     <Pending
       value$={data$}

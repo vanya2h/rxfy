@@ -377,7 +377,7 @@ to them; no ids are threaded anywhere:
 ```tsx
 function TodoApp() {
   const params = useMemo(() => ({ filter: "all" as const }), []);
-  const { data$ } = useStateData(todosState, fetchTodos, params);
+  const { data$ } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 
   return (
     <Pending value$={data$} pending={<p>Loading...</p>}>

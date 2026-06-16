@@ -45,7 +45,7 @@ describe("useStateData cache integration", () => {
     seedFulfilled(registry);
     const fetchFn = vi.fn();
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
 
@@ -59,7 +59,7 @@ describe("useStateData cache integration", () => {
     const registry = createModelRegistry();
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "9", title: "Fetched" }] });
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     await firstValueFrom(result.current.data$);
@@ -72,7 +72,7 @@ describe("useStateData cache integration", () => {
     seedFulfilled(registry);
     const fetchFn = vi.fn();
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     act(() => result.current.mutations.addTodo({ id: "2", title: "New" }));
@@ -87,14 +87,14 @@ describe("useStateData cache integration", () => {
     const fetchFn = vi.fn();
     const wrapper = makeWrapper(registry);
 
-    const first = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
+    const first = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
     first.unmount();
 
     // websocket-style write between mounts
     registry.model(todoModel).set("1", { id: "1", title: "From socket" });
 
     const second = renderHook(
-      () => ({ handle: useStateData(todosState, fetchFn, {}), store: useModelStore(todoModel) }),
+      () => ({ handle: useStateData({ state: todosState, fetchFn, params: {} }), store: useModelStore(todoModel) }),
       { wrapper },
     );
     const data = await firstValueFrom(second.result.current.handle.data$);
@@ -107,7 +107,7 @@ describe("useStateData cache integration", () => {
     seedFulfilled(registry);
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "Fresh" }] });
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     act(() => result.current.reload());
@@ -125,7 +125,7 @@ describe("useStateData cache integration", () => {
     registry.queries.getQuery("todos:{}").set(createRejected(fetchError));
     const fetchFn = vi.fn();
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
 
@@ -142,7 +142,7 @@ describe("useStateData cache integration", () => {
     const registry = createModelRegistry();
     const fetchFn = vi.fn().mockResolvedValue({ todos: [] });
 
-    const { result } = renderHook(() => useStateData(keylessState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: keylessState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     await firstValueFrom(result.current.data$);
@@ -157,8 +157,8 @@ describe("useStateData cache integration", () => {
 
     // Both hooks receive the same registry via context — they will resolve to the same cacheKey "todos:{}"
     // and therefore share the same query Atom in the registry.
-    const hookA = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
-    const hookB = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
+    const hookA = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
+    const hookB = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
 
     // Subscribing to both data$ observables: the first subscription flips the Atom IDLE → PENDING
     // and starts the fetch; the second sees PENDING and does NOT start a second fetch.

@@ -78,7 +78,7 @@ export function useStatePagedData<T, TParams, TPage, TCursor>(
     });
   }, []);
 
-  const handle = useStateData(state, fetchFirst, params);
+  const handle = useStateData({ state, fetchFn: fetchFirst, params });
 
   // A new handle means params changed or reload() ran — start pagination over. Render state is
   // reset during render (React's "adjust state when a prop changes"); refs in the layout effect.
