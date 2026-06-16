@@ -1,0 +1,77 @@
+# useStatePagedData
+
+A focused helper for paginated / infinite-scroll lists of **one entity type**. You give it a
+`model` (the list is always `array(model)`), not a full state — so `data$` emits a flat `string[]`
+of ids. Page 0 is fetched, cached, and SSR'd through [`useStateData`](/react/use-state-data);
+`loadMore()` fetches the next page and appends it into the same growing list. Each page does
+O(page-size) work — the rows already loaded are never re-normalized, so scrolling stays linear.
+
+You supply three callbacks: `fetchPage` (fetch one page for a cursor), `getCursor` (compute the
+next cursor from the current `ids: string[]` and running `pageIndex`), and `select` (the entities
+a page contributes — appended to the list).
+
+```tsx
+import { useMemo } from "react";
+import { useStatePagedData, Pending } from "rxfy-react";
+import { userModel, fetchUsers } from "./users";
+
+function Users() {
+  const params = useMemo(() => ({}), []);
+
+  const { data$, loadMore, isLoading, hasMore } = useStatePagedData({
+    model: userModel,
+    key: "users", // SSR / query-cache key
+    params,
+    fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
+    getCursor: ({ ids }) => ids.length, // offset cursor = rows already loaded
+    select: ({ page }) => page.items, // the new rows this page adds
+    hasMore: ({ page }) => page.items.length > 0, // omit for an endless list
+  });
+
+  return (
+    <Pending value$={data$} pending={<p>Loading…</p>}>
+      {(ids) => (
+        <>
+          <ul>{ids.map((id) => <UserRow key={id} id={id} />)}</ul>
+          {hasMore && (
+            <button onClick={() => loadMore()} disabled={isLoading}>
+              {isLoading ? "Loading…" : "Load more"}
+            </button>
+          )}
+        </>
+      )}
+    </Pending>
+  );
+}
+```
+
+```ts
+function useStatePagedData<T, TParams, TPage, TCursor>(config: {
+  model: ModelDescriptor<T>;
+  key?: string; // SSR / cache key; omit to fetch per mount
+  params: TParams;
+  fetchPage: (args: { cursor: TCursor; params: TParams; signal: AbortSignal }) => Promise<TPage>;
+  getCursor: (args: { ids: string[]; pageIndex: number }) => TCursor;
+  select: (args: { page: TPage }) => T[]; // the page's new entities
+  hasMore?: (args: { page: TPage }) => boolean; // omit ⇒ infinite
+}): {
+  data$: Observable<string[]>; // entity ids — read entity data via useModelStore(model)
+  loadMore: () => void;
+  isLoading: boolean;
+  hasMore: boolean;
+  reload: () => void;
+};
+```
+
+- **One model, treated as `array(model)`.** The hook is intentionally narrow — it pages a list of a
+  single entity type. For arbitrary multi-field state shapes use [`useStateData`](/react/use-state-data)
+  directly and append with `setRaw`.
+- **Page 0 is `select(firstPage)`**, returned as the list shape, so it flows through `useStateData`'s
+  cache / SSR / hydration unchanged — only `loadMore` pages are client-only.
+- **`loadMore` is O(page-size)** and writes only the new page's entities (concatenating their ids via
+  `setRaw`); it's guarded against overlapping calls and is a no-op once `hasMore` is `false`.
+- **`getCursor` reads `string[]` ids.** Offset (`ids.length`) and page-number (`pageIndex`) cursors
+  are direct; a keyset cursor over an entity field isn't available here (ids only) — use `useStateData`.
+- **The query is keyed by the `params` value.** An identity-unstable but value-equal `params` is
+  fine — it won't refetch. Changing the params **value** (or calling `reload()`) resets pagination
+  and refetches page 0. Memoizing `params` is still good practice to keep `loadMore` stable.

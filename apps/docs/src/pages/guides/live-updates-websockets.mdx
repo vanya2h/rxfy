@@ -1,7 +1,7 @@
 # Live updates over WebSockets
 
 Normalization does most of the work here. Because every entity lives in **one** keyed cell
-(see [Normalization](/normalization)), a server push doesn't need to know which client renders
+(see [Normalization](/core-concepts/normalization)), a server push doesn't need to know which client renders
 what. The push carries a new entity value, the client writes it into the shared store, and
 every component subscribed to that entity re-renders. No refetch, no re-selection.
 
@@ -377,7 +377,7 @@ to them; no ids are threaded anywhere:
 ```tsx
 function TodoApp() {
   const params = useMemo(() => ({ filter: "all" as const }), []);
-  const { data$ } = useStateData(todosState, fetchTodos, params);
+  const { data$ } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 
   return (
     <Pending value$={data$} pending={<p>Loading...</p>}>
@@ -388,7 +388,7 @@ function TodoApp() {
 ```
 
 The `TodoItem` rows already subscribe per entity through
-[`useModelStore`](/react#usemodelstore). When a push writes a row into its cell, only the rows
+[`useModelStore`](/react/use-model-store). When a push writes a row into its cell, only the rows
 holding that id re-render, and only the clients that fetched it received the push.
 
 ## How it flows
@@ -420,7 +420,7 @@ holding that id re-render, and only the clients that fetched it received the pus
 
 A push updates an entity's **value** (a rename, a toggle), and that reaches every subscriber.
 It does **not** change which ids a query lists: `data$` is an id array owned by the
-query cache (see [`useStateData`](/react#usestatedata)), and `setMany` only writes entity
+query cache (see [`useStateData`](/react/use-state-data)), and `setMany` only writes entity
 cells. (A deleted row leaves the list but its topic stays subscribed, which is harmless: the
 server has nothing more to push for it.)
 

@@ -9,5 +9,7 @@ export { useModelStore } from "./useModelStore.js";
 export { useObservable } from "./useObservable.js";
 export type { ObservableLike } from "./usePending.js";
 export { usePending } from "./usePending.js";
-export type { BoundMutations, StateHandle } from "./useStateData.js";
+export type { BoundMutations, StateHandle, Updater, UseStateDataConfig } from "./useStateData.js";
 export { useStateData } from "./useStateData.js";
+export type { PagedListHandle, UseStatePagedDataConfig } from "./useStatePagedData.js";
+export { useStatePagedData } from "./useStatePagedData.js";

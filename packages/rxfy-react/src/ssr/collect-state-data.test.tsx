@@ -18,7 +18,7 @@ describe("collectStateData", () => {
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "A" }] });
 
     function App() {
-      const { data$ } = useStateData(todosState, fetchFn, {});
+      const { data$ } = useStateData({ state: todosState, fetchFn, params: {} });
       return (
         <Pending value$={data$}>
           {({ todos }) => (

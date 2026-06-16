@@ -1,0 +1,54 @@
+# Pending
+
+Subscribes to any `ObservableLike<T>` and renders pending / rejected / fulfilled UI. The
+`rejected` render prop receives `{ error: unknown }`. If `rejected`
+is omitted it renders nothing and logs the error to `console.error`.
+
+Reload is not carried on the status object: get it from the [`useStateData`](/react/use-state-data)
+handle's `reload()` (or `getAttachedReload(source$)` for a standalone observable).
+
+```tsx
+import { useMemo, useState } from "react";
+import { Pending, useStateData } from "rxfy-react";
+import { todosState, fetchTodos } from "./todos";
+
+function Todos() {
+  const [filter] = useState<"all" | "active" | "done">("all");
+  const params = useMemo(() => ({ filter }), [filter]);
+  const { data$, reload } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
+
+  return (
+    <Pending
+      value$={data$}
+      pending={<p>Loading...</p>}
+      rejected={({ error }) => (
+        <p>Error: {String(error)} <button onClick={reload}>Retry</button></p>
+      )}
+    >
+      {({ todos }) => <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>}
+    </Pending>
+  );
+}
+```
+
+```ts
+function Pending<T>(props: IPendingProps<T>): React.ReactNode
+```
+
+Its props are:
+
+```ts
+type IPendingProps<T> = {
+  value$: ObservableLike<T>; // source to subscribe to
+  pending?: IRenderable<void>; // shown while PENDING (default: nothing)
+  rejected?: IRenderable<IWrapped<T, StatusEnum.REJECTED>>; // shown on REJECTED
+  children: IRenderable<T>; // shown with the FULFILLED value
+  getDefaultValue?: () => T; // start FULFILLED instead of PENDING
+};
+
+type IRenderable<TData> = React.ReactNode | ((data: TData) => React.ReactNode);
+type ObservableLike<T> = Observable<T> | T;
+```
+
+> `Pending` is powered by the lower-level [`usePending`](/react/use-pending) hook. The `source$`
+> you pass must be referentially stable across renders, and `data$` from `useStateData` already is.

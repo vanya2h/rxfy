@@ -1,0 +1,36 @@
+# useModelStore
+
+Returns the `ModelStore` for a model descriptor, so a component can subscribe to a single
+normalized entity without re-fetching the full list.
+
+```tsx
+import { useMemo } from "react";
+import { useModelStore, Pending } from "rxfy-react";
+import { TodoModel } from "./models";
+
+function TodoItem({ id }: { id: string }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.get(id), [store, id]);
+  return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
+}
+```
+
+```ts
+function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+```
+
+The returned `ModelStore<T>` exposes:
+
+```ts
+type ModelStore<T> = {
+  get(key: EntityKey<T>): Observable<T>; // reactive read; emits on every change
+  set(key: string, val: T): void; // write one entity
+  setMany(items: T[]): void; // write many; key is derived via getKey
+  getValue(key: string): T | undefined; // synchronous read, no subscription
+  entity(key: EntityKey<T>): IAtom<T>; // writable handle
+  valueEntries(): [string, T][]; // snapshot of all loaded [key, value] pairs
+  added$: Observable<string>; // a key, the first time its entity appears
+};
+```
+
+See [Model](/core-concepts/model) for the full reference on each method.

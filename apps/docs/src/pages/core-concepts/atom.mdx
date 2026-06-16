@@ -1,25 +1,23 @@
 # Atom
 
-A reactive cell that extends `Observable<T>` with synchronous `get()`, `set()`, and
-`modify()`, backed by a `BehaviorSubject`. The fundamental reactive primitive.
+A reactive cell: an `Observable<T>` backed by a `BehaviorSubject`, with synchronous `get()`,
+`set()`, and `modify()`. Most of rxfy builds on it.
 
 ## Why not a `BehaviorSubject`?
 
-An Atom is built on a `BehaviorSubject` but narrows it to a **state cell**:
+An Atom wraps a `BehaviorSubject` and narrows it to a **state cell**:
 
-- **No producer methods on the surface.** Atom extends `Observable<T>`, not
-  `BehaviorSubject<T>`, so `next()`, `error()`, `complete()`, and `unsubscribe()` are
-  not exposed. Every mutation goes through `set()` / `modify()`; the write surface is
-  intention-revealing, not a raw stream you can push anything into.
-- **It can't terminate.** With no `error()` or `complete()`, an Atom has no terminal
-  state. Subscribers never have to handle "this value cell ended"; it lives for the
-  lifetime of your state.
+- **No producer methods on the surface.** Atom extends `Observable<T>` rather than
+  `BehaviorSubject<T>`, leaving `next()`, `error()`, `complete()`, and `unsubscribe()` off the
+  surface. Every write goes through `set()` or `modify()`; nothing else can push into the cell.
+- **It can't terminate.** Without `error()` or `complete()`, an Atom has no end state, so
+  subscribers never handle a "this cell ended" case. It lives as long as your state does.
 - **Atomic read-modify-write.** `modify(fn)` reads the current value and writes the
   result in one call, instead of pairing `getValue()` with `next()` by hand.
 
-Reach for a raw `BehaviorSubject` (or `Subject`) when you want stream
-semantics: completion, errors, or an externally driven producer. Reach for an Atom
-when you want a long-lived, synchronously-readable piece of state.
+Reach for a raw `BehaviorSubject` (or `Subject`) when you want stream semantics: completion,
+errors, or an externally driven producer. Reach for an Atom when you want long-lived state you
+can read synchronously.
 
 ```ts
 import { createAtom } from "rxfy";
@@ -38,9 +36,14 @@ count.subscribe((n) => console.log(n)); // emits current value, then future chan
 
 ```ts
 function createAtom<T>(value: T): Atom<T>;
-// Atom<T>: Observable<T> & {
-//   get(): T;
-//   set(val: T): void;
-//   modify(fn: (val: T) => T): void;
-// }
+```
+
+`Atom<T>` implements `IAtom<T>`, an `Observable<T>` you can also read and write synchronously:
+
+```ts
+type IAtom<T> = Observable<T> & {
+  get(): T; // synchronous current value, no subscription
+  set(val: T): void; // replace the value, notifying every subscriber
+  modify(fn: (val: T) => T): void; // atomic read-modify-write (get → fn → set)
+};
 ```

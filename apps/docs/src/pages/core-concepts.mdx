@@ -1,0 +1,18 @@
+# Core Concepts
+
+The ideas rxfy is built on. **Normalization** is the foundation — store each entity once,
+keyed by its id — and the primitives below are how you declare, store, and compose that
+state.
+
+- [Normalization](/core-concepts/normalization) — the principle behind rxfy: one keyed cell per entity,
+  referenced by id everywhere else. Read this first.
+- [Model](/core-concepts/model) — a typed entity descriptor (`createModel`) plus the reactive
+  `ModelStore` that holds live entities.
+- [State](/core-concepts/state) — a typed, normalized state shape: fetch params, model fields,
+  and optional mutations, wired into the model stores.
+- [Atom](/core-concepts/atom) — the fundamental reactive cell: an `Observable<T>` with
+  synchronous `get()` / `set()` / `modify()`.
+- [Lens](/core-concepts/lens) — a focused, bidirectional view into an `Atom` for reading and
+  writing nested slices of state.
+
+To consume these from React, see [React Bindings](/react).

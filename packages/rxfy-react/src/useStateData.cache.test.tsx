@@ -45,7 +45,7 @@ describe("useStateData cache integration", () => {
     seedFulfilled(registry);
     const fetchFn = vi.fn();
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
 
@@ -59,7 +59,7 @@ describe("useStateData cache integration", () => {
     const registry = createModelRegistry();
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "9", title: "Fetched" }] });
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     await firstValueFrom(result.current.data$);
@@ -72,7 +72,7 @@ describe("useStateData cache integration", () => {
     seedFulfilled(registry);
     const fetchFn = vi.fn();
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     act(() => result.current.mutations.addTodo({ id: "2", title: "New" }));
@@ -87,14 +87,14 @@ describe("useStateData cache integration", () => {
     const fetchFn = vi.fn();
     const wrapper = makeWrapper(registry);
 
-    const first = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
+    const first = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
     first.unmount();
 
     // websocket-style write between mounts
     registry.model(todoModel).set("1", { id: "1", title: "From socket" });
 
     const second = renderHook(
-      () => ({ handle: useStateData(todosState, fetchFn, {}), store: useModelStore(todoModel) }),
+      () => ({ handle: useStateData({ state: todosState, fetchFn, params: {} }), store: useModelStore(todoModel) }),
       { wrapper },
     );
     const data = await firstValueFrom(second.result.current.handle.data$);
@@ -102,20 +102,63 @@ describe("useStateData cache integration", () => {
     expect(second.result.current.store.getValue("1")).toEqual({ id: "1", title: "From socket" });
   });
 
-  it("reload() deletes the cache entry and re-fetches", async () => {
+  it("reload() re-fetches in place and keeps data$ identity", async () => {
     const registry = createModelRegistry();
     seedFulfilled(registry);
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "Fresh" }] });
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
+    const before = result.current.data$;
     act(() => result.current.reload());
 
     const data = await firstValueFrom(result.current.data$);
     expect(fetchFn).toHaveBeenCalledOnce();
     expect(data).toEqual({ todos: ["1"] });
     expect(registry.model(todoModel).getValue("1")).toEqual({ id: "1", title: "Fresh" });
+    // reload mutates the shared atom rather than rebuilding the handle — data$ stays the same object.
+    expect(result.current.data$).toBe(before);
+  });
+
+  it("reload() updates every subscriber sharing a keyed state (no split-brain)", async () => {
+    const registry = createModelRegistry();
+    seedFulfilled(registry);
+    const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "2", title: "Fresh" }] });
+    const wrapper = makeWrapper(registry);
+
+    // Two independent components on the same keyed state + params → same shared query atom.
+    const a = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
+    const b = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
+
+    const seenB: { todos: string[] }[] = [];
+    const sub = b.result.current.data$.subscribe((v) => seenB.push(v));
+
+    act(() => a.result.current.reload()); // A triggers the reload…
+    await firstValueFrom(a.result.current.data$);
+
+    // …and B (which never called reload) sees the fresh result too.
+    expect(seenB.at(-1)).toEqual({ todos: ["2"] });
+    sub.unsubscribe();
+  });
+
+  it("an explicit set() cancels an in-flight fetch and wins", async () => {
+    const registry = createModelRegistry();
+    let resolveFetch: (v: { todos: Todo[] }) => void = () => {};
+    const fetchFn = vi.fn(() => new Promise<{ todos: Todo[] }>((res) => (resolveFetch = res)));
+
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
+      wrapper: makeWrapper(registry),
+    });
+    const sub = result.current.data$.subscribe({ next: () => {}, error: () => {} }); // start the fetch
+
+    act(() => result.current.set({ todos: [{ id: "set", title: "Explicit" }] }));
+    // The fetch resolves *after* the set — its result must be dropped (the set aborted it).
+    act(() => resolveFetch({ todos: [{ id: "late", title: "Late fetch" }] }));
+
+    const data = await firstValueFrom(result.current.data$);
+    expect(data).toEqual({ todos: ["set"] });
+    sub.unsubscribe();
   });
 
   it("hydrated rejection: data$ errors synchronously with the rejected Error", () => {
@@ -125,7 +168,7 @@ describe("useStateData cache integration", () => {
     registry.queries.getQuery("todos:{}").set(createRejected(fetchError));
     const fetchFn = vi.fn();
 
-    const { result } = renderHook(() => useStateData(todosState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
 
@@ -142,7 +185,7 @@ describe("useStateData cache integration", () => {
     const registry = createModelRegistry();
     const fetchFn = vi.fn().mockResolvedValue({ todos: [] });
 
-    const { result } = renderHook(() => useStateData(keylessState, fetchFn, {}), {
+    const { result } = renderHook(() => useStateData({ state: keylessState, fetchFn, params: {} }), {
       wrapper: makeWrapper(registry),
     });
     await firstValueFrom(result.current.data$);
@@ -157,8 +200,8 @@ describe("useStateData cache integration", () => {
 
     // Both hooks receive the same registry via context — they will resolve to the same cacheKey "todos:{}"
     // and therefore share the same query Atom in the registry.
-    const hookA = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
-    const hookB = renderHook(() => useStateData(todosState, fetchFn, {}), { wrapper });
+    const hookA = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
+    const hookB = renderHook(() => useStateData({ state: todosState, fetchFn, params: {} }), { wrapper });
 
     // Subscribing to both data$ observables: the first subscription flips the Atom IDLE → PENDING
     // and starts the fetch; the second sees PENDING and does NOT start a second fetch.

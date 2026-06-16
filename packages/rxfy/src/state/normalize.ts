@@ -1,5 +1,6 @@
-import type { IModelRegistry } from "../model/model-store.js";
-import type { FieldsMap, QueryShapeOf } from "./state.js";
+import type { ModelDescriptor } from "../model/model.js";
+import type { IModelRegistry, ModelStore } from "../model/model-store.js";
+import type { FieldsMap, QueryShapeOf, WritableQueryShapeOf } from "./state.js";
 
 /** Splits a denormalized fetch result: entities → model stores, ids → returned query shape. */
 export function normalizeResult<TShape>(
@@ -46,4 +47,44 @@ export function denormalizeValue<TShape>(
     value[fieldName] = desc.kind === "array" ? (fieldIds as string[]).map(read) : read(fieldIds as string);
   }
   return value as TShape;
+}
+
+/** Resolve one model-field element to its id, writing the entity to its store when given an object. */
+function toEntityId(store: ModelStore<any>, model: ModelDescriptor<any, any>, el: unknown): string {
+  if (typeof el === "string") return el; // already an id — passthrough, no store write
+  if (process.env.NODE_ENV !== "production") {
+    const parsed = model.schema.safeParse(el);
+    if (!parsed.success) {
+      throw new Error(
+        `rxfy: invalid entity passed to setRaw for model "${model.name ?? "<unnamed>"}": ${parsed.error.message}`,
+      );
+    }
+  }
+  const key = model.getKey(el);
+  store.set(key, el);
+  return key;
+}
+
+/**
+ * Like normalizeResult, but tolerates already-normalized ids mixed with denormalized entities:
+ * string elements pass through as ids; object elements are written to their store. Entity objects
+ * are schema-validated in development. Used by setRaw so callers can append entities without a
+ * manual normalizeResult round-trip.
+ */
+export function normalizeWritable<TShape>(
+  registry: IModelRegistry,
+  fields: FieldsMap,
+  value: WritableQueryShapeOf<TShape>,
+): QueryShapeOf<TShape> {
+  const ids: Record<string, unknown> = {};
+  for (const [fieldName, desc] of Object.entries(fields)) {
+    const store = registry.model(desc.model);
+    const fieldValue = (value as Record<string, unknown>)[fieldName];
+    if (desc.kind === "array") {
+      ids[fieldName] = (fieldValue as unknown[]).map((el) => toEntityId(store, desc.model, el));
+    } else {
+      ids[fieldName] = toEntityId(store, desc.model, fieldValue);
+    }
+  }
+  return ids as QueryShapeOf<TShape>;
 }

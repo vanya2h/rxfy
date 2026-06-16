@@ -1,5 +1,13 @@
 import { useContext, useMemo, useState } from "react";
-import type { Atom, FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
+import type {
+  Atom,
+  FieldsMap,
+  IWrapped,
+  MutationDefs,
+  QueryShapeOf,
+  StateDescriptor,
+  WritableQueryShapeOf,
+} from "rxfy";
 import {
   attachReload,
   createAtom,
@@ -10,12 +18,16 @@ import {
   denormalizeValue,
   markSync,
   normalizeResult,
+  normalizeWritable,
   stableStringify,
   StatusEnum,
 } from "rxfy";
 import { filter, merge, Observable, of, ReplaySubject, share, switchMap, throwError, timer } from "rxjs";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
+
+/** A new value, or a function deriving it from the previous one — the `useState`-style setter union. */
+export type Updater<T> = T | ((prev: T) => T);
 
 export type BoundMutations<TShape, TMutations extends MutationDefs<TShape>> = {
   [K in keyof TMutations]: TMutations[K] extends (prev: TShape, ...args: infer A) => TShape
@@ -26,30 +38,60 @@ export type BoundMutations<TShape, TMutations extends MutationDefs<TShape>> = {
 export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = {
   /** Normalized query state — entity ids only. Read entity data through model stores. */
   readonly data$: Observable<QueryShapeOf<TShape>>;
-  readonly set: (value: TShape | ((prev: TShape) => TShape)) => void;
+  readonly set: (value: Updater<TShape>) => void;
+  /**
+   * Low-level sibling of `set` that writes the **id shape** directly — no denormalize round-trip.
+   * Its value may contain ids, denormalized entities, or a mix in model-field slots: object
+   * entities are written to their stores (validated in dev), strings pass through as ids. The
+   * updater receives the current ids and must return the writable shape; it is a no-op until the
+   * query is FULFILLED. Use for append / prepend / reorder / dedup where re-normalizing the whole
+   * list (`set`) would be O(N).
+   */
+  readonly setRaw: (
+    ids: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
+  ) => void;
   readonly reload: () => void;
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
 
-export type UseStateDataOptions<TShape> = {
+export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>> = {
+  /** The typed, normalized state descriptor (`defineState`). */
+  state: StateDescriptor<TParams, TShape, TMutations>;
+  /** Fetches the full denormalized shape; `params` identity drives refetch. */
+  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
+  params: TParams;
+  /** Seed value (e.g. from a router loader) used until the first fetch settles. */
   defaultData?: TShape;
 };
 
-export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>>(
-  state: StateDescriptor<TParams, TShape, TMutations>,
-  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
-  params: TParams,
-  options?: UseStateDataOptions<TShape>,
-): StateHandle<TShape, TMutations> {
+export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>>({
+  state,
+  fetchFn,
+  params,
+  defaultData,
+}: UseStateDataConfig<TParams, TShape, TMutations>): StateHandle<TShape, TMutations> {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
-  const [reloadCounter, setReloadCounter] = useState(0);
-  const { defaultData } = options ?? {};
 
+  // Re-subscribe epoch. Only ever bumped by a reload() that recovers from a terminal REJECTED: an
+  // Rx error ends the subscription, so those consumers must resubscribe. Every other reload — and
+  // FULFILLED → reload in particular — updates the shared atom in place and keeps data$ stable.
+  const [reloadEpoch, setReloadEpoch] = useState(0);
+
+  // Value-based key — params with the same shape resolve to the same query (and, when keyed, the
+  // same shared atom). The memo keys off this string rather than `params`'s identity, so an
+  // identity-unstable-but-value-stable params object does not churn data$.
+  const paramsKey = stableStringify(params);
+  const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
+
+  // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
+  // keep a stable identity across renders (directive: as stable as possible) and across a changing
+  // `defaultData` (directive: a new defaultData must not reset the stream). The closure captures
+  // them; `params`'s *value* is pinned by `paramsKey`/`cacheKey` in the deps, and `fetchFn` is
+  // expected to be stable (module scope), so the captured values stay correct.
   return useMemo(() => {
-    void reloadCounter; // reload() bumps this to rebuild the handle
+    void reloadEpoch; // bumped by reload() only to force a resubscribe after a terminal REJECTED
     const fields = state.fields as FieldsMap;
-    const cacheKey = state.key ? `${state.key}:${stableStringify(params)}` : undefined;
     const isServer = typeof window === "undefined";
 
     // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
@@ -57,7 +99,8 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       ? registry.queries.getQuery<QueryShapeOf<TShape>>(cacheKey)
       : createAtom<IWrapped<QueryShapeOf<TShape>>>(createIdle());
 
-    // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated yet.
+    // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
+    // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
     if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
       atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData)));
     }
@@ -77,6 +120,20 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
         },
       );
 
+    // Mutable holder for the one in-flight controller (initial fetch / reload / teardown). A plain
+    // object so the deferred callbacks can swap it without reassigning a render-scoped binding.
+    const inFlight: { controller?: AbortController } = {};
+
+    // Flip the shared atom to PENDING and fetch into it; every subscriber reacts. Aborts any prior
+    // in-flight request first, so the latest fetch always wins.
+    const runFetch = () => {
+      inFlight.controller?.abort();
+      const controller = new AbortController();
+      inFlight.controller = controller;
+      atom$.set(createPending());
+      void settle(fetchFn(params, controller.signal), controller.signal);
+    };
+
     // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
     if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
       if (!cacheKey) {
@@ -93,9 +150,9 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
-    // REJECTED is only ever the terminal state of an initial fetch — post-FULFILLED writes
-    // (set/mutations) are always FULFILLED — so erroring/tearing down the stream here is safe.
-    // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows pending).
+    // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows
+    // pending). The atom is a BehaviorSubject, so a FULFILLED → PENDING → FULFILLED cycle (reload)
+    // keeps live subscriptions and re-emits — only a REJECTED terminates them (see reload()).
     const derived$ = atom$.pipe(
       filter((w) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED),
       switchMap((w) => (w.type === StatusEnum.FULFILLED ? of(w.value) : throwError(() => toError(w.error)))),
@@ -114,17 +171,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       // does NOT tear the fetch down: the re-subscription cancels the pending reset, so the
       // in-flight request survives instead of being aborted into a spurious REJECTED.
       const fetchOnSubscribe$ = new Observable<never>(() => {
-        let controller: AbortController | undefined;
-        if (atom$.get().type === StatusEnum.IDLE) {
-          atom$.set(createPending());
-          controller = new AbortController();
-          void settle(fetchFn(params, controller.signal), controller.signal);
-        }
+        if (atom$.get().type === StatusEnum.IDLE) runFetch();
         return () => {
           // Genuine teardown (refcount stayed at zero): roll an unsettled query back to IDLE so
           // the next subscriber refetches, then abort. settle() drops the abort rejection.
-          if (controller && atom$.get().type === StatusEnum.PENDING) atom$.set(createIdle());
-          controller?.abort();
+          if (atom$.get().type === StatusEnum.PENDING) atom$.set(createIdle());
+          inFlight.controller?.abort();
         };
       });
       // ReplaySubject(1) connector so a late subscriber still receives the current value
@@ -135,7 +187,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       );
     }
 
-    const writeThrough = (ids: QueryShapeOf<TShape>) => atom$.set(createFulfilled(ids));
+    // Every explicit write commits FULFILLED and aborts any in-flight fetch, so a set / mutation
+    // can't be clobbered by a late-arriving fetch result.
+    const writeThrough = (ids: QueryShapeOf<TShape>) => {
+      inFlight.controller?.abort();
+      atom$.set(createFulfilled(ids));
+    };
 
     const applyUpdate = (updater: (prev: TShape) => TShape) => {
       const current = atom$.get();
@@ -144,11 +201,23 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       writeThrough(normalizeResult(registry, fields, updater(prev)));
     };
 
-    const set = (valueOrUpdater: TShape | ((prev: TShape) => TShape)) => {
+    const set = (valueOrUpdater: Updater<TShape>) => {
       if (typeof valueOrUpdater === "function") {
         applyUpdate(valueOrUpdater as (prev: TShape) => TShape);
       } else {
         writeThrough(normalizeResult(registry, fields, valueOrUpdater));
+      }
+    };
+
+    const setRaw = (
+      idsOrUpdater: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
+    ) => {
+      if (typeof idsOrUpdater === "function") {
+        const current = atom$.get();
+        if (current.type !== StatusEnum.FULFILLED) return;
+        writeThrough(normalizeWritable(registry, fields, idsOrUpdater(current.value)));
+      } else {
+        writeThrough(normalizeWritable(registry, fields, idsOrUpdater));
       }
     };
 
@@ -160,13 +229,23 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       ]),
     ) as BoundMutations<TShape, TMutations>;
 
+    // Re-fetch into the shared atom in place — all subscribers see PENDING then the fresh result,
+    // and data$ keeps its identity. The one exception: a subscription that already errored
+    // (REJECTED) is terminal in Rx, so clear the error and bump the epoch to force a resubscribe.
     const reload = () => {
-      if (cacheKey) registry.queries.delete(cacheKey);
-      setReloadCounter((c) => c + 1);
+      if (atom$.get().type === StatusEnum.REJECTED) {
+        atom$.set(createIdle());
+        setReloadEpoch((e) => e + 1);
+      } else {
+        runFetch();
+      }
     };
 
     attachReload(data$, reload);
 
-    return { data$, set, reload, mutations };
-  }, [params, fetchFn, reloadCounter, state, registry, ssr, defaultData]);
+    return { data$, set, setRaw, reload, mutations };
+    // fetchFn/params/defaultData are deliberately excluded — see the note above the memo. params'
+    // value is tracked via cacheKey/paramsKey; data$ identity stability depends on this exclusion.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch]);
 }

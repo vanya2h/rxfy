@@ -23,7 +23,7 @@ type DetailIds = { post: PostId; author: UserId; comments: CommentId[] };
 
 export default function PostDetail({ postId }: { postId: PostId }) {
   const params = useMemo(() => ({ postId }), [postId]);
-  const { data$, mutations, reload } = useStateData(postDetailState, fetchPostDetail, params);
+  const { data$, mutations, reload } = useStateData({ state: postDetailState, fetchFn: fetchPostDetail, params });
 
   return (
     <div>

@@ -1,7 +1,7 @@
 # rxfy
 
 **rxfy** (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access
-their data as reactive observables. [Normalization](/normalization) keeps your app consistent
+their data as reactive observables. [Normalization](/core-concepts/normalization) keeps your app consistent
 and reactive at no extra cost.
 
 rxfy is built on three principles. Every entity lives in one slot, keyed by its id; a write
@@ -54,7 +54,7 @@ const todosState = defineState({
 import { Pending, useStateData } from "rxfy-react";
 
 function TodoApp() {
-  const { data$, mutations } = useStateData(todosState, fetchTodos, { filter: "all" });
+  const { data$, mutations } = useStateData({ state: todosState, fetchFn: fetchTodos, params: { filter: "all" } });
   return (
     <Pending
       value$={data$}

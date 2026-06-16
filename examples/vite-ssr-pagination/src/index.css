@@ -1,0 +1,141 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f1115;
+  color: #e6e8ec;
+}
+
+.app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1rem 6rem;
+}
+
+header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  color: #9aa0aa;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  margin: 0 0 1rem;
+  padding: 2px;
+  gap: 2px;
+  background: #181b22;
+  border: 1px solid #242833;
+  border-radius: 10px;
+}
+
+.mode-toggle button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #9aa0aa;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  color: white;
+  background: #2b3140;
+}
+
+.user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 1rem;
+  background: #181b22;
+  border: 1px solid #242833;
+  border-radius: 10px;
+}
+
+.avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+}
+
+.user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.user-name {
+  font-weight: 600;
+}
+
+.user-email {
+  color: #9aa0aa;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  text-align: center;
+  color: #9aa0aa;
+  padding: 1rem;
+}
+
+.load-more {
+  display: block;
+  width: 100%;
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  color: #e6e8ec;
+  background: #232733;
+  border: 1px solid #303544;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.load-more:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.load-more:hover:not(:disabled) {
+  background: #2b3140;
+}
+
+.sentinel {
+  height: 1px;
+}

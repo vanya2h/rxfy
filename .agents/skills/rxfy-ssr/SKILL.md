@@ -83,6 +83,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 `HydrationStream` renders inline `<script>` tags that push chunks onto `window.__RXFY_SSR__`. The client `StoreProvider` patches `Array.prototype.push` on that queue to hydrate late chunks as they arrive.
 
+**Streaming without Next.js:** with raw `renderToPipeableStream`, send the shell on `onShellReady`, then write `hydrationScript(dehydrate(registry))` once the HTML stream finishes (the registry is fully populated only after the last Suspense boundary flushes). For a single-snapshot-at-the-end approach, prefer Mode 1 (buffered) instead.
+
 ## Mode 3 — Two-Pass (`renderToString`)
 
 Use for environments without streaming support.
@@ -138,3 +140,4 @@ hydrate(registry, snapshot);
 | `hydrationScript` injected before HTML closes | Inject after piping all HTML — the script must load after the app markup |
 | Multiple `StoreProvider` instances on client | Use one root `StoreProvider`; nested ones create separate registries |
 | `useStateData` not suspending on server | State missing `key`, or `StoreProvider` missing `ssr` prop |
+| Entity blank under buffered SSR after combining streams | `combineLatest` / `combineLatestWith` produce a fresh, non-sync-marked observable that `<Pending>` can't probe synchronously, so it never renders during buffered SSR. **Nest `<Pending>` components** instead of combining streams. |
