@@ -1,0 +1,43 @@
+{
+  "name": "rxfy-example-ssr-pagination",
+  "version": "0.1.0",
+  "private": true,
+  "description": "example vite SSR pagination app (streaming SSR + infinite scroll)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "check-types": "tsc -b --noEmit",
+    "clean": "rimraf ./dist",
+    "dev": "tsx ./server.ts",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "preview": "cross-env NODE_ENV=production tsx ./server.ts",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.4.0",
+    "@types/compression": "^1.8.0",
+    "@types/express": "^5.0.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vanya2h/eslint-config": "^0.4.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "compression": "^1.8.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.27.0",
+    "express": "^5.1.0",
+    "jiti": "^2.4.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "rimraf": "^6.0.1",
+    "rxfy": "workspace:*",
+    "rxfy-react": "workspace:*",
+    "rxjs": "^7.8.2",
+    "sirv": "^3.0.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "zod": "^4.4.3"
+  }
+}

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rxfy — users directory</title>
+    <!-- Render-blocking stylesheet in the streamed <head> — avoids a flash of unstyled
+         content on first paint. Vite serves it in dev and bundles+hashes it for prod. -->
+    <link rel="stylesheet" href="/src/index.css" />
+    <!--app-head-->
+  </head>
+  <body>
+    <div id="root"><!--app-html--></div>
+    <!--app-state-->
+    <script type="module" src="/src/entry-client.tsx"></script>
+  </body>
+</html>

@@ -7,6 +7,10 @@ page (and its cache / SSR); you fetch later pages yourself and merge them with `
 The cursor is **view state**, not entity data; it tells you where to resume, so it lives in
 the component, outside the normalized store.
 
+For a runnable version of everything below — an infinite list with a Load-more button, an
+infinite-scroll sentinel, and streaming SSR — see the
+[vite-ssr-pagination example](/examples#vite-ssr-pagination).
+
 ## Append pages with `set`
 
 `set((prev) => …)` takes the full list of entities, runs your updater, and normalizes the
