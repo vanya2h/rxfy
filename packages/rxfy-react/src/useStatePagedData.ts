@@ -85,12 +85,26 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
   }, [handle.data$]);
 
   const loadMore = useCallback(() => {
-    void loadingRef;
-    void pageIndexRef;
-    void setIsLoading;
-    void setHasMoreState;
-    void handle; // loadMore is wired in a later task
-  }, [handle]);
+    if (loadingRef.current || !hasMoreRef.current) return;
+    loadingRef.current = true;
+    setIsLoading(true);
+    const { fetchPage, getCursor, merge, hasMore: hasMoreFn } = cfgRef.current;
+    const cursor = getCursor({ ids: idsRef.current, pageIndex: pageIndexRef.current });
+    fetchPage({ cursor, params, signal: new AbortController().signal })
+      .then((page) => {
+        hasMoreRef.current = hasMoreFn ? hasMoreFn({ page }) : true;
+        pageIndexRef.current += 1;
+        handle.set((prev) => merge({ prev, page }));
+        setHasMoreState(hasMoreRef.current);
+      })
+      .catch(() => {
+        // Leave the list as-is and allow a retry; the finally clears the in-flight guard.
+      })
+      .finally(() => {
+        loadingRef.current = false;
+        setIsLoading(false);
+      });
+  }, [handle, params]);
 
   return useMemo(() => ({ ...handle, loadMore, isLoading, hasMore }), [handle, loadMore, isLoading, hasMore]);
 }

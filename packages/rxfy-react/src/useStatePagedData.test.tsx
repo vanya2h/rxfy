@@ -46,4 +46,65 @@ describe("useStatePagedData", () => {
     expect(fetchPage).toHaveBeenCalledTimes(1);
     expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ cursor: 0 }));
   });
+
+  it("loadMore appends the next page and advances the cursor", async () => {
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
+    const { result } = renderHook(
+      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$); // page 0 → ids "0","1"
+
+    await act(async () => {
+      result.current.loadMore();
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
+
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.posts).toEqual(["0", "1", "2", "3"]);
+    // cursor for page 1 = number of loaded ids (offset-based getCursor)
+    expect(fetchPage).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 2 }));
+  });
+
+  it("ignores a second loadMore while one is in flight", async () => {
+    let resolveSecond!: (p: PostPage) => void;
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
+      cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
+    );
+    const { result } = renderHook(
+      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$);
+
+    act(() => {
+      result.current.loadMore();
+      result.current.loadMore(); // guarded — the first is still in flight
+    });
+    expect(fetchPage).toHaveBeenCalledTimes(2); // page 0 + exactly one loadMore
+
+    await act(async () => {
+      resolveSecond(page(2, 2));
+    });
+  });
+
+  it("flips isLoading around a loadMore", async () => {
+    let resolveSecond!: (p: PostPage) => void;
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
+      cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
+    );
+    const { result } = renderHook(
+      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$);
+
+    act(() => result.current.loadMore());
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => {
+      resolveSecond(page(2, 2));
+    });
+    expect(result.current.isLoading).toBe(false);
+  });
 });
