@@ -47,7 +47,8 @@ function useStateData<TParams, TShape, TMutations>(
 
 // StateHandle: {
 //   data$: Observable<QueryShapeOf<TShape>>;  // ids only
-//   set: (value: TShape | ((prev: TShape) => TShape)) => void;  // full entities
+//   set: (value: TShape | ((prev: TShape) => TShape)) => void;  // full entities (normalize/denormalize)
+//   setRaw: (ids: QueryShapeOf<TShape> | ((prev) => QueryShapeOf<TShape>)) => void;  // id shape only, no round-trip
 //   reload: () => void;
 //   mutations: BoundMutations<TShape, TMutations>;  // full entities
 // }
@@ -93,6 +94,130 @@ export default function TodoPage() {
 > When `params` changes (navigation to a new route), the new cache key starts `IDLE` and
 > `defaultData` is applied again — so the next loader's data seeds the next page without
 > a redundant fetch.
+
+### `set` vs `setRaw` — writing entities vs writing the id list
+
+`set` is the high-level writer: you hand it the **denormalized shape** (full entities) and it
+does the round-trip — splits entities into the model stores and the ids back into `data$`. The
+updater form (`set(prev => …)`) first **denormalizes** the current ids into entities so your
+reducer sees full objects. That round-trip is O(list length): it rebuilds and re-writes every
+entity in the query, even ones that didn't change.
+
+`setRaw` is the low-level sibling: you write the **normalized id shape** directly (the same shape
+`data$` emits), with no normalize and no denormalize step.
+
+```ts
+set:    (value: TShape       | ((prev: TShape)               => TShape))               => void; // entities
+setRaw: (ids:   QueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => QueryShapeOf<TShape>)) => void; // ids
+```
+
+Because `setRaw` never touches the model stores, **you are responsible for putting any new
+entities there first** — typically with `normalizeResult`, which writes a shape's entities and
+returns its ids. Use `setRaw` whenever re-normalizing the whole list with `set` would be wasteful:
+appending a page, prepending, reordering, de-duplicating, or optimistically removing a row.
+
+```tsx
+import { useModelRegistry } from "rxfy-react";
+import { normalizeResult } from "rxfy";
+import { feedState, FeedItemModel } from "./feed";
+
+function useAppendPage() {
+  const registry = useModelRegistry();
+  const { setRaw } = useStateData(feedState, fetchFirst, params);
+
+  return (page: { items: FeedItem[] }) => {
+    // 1. write only the new page's entities → their ids   (O(page size))
+    const { items: newIds } = normalizeResult(registry, feedState.fields, { items: page.items });
+    // 2. concatenate ids onto the current list — existing rows are never re-written
+    setRaw((prev) => ({ items: [...prev.items, ...newIds] }));
+  };
+}
+```
+
+The updater form reads the current ids and is a **no-op until the query is `FULFILLED`** (there's
+no list to amend yet). For the common pagination case you don't call `setRaw` yourself —
+[`useStatePagedData`](/react#usestatepageddata) composes it for you.
+
+> `setRaw` writes ids that may not have matching entities in the store yet. Always populate the
+> stores **before** (or in the same tick as) the `setRaw` call, or components reading those ids
+> will suspend / throw "entity not loaded".
+
+## `useStatePagedData`
+
+A focused helper for paginated / infinite-scroll lists of **one entity type**. You give it a
+`model` (the list is always `array(model)`), not a full state — so `data$` emits a flat `string[]`
+of ids. Page 0 is fetched, cached, and SSR'd through `useStateData`; `loadMore()` fetches the next
+page and appends it into the same growing list. Each page does O(page-size) work — the rows already
+loaded are never re-normalized, so scrolling stays linear.
+
+You supply three callbacks: `fetchPage` (fetch one page for a cursor), `getCursor` (compute the
+next cursor from the current `ids: string[]` and running `pageIndex`), and `select` (the entities
+a page contributes — appended to the list).
+
+```tsx
+import { useMemo } from "react";
+import { useStatePagedData, Pending } from "rxfy-react";
+import { userModel, fetchUsers } from "./users";
+
+function Users() {
+  const params = useMemo(() => ({}), []);
+
+  const { data$, loadMore, isLoading, hasMore } = useStatePagedData({
+    model: userModel,
+    key: "users", // SSR / query-cache key
+    params,
+    fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
+    getCursor: ({ ids }) => ids.length, // offset cursor = rows already loaded
+    select: ({ page }) => page.items, // the new rows this page adds
+    hasMore: ({ page }) => page.items.length > 0, // omit for an endless list
+  });
+
+  return (
+    <Pending value$={data$} pending={<p>Loading…</p>}>
+      {(ids) => (
+        <>
+          <ul>{ids.map((id) => <UserRow key={id} id={id} />)}</ul>
+          {hasMore && (
+            <button onClick={() => loadMore()} disabled={isLoading}>
+              {isLoading ? "Loading…" : "Load more"}
+            </button>
+          )}
+        </>
+      )}
+    </Pending>
+  );
+}
+```
+
+```ts
+function useStatePagedData<T, TParams, TPage, TCursor>(config: {
+  model: ModelDescriptor<T>;
+  key?: string; // SSR / cache key; omit to fetch per mount
+  params: TParams;
+  fetchPage: (args: { cursor: TCursor; params: TParams; signal: AbortSignal }) => Promise<TPage>;
+  getCursor: (args: { ids: string[]; pageIndex: number }) => TCursor;
+  select: (args: { page: TPage }) => T[]; // the page's new entities
+  hasMore?: (args: { page: TPage }) => boolean; // omit ⇒ infinite
+}): {
+  data$: Observable<string[]>; // entity ids — read entity data via useModelStore(model)
+  loadMore: () => void;
+  isLoading: boolean;
+  hasMore: boolean;
+  reload: () => void;
+};
+```
+
+- **One model, treated as `array(model)`.** The hook is intentionally narrow — it pages a list of a
+  single entity type. For arbitrary multi-field state shapes use [`useStateData`](/react#usestatedata)
+  directly and append with `setRaw`.
+- **Page 0 is `select(firstPage)`**, returned as the list shape, so it flows through `useStateData`'s
+  cache / SSR / hydration unchanged — only `loadMore` pages are client-only.
+- **`loadMore` is O(page-size)** and writes only the new page's entities (concatenating their ids via
+  `setRaw`); it's guarded against overlapping calls and is a no-op once `hasMore` is `false`.
+- **`getCursor` reads `string[]` ids.** Offset (`ids.length`) and page-number (`pageIndex`) cursors
+  are direct; a keyset cursor over an entity field isn't available here (ids only) — use `useStateData`.
+- **`params` must be referentially stable** (memoize it). Changing `params` or calling `reload()`
+  resets pagination and refetches page 0.
 
 ## `useModelStore`
 

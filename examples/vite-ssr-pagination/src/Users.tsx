@@ -1,48 +1,30 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Pending, useStateData } from "rxfy-react";
+import { useMemo, useState } from "react";
+import { Pending, useStatePagedData } from "rxfy-react";
 import { fetchUsers } from "./api.ts";
 import { LoadMoreSentinel } from "./LoadMoreSentinel.tsx";
 import { UserRow } from "./UserRow.tsx";
-import { usersState } from "./users.ts";
+import { userModel } from "./users.ts";
 
 type Mode = "scroll" | "click";
 
 export function Users() {
-  // Stable params → one query identity → manual `set` accumulates a single list.
+  // Stable params → one query identity → loadMore accumulates a single growing list.
   const params = useMemo(() => ({}), []);
 
   // How the next page loads — pure view state, defaults to "scroll" on both server and client.
   const [mode, setMode] = useState<Mode>("scroll");
 
-  // First page goes through useStateData (SSR'd + cached + hydrated).
-  const fetchFirst = useCallback(async () => {
-    const page = await fetchUsers(null);
-    return { users: page.items };
-  }, []);
-
-  const { data$, set } = useStateData(usersState, fetchFirst, params);
-
-  const loading = useRef(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // offset === number of rows already loaded (offset-based cursor, hydration-safe:
-  // it does not depend on fetchFirst running on the client). The list is infinite, so there
-  // is no "end" — every load fetches the next page.
-  const loadMore = useCallback(
-    async (offset: number) => {
-      if (loading.current) return;
-      loading.current = true;
-      setIsLoading(true);
-      try {
-        const page = await fetchUsers(String(offset));
-        set((prev) => ({ users: [...prev.users, ...page.items] }));
-      } finally {
-        loading.current = false;
-        setIsLoading(false);
-      }
-    },
-    [set],
-  );
+  // Page 0 is SSR'd + cached + hydrated through useStateData; loadMore pages are client-only.
+  // Offset cursor = number of rows already loaded (`ids.length`) — hydration-safe and does not
+  // depend on page 0 re-running on the client. The list is infinite (no `hasMore`).
+  const { data$, loadMore, isLoading } = useStatePagedData({
+    model: userModel,
+    key: "users",
+    params,
+    fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
+    getCursor: ({ ids }) => ids.length,
+    select: ({ page }) => page.items,
+  });
 
   return (
     <>
@@ -56,27 +38,22 @@ export function Users() {
       </div>
 
       <Pending value$={data$} pending={<p className="status">Loading users…</p>}>
-        {({ users }) => (
+        {(ids) => (
           <>
             <ul className="user-list">
-              {users.map((id) => (
+              {ids.map((id) => (
                 <UserRow key={id} id={id} />
               ))}
             </ul>
             {mode === "click" ? (
-              <button className="load-more" onClick={() => loadMore(users.length)} disabled={isLoading}>
+              <button className="load-more" onClick={() => loadMore()} disabled={isLoading}>
                 {isLoading ? "Loading…" : "Load more"}
               </button>
             ) : (
               <>
                 {isLoading && <p className="status">Loading…</p>}
-                {/*
-                  `onVisible` is intentionally a fresh closure each render so it always sees the
-                  current `users.length`. That re-arms the sentinel's observer after every load,
-                  so it keeps paging while it stays in view — `loading.current` is the guard that
-                  keeps those repeats from overlapping.
-                */}
-                <LoadMoreSentinel onVisible={() => loadMore(users.length)} />
+                {/* Fresh closure each render keeps re-arming the observer after every load. */}
+                <LoadMoreSentinel onVisible={() => loadMore()} />
               </>
             )}
           </>
