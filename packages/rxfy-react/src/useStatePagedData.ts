@@ -1,62 +1,49 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { FieldsMap, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
-import { normalizeResult } from "rxfy";
+import type { ModelDescriptor, StateDescriptor } from "rxfy";
+import { array, attachReload, getAttachedReload, isSyncMarked, markSync, normalizeResult } from "rxfy";
+import { map, type Observable } from "rxjs";
 import { useModelRegistry } from "./registry-context.js";
-import { type StateHandle, useStateData } from "./useStateData.js";
+import { useStateData } from "./useStateData.js";
 
-/** Concatenate a freshly-normalized page's ids onto the current query ids (single fields replace). */
-function appendIds<TShape>(
-  fields: FieldsMap,
-  prev: QueryShapeOf<TShape>,
-  pageShape: Partial<TShape>,
-  pageIds: QueryShapeOf<Partial<TShape>>,
-): QueryShapeOf<TShape> {
-  const prevRec = prev as Record<string, unknown>;
-  const addedRec = pageIds as Record<string, unknown>;
-  const next: Record<string, unknown> = { ...prevRec };
-  for (const [field, desc] of Object.entries(fields)) {
-    if (!(field in (pageShape as object))) continue;
-    next[field] =
-      desc.kind === "array" ? [...(prevRec[field] as unknown[]), ...(addedRec[field] as unknown[])] : addedRec[field];
-  }
-  return next as QueryShapeOf<TShape>;
-}
-
-export type PagedStateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = StateHandle<
-  TShape,
-  TMutations
-> & {
+export type PagedListHandle = {
+  /** Entity ids of the accumulated list. Read entity data via `useModelStore(model)`. */
+  readonly data$: Observable<string[]>;
   /** Fetch and append the next page. No-op while a load is in flight or once `hasMore` is false. */
   readonly loadMore: () => void;
   /** True while a `loadMore` fetch is in flight. */
   readonly isLoading: boolean;
   /** False once `config.hasMore` reports the list is exhausted (always true if `hasMore` is omitted). */
   readonly hasMore: boolean;
+  /** Re-fetch page 0 and reset pagination. */
+  readonly reload: () => void;
 };
 
-export type UseStatePagedDataConfig<TParams, TShape, TPage, TCursor, TMutations extends MutationDefs<TShape>> = {
-  state: StateDescriptor<TParams, TShape, TMutations>;
+export type UseStatePagedDataConfig<T, TParams, TPage, TCursor> = {
+  /** The entity model; the query is an array of it. Entities land in `useModelStore(model)`. */
+  model: ModelDescriptor<T>;
+  /** SSR / query-cache key. Omit to opt out of caching (fetch per mount). */
+  key?: string;
   params: TParams;
   fetchPage: (args: { cursor: TCursor; params: TParams; signal: AbortSignal }) => Promise<TPage>;
-  /** Receives the normalized id shape (what `data$` emits) plus the running page index. */
-  getCursor: (args: { ids: QueryShapeOf<TShape>; pageIndex: number }) => TCursor;
-  /**
-   * The entities a page contributes, keyed by model field — appended to the list, not merged with
-   * the previous one. On page 0 it must include every array field (it seeds the first shape).
-   */
-  select: (args: { page: TPage }) => Partial<TShape>;
+  /** Compute the next cursor from the current list's ids and the running page index. */
+  getCursor: (args: { ids: string[]; pageIndex: number }) => TCursor;
+  /** The entities a page contributes — appended to the list. */
+  select: (args: { page: TPage }) => T[];
   /** Omit for an infinite list. */
   hasMore?: (args: { page: TPage }) => boolean;
 };
 
-export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations extends MutationDefs<TShape>>(
-  config: UseStatePagedDataConfig<TParams, TShape, TPage, TCursor, TMutations>,
-): PagedStateHandle<TShape, TMutations> {
-  const { state, params } = config;
+/** Internal single-field shape: the list is always `array(model)` under the field `items`. */
+type ListShape<T> = { items: T[] };
+
+export function useStatePagedData<T, TParams, TPage, TCursor>(
+  config: UseStatePagedDataConfig<T, TParams, TPage, TCursor>,
+): PagedListHandle {
+  const { model, key, params } = config;
   const registry = useModelRegistry();
 
-  // Callbacks are often fresh closures each render. Stash them in a ref so the synthesized
-  // fetchFirst stays referentially stable and useStateData keeps its params-identity refetch.
+  // Callbacks are often fresh closures each render. Stash them so fetchFirst stays stable and
+  // useStateData keeps its params-identity refetch.
   const cfgRef = useRef(config);
   useLayoutEffect(() => {
     cfgRef.current = config;
@@ -65,57 +52,63 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const pageIndexRef = useRef(1); // page 0 is fetched by useStateData; loadMore starts at 1
+  const idsRef = useRef<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMoreState] = useState(true);
 
-  // Empty id shape (array fields → []) for page-0's getCursor. Built straight from the field map —
-  // no seed value and no normalize pass needed.
-  const emptyIds = useMemo(() => {
-    const ids: Record<string, unknown> = {};
-    for (const [field, desc] of Object.entries(state.fields as FieldsMap)) ids[field] = desc.kind === "array" ? [] : "";
-    return ids as QueryShapeOf<TShape>;
-  }, [state]);
-
-  // Latest normalized ids, read synchronously on the loadMore path. Seeded with the empty shape.
-  const idsRef = useRef<QueryShapeOf<TShape>>(emptyIds);
-
-  // Page 0 goes through useStateData as a normal fetch returning the full shape — select() on the
-  // first page yields exactly that shape — so cache / SSR / hydration are unchanged.
-  const fetchFirst = useCallback(
-    (p: TParams, signal: AbortSignal) => {
-      const { fetchPage, getCursor, select, hasMore: hasMoreFn } = cfgRef.current;
-      const cursor = getCursor({ ids: emptyIds, pageIndex: 0 });
-      return fetchPage({ cursor, params: p, signal }).then((pg) => {
-        hasMoreRef.current = hasMoreFn ? hasMoreFn({ page: pg }) : true;
-        return select({ page: pg }) as TShape;
-      });
-    },
-    [emptyIds],
+  // A single-field state ({ items: array(model) }) reuses useStateData's cache / SSR / dedup.
+  // paramsSchema is never read at runtime, so we don't build a zod schema for it.
+  const state = useMemo(
+    () =>
+      ({ key, paramsSchema: undefined, fields: { items: array(model) }, mutations: {} }) as unknown as StateDescriptor<
+        TParams,
+        ListShape<T>
+      >,
+    [key, model],
   );
+
+  // Page 0 is select(firstPage) returned as the full shape — flows through useStateData's
+  // cache / SSR / hydration unchanged. Everything is read from cfgRef, so this stays stable.
+  const fetchFirst = useCallback((p: TParams, signal: AbortSignal): Promise<ListShape<T>> => {
+    const { fetchPage, getCursor, select, hasMore: hasMoreFn } = cfgRef.current;
+    const cursor = getCursor({ ids: [], pageIndex: 0 });
+    return fetchPage({ cursor, params: p, signal }).then((pg) => {
+      hasMoreRef.current = hasMoreFn ? hasMoreFn({ page: pg }) : true;
+      return { items: select({ page: pg }) };
+    });
+  }, []);
 
   const handle = useStateData(state, fetchFirst, params);
 
   // A new handle means params changed or reload() ran — start pagination over. Render state is
-  // reset during render via React's documented "adjust state when a prop changes" pattern; the
-  // refs are reset in the layout effect (synchronous at commit, before any child loadMore).
+  // reset during render (React's "adjust state when a prop changes"); refs in the layout effect.
   const [trackedHandle, setTrackedHandle] = useState(handle);
   if (handle !== trackedHandle) {
     setTrackedHandle(handle);
     setIsLoading(false);
     setHasMoreState(true);
   }
-
   useLayoutEffect(() => {
     loadingRef.current = false;
     hasMoreRef.current = true;
     pageIndexRef.current = 1;
-    idsRef.current = emptyIds;
-  }, [handle, emptyIds]);
+    idsRef.current = [];
+  }, [handle]);
 
-  // Keep idsRef current for the loadMore path and mirror hasMore into render state on each
-  // emission (React bails out when the value is unchanged) — surfaces the page-0 result too.
+  // Unwrap the internal { items } shape to a bare id array, preserving the SSR sync marker and the
+  // attached reload (a plain .pipe drops both symbol markers, breaking <Pending> / getAttachedReload).
+  const data$ = useMemo(() => {
+    const inner = handle.data$;
+    const mapped = inner.pipe(map((shape) => shape.items));
+    if (isSyncMarked(inner)) markSync(mapped);
+    const reload = getAttachedReload(inner);
+    if (reload) attachReload(mapped, reload);
+    return mapped;
+  }, [handle.data$]);
+
+  // Keep idsRef current for getCursor + mirror hasMore into render state on each emission.
   useEffect(() => {
-    const sub = handle.data$.subscribe({
+    const sub = data$.subscribe({
       next: (ids) => {
         idsRef.current = ids;
         setHasMoreState(hasMoreRef.current);
@@ -125,7 +118,7 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
       error: () => {},
     });
     return () => sub.unsubscribe();
-  }, [handle.data$]);
+  }, [data$]);
 
   const loadMore = useCallback(() => {
     if (loadingRef.current || !hasMoreRef.current) return;
@@ -137,12 +130,10 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
       .then((page) => {
         hasMoreRef.current = hasMoreFn ? hasMoreFn({ page }) : true;
         pageIndexRef.current += 1;
-        // Append-only path: write just this page's entities (O(page)), then concat their ids onto
-        // the current list via setRaw — no denormalize/re-normalize of the rows already loaded.
-        const fields = state.fields as FieldsMap;
-        const pageShape = select({ page });
-        const pageIds = normalizeResult(registry, fields, pageShape);
-        handle.setRaw((prev) => appendIds(fields, prev, pageShape, pageIds));
+        // Append-only: write just this page's entities (O(page)), then concat their ids onto the
+        // list via setRaw — the rows already loaded are never re-normalized.
+        const { items: newIds } = normalizeResult(registry, state.fields, { items: select({ page }) });
+        handle.setRaw((prev) => ({ items: [...prev.items, ...newIds] }));
         setHasMoreState(hasMoreRef.current);
       })
       .catch(() => {
@@ -154,5 +145,8 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
       });
   }, [handle, params, registry, state]);
 
-  return useMemo(() => ({ ...handle, loadMore, isLoading, hasMore }), [handle, loadMore, isLoading, hasMore]);
+  return useMemo(
+    () => ({ data$, loadMore, isLoading, hasMore, reload: handle.reload }),
+    [data$, loadMore, isLoading, hasMore, handle.reload],
+  );
 }

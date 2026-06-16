@@ -11,5 +11,5 @@ export type { ObservableLike } from "./usePending.js";
 export { usePending } from "./usePending.js";
 export type { BoundMutations, StateHandle } from "./useStateData.js";
 export { useStateData } from "./useStateData.js";
-export type { PagedStateHandle, UseStatePagedDataConfig } from "./useStatePagedData.js";
+export type { PagedListHandle, UseStatePagedDataConfig } from "./useStatePagedData.js";
 export { useStatePagedData } from "./useStatePagedData.js";

@@ -3,7 +3,7 @@
 Load a list one page at a time and append each page into a single growing list, with every
 row normalized like any other entity. [`useStatePagedData`](/react#usestatepageddata) owns the
 whole flow: page 0 is fetched, cached, and SSR'd through `useStateData`, while `loadMore()`
-fetches later pages and merges them in for you.
+fetches later pages and appends them for you.
 
 The cursor is **view state**, not entity data; it tells you where to resume, so it lives in the
 hook (derived by `getCursor`), outside the normalized store.
@@ -14,36 +14,37 @@ infinite-scroll sentinel, and streaming SSR — see the
 
 ## Page with `useStatePagedData`
 
-Give the hook a `fetchPage` (fetch one page for a cursor), a `getCursor` (where to resume —
-it receives the normalized **ids**, the same shape `data$` emits), and a `select` (the entities
-a page contributes, appended to the list). Page 0 is just `select(firstPage)`, returned as the
-full shape, so it goes through `useStateData`'s cache / SSR path unchanged. Each later page does
-O(page-size) work — the rows already loaded are never re-normalized.
+Give the hook the `model` to page (the list is always `array(model)`), a `fetchPage` (fetch one
+page for a cursor), a `getCursor` (where to resume — it receives the current `ids: string[]`), and
+a `select` (the entities a page contributes, appended to the list). Page 0 is just
+`select(firstPage)`, so it goes through `useStateData`'s cache / SSR path unchanged. Each later
+page does O(page-size) work — the rows already loaded are never re-normalized.
 
 ```tsx
 import { useMemo } from "react";
 import { useStatePagedData, Pending } from "rxfy-react";
-import { feedState } from "./feed";
+import { FeedItemModel } from "./feed";
 import { api } from "./api";
 
 function Feed() {
   const params = useMemo(() => ({ filter: "all" as const }), []);
 
   const { data$, loadMore, isLoading, hasMore } = useStatePagedData({
-    state: feedState,
+    model: FeedItemModel,
+    key: "feed",
     params,
     // Offset cursor = number of rows already loaded. Page 0 gets cursor 0.
     fetchPage: ({ cursor, params }) => api.feed({ ...params, offset: cursor }),
-    getCursor: ({ ids }) => ids.items.length,
-    select: ({ page }) => ({ items: page.items }),
+    getCursor: ({ ids }) => ids.length,
+    select: ({ page }) => page.items,
     hasMore: ({ page }) => page.items.length > 0,
   });
 
   return (
     <Pending value$={data$} pending={<p>Loading…</p>}>
-      {({ items }) => (
+      {(ids) => (
         <>
-          <ul>{items.map((id) => <FeedRow key={id} id={id} />)}</ul>
+          <ul>{ids.map((id) => <FeedRow key={id} id={id} />)}</ul>
           {hasMore && (
             <button onClick={() => loadMore()} disabled={isLoading}>
               {isLoading ? "Loading…" : "Load more"}
@@ -56,17 +57,17 @@ function Feed() {
 }
 ```
 
-`data$` emits `{ items: string[] }` (ids only), so each page's new ids append to the list while
-the row data lives in the `FeedItemModel` store. A row that appears on two pages (a duplicate the
-server returned) resolves to one cell, not two. `loadMore` guards against overlapping calls and
-becomes a no-op once `hasMore` returns `false`.
+`data$` emits a flat `string[]` of ids, so each page's new ids append to the list while the row
+data lives in the `FeedItemModel` store. A row that appears on two pages (a duplicate the server
+returned) still resolves to one shared entity cell. `loadMore` guards against overlapping calls
+and becomes a no-op once `hasMore` returns `false`.
 
 ## Cursor strategies
 
 `getCursor` returns whatever your API needs; its type is inferred as `TCursor` and flows into
 `fetchPage`.
 
-- **Offset** — `getCursor: ({ ids }) => ids.items.length`. Hydration-safe: it doesn't depend on
+- **Offset** — `getCursor: ({ ids }) => ids.length`. Hydration-safe: it doesn't depend on
   page 0 re-running on the client.
 - **Page number** — `getCursor: ({ pageIndex }) => pageIndex` (page 0 fetched as index 0, the
   first `loadMore` as index 1, …).

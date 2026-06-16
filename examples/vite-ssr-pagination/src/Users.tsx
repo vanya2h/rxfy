@@ -3,7 +3,7 @@ import { Pending, useStatePagedData } from "rxfy-react";
 import { fetchUsers } from "./api.ts";
 import { LoadMoreSentinel } from "./LoadMoreSentinel.tsx";
 import { UserRow } from "./UserRow.tsx";
-import { usersState } from "./users.ts";
+import { userModel } from "./users.ts";
 
 type Mode = "scroll" | "click";
 
@@ -15,14 +15,15 @@ export function Users() {
   const [mode, setMode] = useState<Mode>("scroll");
 
   // Page 0 is SSR'd + cached + hydrated through useStateData; loadMore pages are client-only.
-  // Offset cursor = number of rows already loaded (`ids.users.length`) — hydration-safe and
-  // does not depend on page 0 re-running on the client. The list is infinite (no `hasMore`).
+  // Offset cursor = number of rows already loaded (`ids.length`) — hydration-safe and does not
+  // depend on page 0 re-running on the client. The list is infinite (no `hasMore`).
   const { data$, loadMore, isLoading } = useStatePagedData({
-    state: usersState,
+    model: userModel,
+    key: "users",
     params,
     fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
-    getCursor: ({ ids }) => ids.users.length,
-    select: ({ page }) => ({ users: page.items }),
+    getCursor: ({ ids }) => ids.length,
+    select: ({ page }) => page.items,
   });
 
   return (
@@ -37,10 +38,10 @@ export function Users() {
       </div>
 
       <Pending value$={data$} pending={<p className="status">Loading users…</p>}>
-        {({ users }) => (
+        {(ids) => (
           <>
             <ul className="user-list">
-              {users.map((id) => (
+              {ids.map((id) => (
                 <UserRow key={id} id={id} />
               ))}
             </ul>

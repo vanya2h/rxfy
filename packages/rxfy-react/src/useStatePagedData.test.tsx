@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { array, createModel, defineState } from "rxfy";
+import { createModel } from "rxfy";
 import { firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -12,23 +12,11 @@ const postModel = createModel(z.object({ id: z.string(), title: z.string() }), {
 type Post = { id: string; title: string };
 type PostPage = { items: Post[]; nextCursor: number };
 
-const pagedState = defineState({
-  key: "paged",
-  params: z.object({}),
-  model: { posts: array(postModel) },
-});
-
-const filterState = defineState({
-  key: "paged-filter",
-  params: z.object({ filter: z.string() }),
-  model: { posts: array(postModel) },
-});
-
 // Stable references — config callbacks may be fresh each render (the hook stabilizes them),
 // but `params` must be referentially stable or useStateData rebuilds + refetches every render.
 const PARAMS = {};
-const getCursor = ({ ids }: { ids: { posts: string[] }; pageIndex: number }) => ids.posts.length;
-const select = ({ page }: { page: PostPage }) => ({ posts: page.items });
+const getCursor = ({ ids }: { ids: string[]; pageIndex: number }) => ids.length;
+const select = ({ page }: { page: PostPage }) => page.items;
 
 /** A page of `count` posts starting at numeric id `start`. */
 const page = (start: number, count: number): PostPage => ({
@@ -42,12 +30,12 @@ describe("useStatePagedData", () => {
   it("fetches and normalizes page 0 through fetchPage + select", async () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
 
     const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual(["0", "1"]);
+    expect(data).toEqual(["0", "1"]);
     expect(fetchPage).toHaveBeenCalledTimes(1);
     expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ cursor: 0 }));
   });
@@ -55,7 +43,7 @@ describe("useStatePagedData", () => {
   it("loadMore appends the next page and advances the cursor", async () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$); // page 0 → ids "0","1"
@@ -66,7 +54,7 @@ describe("useStatePagedData", () => {
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
 
     const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual(["0", "1", "2", "3"]);
+    expect(data).toEqual(["0", "1", "2", "3"]);
     // cursor for page 1 = number of loaded ids (offset-based getCursor)
     expect(fetchPage).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 2 }));
   });
@@ -75,15 +63,15 @@ describe("useStatePagedData", () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
       () => ({
-        handle: useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+        handle: useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
         store: useModelStore(postModel),
       }),
       { wrapper },
     );
     await firstValueFrom(result.current.handle.data$); // entities "0","1" written
 
-    // appendPage writes the new entities via the store's setMany; spy it to prove only the new
-    // page is written (a full re-normalize would re-set all 4 entities every page).
+    // The append path writes the new entities via the store's setMany; spy it to prove only the
+    // new page is written (a full re-normalize would re-set all 4 entities every page).
     const setManySpy = vi.spyOn(result.current.store, "setMany");
     await act(async () => {
       result.current.handle.loadMore();
@@ -97,7 +85,7 @@ describe("useStatePagedData", () => {
     ]);
 
     const data = await firstValueFrom(result.current.handle.data$);
-    expect(data.posts).toEqual(["0", "1", "2", "3"]);
+    expect(data).toEqual(["0", "1", "2", "3"]);
   });
 
   it("ignores a second loadMore while one is in flight", async () => {
@@ -106,7 +94,7 @@ describe("useStatePagedData", () => {
       cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
     );
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -128,7 +116,7 @@ describe("useStatePagedData", () => {
       cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
     );
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -149,7 +137,8 @@ describe("useStatePagedData", () => {
       Promise.resolve(cursor === 0 ? page(0, 2) : page(2, 1)),
     );
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select, hasMore }),
+      () =>
+        useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select, hasMore }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -170,7 +159,8 @@ describe("useStatePagedData", () => {
     // page-0 path: the result is mirrored into render state from the data$ subscription effect.
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 1)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select, hasMore }),
+      () =>
+        useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select, hasMore }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -183,7 +173,7 @@ describe("useStatePagedData", () => {
   it("reload refetches page 0 and resets the cursor", async () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -198,17 +188,17 @@ describe("useStatePagedData", () => {
     // reload cleared the keyed cache; pageIndex/ids reset → page 0 refetched at cursor 0
     expect(fetchPage).toHaveBeenNthCalledWith(3, expect.objectContaining({ cursor: 0 }));
     const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual(["0", "1"]);
+    expect(data).toEqual(["0", "1"]);
   });
 
   it("restarts the page index after reload (page-number cursor)", async () => {
     // A page-number cursor depends on the running pageIndex (unlike offset, which self-heals from
     // idsRef). This isolates the reset effect: without it, the post-reload loadMore would reuse the
     // stale pageIndex and fetch the wrong page.
-    const byPage = ({ pageIndex }: { ids: { posts: string[] }; pageIndex: number }) => pageIndex;
+    const byPage = ({ pageIndex }: { ids: string[]; pageIndex: number }) => pageIndex;
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor * 2, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor: byPage, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor: byPage, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$); // page 0 → cursor 0
@@ -238,7 +228,7 @@ describe("useStatePagedData", () => {
     const paramsB = { filter: "b" };
     const { result, rerender } = renderHook(
       ({ params }: { params: { filter: string } }) =>
-        useStatePagedData({ state: filterState, params, fetchPage, getCursor, select }),
+        useStatePagedData({ model: postModel, key: "paged-filter", params, fetchPage, getCursor, select }),
       { wrapper, initialProps: { params: paramsA } },
     );
     await firstValueFrom(result.current.data$); // filter "a" page 0 → ids "0","1"
@@ -253,7 +243,7 @@ describe("useStatePagedData", () => {
 
     // list is the fresh filter-"b" page 0, not the old accumulated filter-"a" list
     const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual(["100", "101"]);
+    expect(data).toEqual(["100", "101"]);
   });
 
   it("a failed loadMore leaves the list intact, clears isLoading, and allows a retry", async () => {
@@ -264,7 +254,7 @@ describe("useStatePagedData", () => {
       return loadAttempts === 1 ? Promise.reject(new Error("boom")) : Promise.resolve(page(2, 2));
     });
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+      () => useStatePagedData({ model: postModel, key: "paged", params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$); // ids "0","1"
@@ -273,12 +263,12 @@ describe("useStatePagedData", () => {
       result.current.loadMore(); // rejects
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect((await firstValueFrom(result.current.data$)).posts).toEqual(["0", "1"]); // unchanged
+    expect(await firstValueFrom(result.current.data$)).toEqual(["0", "1"]); // unchanged
 
     await act(async () => {
       result.current.loadMore(); // retry succeeds — guard was cleared by .finally
     });
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
-    expect((await firstValueFrom(result.current.data$)).posts).toEqual(["0", "1", "2", "3"]);
+    expect(await firstValueFrom(result.current.data$)).toEqual(["0", "1", "2", "3"]);
   });
 });

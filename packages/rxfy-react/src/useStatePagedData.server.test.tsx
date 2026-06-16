@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { Suspense } from "react";
 import { renderToString } from "react-dom/server";
-import { array, createModel, createModelRegistry, defineState, type IModelRegistry } from "rxfy";
+import { createModel, createModelRegistry, type IModelRegistry } from "rxfy";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Pending } from "./Pending.js";
@@ -17,27 +17,22 @@ const postModel = createModel(z.object({ id: z.string(), title: z.string() }), {
 type Post = { id: string; title: string };
 type PostPage = { items: Post[]; nextCursor: number };
 
-const pagedState = defineState({
-  key: "ssr-paged",
-  params: z.object({}),
-  model: { posts: array(postModel) },
-});
-
 type FetchPage = (args: { cursor: number; params: object; signal: AbortSignal }) => Promise<PostPage>;
 
 function PagedWidget({ fetchPage }: { fetchPage: FetchPage }) {
   const { data$ } = useStatePagedData({
-    state: pagedState,
+    model: postModel,
+    key: "ssr-paged",
     params: {},
     fetchPage,
-    getCursor: ({ ids }: { ids: { posts: string[] }; pageIndex: number }) => ids.posts.length,
-    select: ({ page }: { page: PostPage }) => ({ posts: page.items }),
+    getCursor: ({ ids }: { ids: string[]; pageIndex: number }) => ids.length,
+    select: ({ page }: { page: PostPage }) => page.items,
   });
   return (
     <Pending value$={data$}>
-      {({ posts }) => (
+      {(ids) => (
         <ul>
-          {posts.map((id) => (
+          {ids.map((id) => (
             <li key={id}>{id}</li>
           ))}
         </ul>
@@ -69,7 +64,7 @@ describe("useStatePagedData server suspend (ssr mode)", () => {
     expect(registry.queries.inflight()).toHaveLength(1);
   });
 
-  it("after settle, re-render produces fulfilled HTML from the cache (page 0 merged into initial)", async () => {
+  it("after settle, re-render produces fulfilled HTML from the cache (page 0)", async () => {
     const registry = createModelRegistry();
     const fetchPage = vi.fn(() => Promise.resolve({ items: [{ id: "1", title: "A" }], nextCursor: 1 }));
 
@@ -79,7 +74,7 @@ describe("useStatePagedData server suspend (ssr mode)", () => {
     const html = renderApp(registry, fetchPage); // second pass — cache hit
     expect(html).toContain("<li>1</li>");
     expect(fetchPage).toHaveBeenCalledOnce();
-    // entity normalized at settle — page 0 went through merge(initial, page) then normalizeResult
+    // entity normalized at settle — model store seeded
     expect(registry.model(postModel).getValue("1")).toEqual({ id: "1", title: "A" });
   });
 });
