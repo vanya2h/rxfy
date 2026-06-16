@@ -93,9 +93,10 @@ Detection by `typeof` is O(1) per element and unambiguous: an id is always a `st
 always an object. `safeParse` runs **only** on the objects being normalized (O(page-size)), never on
 existing ids — it is validation, not the branch condition.
 
-`normalizeResult` stays strict and untouched; `normalizeWritable` shares its internal per-element
-routine so the field-walking logic is not duplicated. The dev error message mirrors the existing
-denormalize error (`rxfy: entity "<key>" for model "<name>" ...`).
+`normalizeResult` stays strict and untouched (its `setMany` batch path is unchanged).
+`normalizeWritable` is a standalone sibling: it writes entity elements individually via `store.set`
+because an id-vs-entity mix rules out `setMany`'s all-objects batch. The dev error message mirrors
+the existing denormalize error style (`rxfy: ... model "<name>" ...`).
 
 ### 3. Wiring (rxfy-react)
 
