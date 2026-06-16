@@ -54,7 +54,7 @@ function TodoItem({ id, onRemove }: { id: string; onRemove: (id: string) => void
 
 function TodoApp() {
   const params = useMemo(() => ({}), []);
-  const { data$, mutations, reload } = useStateData(todosState, fetchTodos, params);
+  const { data$, mutations, reload } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
 
   // No live wiring here: LiveProvider subscribes to whatever lands in the store, so simply
   // fetching these todos makes them live (see live/useStoreSubscriptions.ts).

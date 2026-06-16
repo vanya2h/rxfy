@@ -1,6 +1,6 @@
 # rxfy
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/normalization) keeps your app consistent and reactive at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization) keeps your app consistent and reactive at no extra cost.
 
 rxfy is built on three principles. Every entity lives in one slot, keyed by its id; a write reaches every subscriber with no list re-fetch. Each slot is an RxJS Observable that components subscribe to directly. You declare the fetch shape, the model, and the mutations; rxfy normalizes the result, handles SSR, and rehydrates the client without a second fetch. [Why rxfy?](https://rxfy.vanya2h.me/why) explains the thinking behind this design.
 
@@ -44,7 +44,7 @@ npm install rxfy rxfy-react
 - [State](https://rxfy.vanya2h.me/core-concepts/state)
 - [Atom](https://rxfy.vanya2h.me/core-concepts/atom)
 - [Lens](https://rxfy.vanya2h.me/core-concepts/lens)
-- [Normalization](https://rxfy.vanya2h.me/normalization)
+- [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
 
 **API Reference**
 
@@ -64,6 +64,7 @@ npm install rxfy rxfy-react
 
 - [vite-todo](examples/vite-todo) — Todo app with Vite SSR
 - [vite-realtime-todos](examples/vite-realtime-todos) — normalized state driven by WebSocket server-push (Vite SSR · Hono · Drizzle SQLite)
+- [vite-ssr-pagination](examples/vite-ssr-pagination) — infinite paginated list with a switch between Load-more button and infinite scroll; streaming SSR; rows generated on demand with faker
 - [next-blog](examples/next-blog) — Next.js App Router with streaming SSR
 - [rr7-blog](examples/rr7-blog) — React Router 7 (framework mode) with buffered SSR; rxfy as the single data layer, loaders for routing only
 

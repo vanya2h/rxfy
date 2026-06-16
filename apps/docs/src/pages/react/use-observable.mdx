@@ -1,0 +1,12 @@
+# useObservable
+
+Binds any plain `Observable<T>` to React, re-rendering on each new emission. Equal
+consecutive emissions are skipped (`lodash.isEqual`), so a source that re-emits an equal
+value won't re-render. Use it for raw streams; for async status prefer
+[`usePending`](/react/use-pending), and for two-way `IAtom` binding prefer
+[`useAtom`](/react/use-atom).
+
+```ts
+function useObservable<T>(observable: Observable<T>, initialValue: T): T;
+function useObservable<T>(observable: Observable<T>): T | undefined;
+```

@@ -1,0 +1,50 @@
+# usePending
+
+The hook behind [`Pending`](/react/pending), for when you need the status value rather than
+rendered UI. It subscribes to any `ObservableLike<T>` (an `Observable<T>` or a plain value) and
+returns the current `IWrapped<T>`, narrowed to `PENDING` / `FULFILLED` /
+`REJECTED`, never `IDLE`. Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
+
+```tsx
+import { useMemo } from "react";
+import { usePending, useModelStore } from "rxfy-react";
+import { StatusEnum } from "rxfy";
+import { TodoModel } from "./models";
+
+function TodoTitle({ id }: { id: string }) {
+  const store = useModelStore(TodoModel);
+  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const wrapped = usePending(todo$);
+
+  if (wrapped.type === StatusEnum.PENDING) return <span>…</span>;
+  if (wrapped.type === StatusEnum.REJECTED) return <span>error</span>;
+  return <span>{wrapped.value.title}</span>;
+}
+```
+
+```ts
+function usePending<T>(
+  source$: ObservableLike<T>,
+  getDefaultValue?: () => T,
+): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>
+
+type ObservableLike<T> = Observable<T> | T;
+```
+
+The `IWrapped<T, K>` it returns is the async-status discriminated union, narrowed
+to the `K` cases:
+
+```ts
+type IWrapped<T, K extends StatusEnum = StatusEnum> = {
+  [StatusEnum.IDLE]: { type: StatusEnum.IDLE };
+  [StatusEnum.PENDING]: { type: StatusEnum.PENDING };
+  [StatusEnum.FULFILLED]: { type: StatusEnum.FULFILLED; value: T };
+  [StatusEnum.REJECTED]: { type: StatusEnum.REJECTED; error: unknown };
+}[K] & { type: K };
+```
+
+The matching `createIdle` / `createPending` / `createFulfilled` / `createRejected`
+constructors are exported from `rxfy` for building these values directly.
+
+> `source$` must be referentially stable across renders; wrap inline-created sources in
+> `useMemo`.

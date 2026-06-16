@@ -12,6 +12,16 @@ export type QueryShapeOf<TShape> = {
   [K in keyof TShape]: TShape[K] extends readonly (infer Item)[] ? EntityKey<Item>[] : EntityKey<TShape[K]>;
 };
 
+/**
+ * The writable counterpart of QueryShapeOf: each model slot accepts an id OR a denormalized
+ * entity (or a mix, for arrays). Used by setRaw, which normalizes object elements on write.
+ */
+export type WritableQueryShapeOf<TShape> = {
+  [K in keyof TShape]: TShape[K] extends readonly (infer Item)[]
+    ? (EntityKey<Item> | Item)[]
+    : EntityKey<TShape[K]> | TShape[K];
+};
+
 export type MutationDefs<TShape> = {
   [key: string]: (prev: TShape, ...args: any[]) => TShape;
 };

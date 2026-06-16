@@ -38,7 +38,7 @@ describe("useStateData", () => {
       ],
     });
 
-    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), { wrapper });
 
     const data = await firstValueFrom(result.current.data$);
     expect(data.posts).toEqual(["1", "2"]);
@@ -47,7 +47,7 @@ describe("useStateData", () => {
 
   it("surfaces a rejected fetch as an error on data$", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error("network down"));
-    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 7 }), { wrapper });
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 7 } }), { wrapper });
 
     await expect(firstValueFrom(result.current.data$)).rejects.toThrow("network down");
     expect(fetchFn).toHaveBeenCalledTimes(1);
@@ -55,7 +55,9 @@ describe("useStateData", () => {
 
   it("emits a normalized id for single fields", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ user: { id: "u1", name: "Ann" } });
-    const { result } = renderHook(() => useStateData(singleState, fetchFn, { id: "u1" }), { wrapper });
+    const { result } = renderHook(() => useStateData({ state: singleState, fetchFn, params: { id: "u1" } }), {
+      wrapper,
+    });
     const data = await firstValueFrom(result.current.data$);
     expect(data.user).toBe("u1");
   });
@@ -65,7 +67,7 @@ describe("useStateData", () => {
     const params0 = { page: 0 };
     const params1 = { page: 1 };
 
-    const { result, rerender } = renderHook(({ params }) => useStateData(pageState, fetchFn, params), {
+    const { result, rerender } = renderHook(({ params }) => useStateData({ state: pageState, fetchFn, params }), {
       wrapper,
       initialProps: { params: params0 },
     });
@@ -79,7 +81,7 @@ describe("useStateData", () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
     const params = { page: 0 };
 
-    const { result, rerender } = renderHook(() => useStateData(pageState, fetchFn, params), { wrapper });
+    const { result, rerender } = renderHook(() => useStateData({ state: pageState, fetchFn, params }), { wrapper });
 
     const first = result.current;
     rerender();
@@ -91,7 +93,7 @@ describe("useStateData", () => {
 
     const { result } = renderHook(
       () => ({
-        handle: useStateData(pageState, fetchFn, { page: 0 }),
+        handle: useStateData({ state: pageState, fetchFn, params: { page: 0 } }),
         postStore: useModelStore(postModel),
       }),
       { wrapper },
@@ -105,7 +107,7 @@ describe("useStateData", () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
     const { result } = renderHook(
       () => ({
-        handle: useStateData(pageState, fetchFn, { page: 0 }),
+        handle: useStateData({ state: pageState, fetchFn, params: { page: 0 } }),
         postStore: useModelStore(postModel),
       }),
       { wrapper },
@@ -135,7 +137,7 @@ describe("useStateData", () => {
     });
     const { result } = renderHook(
       () => ({
-        handle: useStateData(spyState, fetchFn, {}),
+        handle: useStateData({ state: spyState, fetchFn, params: {} }),
         postStore: useModelStore(postModel),
       }),
       { wrapper },
@@ -151,7 +153,7 @@ describe("useStateData", () => {
 
   it("set() accepts the full fetch shape", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
-    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), { wrapper });
     await firstValueFrom(result.current.data$);
 
     act(() => result.current.set({ posts: [{ id: "9", title: "Replaced" }] }));
@@ -160,9 +162,39 @@ describe("useStateData", () => {
     expect(data.posts).toEqual(["9"]);
   });
 
+  it("setRaw() updater accepts denormalized entities and writes them to the store", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "one" }] });
+    const { result } = renderHook(
+      () => ({
+        handle: useStateData({ state: pageState, fetchFn, params: { page: 0 } }),
+        postStore: useModelStore(postModel),
+      }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.handle.data$);
+
+    act(() => result.current.handle.setRaw((prev) => ({ ...prev, posts: [...prev.posts, { id: "2", title: "two" }] })));
+
+    const data = await firstValueFrom(result.current.handle.data$);
+    expect(data.posts).toEqual(["1", "2"]);
+    // the new entity was normalized into the model store — no manual normalizeResult call
+    expect(result.current.postStore.getValue("2")).toEqual({ id: "2", title: "two" });
+  });
+
+  it("setRaw() with an id-only value passes ids through unchanged", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "one" }] });
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), { wrapper });
+    await firstValueFrom(result.current.data$);
+
+    act(() => result.current.setRaw({ posts: ["1"] }));
+
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.posts).toEqual(["1"]);
+  });
+
   it("set() with an updater receives denormalized entities", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "A" }] });
-    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), { wrapper });
     await firstValueFrom(result.current.data$);
 
     let seen: Post[] = [];
@@ -181,7 +213,10 @@ describe("useStateData", () => {
       const fetchFn = vi.fn();
       const defaultData = { posts: [{ id: "1", title: "Loader Post" }] };
 
-      const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }, { defaultData }), { wrapper });
+      const { result } = renderHook(
+        () => useStateData({ state: pageState, fetchFn, params: { page: 0 }, defaultData }),
+        { wrapper },
+      );
 
       const data = await firstValueFrom(result.current.data$);
       expect(data.posts).toEqual(["1"]);
@@ -194,7 +229,7 @@ describe("useStateData", () => {
 
       const { result } = renderHook(
         () => ({
-          handle: useStateData(pageState, fetchFn, { page: 0 }, { defaultData }),
+          handle: useStateData({ state: pageState, fetchFn, params: { page: 0 }, defaultData }),
           postStore: useModelStore(postModel),
         }),
         { wrapper },
@@ -212,7 +247,7 @@ describe("useStateData", () => {
 
       const { result, rerender } = renderHook(
         ({ page, defaultData }: { page: number; defaultData: typeof defaultData0 }) =>
-          useStateData(pageState, fetchFn, { page }, { defaultData }),
+          useStateData({ state: pageState, fetchFn, params: { page }, defaultData }),
         { wrapper, initialProps: { page: 0, defaultData: defaultData0 } },
       );
 
@@ -221,6 +256,37 @@ describe("useStateData", () => {
       rerender({ page: 1, defaultData: defaultData1 });
       expect((await firstValueFrom(result.current.data$)).posts).toEqual(["b"]);
       expect(fetchFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("data$ identity stability", () => {
+    it("keeps the same handle when params identity changes but the value is equal", async () => {
+      const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
+      const { result, rerender } = renderHook(({ params }) => useStateData({ state: pageState, fetchFn, params }), {
+        wrapper,
+        initialProps: { params: { page: 0 } },
+      });
+      const first = result.current;
+      await firstValueFrom(result.current.data$);
+
+      rerender({ params: { page: 0 } }); // brand-new object, same value
+      expect(result.current).toBe(first);
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not reset data$ or refetch when defaultData changes", async () => {
+      const fetchFn = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ defaultData }) => useStateData({ state: pageState, fetchFn, params: { page: 0 }, defaultData }),
+        { wrapper, initialProps: { defaultData: { posts: [{ id: "1", title: "A" }] } } },
+      );
+      const first = result.current.data$;
+      await firstValueFrom(result.current.data$);
+
+      rerender({ defaultData: { posts: [{ id: "2", title: "B" }] } }); // changed default
+      expect(result.current.data$).toBe(first);
+      expect(fetchFn).not.toHaveBeenCalled();
+      expect((await firstValueFrom(result.current.data$)).posts).toEqual(["1"]); // still the original seed
     });
   });
 
@@ -244,7 +310,9 @@ describe("useStateData", () => {
 
     it("still loads after a synchronous unsubscribe→resubscribe (StrictMode remount)", async () => {
       const fetchFn = abortableFetch([{ id: "1", title: "P1" }]);
-      const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 1 }), { wrapper });
+      const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 1 } }), {
+        wrapper,
+      });
       const data$ = result.current.data$;
 
       // React StrictMode subscribes, tears down, and resubscribes synchronously on mount.
@@ -264,7 +332,9 @@ describe("useStateData", () => {
 
     it("serves a remaining subscriber when another unsubscribes mid-flight", async () => {
       const fetchFn = abortableFetch([{ id: "2", title: "P2" }]);
-      const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 2 }), { wrapper });
+      const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 2 } }), {
+        wrapper,
+      });
       const data$ = result.current.data$;
 
       const seenA: unknown[] = [];

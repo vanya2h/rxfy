@@ -21,7 +21,7 @@ function TodoItem({ id }: { id: string }) {
 }
 
 function App({ fetchFn }: { fetchFn: FetchFn }) {
-  const { data$ } = useStateData(todosState, fetchFn, {});
+  const { data$ } = useStateData({ state: todosState, fetchFn, params: {} });
   return (
     <Suspense fallback="loading">
       <Pending value$={data$}>
