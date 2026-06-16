@@ -5,7 +5,11 @@ import express from "express";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { getUsersPage } from "./shared/generate.ts";
 
-type RenderResult = { pipe: ReturnType<typeof import("react-dom/server").renderToPipeableStream>["pipe"]; abort: () => void; getState: () => string };
+type RenderResult = {
+  pipe: ReturnType<typeof import("react-dom/server").renderToPipeableStream>["pipe"];
+  abort: () => void;
+  getState: () => string;
+};
 type Render = (url: string, options?: RenderToPipeableStreamOptions) => RenderResult;
 
 const isProduction = process.env.NODE_ENV === "production";

@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { type RenderToPipeableStreamOptions, renderToPipeableStream } from "react-dom/server";
+import { renderToPipeableStream, type RenderToPipeableStreamOptions } from "react-dom/server";
 import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import App from "./App.tsx";

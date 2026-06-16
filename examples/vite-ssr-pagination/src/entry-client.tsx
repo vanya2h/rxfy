@@ -1,8 +1,8 @@
-import "./index.css";
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { StoreProvider } from "rxfy-react";
 import App from "./App.tsx";
+import "./index.css";
 
 // Hydration state arrives via the server-injected window.__RXFY_SSR__ script —
 // StoreProvider ingests it automatically.

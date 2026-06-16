@@ -2,11 +2,12 @@ import type { UsersPage } from "../shared/users.ts";
 
 /**
  * Fetches one page of users. On the server it calls the generator module directly (no HTTP
- * roundtrip during SSR); in the browser it hits the API route. The dynamic import keeps the
- * faker generator out of the client bundle.
+ * roundtrip during SSR); in the browser it hits the API route. `import.meta.env.SSR` is a
+ * compile-time constant, so Vite dead-code-eliminates the dynamic import from the client
+ * build — faker never ships to the browser.
  */
 export async function fetchUsers(cursor: string | null): Promise<UsersPage> {
-  if (typeof window === "undefined") {
+  if (import.meta.env.SSR) {
     const { getUsersPage } = await import("../shared/generate.ts");
     return getUsersPage(cursor);
   }
