@@ -39,24 +39,28 @@ examples — but only as much as needed; we do not gratuitously rewrite the temp
 
 ## Domain & Data
 
-A directory of **users/people**.
+A **truly infinite** directory of **users/people**, generated on demand — no fixed dataset.
 
-- `shared/users.ts`
-  - `User` type: `{ id: string; name: string; email: string; initials: string }`
+- `shared/users.ts` — schema/types only (light; safe to import from client code):
+  - `UserSchema` (zod) and `User` type: `{ id; name; email; initials }`
     (initials stand in for an avatar so the example needs no image assets).
-  - A deterministic generated dataset of 200 users (stable across server restarts so SSR
-    and client agree).
-  - `getUsersPage(cursor: string | null, pageSize = 20): { items: User[]; nextCursor: string | null }`
-    — pure, offset-based. The cursor encodes the next offset (e.g. the string `"20"`);
-    `nextCursor` is `null` once the dataset is exhausted.
+  - `UsersPage = { items: User[]; nextCursor: string }` — `nextCursor` is **never null**.
+
+- `shared/generate.ts` — server-only generator (keeps faker out of the client bundle):
+  - `getUsersPage(cursor: string | null, pageSize = 20): UsersPage` — offset-based; the
+    cursor encodes the next offset (e.g. `"20"`). Generates `pageSize` users on demand with
+    `@faker-js/faker`, seeded per row index (`faker.seed(index + 1)`) so a given offset is
+    deterministic/idempotent. Always returns the following offset as `nextCursor`, so the
+    list never ends.
 
 - Server route: `GET /api/users?cursor=<cursor>` → `getUsersPage(cursor)` as JSON.
 
 - `src/api.ts` — **isomorphic** fetch helper:
-  - On the server (`typeof window === "undefined"`): call `getUsersPage` directly, so SSR
-    does not make an HTTP roundtrip to itself.
+  - On the server (`typeof window === "undefined"`): `await import("../shared/generate.ts")`
+    and call `getUsersPage` directly, so SSR makes no HTTP roundtrip to itself and faker
+    stays out of the client bundle.
   - In the browser: `fetch("/api/users?cursor=...")`.
-  - Single signature: `fetchUsers(cursor: string | null): Promise<{ items: User[]; nextCursor: string | null }>`.
+  - Single signature: `fetchUsers(cursor: string | null): Promise<UsersPage>`.
 
 ## rxfy Wiring
 
@@ -77,18 +81,17 @@ A directory of **users/people**.
     break "Load more". Deriving offset from the rendered list length is correct on both
     server and client.
   - `loading = useRef(false)` — guards overlapping `loadMore` calls.
-  - `const [hasMore, setHasMore] = useState(true)` — drives button disabled/hidden state;
-    flipped to `false` when a page returns `nextCursor === null`.
   - `const [isLoading, setIsLoading] = useState(false)` — drives the loading affordance.
+    (No `hasMore` flag — the list is infinite, so there is no end state.)
   - `fetchFirst` (passed to `useStateData`): `async () => { const page = await fetchUsers(null); return { users: page.items }; }` (signature is a subset of `(params, signal)`, which is allowed).
   - `const { data$, set } = useStateData(usersState, fetchFirst, params);`
-  - `loadMore(offset: number)`: bail if `loading.current || !hasMore`; set `loading`/`isLoading`,
-    `const page = await fetchUsers(String(offset))`, `setHasMore(page.nextCursor !== null)`,
-    then `set((prev) => ({ users: [...prev.users, ...page.items] }))`; clear loading flags in
+  - `loadMore(offset: number)`: bail if `loading.current`; set `loading`/`isLoading`,
+    `const page = await fetchUsers(String(offset))`, then
+    `set((prev) => ({ users: [...prev.users, ...page.items] }))`; clear loading flags in
     `finally`.
   - Render: `<Pending value$={data$} pending={skeleton}>{({ users }) => …}</Pending>` →
     list of `<UserRow id={id} />`, a "Load more" button
-    (`onClick={() => loadMore(users.length)}`, disabled when `isLoading || !hasMore`), and a
+    (`onClick={() => loadMore(users.length)}`, disabled while `isLoading`), and a
     `<LoadMoreSentinel onVisible={() => loadMore(users.length)} />` after the list.
 
 - `src/UserRow.tsx`: subscribes to one entity via `useModelStore(UserModel)` +
@@ -142,7 +145,8 @@ examples/vite-ssr-pagination/
   tsconfig.node.json
   README.md
   server.ts                # template Express server + /api/users + end-of-stream snapshot
-  shared/users.ts          # dataset + getUsersPage
+  shared/users.ts          # zod schema + User/UsersPage types (client-safe)
+  shared/generate.ts       # faker-based getUsersPage (server-only, infinite)
   src/
     api.ts                 # isomorphic fetchUsers
     users.ts               # UserModel + usersState
@@ -171,7 +175,7 @@ is kept. The above is the target shape after rewiring.
 
 ## Out of Scope
 
-- Real database (in-memory only).
+- Real database (rows are generated on demand with faker; no persistence).
 - Filtering/search (would require resetting the list on param change — mentioned in the
   guide but not implemented here to keep the example focused).
 - Building a Vite streaming hydration adapter for rxfy (noted as future work).

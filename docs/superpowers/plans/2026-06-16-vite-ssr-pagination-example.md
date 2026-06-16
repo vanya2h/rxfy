@@ -186,12 +186,32 @@ git commit -m "chore(example): add tsconfig + eslint config for vite-ssr-paginat
 
 ---
 
-### Task 3: Shared dataset + paging function
+### Task 3: Shared schema + on-demand infinite generator
+
+The list is **truly infinite**: users are generated on demand with `@faker-js/faker`,
+seeded per row index so a given offset is deterministic/idempotent (SSR page 1 and the
+`/api/users` route always agree). `getUsersPage` never returns `nextCursor: null`.
+
+The schema/types live in a light module (`shared/users.ts`, zod only) so client code can
+import them; the faker generator lives in `shared/generate.ts` (server-only, reached via the
+API route and a dynamic import) so faker never lands in the client bundle.
 
 **Files:**
+- Modify: `examples/vite-ssr-pagination/package.json` (add `@faker-js/faker` dep)
 - Create: `examples/vite-ssr-pagination/shared/users.ts`
+- Create: `examples/vite-ssr-pagination/shared/generate.ts`
 
-- [ ] **Step 1: Write shared/users.ts**
+- [ ] **Step 1: Add the faker dependency**
+
+Run from `examples/vite-ssr-pagination`:
+
+```bash
+pnpm add -D @faker-js/faker
+```
+
+Expected: adds `@faker-js/faker` to `devDependencies`, install succeeds.
+
+- [ ] **Step 2: Write shared/users.ts** (schema + types only — safe for the client bundle)
 
 ```ts
 import { z } from "zod";
@@ -205,67 +225,61 @@ export const UserSchema = z.object({
 
 export type User = z.infer<typeof UserSchema>;
 
+/** `nextCursor` is always a string here — the generated list never ends. */
 export interface UsersPage {
   items: User[];
-  nextCursor: string | null;
-}
-
-const FIRST_NAMES = [
-  "Ada", "Bjarne", "Clara", "Dennis", "Edsger", "Frances", "Grace", "Hedy",
-  "Ivan", "Joan", "Ken", "Linus", "Margaret", "Niklaus", "Ostara", "Peter",
-  "Quentin", "Rasmus", "Sophie", "Tim", "Ursula", "Vint", "Wendy", "Xavier",
-  "Yukihiro", "Zara",
-];
-const LAST_NAMES = [
-  "Lovelace", "Stroustrup", "Shannon", "Ritchie", "Dijkstra", "Allen", "Hopper",
-  "Lamarr", "Sutherland", "Clarke", "Thompson", "Torvalds", "Hamilton", "Wirth",
-  "Kay", "Norvig", "Tarjan", "Lerdorf", "Wilson", "Berners-Lee", "Franklin",
-  "Cerf", "Hall", "Sala", "Matsumoto", "Khan",
-];
-
-const TOTAL = 200;
-const PAGE_SIZE = 20;
-
-/** Deterministic dataset — identical on server and client so SSR hydration matches. */
-const USERS: User[] = Array.from({ length: TOTAL }, (_, i) => {
-  const first = FIRST_NAMES[i % FIRST_NAMES.length];
-  const last = LAST_NAMES[(i * 7) % LAST_NAMES.length];
-  const name = `${first} ${last}`;
-  return {
-    id: `u${i + 1}`,
-    name,
-    email: `${first}.${last}.${i + 1}`.toLowerCase().replace(/[^a-z0-9.]/g, "") + "@rxfy.dev",
-    initials: `${first[0]}${last[0]}`,
-  };
-});
-
-/**
- * Offset-based paging. The cursor is the next offset as a string ("20", "40", …);
- * `null` means "start from the beginning". `nextCursor` is `null` once exhausted.
- */
-export function getUsersPage(cursor: string | null, pageSize = PAGE_SIZE): UsersPage {
-  const offset = cursor ? Number(cursor) : 0;
-  const items = USERS.slice(offset, offset + pageSize);
-  const next = offset + pageSize;
-  return { items, nextCursor: next < USERS.length ? String(next) : null };
+  nextCursor: string;
 }
 ```
 
-- [ ] **Step 2: Verify the paging logic inline**
+- [ ] **Step 3: Write shared/generate.ts** (server-only generator)
+
+```ts
+import { faker } from "@faker-js/faker";
+import type { User, UsersPage } from "./users.ts";
+
+const PAGE_SIZE = 20;
+
+/** Deterministic per index — the same offset always yields the same users. */
+function makeUser(index: number): User {
+  faker.seed(index + 1);
+  const first = faker.person.firstName();
+  const last = faker.person.lastName();
+  return {
+    id: `u${index + 1}`,
+    name: `${first} ${last}`,
+    email: faker.internet.email({ firstName: first, lastName: last }).toLowerCase(),
+    initials: `${first[0]}${last[0]}`,
+  };
+}
+
+/**
+ * Offset-based paging over an infinite, on-demand dataset. The cursor is the next offset as
+ * a string ("20", "40", …); `null` means "start from the beginning". `nextCursor` is always
+ * the following offset — the list never runs out.
+ */
+export function getUsersPage(cursor: string | null, pageSize = PAGE_SIZE): UsersPage {
+  const offset = cursor ? Number(cursor) : 0;
+  const items = Array.from({ length: pageSize }, (_, i) => makeUser(offset + i));
+  return { items, nextCursor: String(offset + pageSize) };
+}
+```
+
+- [ ] **Step 4: Verify the generator inline**
 
 Run from `examples/vite-ssr-pagination`:
 
 ```bash
-pnpm exec tsx -e "import('./shared/users.ts').then(m => { const a = m.getUsersPage(null); const b = m.getUsersPage(a.nextCursor); const last = m.getUsersPage('180'); console.assert(a.items.length === 20, 'page1 len'); console.assert(a.items[0].id === 'u1', 'first id'); console.assert(a.nextCursor === '20', 'next cursor'); console.assert(b.items[0].id === 'u21', 'page2 first'); console.assert(last.nextCursor === null, 'end cursor'); console.assert(last.items.length === 20, 'last len'); console.log('OK'); })"
+pnpm exec tsx -e "import('./shared/generate.ts').then(m => { const a = m.getUsersPage(null); const b = m.getUsersPage(a.nextCursor); const a2 = m.getUsersPage(null); console.assert(a.items.length === 20, 'page1 len'); console.assert(a.items[0].id === 'u1', 'first id'); console.assert(a.nextCursor === '20', 'next cursor'); console.assert(b.items[0].id === 'u21', 'page2 first id'); console.assert(b.nextCursor === '40', 'page2 next'); console.assert(a.items[0].name === a2.items[0].name, 'deterministic'); console.assert(typeof a.items[0].name === 'string' && a.items[0].name.length > 0, 'has name'); console.log('OK'); })"
 ```
 
-Expected: prints `OK` with no assertion warnings.
+Expected: prints `OK` with no assertion warnings (note: never returns a null cursor).
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add examples/vite-ssr-pagination/shared/users.ts
-git commit -m "feat(example): add users dataset and offset paging"
+git add examples/vite-ssr-pagination/package.json examples/vite-ssr-pagination/shared/users.ts examples/vite-ssr-pagination/shared/generate.ts pnpm-lock.yaml
+git commit -m "feat(example): add infinite on-demand user generator (faker)"
 ```
 
 ---
@@ -281,13 +295,13 @@ git commit -m "feat(example): add users dataset and offset paging"
 import type { UsersPage } from "../shared/users.ts";
 
 /**
- * Fetches one page of users. On the server it calls the in-memory data module
- * directly (no HTTP roundtrip during SSR); in the browser it hits the API route.
- * The dynamic import keeps the dataset out of the client bundle.
+ * Fetches one page of users. On the server it calls the generator module directly (no HTTP
+ * roundtrip during SSR); in the browser it hits the API route. The dynamic import keeps the
+ * faker generator out of the client bundle.
  */
 export async function fetchUsers(cursor: string | null): Promise<UsersPage> {
   if (typeof window === "undefined") {
-    const { getUsersPage } = await import("../shared/users.ts");
+    const { getUsersPage } = await import("../shared/generate.ts");
     return getUsersPage(cursor);
   }
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
@@ -436,26 +450,25 @@ export function Users() {
   const { data$, set } = useStateData(usersState, fetchFirst, params);
 
   const loading = useRef(false);
-  const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   // offset === number of rows already loaded (offset-based cursor, hydration-safe:
-  // it does not depend on fetchFirst running on the client).
+  // it does not depend on fetchFirst running on the client). The list is infinite, so there
+  // is no "end" — every load fetches the next page.
   const loadMore = useCallback(
     async (offset: number) => {
-      if (loading.current || !hasMore) return;
+      if (loading.current) return;
       loading.current = true;
       setIsLoading(true);
       try {
         const page = await fetchUsers(String(offset));
-        setHasMore(page.nextCursor !== null);
         set((prev) => ({ users: [...prev.users, ...page.items] }));
       } finally {
         loading.current = false;
         setIsLoading(false);
       }
     },
-    [set, hasMore],
+    [set],
   );
 
   return (
@@ -467,16 +480,10 @@ export function Users() {
               <UserRow key={id} id={id} />
             ))}
           </ul>
-          {hasMore ? (
-            <>
-              <button className="load-more" onClick={() => loadMore(users.length)} disabled={isLoading}>
-                {isLoading ? "Loading…" : "Load more"}
-              </button>
-              <LoadMoreSentinel onVisible={() => loadMore(users.length)} />
-            </>
-          ) : (
-            <p className="status">That's everyone ({users.length}).</p>
-          )}
+          <button className="load-more" onClick={() => loadMore(users.length)} disabled={isLoading}>
+            {isLoading ? "Loading…" : "Load more"}
+          </button>
+          <LoadMoreSentinel onVisible={() => loadMore(users.length)} />
         </>
       )}
     </Pending>
@@ -742,7 +749,7 @@ import fs from "node:fs/promises";
 import { Transform } from "node:stream";
 import express from "express";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
-import { getUsersPage } from "./shared/users.ts";
+import { getUsersPage } from "./shared/generate.ts";
 
 type RenderResult = ReturnType<typeof import("./src/entry-server.ts").render>;
 type Render = (url: string, options?: RenderToPipeableStreamOptions) => RenderResult;
@@ -903,11 +910,12 @@ Expected: 20 rendered rows and at least one `__RXFY_SSR__` push in the served HT
 - [ ] **Step 3: Confirm the API pages**
 
 ```bash
-curl -s "http://localhost:5176/api/users" | head -c 200          # page 1, nextCursor "20"
-curl -s "http://localhost:5176/api/users?cursor=180" | head -c 80 # nextCursor null
+curl -s "http://localhost:5176/api/users" | head -c 200            # page 1, nextCursor "20"
+curl -s "http://localhost:5176/api/users?cursor=1000" | head -c 200 # deep page, nextCursor "1020"
 ```
 
-Expected: first returns 20 items with `"nextCursor":"20"`; second returns `"nextCursor":null`.
+Expected: first returns 20 items with `"nextCursor":"20"`; the deep page returns 20 items with
+`"nextCursor":"1020"` (the list never ends) and ids starting at `u1001`.
 
 - [ ] **Step 4: Stop the dev server.**
 
@@ -925,9 +933,10 @@ Expected: first returns 20 items with `"nextCursor":"20"`; second returns `"next
 ````markdown
 # rxfy example — SSR pagination
 
-A streaming-SSR Vite app showing rxfy's paginated, normalized list pattern: a users
-directory loaded one page at a time via a **Load more** button and an **infinite-scroll**
-sentinel.
+A streaming-SSR Vite app showing rxfy's paginated, normalized list pattern: a **truly
+infinite** users directory loaded one page at a time via a **Load more** button and an
+**infinite-scroll** sentinel. Rows are generated on demand with `@faker-js/faker` (seeded
+per index, so each offset is deterministic), so the list never runs out.
 
 ## Run
 
@@ -942,6 +951,10 @@ pnpm --filter rxfy-example-ssr-pagination dev
 - **Page 1 is server-rendered.** `useStateData(usersState, fetchFirst, params)` fetches the
   first page during SSR; the component suspends and the list streams in. The entities
   normalize into the `userModel` store; the query holds only ids.
+- **Rows are generated on demand.** `getUsersPage(cursor)` (in `shared/generate.ts`) makes a
+  page of users with faker, seeded by row index, and always returns the next cursor — the
+  list is infinite. The generator is server-only (kept out of the client bundle); the schema
+  in `shared/users.ts` is the only shared module the client imports.
 - **Later pages are fetched client-side and appended** with `set((prev) => ({ users: [...prev.users, ...page.items] }))`.
   Each new id appends to the query's list; row data lives in the store, so a user returned
   on two pages resolves to one cell.
@@ -988,6 +1001,9 @@ git commit -m "docs(example): add vite-ssr-pagination README"
 - **Refinement vs. spec:** the cursor is derived from the loaded row count rather than stashed from
   `fetchFirst` (hydration-safe); the spec was updated to match.
 - **Type consistency:** `userModel` (lowercase, matching the repo's `todoModel`), `usersState`,
-  `fetchUsers(cursor)`, `getUsersPage(cursor)`, `UsersPage { items, nextCursor }`, and `getState()`
-  are used consistently across tasks.
+  `fetchUsers(cursor)`, `getUsersPage(cursor)` (in `shared/generate.ts`), `UsersPage { items, nextCursor: string }`
+  (non-null — infinite), and `getState()` are used consistently across tasks.
+- **Infinite list (post-spec change):** rows are generated on demand with `@faker-js/faker`; the list
+  never ends, so the `hasMore` flag and end-of-list UI were removed. Schema/types live in
+  `shared/users.ts`; the faker generator lives server-only in `shared/generate.ts`.
 - **Port:** 5176 (vite-todo and realtime-todos both use 5175 — 5176 avoids a clash if both run).
