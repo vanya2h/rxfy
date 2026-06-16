@@ -163,4 +163,53 @@ describe("useStatePagedData", () => {
     result.current.loadMore(); // guarded by hasMore — no fetch
     expect(fetchPage).toHaveBeenCalledTimes(1); // only page 0, never a loadMore
   });
+
+  it("reload refetches page 0 and resets the cursor", async () => {
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
+    const { result } = renderHook(
+      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$);
+    await act(async () => {
+      result.current.loadMore();
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2)); // cursor 0, then 2
+
+    act(() => result.current.reload());
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
+
+    // reload cleared the keyed cache; pageIndex/ids reset → page 0 refetched at cursor 0
+    expect(fetchPage).toHaveBeenNthCalledWith(3, expect.objectContaining({ cursor: 0 }));
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.posts).toEqual(["0", "1"]);
+  });
+
+  it("restarts the page index after reload (page-number cursor)", async () => {
+    // A page-number cursor depends on the running pageIndex (unlike offset, which self-heals from
+    // idsRef). This isolates the reset effect: without it, the post-reload loadMore would reuse the
+    // stale pageIndex and fetch the wrong page.
+    const byPage = ({ pageIndex }: { ids: { posts: string[] }; pageIndex: number }) => pageIndex;
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor * 2, 2)));
+    const { result } = renderHook(
+      () =>
+        useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor: byPage, merge }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$); // page 0 → cursor 0
+    await act(async () => {
+      result.current.loadMore(); // getCursor sees pageIndex 1 → cursor 1; pageIndexRef then advances to 2
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 1 })));
+
+    act(() => result.current.reload());
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3)); // reload → page 0, cursor 0
+    await firstValueFrom(result.current.data$);
+
+    await act(async () => {
+      result.current.loadMore(); // pageIndex reset to 1 → cursor 1 (NOT the stale 2)
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(4));
+    expect(fetchPage).toHaveBeenNthCalledWith(4, expect.objectContaining({ cursor: 1 }));
+  });
 });

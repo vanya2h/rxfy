@@ -76,6 +76,25 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
 
   const handle = useStateData(state, fetchFirst, params);
 
+  // A new handle means params changed or reload() ran — start pagination over. Render state is
+  // reset during render via React's documented "adjust state when a prop changes" pattern (no
+  // extra commit); the refs, which can't be touched during render, are reset in the layout effect
+  // below. useLayoutEffect (not useEffect) runs synchronously at commit, before any child passive
+  // effect could fire loadMore, so the refs are never read in a stale-but-state-reset window.
+  const [trackedHandle, setTrackedHandle] = useState(handle);
+  if (handle !== trackedHandle) {
+    setTrackedHandle(handle);
+    setIsLoading(false);
+    setHasMoreState(true);
+  }
+
+  useLayoutEffect(() => {
+    loadingRef.current = false;
+    hasMoreRef.current = true;
+    pageIndexRef.current = 1;
+    idsRef.current = emptyIds;
+  }, [handle, emptyIds]);
+
   // Keep idsRef current for the loadMore path and mirror hasMore into render state on each
   // emission (React bails out when the value is unchanged). This surfaces the page-0 result
   // computed in fetchFirst, not just loadMore's updates.
