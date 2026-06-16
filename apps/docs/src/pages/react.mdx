@@ -95,6 +95,53 @@ export default function TodoPage() {
 > `defaultData` is applied again — so the next loader's data seeds the next page without
 > a redundant fetch.
 
+### `set` vs `setRaw` — writing entities vs writing the id list
+
+`set` is the high-level writer: you hand it the **denormalized shape** (full entities) and it
+does the round-trip — splits entities into the model stores and the ids back into `data$`. The
+updater form (`set(prev => …)`) first **denormalizes** the current ids into entities so your
+reducer sees full objects. That round-trip is O(list length): it rebuilds and re-writes every
+entity in the query, even ones that didn't change.
+
+`setRaw` is the low-level sibling: you write the **normalized id shape** directly (the same shape
+`data$` emits), with no normalize and no denormalize step.
+
+```ts
+set:    (value: TShape       | ((prev: TShape)               => TShape))               => void; // entities
+setRaw: (ids:   QueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => QueryShapeOf<TShape>)) => void; // ids
+```
+
+Because `setRaw` never touches the model stores, **you are responsible for putting any new
+entities there first** — typically with `normalizeResult`, which writes a shape's entities and
+returns its ids. Use `setRaw` whenever re-normalizing the whole list with `set` would be wasteful:
+appending a page, prepending, reordering, de-duplicating, or optimistically removing a row.
+
+```tsx
+import { useModelRegistry } from "rxfy-react";
+import { normalizeResult } from "rxfy";
+import { feedState, FeedItemModel } from "./feed";
+
+function useAppendPage() {
+  const registry = useModelRegistry();
+  const { setRaw } = useStateData(feedState, fetchFirst, params);
+
+  return (page: { items: FeedItem[] }) => {
+    // 1. write only the new page's entities → their ids   (O(page size))
+    const { items: newIds } = normalizeResult(registry, feedState.fields, { items: page.items });
+    // 2. concatenate ids onto the current list — existing rows are never re-written
+    setRaw((prev) => ({ items: [...prev.items, ...newIds] }));
+  };
+}
+```
+
+The updater form reads the current ids and is a **no-op until the query is `FULFILLED`** (there's
+no list to amend yet). For the common pagination case you don't call `setRaw` yourself —
+[`useStatePagedData`](/react#usestatepageddata) composes it for you.
+
+> `setRaw` writes ids that may not have matching entities in the store yet. Always populate the
+> stores **before** (or in the same tick as) the `setRaw` call, or components reading those ids
+> will suspend / throw "entity not loaded".
+
 ## `useStatePagedData`
 
 Builds on [`useStateData`](/react#usestatedata) for paginated / infinite-scroll lists. Page 0
