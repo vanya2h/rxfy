@@ -47,7 +47,7 @@ The returned `StateHandle<TShape, TMutations>` exposes:
 type StateHandle<TShape, TMutations> = {
   data$: Observable<QueryShapeOf<TShape>>; // ids only; stable identity across renders & reloads
   set(value: Updater<TShape>): void; // full entities (normalize/denormalize)
-  setRaw(ids: Updater<QueryShapeOf<TShape>>): void; // id shape only, no round-trip
+  setRaw(ids: Updater<QueryShapeOf<TShape>>): void; // id shape and/or entities; objects are normalized
   reload(): void;
   mutations: BoundMutations<TShape, TMutations>; // full entities
 };
@@ -128,34 +128,29 @@ reducer sees full objects. That round-trip is O(list length): it rebuilds and re
 entity in the query, even ones that didn't change.
 
 `setRaw` is the low-level sibling: you write the **normalized id shape** directly (the same shape
-`data$` emits), with no normalize and no denormalize step.
+`data$` emits), with no denormalize round-trip on the current list.
 
 ```ts
-set:    (value: Updater<TShape>) => void;                // full entities
-setRaw: (ids:   Updater<QueryShapeOf<TShape>>) => void;  // id shape
-// Updater<T> = T | ((prev: T) => T)
+set:    (value: Updater<TShape>) => void;                       // full entities
+setRaw: (ids:   Updater<WritableQueryShapeOf<TShape>>) => void; // ids and/or entities
+// Updater<T> = T | ((prev: T) => T)  — note: setRaw's updater receives prev as ids (QueryShapeOf)
 ```
 
-Because `setRaw` never touches the model stores, **you are responsible for putting any new
-entities there first** — typically with `normalizeResult`, which writes a shape's entities and
-returns its ids. Use `setRaw` whenever re-normalizing the whole list with `set` would be wasteful:
-appending a page, prepending, reordering, de-duplicating, or optimistically removing a row.
+`setRaw` accepts the **normalized id shape**, but each model-field slot may also hold full entity
+objects (or a mix): object elements are written to their model stores for you, strings pass through
+as ids. The updater form receives the current **ids** (no denormalize round-trip), so appending a
+page stays O(page size) — only the new entities are written. Use `setRaw` whenever re-normalizing the
+whole list with `set` would be wasteful: appending a page, prepending, reordering, de-duplicating, or
+optimistically removing a row.
 
 ```tsx
-import { useModelRegistry } from "rxfy-react";
-import { normalizeResult } from "rxfy";
-import { feedState, FeedItemModel } from "./feed";
+import { feedState } from "./feed";
 
 function useAppendPage() {
-  const registry = useModelRegistry();
   const { setRaw } = useStateData({ state: feedState, fetchFn: fetchFirst, params });
 
-  return (page: { items: FeedItem[] }) => {
-    // 1. write only the new page's entities → their ids   (O(page size))
-    const { items: newIds } = normalizeResult(registry, feedState.fields, { items: page.items });
-    // 2. concatenate ids onto the current list — existing rows are never re-written
-    setRaw((prev) => ({ items: [...prev.items, ...newIds] }));
-  };
+  // pass new entities by object — setRaw writes them to the store and appends their ids
+  return (page: { items: FeedItem[] }) => setRaw((prev) => ({ items: [...prev.items, ...page.items] }));
 }
 ```
 
@@ -163,6 +158,6 @@ The updater form reads the current ids and is a **no-op until the query is `FULF
 no list to amend yet). For the common pagination case you don't call `setRaw` yourself —
 [`useStatePagedData`](/react/use-state-paged-data) composes it for you.
 
-> `setRaw` writes ids that may not have matching entities in the store yet. Always populate the
-> stores **before** (or in the same tick as) the `setRaw` call, or components reading those ids
-> will suspend / throw "entity not loaded".
+> Passing entities to `setRaw` costs O(objects passed) — only the objects are normalized, ids are
+> free. Passing the **entire** list as objects is equivalent to `set`; reach for that instead when
+> you genuinely intend to rewrite every row.

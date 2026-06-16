@@ -9,6 +9,7 @@ export default defineConfig({
     { text: "Getting Started", link: "/getting-started" },
     { text: "Agent Skills", link: "/agent-skills" },
     { text: "Comparison", link: "/comparison" },
+    { text: "Examples", link: "/examples" },
 
     {
       text: "Core Concepts",
@@ -46,6 +47,5 @@ export default defineConfig({
         { text: "Live updates over WebSockets", link: "/guides/live-updates-websockets" },
       ],
     },
-    { text: "Examples", link: "/examples" },
   ],
 });
