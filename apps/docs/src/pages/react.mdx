@@ -47,7 +47,8 @@ function useStateData<TParams, TShape, TMutations>(
 
 // StateHandle: {
 //   data$: Observable<QueryShapeOf<TShape>>;  // ids only
-//   set: (value: TShape | ((prev: TShape) => TShape)) => void;  // full entities
+//   set: (value: TShape | ((prev: TShape) => TShape)) => void;  // full entities (normalize/denormalize)
+//   setRaw: (ids: QueryShapeOf<TShape> | ((prev) => QueryShapeOf<TShape>)) => void;  // id shape only, no round-trip
 //   reload: () => void;
 //   mutations: BoundMutations<TShape, TMutations>;  // full entities
 // }
@@ -103,7 +104,9 @@ and appends it into the same growing list. Returns the full `StateHandle` plus `
 
 You supply three callbacks: `fetchPage` (fetch one page for a cursor), `getCursor` (compute the
 next cursor — it receives the **normalized ids**, the same shape `data$` emits, plus the running
-`pageIndex`), and `merge` (fold a fetched page into the **denormalized** list, like `set`).
+`pageIndex`), and `select` (the entities a page contributes — appended to the list, not merged
+with the previous one). Each page does O(page-size) work; the rows already loaded are never
+re-normalized.
 
 ```tsx
 import { useMemo } from "react";
@@ -116,10 +119,9 @@ function Users() {
   const { data$, loadMore, isLoading, hasMore } = useStatePagedData({
     state: usersState,
     params,
-    initial: { users: [] },
     fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
     getCursor: ({ ids }) => ids.users.length, // offset cursor = rows already loaded
-    merge: ({ prev, page }) => ({ users: [...prev.users, ...page.items] }),
+    select: ({ page }) => ({ users: page.items }), // the new rows this page adds
     hasMore: ({ page }) => page.items.length > 0, // omit for an endless list
   });
 
@@ -144,10 +146,9 @@ function Users() {
 function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations>(config: {
   state: StateDescriptor<TParams, TShape, TMutations>;
   params: TParams;
-  initial: TShape;                                                              // empty seed, e.g. { users: [] }
   fetchPage: (args: { cursor: TCursor; params: TParams; signal: AbortSignal }) => Promise<TPage>;
   getCursor: (args: { ids: QueryShapeOf<TShape>; pageIndex: number }) => TCursor; // ids, not entities
-  merge: (args: { prev: TShape; page: TPage }) => TShape;                        // denormalized entities
+  select: (args: { page: TPage }) => Partial<TShape>;                            // the page's new entities
   hasMore?: (args: { page: TPage }) => boolean;                                  // omit ⇒ infinite
 }): StateHandle<TShape, TMutations> & {
   loadMore: () => void;
@@ -156,11 +157,15 @@ function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations>(config: 
 }
 ```
 
-- **Page 0 is `merge(initial, firstPage)`**, so it returns the full `TShape` and flows through
+- **Page 0 is just `select(firstPage)`**, returned as the full `TShape`, so it flows through
   `useStateData`'s cache / SSR / hydration unchanged — only `loadMore` pages are client-only.
-- **`getCursor` reads ids; `merge` reads entities.** Each callback gets the cheapest shape for
-  its job. Offset (`ids.users.length`) and page-number (`pageIndex`) cursors need only ids;
-  keyset cursors that need an entity field aren't supported here — use `useStateData` + `set`.
+  (`select` must include every array field on page 0, since it seeds the first shape.)
+- **`loadMore` is O(page-size).** It writes only the new page's entities and concatenates their
+  ids onto the list via the handle's `setRaw` — the rows already loaded are never re-normalized,
+  so scrolling stays linear instead of quadratic.
+- **`getCursor` reads ids.** Offset (`ids.users.length`) and page-number (`pageIndex`) cursors
+  need only ids; keyset cursors that need an entity field aren't supported here — use
+  `useStateData` + `set`.
 - **`params` must be referentially stable** (memoize it). Changing `params` or calling `reload()`
   resets pagination and refetches page 0.
 - **`loadMore` is guarded** against overlapping calls and is a no-op once `hasMore` is `false`.

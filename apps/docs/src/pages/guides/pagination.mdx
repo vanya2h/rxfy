@@ -15,9 +15,10 @@ infinite-scroll sentinel, and streaming SSR — see the
 ## Page with `useStatePagedData`
 
 Give the hook a `fetchPage` (fetch one page for a cursor), a `getCursor` (where to resume —
-it receives the normalized **ids**, the same shape `data$` emits), and a `merge` (fold a page
-into the **denormalized** list, the way `set` works). Page 0 is `merge(initial, firstPage)`, so
-it returns the full shape and goes through `useStateData`'s cache / SSR path unchanged.
+it receives the normalized **ids**, the same shape `data$` emits), and a `select` (the entities
+a page contributes, appended to the list). Page 0 is just `select(firstPage)`, returned as the
+full shape, so it goes through `useStateData`'s cache / SSR path unchanged. Each later page does
+O(page-size) work — the rows already loaded are never re-normalized.
 
 ```tsx
 import { useMemo } from "react";
@@ -31,11 +32,10 @@ function Feed() {
   const { data$, loadMore, isLoading, hasMore } = useStatePagedData({
     state: feedState,
     params,
-    initial: { items: [] },
     // Offset cursor = number of rows already loaded. Page 0 gets cursor 0.
     fetchPage: ({ cursor, params }) => api.feed({ ...params, offset: cursor }),
     getCursor: ({ ids }) => ids.items.length,
-    merge: ({ prev, page }) => ({ items: [...prev.items, ...page.items] }),
+    select: ({ page }) => ({ items: page.items }),
     hasMore: ({ page }) => page.items.length > 0,
   });
 
