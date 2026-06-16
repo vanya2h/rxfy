@@ -1,4 +1,7 @@
-# rxfy-react
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../assets/rxfy-lockup-white.svg">
+  <img alt="rxfy" src="../../assets/rxfy-lockup.svg" width="200">
+</picture>
 
 Official React bindings for [rxfy](../rxfy/README.md). Subscribe components to normalized entities; each renders the one shared copy and updates live.
 

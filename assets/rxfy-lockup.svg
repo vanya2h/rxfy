@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 100">
+  
+  <g fill="none" stroke="#16140F" stroke-width="9" stroke-linecap="round" transform="translate(10,10)">
+    <line x1="40" y1="19.2" x2="40" y2="60.8"></line>
+    <line x1="22" y1="29.6" x2="58" y2="50.4"></line>
+    <line x1="58" y1="29.6" x2="22" y2="50.4"></line>
+  </g>
+  <text x="104" y="69" font-family="&#39;Space Grotesk&#39;, sans-serif" font-size="60" font-weight="600" letter-spacing="-2" fill="#16140F">rxfy</text>
+</svg>
