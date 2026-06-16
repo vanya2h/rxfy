@@ -4,6 +4,24 @@ import { normalizeResult } from "rxfy";
 import { useModelRegistry } from "./registry-context.js";
 import { type StateHandle, useStateData } from "./useStateData.js";
 
+/** Concatenate a freshly-normalized page's ids onto the current query ids (single fields replace). */
+function appendIds<TShape>(
+  fields: FieldsMap,
+  prev: QueryShapeOf<TShape>,
+  pageShape: Partial<TShape>,
+  pageIds: QueryShapeOf<Partial<TShape>>,
+): QueryShapeOf<TShape> {
+  const prevRec = prev as Record<string, unknown>;
+  const addedRec = pageIds as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...prevRec };
+  for (const [field, desc] of Object.entries(fields)) {
+    if (!(field in (pageShape as object))) continue;
+    next[field] =
+      desc.kind === "array" ? [...(prevRec[field] as unknown[]), ...(addedRec[field] as unknown[])] : addedRec[field];
+  }
+  return next as QueryShapeOf<TShape>;
+}
+
 export type PagedStateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = StateHandle<
   TShape,
   TMutations
@@ -19,13 +37,14 @@ export type PagedStateHandle<TShape, TMutations extends MutationDefs<TShape> = R
 export type UseStatePagedDataConfig<TParams, TShape, TPage, TCursor, TMutations extends MutationDefs<TShape>> = {
   state: StateDescriptor<TParams, TShape, TMutations>;
   params: TParams;
-  /** Empty seed `merge`d with page 0, e.g. `{ users: [] }`. */
-  initial: TShape;
   fetchPage: (args: { cursor: TCursor; params: TParams; signal: AbortSignal }) => Promise<TPage>;
   /** Receives the normalized id shape (what `data$` emits) plus the running page index. */
   getCursor: (args: { ids: QueryShapeOf<TShape>; pageIndex: number }) => TCursor;
-  /** Receives denormalized entities (like `set(prev => …)`); returns the next full shape. */
-  merge: (args: { prev: TShape; page: TPage }) => TShape;
+  /**
+   * The entities a page contributes, keyed by model field — appended to the list, not merged with
+   * the previous one. On page 0 it must include every array field (it seeds the first shape).
+   */
+  select: (args: { page: TPage }) => Partial<TShape>;
   /** Omit for an infinite list. */
   hasMore?: (args: { page: TPage }) => boolean;
 };
@@ -49,26 +68,26 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMoreState] = useState(true);
 
-  // Normalized empty seed → QueryShapeOf, for page-0's getCursor. Stable per state/registry.
-  // `config.initial` is intentionally excluded from the deps: it is a stable per-call-site seed,
-  // and keying on its identity would rebuild fetchFirst (and the handle) on every render.
-  const emptyIds = useMemo(
-    () => normalizeResult(registry, state.fields as FieldsMap, config.initial) as QueryShapeOf<TShape>,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [registry, state],
-  );
+  // Empty id shape (array fields → []) for page-0's getCursor. Built straight from the field map —
+  // no seed value and no normalize pass needed.
+  const emptyIds = useMemo(() => {
+    const ids: Record<string, unknown> = {};
+    for (const [field, desc] of Object.entries(state.fields as FieldsMap)) ids[field] = desc.kind === "array" ? [] : "";
+    return ids as QueryShapeOf<TShape>;
+  }, [state]);
 
   // Latest normalized ids, read synchronously on the loadMore path. Seeded with the empty shape.
   const idsRef = useRef<QueryShapeOf<TShape>>(emptyIds);
 
-  // Page 0 routes through fetchPage + merge so it returns TShape — SSR/cache/hydration unchanged.
+  // Page 0 goes through useStateData as a normal fetch returning the full shape — select() on the
+  // first page yields exactly that shape — so cache / SSR / hydration are unchanged.
   const fetchFirst = useCallback(
     (p: TParams, signal: AbortSignal) => {
-      const { fetchPage, getCursor, merge, hasMore: hasMoreFn, initial: seed } = cfgRef.current;
+      const { fetchPage, getCursor, select, hasMore: hasMoreFn } = cfgRef.current;
       const cursor = getCursor({ ids: emptyIds, pageIndex: 0 });
       return fetchPage({ cursor, params: p, signal }).then((pg) => {
         hasMoreRef.current = hasMoreFn ? hasMoreFn({ page: pg }) : true;
-        return merge({ prev: seed, page: pg });
+        return select({ page: pg }) as TShape;
       });
     },
     [emptyIds],
@@ -77,10 +96,8 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
   const handle = useStateData(state, fetchFirst, params);
 
   // A new handle means params changed or reload() ran — start pagination over. Render state is
-  // reset during render via React's documented "adjust state when a prop changes" pattern (no
-  // extra commit); the refs, which can't be touched during render, are reset in the layout effect
-  // below. useLayoutEffect (not useEffect) runs synchronously at commit, before any child passive
-  // effect could fire loadMore, so the refs are never read in a stale-but-state-reset window.
+  // reset during render via React's documented "adjust state when a prop changes" pattern; the
+  // refs are reset in the layout effect (synchronous at commit, before any child loadMore).
   const [trackedHandle, setTrackedHandle] = useState(handle);
   if (handle !== trackedHandle) {
     setTrackedHandle(handle);
@@ -96,16 +113,15 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
   }, [handle, emptyIds]);
 
   // Keep idsRef current for the loadMore path and mirror hasMore into render state on each
-  // emission (React bails out when the value is unchanged). This surfaces the page-0 result
-  // computed in fetchFirst, not just loadMore's updates.
+  // emission (React bails out when the value is unchanged) — surfaces the page-0 result too.
   useEffect(() => {
     const sub = handle.data$.subscribe({
       next: (ids) => {
         idsRef.current = ids;
         setHasMoreState(hasMoreRef.current);
       },
-      // data$ errors on REJECTED — already surfaced to consumers via <Pending>. This is an
-      // internal side-channel, so swallow here to avoid RxJS's global unhandled-error path.
+      // data$ errors on REJECTED — already surfaced to consumers via <Pending>. Swallow here
+      // (internal side-channel) to avoid RxJS's global unhandled-error path.
       error: () => {},
     });
     return () => sub.unsubscribe();
@@ -115,13 +131,18 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
     if (loadingRef.current || !hasMoreRef.current) return;
     loadingRef.current = true;
     setIsLoading(true);
-    const { fetchPage, getCursor, merge, hasMore: hasMoreFn } = cfgRef.current;
+    const { fetchPage, getCursor, select, hasMore: hasMoreFn } = cfgRef.current;
     const cursor = getCursor({ ids: idsRef.current, pageIndex: pageIndexRef.current });
     fetchPage({ cursor, params, signal: new AbortController().signal })
       .then((page) => {
         hasMoreRef.current = hasMoreFn ? hasMoreFn({ page }) : true;
         pageIndexRef.current += 1;
-        handle.set((prev) => merge({ prev, page }));
+        // Append-only path: write just this page's entities (O(page)), then concat their ids onto
+        // the current list via setRaw — no denormalize/re-normalize of the rows already loaded.
+        const fields = state.fields as FieldsMap;
+        const pageShape = select({ page });
+        const pageIds = normalizeResult(registry, fields, pageShape);
+        handle.setRaw((prev) => appendIds(fields, prev, pageShape, pageIds));
         setHasMoreState(hasMoreRef.current);
       })
       .catch(() => {
@@ -131,7 +152,7 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
         loadingRef.current = false;
         setIsLoading(false);
       });
-  }, [handle, params]);
+  }, [handle, params, registry, state]);
 
   return useMemo(() => ({ ...handle, loadMore, isLoading, hasMore }), [handle, loadMore, isLoading, hasMore]);
 }

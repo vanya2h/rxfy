@@ -20,10 +20,9 @@ export function Users() {
   const { data$, loadMore, isLoading } = useStatePagedData({
     state: usersState,
     params,
-    initial: { users: [] },
     fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
     getCursor: ({ ids }) => ids.users.length,
-    merge: ({ prev, page }) => ({ users: [...prev.users, ...page.items] }),
+    select: ({ page }) => ({ users: page.items }),
   });
 
   return (

@@ -15,7 +15,6 @@ const postModel = createModel(z.object({ id: z.string(), title: z.string() }), {
 });
 
 type Post = { id: string; title: string };
-type PostShape = { posts: Post[] };
 type PostPage = { items: Post[]; nextCursor: number };
 
 const pagedState = defineState({
@@ -30,10 +29,9 @@ function PagedWidget({ fetchPage }: { fetchPage: FetchPage }) {
   const { data$ } = useStatePagedData({
     state: pagedState,
     params: {},
-    initial: { posts: [] } as PostShape,
     fetchPage,
     getCursor: ({ ids }: { ids: { posts: string[] }; pageIndex: number }) => ids.posts.length,
-    merge: ({ prev, page }: { prev: PostShape; page: PostPage }) => ({ posts: [...prev.posts, ...page.items] }),
+    select: ({ page }: { page: PostPage }) => ({ posts: page.items }),
   });
   return (
     <Pending value$={data$}>

@@ -4,12 +4,12 @@ import { firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { StoreProvider } from "./StoreProvider.js";
+import { useModelStore } from "./useModelStore.js";
 import { useStatePagedData } from "./useStatePagedData.js";
 
 const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "post" });
 
 type Post = { id: string; title: string };
-type PostShape = { posts: Post[] };
 type PostPage = { items: Post[]; nextCursor: number };
 
 const pagedState = defineState({
@@ -27,9 +27,8 @@ const filterState = defineState({
 // Stable references — config callbacks may be fresh each render (the hook stabilizes them),
 // but `params` must be referentially stable or useStateData rebuilds + refetches every render.
 const PARAMS = {};
-const INITIAL: PostShape = { posts: [] };
 const getCursor = ({ ids }: { ids: { posts: string[] }; pageIndex: number }) => ids.posts.length;
-const merge = ({ prev, page }: { prev: PostShape; page: PostPage }) => ({ posts: [...prev.posts, ...page.items] });
+const select = ({ page }: { page: PostPage }) => ({ posts: page.items });
 
 /** A page of `count` posts starting at numeric id `start`. */
 const page = (start: number, count: number): PostPage => ({
@@ -40,10 +39,10 @@ const page = (start: number, count: number): PostPage => ({
 const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 describe("useStatePagedData", () => {
-  it("fetches and normalizes page 0 through fetchPage + merge", async () => {
+  it("fetches and normalizes page 0 through fetchPage + select", async () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
 
@@ -56,7 +55,7 @@ describe("useStatePagedData", () => {
   it("loadMore appends the next page and advances the cursor", async () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$); // page 0 → ids "0","1"
@@ -72,13 +71,42 @@ describe("useStatePagedData", () => {
     expect(fetchPage).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 2 }));
   });
 
+  it("writes only the new page's entities, not the whole list (O(page), not O(N))", async () => {
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
+    const { result } = renderHook(
+      () => ({
+        handle: useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
+        store: useModelStore(postModel),
+      }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.handle.data$); // entities "0","1" written
+
+    // appendPage writes the new entities via the store's setMany; spy it to prove only the new
+    // page is written (a full re-normalize would re-set all 4 entities every page).
+    const setManySpy = vi.spyOn(result.current.store, "setMany");
+    await act(async () => {
+      result.current.handle.loadMore();
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
+
+    expect(setManySpy).toHaveBeenCalledTimes(1);
+    expect(setManySpy).toHaveBeenCalledWith([
+      { id: "2", title: "P2" },
+      { id: "3", title: "P3" },
+    ]);
+
+    const data = await firstValueFrom(result.current.handle.data$);
+    expect(data.posts).toEqual(["0", "1", "2", "3"]);
+  });
+
   it("ignores a second loadMore while one is in flight", async () => {
     let resolveSecond!: (p: PostPage) => void;
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
       cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
     );
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -100,7 +128,7 @@ describe("useStatePagedData", () => {
       cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
     );
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -121,16 +149,7 @@ describe("useStatePagedData", () => {
       Promise.resolve(cursor === 0 ? page(0, 2) : page(2, 1)),
     );
     const { result } = renderHook(
-      () =>
-        useStatePagedData({
-          state: pagedState,
-          params: PARAMS,
-          initial: INITIAL,
-          fetchPage,
-          getCursor,
-          merge,
-          hasMore,
-        }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select, hasMore }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -151,16 +170,7 @@ describe("useStatePagedData", () => {
     // page-0 path: the result is mirrored into render state from the data$ subscription effect.
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 1)));
     const { result } = renderHook(
-      () =>
-        useStatePagedData({
-          state: pagedState,
-          params: PARAMS,
-          initial: INITIAL,
-          fetchPage,
-          getCursor,
-          merge,
-          hasMore,
-        }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select, hasMore }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -173,7 +183,7 @@ describe("useStatePagedData", () => {
   it("reload refetches page 0 and resets the cursor", async () => {
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$);
@@ -198,8 +208,7 @@ describe("useStatePagedData", () => {
     const byPage = ({ pageIndex }: { ids: { posts: string[] }; pageIndex: number }) => pageIndex;
     const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor * 2, 2)));
     const { result } = renderHook(
-      () =>
-        useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor: byPage, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor: byPage, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$); // page 0 → cursor 0
@@ -229,7 +238,7 @@ describe("useStatePagedData", () => {
     const paramsB = { filter: "b" };
     const { result, rerender } = renderHook(
       ({ params }: { params: { filter: string } }) =>
-        useStatePagedData({ state: filterState, params, initial: INITIAL, fetchPage, getCursor, merge }),
+        useStatePagedData({ state: filterState, params, fetchPage, getCursor, select }),
       { wrapper, initialProps: { params: paramsA } },
     );
     await firstValueFrom(result.current.data$); // filter "a" page 0 → ids "0","1"
@@ -255,7 +264,7 @@ describe("useStatePagedData", () => {
       return loadAttempts === 1 ? Promise.reject(new Error("boom")) : Promise.resolve(page(2, 2));
     });
     const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      () => useStatePagedData({ state: pagedState, params: PARAMS, fetchPage, getCursor, select }),
       { wrapper },
     );
     await firstValueFrom(result.current.data$); // ids "0","1"

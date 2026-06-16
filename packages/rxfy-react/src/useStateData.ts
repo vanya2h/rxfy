@@ -27,6 +27,14 @@ export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record
   /** Normalized query state — entity ids only. Read entity data through model stores. */
   readonly data$: Observable<QueryShapeOf<TShape>>;
   readonly set: (value: TShape | ((prev: TShape) => TShape)) => void;
+  /**
+   * Low-level sibling of `set` that writes the normalized **id shape** directly — no normalize and
+   * no denormalize round-trip. The caller is responsible for putting any new entities in their
+   * model stores first (e.g. via `normalizeResult`). The updater form receives the current ids;
+   * it is a no-op until the query is FULFILLED. Use for append / prepend / reorder / dedup where
+   * re-normalizing the whole list (`set`) would be O(N).
+   */
+  readonly setRaw: (ids: QueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => QueryShapeOf<TShape>)) => void;
   readonly reload: () => void;
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
@@ -152,6 +160,16 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       }
     };
 
+    const setRaw = (idsOrUpdater: QueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => QueryShapeOf<TShape>)) => {
+      if (typeof idsOrUpdater === "function") {
+        const current = atom$.get();
+        if (current.type !== StatusEnum.FULFILLED) return;
+        writeThrough((idsOrUpdater as (prev: QueryShapeOf<TShape>) => QueryShapeOf<TShape>)(current.value));
+      } else {
+        writeThrough(idsOrUpdater);
+      }
+    };
+
     const mutations = Object.fromEntries(
       Object.entries(state.mutations).map(([key, reducer]) => [
         key,
@@ -167,6 +185,6 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     attachReload(data$, reload);
 
-    return { data$, set, reload, mutations };
+    return { data$, set, setRaw, reload, mutations };
   }, [params, fetchFn, reloadCounter, state, registry, ssr, defaultData]);
 }
