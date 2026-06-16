@@ -3,6 +3,8 @@ import { defineConfig } from "vocs/config";
 export default defineConfig({
   title: "rxfy",
   description: "A small library for typed, normalized and reactive state. Built on RxJS.",
+  logoUrl: { light: "/rxfy-lockup.svg", dark: "/rxfy-lockup-white.svg" },
+  iconUrl: "/rxfy-icon-tile.svg",
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Why rxfy?", link: "/why" },

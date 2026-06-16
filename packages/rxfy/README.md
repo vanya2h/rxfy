@@ -1,4 +1,7 @@
-# rxfy
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../assets/rxfy-lockup-white.svg">
+  <img alt="rxfy" src="../../assets/rxfy-lockup.svg" width="200">
+</picture>
 
 Core library for typed, normalized, reactive state. Define models and states; rxfy splits each fetch result into shared entity stores plus an id-only query shape. Every entity lives in one slot — a write reaches every subscriber with no list re-fetch.
 
