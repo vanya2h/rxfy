@@ -107,4 +107,60 @@ describe("useStatePagedData", () => {
     });
     expect(result.current.isLoading).toBe(false);
   });
+
+  it("stops paging once hasMore returns false", async () => {
+    const hasMore = ({ page }: { page: PostPage }) => page.items.length === 2;
+    // page 0 → 2 items (hasMore true); page 1 → 1 item (hasMore false).
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
+      Promise.resolve(cursor === 0 ? page(0, 2) : page(2, 1)),
+    );
+    const { result } = renderHook(
+      () =>
+        useStatePagedData({
+          state: pagedState,
+          params: PARAMS,
+          initial: INITIAL,
+          fetchPage,
+          getCursor,
+          merge,
+          hasMore,
+        }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$);
+    expect(result.current.hasMore).toBe(true);
+
+    await act(async () => {
+      result.current.loadMore();
+    });
+    await waitFor(() => expect(result.current.hasMore).toBe(false));
+
+    result.current.loadMore(); // guarded by hasMore — no fetch
+    expect(fetchPage).toHaveBeenCalledTimes(2); // page 0 + one loadMore only
+  });
+
+  it("surfaces hasMore=false straight from page 0 (no loadMore needed)", async () => {
+    const hasMore = ({ page }: { page: PostPage }) => page.items.length === 2;
+    // Page 0 itself is terminal (1 item) — hasMore must flip without any loadMore. This is the
+    // page-0 path: the result is mirrored into render state from the data$ subscription effect.
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 1)));
+    const { result } = renderHook(
+      () =>
+        useStatePagedData({
+          state: pagedState,
+          params: PARAMS,
+          initial: INITIAL,
+          fetchPage,
+          getCursor,
+          merge,
+          hasMore,
+        }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$);
+    await waitFor(() => expect(result.current.hasMore).toBe(false));
+
+    result.current.loadMore(); // guarded by hasMore — no fetch
+    expect(fetchPage).toHaveBeenCalledTimes(1); // only page 0, never a loadMore
+  });
 });

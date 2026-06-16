@@ -76,10 +76,18 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
 
   const handle = useStateData(state, fetchFirst, params);
 
-  // Subscribe to data$ to keep idsRef current for the loadMore path (wired in a later task).
+  // Keep idsRef current for the loadMore path and mirror hasMore into render state on each
+  // emission (React bails out when the value is unchanged). This surfaces the page-0 result
+  // computed in fetchFirst, not just loadMore's updates.
   useEffect(() => {
-    const sub = handle.data$.subscribe((ids) => {
-      idsRef.current = ids;
+    const sub = handle.data$.subscribe({
+      next: (ids) => {
+        idsRef.current = ids;
+        setHasMoreState(hasMoreRef.current);
+      },
+      // data$ errors on REJECTED — already surfaced to consumers via <Pending>. This is an
+      // internal side-channel, so swallow here to avoid RxJS's global unhandled-error path.
+      error: () => {},
     });
     return () => sub.unsubscribe();
   }, [handle.data$]);
