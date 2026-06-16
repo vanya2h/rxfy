@@ -68,18 +68,28 @@ A directory of **users/people**.
 
 - Component `src/Users.tsx`:
   - `params` is a stable empty object via `useMemo`.
-  - `cursor = useRef<string | null>(null)` — the next-page cursor (view state, kept out of
-    `params` per the guide).
+  - **Offset-as-cursor, derived from the loaded count (hydration-safe).** The cursor is
+    offset-based, and the offset equals the number of rows already loaded. Rather than
+    stashing `nextCursor` in a ref from `fetchFirst`, the component derives the next offset
+    from the current id-list length at call time. This matters because under SSR
+    `useStateData` hydrates page 1 from the query cache and does **not** re-run `fetchFirst`
+    on the client — a ref stashed during `fetchFirst` would stay `null` on the client and
+    break "Load more". Deriving offset from the rendered list length is correct on both
+    server and client.
   - `loading = useRef(false)` — guards overlapping `loadMore` calls.
-  - `fetchFirst` (passed to `useStateData`): `const page = await fetchUsers(null); cursor.current = page.nextCursor; return { users: page.items };`
+  - `const [hasMore, setHasMore] = useState(true)` — drives button disabled/hidden state;
+    flipped to `false` when a page returns `nextCursor === null`.
+  - `const [isLoading, setIsLoading] = useState(false)` — drives the loading affordance.
+  - `fetchFirst` (passed to `useStateData`): `async () => { const page = await fetchUsers(null); return { users: page.items }; }` (signature is a subset of `(params, signal)`, which is allowed).
   - `const { data$, set } = useStateData(usersState, fetchFirst, params);`
-  - `loadMore`: bail if `cursor.current === null` or `loading.current`; set `loading`,
-    fetch next page, update `cursor.current`, then
-    `set((prev) => ({ users: [...prev.users, ...page.items] }))`; clear `loading` in
+  - `loadMore(offset: number)`: bail if `loading.current || !hasMore`; set `loading`/`isLoading`,
+    `const page = await fetchUsers(String(offset))`, `setHasMore(page.nextCursor !== null)`,
+    then `set((prev) => ({ users: [...prev.users, ...page.items] }))`; clear loading flags in
     `finally`.
-  - Render: `<Pending value$={data$} pending={skeleton}>` → list of `<UserRow id={id} />`,
-    a "Load more" button (disabled when no `cursor` / while loading), and a
-    `<LoadMoreSentinel onVisible={loadMore} />` after the list.
+  - Render: `<Pending value$={data$} pending={skeleton}>{({ users }) => …}</Pending>` →
+    list of `<UserRow id={id} />`, a "Load more" button
+    (`onClick={() => loadMore(users.length)}`, disabled when `isLoading || !hasMore`), and a
+    `<LoadMoreSentinel onVisible={() => loadMore(users.length)} />` after the list.
 
 - `src/UserRow.tsx`: subscribes to one entity via `useModelStore(UserModel)` +
   `store.get(id)` (memoized), rendered through `<Pending>`.
@@ -98,10 +108,18 @@ per-chunk hydration.
   until page 1 resolves, then that markup streams in.
 - After the React stream completes, inject a single
   `hydrationScript(dehydrate(registry))` at the end of the document (after the root markup,
-  before `</body>`). The client `StoreProvider` (with `ssr`) drains
+  before the client bootstrap `<script>`). The client `StoreProvider` (with `ssr`) drains
   `window.__RXFY_SSR__` automatically on mount.
-- `entry-server.tsx` wraps `<App />` in `<StoreProvider registry={createModelRegistry()} ssr>`
-  (one registry per request); `entry-client.tsx` hydrates with `<StoreProvider ssr>`.
+- Mechanism: `entry-server.tsx`'s `render(url, options)` creates the per-request registry,
+  calls `renderToPipeableStream(<StoreProvider registry ssr><App/></StoreProvider>, options)`,
+  and returns `{ ...stream, getState }` where `getState = () => hydrationScript(dehydrate(registry))`.
+  Keeping the `dehydrate`/`hydrationScript` calls inside the vite-loaded entry module avoids a
+  duplicate-`rxfy`-instance hazard from importing it in `server.ts`.
+- `server.ts` splits the template on `<!--app-html-->` then `<!--app-state-->`. In the
+  transform stream's `finish` handler it writes: the markup after the app, then `getState()`,
+  then the tail (which contains the client bootstrap script) — so the snapshot script sits
+  after `</div id="root">` and before the module script.
+- `entry-client.tsx` hydrates with `<StoreProvider ssr><App/></StoreProvider>`.
 
 ### Known limitation (documented, not built)
 
@@ -138,7 +156,9 @@ examples/vite-ssr-pagination/
     vite-env.d.ts
 ```
 
-(Exact file set adjusts to whatever the template scaffolds; the above is the target shape.)
+The template scaffolds `server.js` (converted to `server.ts`), an `App.css`/`assets/`
+marketing landing page, and `public/icons.svg` — all removed/replaced. `public/favicon.svg`
+is kept. The above is the target shape after rewiring.
 
 ## Verification
 
