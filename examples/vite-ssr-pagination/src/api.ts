@@ -7,6 +7,7 @@ import type { UsersPage } from "../shared/users.ts";
  * build — faker never ships to the browser.
  */
 export async function fetchUsers(cursor: string | null): Promise<UsersPage> {
+  // eslint-disable-next-line turbo/no-undeclared-env-vars -- import.meta.env.SSR is a Vite build constant, not an env var
   if (import.meta.env.SSR) {
     const { getUsersPage } = await import("../shared/generate.ts");
     return getUsersPage(cursor);

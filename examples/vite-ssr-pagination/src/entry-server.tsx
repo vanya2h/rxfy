@@ -4,6 +4,8 @@ import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import App from "./App.tsx";
 
+// `_url` is unused — this example renders one route with no URL-derived params, but the
+// server passes it so the signature matches the template's `render(url, options)`.
 export function render(_url: string, options?: RenderToPipeableStreamOptions) {
   const registry = createModelRegistry(); // one per request
   const stream = renderToPipeableStream(

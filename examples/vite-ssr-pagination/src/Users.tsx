@@ -51,6 +51,12 @@ export function Users() {
           <button className="load-more" onClick={() => loadMore(users.length)} disabled={isLoading}>
             {isLoading ? "Loading…" : "Load more"}
           </button>
+          {/*
+            `onVisible` is intentionally a fresh closure each render so it always sees the
+            current `users.length`. That re-arms the sentinel's observer after every load, so
+            it keeps paging while it stays in view — `loading.current` is the guard that keeps
+            those repeats from overlapping.
+          */}
           <LoadMoreSentinel onVisible={() => loadMore(users.length)} />
         </>
       )}
