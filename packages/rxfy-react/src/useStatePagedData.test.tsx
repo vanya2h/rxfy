@@ -18,6 +18,12 @@ const pagedState = defineState({
   model: { posts: array(postModel) },
 });
 
+const filterState = defineState({
+  key: "paged-filter",
+  params: z.object({ filter: z.string() }),
+  model: { posts: array(postModel) },
+});
+
 // Stable references — config callbacks may be fresh each render (the hook stabilizes them),
 // but `params` must be referentially stable or useStateData rebuilds + refetches every render.
 const PARAMS = {};
@@ -211,5 +217,59 @@ describe("useStatePagedData", () => {
     });
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(4));
     expect(fetchPage).toHaveBeenNthCalledWith(4, expect.objectContaining({ cursor: 1 }));
+  });
+
+  it("resets pagination and refetches page 0 when params change", async () => {
+    // fetchPage returns param-specific ids so we can tell the new query's page 0 apart from the
+    // old accumulated list — proving the change resets rather than appends.
+    const fetchPage = vi.fn(({ cursor, params }: { cursor: number; params: { filter: string } }) =>
+      Promise.resolve(page(params.filter === "a" ? cursor : cursor + 100, 2)),
+    );
+    const paramsA = { filter: "a" };
+    const paramsB = { filter: "b" };
+    const { result, rerender } = renderHook(
+      ({ params }: { params: { filter: string } }) =>
+        useStatePagedData({ state: filterState, params, initial: INITIAL, fetchPage, getCursor, merge }),
+      { wrapper, initialProps: { params: paramsA } },
+    );
+    await firstValueFrom(result.current.data$); // filter "a" page 0 → ids "0","1"
+    await act(async () => {
+      result.current.loadMore();
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2)); // ids "0".."3"
+
+    rerender({ params: paramsB }); // new params → new handle → reset + refetch page 0
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
+    expect(fetchPage).toHaveBeenNthCalledWith(3, expect.objectContaining({ cursor: 0, params: paramsB }));
+
+    // list is the fresh filter-"b" page 0, not the old accumulated filter-"a" list
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.posts).toEqual(["100", "101"]);
+  });
+
+  it("a failed loadMore leaves the list intact, clears isLoading, and allows a retry", async () => {
+    let loadAttempts = 0;
+    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => {
+      if (cursor === 0) return Promise.resolve(page(0, 2));
+      loadAttempts += 1;
+      return loadAttempts === 1 ? Promise.reject(new Error("boom")) : Promise.resolve(page(2, 2));
+    });
+    const { result } = renderHook(
+      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$); // ids "0","1"
+
+    await act(async () => {
+      result.current.loadMore(); // rejects
+    });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect((await firstValueFrom(result.current.data$)).posts).toEqual(["0", "1"]); // unchanged
+
+    await act(async () => {
+      result.current.loadMore(); // retry succeeds — guard was cleared by .finally
+    });
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
+    expect((await firstValueFrom(result.current.data$)).posts).toEqual(["0", "1", "2", "3"]);
   });
 });
