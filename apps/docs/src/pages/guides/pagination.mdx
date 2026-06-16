@@ -1,54 +1,54 @@
 # Pagination and infinite scroll
 
 Load a list one page at a time and append each page into a single growing list, with every
-row normalized like any other entity. [`useStateData`](/react#usestatedata) owns the first
-page (and its cache / SSR); you fetch later pages yourself and merge them with `set`.
+row normalized like any other entity. [`useStatePagedData`](/react#usestatepageddata) owns the
+whole flow: page 0 is fetched, cached, and SSR'd through `useStateData`, while `loadMore()`
+fetches later pages and merges them in for you.
 
-The cursor is **view state**, not entity data; it tells you where to resume, so it lives in
-the component, outside the normalized store.
+The cursor is **view state**, not entity data; it tells you where to resume, so it lives in the
+hook (derived by `getCursor`), outside the normalized store.
 
 For a runnable version of everything below — an infinite list with a Load-more button, an
 infinite-scroll sentinel, and streaming SSR — see the
 [vite-ssr-pagination example](/examples#vite-ssr-pagination).
 
-## Append pages with `set`
+## Page with `useStatePagedData`
 
-`set((prev) => …)` takes the full list of entities, runs your updater, and normalizes the
-result back. Returning `prev.items` plus the next page appends those rows to the query's id
-list and writes their entities to the store:
+Give the hook a `fetchPage` (fetch one page for a cursor), a `getCursor` (where to resume —
+it receives the normalized **ids**, the same shape `data$` emits), and a `merge` (fold a page
+into the **denormalized** list, the way `set` works). Page 0 is `merge(initial, firstPage)`, so
+it returns the full shape and goes through `useStateData`'s cache / SSR path unchanged.
 
 ```tsx
-import { useCallback, useMemo, useRef } from "react";
-import { useStateData, Pending } from "rxfy-react";
-import { feedState, FeedItemModel } from "./feed";
+import { useMemo } from "react";
+import { useStatePagedData, Pending } from "rxfy-react";
+import { feedState } from "./feed";
 import { api } from "./api";
 
 function Feed() {
   const params = useMemo(() => ({ filter: "all" as const }), []);
-  const cursor = useRef<string | null>(null);
 
-  // First page goes through useStateData; stash the next cursor as it loads.
-  const fetchFirst = useCallback(async (p: { filter: "all" }) => {
-    const page = await api.feed({ ...p, cursor: null });
-    cursor.current = page.nextCursor;
-    return { items: page.items };
-  }, []);
-
-  const { data$, set } = useStateData(feedState, fetchFirst, params);
-
-  const loadMore = useCallback(async () => {
-    if (!cursor.current) return; // no more pages
-    const page = await api.feed({ cursor: cursor.current });
-    cursor.current = page.nextCursor;
-    set((prev) => ({ items: [...prev.items, ...page.items] }));
-  }, [set]);
+  const { data$, loadMore, isLoading, hasMore } = useStatePagedData({
+    state: feedState,
+    params,
+    initial: { items: [] },
+    // Offset cursor = number of rows already loaded. Page 0 gets cursor 0.
+    fetchPage: ({ cursor, params }) => api.feed({ ...params, offset: cursor }),
+    getCursor: ({ ids }) => ids.items.length,
+    merge: ({ prev, page }) => ({ items: [...prev.items, ...page.items] }),
+    hasMore: ({ page }) => page.items.length > 0,
+  });
 
   return (
     <Pending value$={data$} pending={<p>Loading…</p>}>
       {({ items }) => (
         <>
           <ul>{items.map((id) => <FeedRow key={id} id={id} />)}</ul>
-          <button onClick={loadMore}>Load more</button>
+          {hasMore && (
+            <button onClick={() => loadMore()} disabled={isLoading}>
+              {isLoading ? "Loading…" : "Load more"}
+            </button>
+          )}
         </>
       )}
     </Pending>
@@ -56,9 +56,23 @@ function Feed() {
 }
 ```
 
-`data$` emits `{ items: string[] }` (ids only), so each page's new ids append to the list
-while the row data lives in the `FeedItemModel` store. A row that appears on two pages (a
-duplicate the server returned) resolves to one cell, not two.
+`data$` emits `{ items: string[] }` (ids only), so each page's new ids append to the list while
+the row data lives in the `FeedItemModel` store. A row that appears on two pages (a duplicate the
+server returned) resolves to one cell, not two. `loadMore` guards against overlapping calls and
+becomes a no-op once `hasMore` returns `false`.
+
+## Cursor strategies
+
+`getCursor` returns whatever your API needs; its type is inferred as `TCursor` and flows into
+`fetchPage`.
+
+- **Offset** — `getCursor: ({ ids }) => ids.items.length`. Hydration-safe: it doesn't depend on
+  page 0 re-running on the client.
+- **Page number** — `getCursor: ({ pageIndex }) => pageIndex` (page 0 fetched as index 0, the
+  first `loadMore` as index 1, …).
+- **Opaque token** — return a token your API gave you. If the token lives on an entity field
+  (keyset pagination), `getCursor` only sees ids, not entities — drop down to `useStateData` +
+  manual `set` for that case.
 
 ## Drive it from a scroll sentinel
 
@@ -85,18 +99,18 @@ function LoadMoreSentinel({ onVisible }: { onVisible: () => void }) {
 }
 ```
 
-Render `<LoadMoreSentinel onVisible={loadMore} />` after the list. Guard against overlapping
-loads with an `isLoading` ref if a fast scroll can fire `loadMore` twice before a page
-returns.
+Render `<LoadMoreSentinel onVisible={() => loadMore()} />` after the list. No overlap guard is
+needed — `loadMore` ignores calls made while a page is already in flight.
 
 ## Notes
 
-- **Keep the cursor out of `params`.** If the cursor were a `useStateData` param, each page
-  would be a separate cached query and replace the previous list instead of extending it.
-  Stable params plus manual `set` is what accumulates one list.
-- **A new filter resets the list.** Changing `params` (a different `filter`) starts a fresh
-  query, page one of the new filter. Reset `cursor.current` to `null` when the filter
-  changes so the next `loadMore` starts over.
-- **Reloading.** `reload()` re-fetches the first page only. To restore a deep scroll
-  position after a reload, re-run your `loadMore` calls, or page the data server-side by an
-  offset you persist.
+- **Keep the cursor out of `params`.** The cursor is derived by `getCursor`, not a `useStateData`
+  param. If it were a param, each page would be a separate cached query and replace the previous
+  list instead of extending it. Stable `params` is what accumulates one list.
+- **A new filter resets the list.** Changing `params` (a different `filter`) starts a fresh query —
+  the hook resets pagination and refetches page 0 of the new filter automatically.
+- **Reloading.** `reload()` re-fetches the first page only and resets pagination. To restore a
+  deep scroll position after a reload, re-run your `loadMore` calls.
+- **Need full control?** For anything `useStatePagedData` can't express (keyset cursors over
+  entity fields, prepending, bidirectional paging), use [`useStateData`](/react#usestatedata)
+  directly and append pages with `set((prev) => …)`.

@@ -22,7 +22,7 @@ npm install rxfy rxfy-react
 ## Links
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started) — `StoreProvider` setup
-- [React Bindings](https://rxfy.vanya2h.me/react) — `useStateData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
+- [React Bindings](https://rxfy.vanya2h.me/react) — `useStateData`, `useStatePagedData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
 - [Server-Side Rendering](https://rxfy.vanya2h.me/ssr) — buffered, streaming (Next.js App Router), two-pass
 - [rxfy](../rxfy/README.md) — core library
 
