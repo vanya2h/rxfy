@@ -1,8 +1,8 @@
 # rxfy example — SSR pagination
 
 A streaming-SSR Vite app showing rxfy's paginated, normalized list pattern: a **truly
-infinite** users directory loaded one page at a time via a **Load more** button and an
-**infinite-scroll** sentinel. Rows are generated on demand with `@faker-js/faker` (seeded
+infinite** users directory loaded one page at a time, with a switch between a **Load more**
+button and **infinite scroll**. Rows are generated on demand with `@faker-js/faker` (seeded
 per index, so each offset is deterministic), so the list never runs out.
 
 ## Run

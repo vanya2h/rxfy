@@ -37,7 +37,7 @@ Companion guide: [Live updates over WebSockets](/guides/live-updates-websockets)
 
 **[examples/vite-ssr-pagination](https://github.com/vanya2h/rxfy/tree/main/examples/vite-ssr-pagination)**
 
-A **truly infinite** users directory paged one page at a time — with both a "Load more" button and an `IntersectionObserver` infinite-scroll sentinel. Page 1 is server-rendered through `useStateData`; later pages are fetched client-side and appended with `set`, so each page's ids extend one normalized list while row data lives in the `UserModel` store. Rows are generated on demand with `@faker-js/faker` (server-only, seeded per index), so the list never ends. Built on the Vite `ssr-react-streaming-ts` template: the shell streams via `renderToPipeableStream` + `onShellReady`, and a single `hydrationScript(dehydrate(registry))` is injected at the end of the stream.
+A **truly infinite** users directory paged one page at a time — with a switch between a "Load more" button and an `IntersectionObserver` infinite-scroll sentinel. Page 1 is server-rendered through `useStateData`; later pages are fetched client-side and appended with `set`, so each page's ids extend one normalized list while row data lives in the `UserModel` store. Rows are generated on demand with `@faker-js/faker` (server-only, seeded per index), so the list never ends. Built on the Vite `ssr-react-streaming-ts` template: the shell streams via `renderToPipeableStream` + `onShellReady`, and a single `hydrationScript(dehydrate(registry))` is injected at the end of the stream.
 
 ```bash
 pnpm --filter rxfy-example-ssr-pagination dev

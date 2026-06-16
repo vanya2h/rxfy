@@ -5,9 +5,14 @@ import { LoadMoreSentinel } from "./LoadMoreSentinel.tsx";
 import { UserRow } from "./UserRow.tsx";
 import { usersState } from "./users.ts";
 
+type Mode = "scroll" | "click";
+
 export function Users() {
   // Stable params → one query identity → manual `set` accumulates a single list.
   const params = useMemo(() => ({}), []);
+
+  // How the next page loads — pure view state, defaults to "scroll" on both server and client.
+  const [mode, setMode] = useState<Mode>("scroll");
 
   // First page goes through useStateData (SSR'd + cached + hydrated).
   const fetchFirst = useCallback(async () => {
@@ -40,26 +45,43 @@ export function Users() {
   );
 
   return (
-    <Pending value$={data$} pending={<p className="status">Loading users…</p>}>
-      {({ users }) => (
-        <>
-          <ul className="user-list">
-            {users.map((id) => (
-              <UserRow key={id} id={id} />
-            ))}
-          </ul>
-          <button className="load-more" onClick={() => loadMore(users.length)} disabled={isLoading}>
-            {isLoading ? "Loading…" : "Load more"}
-          </button>
-          {/*
-            `onVisible` is intentionally a fresh closure each render so it always sees the
-            current `users.length`. That re-arms the sentinel's observer after every load, so
-            it keeps paging while it stays in view — `loading.current` is the guard that keeps
-            those repeats from overlapping.
-          */}
-          <LoadMoreSentinel onVisible={() => loadMore(users.length)} />
-        </>
-      )}
-    </Pending>
+    <>
+      <div className="mode-toggle" role="group" aria-label="How to load more users">
+        <button className={mode === "scroll" ? "active" : ""} onClick={() => setMode("scroll")}>
+          Infinite scroll
+        </button>
+        <button className={mode === "click" ? "active" : ""} onClick={() => setMode("click")}>
+          Load on click
+        </button>
+      </div>
+
+      <Pending value$={data$} pending={<p className="status">Loading users…</p>}>
+        {({ users }) => (
+          <>
+            <ul className="user-list">
+              {users.map((id) => (
+                <UserRow key={id} id={id} />
+              ))}
+            </ul>
+            {mode === "click" ? (
+              <button className="load-more" onClick={() => loadMore(users.length)} disabled={isLoading}>
+                {isLoading ? "Loading…" : "Load more"}
+              </button>
+            ) : (
+              <>
+                {isLoading && <p className="status">Loading…</p>}
+                {/*
+                  `onVisible` is intentionally a fresh closure each render so it always sees the
+                  current `users.length`. That re-arms the sentinel's observer after every load,
+                  so it keeps paging while it stays in view — `loading.current` is the guard that
+                  keeps those repeats from overlapping.
+                */}
+                <LoadMoreSentinel onVisible={() => loadMore(users.length)} />
+              </>
+            )}
+          </>
+        )}
+      </Pending>
+    </>
   );
 }

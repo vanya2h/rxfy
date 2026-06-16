@@ -30,6 +30,33 @@ header h1 {
   color: #9aa0aa;
 }
 
+.mode-toggle {
+  display: inline-flex;
+  margin: 0 0 1rem;
+  padding: 2px;
+  gap: 2px;
+  background: #181b22;
+  border: 1px solid #242833;
+  border-radius: 10px;
+}
+
+.mode-toggle button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #9aa0aa;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  color: white;
+  background: #2b3140;
+}
+
 .user-list {
   list-style: none;
   margin: 0;
