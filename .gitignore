@@ -11,3 +11,4 @@ vite.config.ts.timestamp*
 .claude/settings.json
 .claude/worktrees
 apps/docs/src/pages.gen.ts
+examples/waku-blog/src/pages.gen.ts

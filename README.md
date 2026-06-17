@@ -3,7 +3,7 @@
   <img alt="rxfy" src="assets/rxfy-lockup.svg" width="200">
 </picture>
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization) keeps your app consistent and reactive at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a minimalistic framework that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization) keeps your app consistent and reactive at no extra cost.
 
 rxfy is built on three principles:
 
@@ -25,10 +25,10 @@ Installs two skills for AI coding assistants — `rxfy` (core API, React hooks, 
 
 ## Packages
 
-| Package | Purpose |
-|---|---|
-| [`rxfy`](packages/rxfy) | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
-| [`rxfy-react`](packages/rxfy-react) | Official React bindings (`rxfy-react/next` for Next.js App Router) |
+| Package                             | Purpose                                                                     |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| [`rxfy`](packages/rxfy)             | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy-react`](packages/rxfy-react) | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
 
 ## Install
 
