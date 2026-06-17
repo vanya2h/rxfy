@@ -1,4 +1,4 @@
-# Server-Side Rendering
+# Server-Side Rendering [Dehydrate on the server, hydrate with no refetch]
 
 SSR is on-demand; there is no prefetch API. Components declare their data with
 `useStateData` exactly as on the client; on the server (`<StoreProvider ssr>`) a cache
@@ -6,16 +6,20 @@ miss suspends until the fetch settles. Results (fulfilled or rejected) are captu
 registry, serialized into the HTML, and ingested on the client so the first paint is
 already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
 
-**Requirements:** give models a `name` and states a `key` (stable string identities), and
+:::info[Requirements]
+give models a `name` and states a `key` (stable string identities), and
 write `fetchFn` to work in both environments (it runs on the server during SSR and on the
 client for reloads).
+:::
 
 ## Buffered mode (any Node server)
 
 Wait for every Suspense boundary with `onAllReady`, then send the complete document. This
 is the recommended non-Next mode.
 
-```tsx
+:::code-group
+
+```tsx [server.tsx]
 import { renderToPipeableStream } from "react-dom/server";
 import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
 import { StoreProvider } from "rxfy-react";
@@ -32,7 +36,7 @@ renderToPipeableStream(
 );
 ```
 
-```tsx
+```tsx [client.tsx]
 // client: StoreProvider ingests the injected script automatically
 import { hydrateRoot } from "react-dom/client";
 
@@ -41,6 +45,8 @@ hydrateRoot(
   <StoreProvider ssr><App /></StoreProvider>,
 );
 ```
+
+:::
 
 See the [rr7-blog example](/examples#rr7-blog) for this mode wired into a React Router 7
 (framework mode) app, with loaders kept for routing only. The
@@ -53,8 +59,7 @@ injection, but over a streaming shell (`onShellReady`) on a plain Vite server.
 queries and entities as `window.__RXFY_SSR__.push(...)` script tags; the client
 `StoreProvider` ingests them, including chunks arriving after hydration starts.
 
-```tsx
-// app/providers.tsx
+```tsx [app/providers.tsx]
 "use client";
 import { StoreProvider } from "rxfy-react";
 import { HydrationStream } from "rxfy-react/next";

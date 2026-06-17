@@ -1,4 +1,4 @@
-# useAtom
+# useAtom [Two-way binding for any IAtom]
 
 `useAtom` binds any `IAtom<T>` (a plain `Atom`, a field [`Lens`](/core-concepts/lens), or
 a `ModelStore.entity(id)` handle) to React as `[value, setValue]`. Combined with
@@ -42,5 +42,7 @@ type IAtom<T> = Observable<T> & {
 
 See [Atom](/core-concepts/atom) for the full reference.
 
-> `atom$` must be referentially stable across renders; wrap `store.entity(id)` and the
-> `Lens` in `useMemo` as above.
+:::warning
+`atom$` must be referentially stable across renders; wrap `store.entity(id)` and the
+`Lens` in `useMemo` as above.
+:::

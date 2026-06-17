@@ -1,4 +1,4 @@
-# Model
+# Model [Typed entities in normalized storage]
 
 A typed entity descriptor that plugs into [normalized](/core-concepts/normalization) storage. `createModel` defines the
 shape and id-extraction logic; `ModelStore` is the reactive store that holds live entities.
@@ -37,8 +37,10 @@ users.set("1", { id: "1", name: "Alice" });
 users.get("1").subscribe(console.log); // emits { id: "1", name: "Alice" }
 ```
 
-> `get()` on a key that has never had `set()` called returns an Observable that never
-> emits until `set()` or `setMany()` is called for that key.
+:::warning
+`get()` on a key that has never had `set()` called returns an Observable that never
+emits until `set()` or `setMany()` is called for that key.
+:::
 
 A `ModelStore<T>` exposes:
 
