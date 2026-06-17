@@ -1,4 +1,4 @@
-# Getting Started
+# Getting Started [Install rxfy and wire up your app]
 
 ## Agent skills
 
@@ -14,26 +14,76 @@ This installs two skills — `rxfy` for the core API and `rxfy-react` hooks, and
 
 Install the two rxfy packages:
 
-```bash
+:::code-group
+
+```bash [npm]
 npm install rxfy rxfy-react
 ```
 
+```bash [pnpm]
+pnpm add rxfy rxfy-react
+```
+
+```bash [yarn]
+yarn add rxfy rxfy-react
+```
+
+```bash [bun]
+bun add rxfy rxfy-react
+```
+
+:::
+
+:::warning[Peer dependencies]
 rxfy declares `rxjs`, `zod`, and `lodash` as **peer dependencies**: it expects your app to
 provide them rather than bundling its own copies, so the whole app shares one instance of
 each (one RxJS, one Zod). npm does not install peer dependencies automatically, so add them
 yourself:
+:::
 
-```bash
+:::code-group
+
+```bash [npm]
 npm install rxjs zod lodash
 ```
+
+```bash [pnpm]
+pnpm add rxjs zod lodash
+```
+
+```bash [yarn]
+yarn add rxjs zod lodash
+```
+
+```bash [bun]
+bun add rxjs zod lodash
+```
+
+:::
 
 Version ranges: `rxjs ^7`, `zod ^4`, `lodash ^4`. `rxfy-react` additionally needs
 `react`/`react-dom` 18+ (which your React app already has), plus `next >=14` if you use the
 `rxfy-react/next` subpath. In a TypeScript project, also add `@types/react` as a dev dependency:
 
-```bash
+:::code-group
+
+```bash [npm]
 npm install --save-dev @types/react
 ```
+
+```bash [pnpm]
+pnpm add -D @types/react
+```
+
+```bash [yarn]
+yarn add -D @types/react
+```
+
+```bash [bun]
+bun add -d @types/react
+```
+
+:::
 
 ## Wrap your app
 

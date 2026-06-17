@@ -74,6 +74,27 @@ jobs:
       - name: Push release tags
         run: git push --follow-tags
 
+      - name: Create GitHub release
+        # The release/{version} PR adds docs/releases/{version}.md to main, so the
+        # notes file is present here. Fall back to auto-generated notes if it is
+        # missing, and skip cleanly if the release already exists.
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./packages/rxfy/package.json').version")
+          TAG="rxfy@${VERSION}"
+          NOTES="docs/releases/${VERSION}.md"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, skipping."
+            exit 0
+          fi
+          if [ -f "$NOTES" ]; then
+            gh release create "$TAG" --title "$VERSION" --notes-file "$NOTES"
+          else
+            echo "::warning::$NOTES not found, generating notes automatically."
+            gh release create "$TAG" --title "$VERSION" --generate-notes
+          fi
+
       - name: Sync version bumps to staging and develop
         # Best-effort housekeeping: packages are already published, so a sync
         # hiccup must not fail the job. Force the switch to discard any

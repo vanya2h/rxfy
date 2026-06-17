@@ -1,4 +1,4 @@
-# Live updates over WebSockets
+# Live updates over WebSockets [Push entity changes to exactly the clients that hold them]
 
 Normalization does most of the work here. Because every entity lives in **one** keyed cell
 (see [Normalization](/core-concepts/normalization)), a server push doesn't need to know which client renders
@@ -17,8 +17,23 @@ client that subscribes to whatever lands in the model store (via the
 with [`store.setMany`](/core-concepts/model#modelstore-entity). Your existing `useStateData` /
 `useModelStore` components don't change; nothing in them is live-aware.
 
-> rxfy ships **no** WebSocket helper. Everything below is user-land code, a thin layer
-> between the socket and the model store.
+:::info
+rxfy ships **no** WebSocket helper. Everything below is user-land code, a thin layer
+between the socket and the model store.
+:::
+
+:::file-tree
+- shared
+  - todo.ts
+- server
+  - db.ts
+  - hub.ts
+  - index.ts
+- client
+  - LiveProvider.tsx
+  - useStoreSubscriptions.ts
+  - useLiveEntities.ts
+:::
 
 ## The messages
 
@@ -70,8 +85,8 @@ Define the entity's zod schema once and use it on both sides, `createModel` on t
 and validation on the server, so they can't drift. The Drizzle table mirrors it (or use
 `drizzle-zod` to derive one from the other).
 
-```ts
-// shared/todo.ts (imported by client and server)
+```ts [shared/todo.ts]
+// imported by client and server
 import { z } from "zod";
 
 export const TodoSchema = z.object({
@@ -82,8 +97,7 @@ export const TodoSchema = z.object({
 export type Todo = z.infer<typeof TodoSchema>;
 ```
 
-```ts
-// server/db.ts
+```ts [server/db.ts]
 import { drizzle } from "drizzle-orm/node-postgres";
 import { pgTable, text, boolean } from "drizzle-orm/pg-core";
 
@@ -103,8 +117,7 @@ the entire subscription state: no per-entity index, no thousands of small sets t
 ids come and go. A client adds and removes topics as its dependency graph changes; `publish`
 walks the connections and delivers to those whose set includes the changed entity.
 
-```ts
-// server/hub.ts
+```ts [server/hub.ts]
 import type { WSContext } from "hono/ws";
 import { type Topic } from "rxfy";
 
@@ -153,8 +166,7 @@ apps never need it.
 then `publish`es the changed row to its topic, reaching every client holding that todo and
 no one else. The WebSocket handler turns `sub` / `unsub` messages into hub calls.
 
-```ts
-// server/index.ts
+```ts [server/index.ts]
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
 import { Hono } from "hono";
@@ -217,11 +229,13 @@ manager small: it accumulates topics and tells the server about the ones it hasn
 about yet. There's no per-component bookkeeping and no unsubscribe path, because the store
 doesn't evict; once you've loaded an entity you stay live on it for the session.
 
-> **The trade-off.** This subscribes to *everything the client has loaded* and never drops a
-> topic. That's the deliberate simplification: the server only pushes entities that actually
-> *change*, and a push into a cell nothing renders is a cheap `setMany`. If you later need to
-> shed subscriptions (very long sessions, strict fan-out budgets), add a remove path keyed on
-> store eviction; most apps never do.
+:::warning[The trade-off]
+This subscribes to *everything the client has loaded* and never drops a
+topic. That's the deliberate simplification: the server only pushes entities that actually
+*change*, and a push into a cell nothing renders is a cheap `setMany`. If you later need to
+shed subscriptions (very long sessions, strict fan-out budgets), add a remove path keyed on
+store eviction; most apps never do.
+:::
 
 `createSubscriptionManager` is provided by `rxfy`:
 
@@ -232,8 +246,7 @@ export type { SubscriptionManager };
 
 Call it with a `send` function that writes to the socket:
 
-```ts
-// LiveProvider.tsx (excerpt)
+```ts [LiveProvider.tsx (excerpt)]
 const manager = createSubscriptionManager((topics) => {
   if (socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type: "add", topics }));
@@ -253,8 +266,7 @@ the store (from the initial `useStateData` fetch, from SSR hydration, or from a 
 the connection live on the store's contents. No component passes ids anywhere; there's no
 `useLiveQuery`.
 
-```ts
-// useStoreSubscriptions.ts
+```ts [useStoreSubscriptions.ts]
 import { useEffect } from "react";
 import { type Topic } from "rxfy";
 import { useModelRegistry } from "rxfy-react";
@@ -282,8 +294,7 @@ push); `added$` delivers it either way, exactly once, and `want` dedupes the res
 A push arrives → validate each entity with the model's own schema → `store.setMany`. Use
 `addEventListener` (not `socket.onmessage =`) so several models can share one socket.
 
-```tsx
-// useLiveEntities.ts
+```tsx [useLiveEntities.ts]
 import { useEffect } from "react";
 import type { ModelDescriptor } from "rxfy";
 import { useModelStore } from "rxfy-react";
@@ -311,8 +322,7 @@ for each live model, and exposes the client through context. Mount it under `Sto
 (store → server, "subscribe me to these"), `useLiveEntities` is the *inbound* half (server →
 store, "here's a change").
 
-```tsx
-// LiveProvider.tsx
+```tsx [LiveProvider.tsx]
 import { createContext, useContext, useEffect, useMemo } from "react";
 import { createSubscriptionManager, type SubscriptionManager } from "rxfy";
 import { useStoreSubscriptions } from "./useStoreSubscriptions";
@@ -359,8 +369,10 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
 }
 ```
 
-> `LiveBridge` is a child of the context provider so its hooks can call `useLiveClient` (via
-> `useStoreSubscriptions`); the socket lives in the parent and is passed down as a prop.
+:::note
+`LiveBridge` is a child of the context provider so its hooks can call `useLiveClient` (via
+`useStoreSubscriptions`); the socket lives in the parent and is passed down as a prop.
+:::
 
 ```tsx
 <StoreProvider>
@@ -393,27 +405,18 @@ holding that id re-render, and only the clients that fetched it received the pus
 
 ## How it flows
 
-```text
-   Client A toggles todo u1               Client C never fetched u1
-        |                                        (not subscribed)
-        | POST /todos/u1/toggle                       |
-        v                                             |
-   Hono route ── writes row ──> Postgres (Drizzle)    |
-        |                                             |
-        | publish("todo", "u1", updated)              |
-        v                                             |
-   +-------------------------------------------------+ |
-   |  hub: for each connection, deps.has("todo:u1")?  | |
-   |  A {todo:u1, …} yes   B {todo:u1} yes   C {…} no  | |
-   +-------------------------------------------------+ |
-        |                    |                         x  (skipped)
-        v                    v
-   Client A             Client B
-   store.setMany        store.setMany
-        |                    |
-        v                    v
-   the one TodoModel cell for u1: every subscriber of u1 re-renders,
-   no refetch, no re-select; clients without u1 are untouched
+```mermaid
+graph TD
+  A["Client A toggles todo u1"] -->|"POST /todos/u1/toggle"| Route["Hono route"]
+  Route -->|"writes row"| PG["Postgres (Drizzle)"]
+  Route -->|"publish(todo, u1, updated)"| Hub["hub: for each connection,<br/>deps.has(todo:u1)?"]
+  Hub -->|"A has todo:u1 — yes"| CA["Client A"]
+  Hub -->|"B has todo:u1 — yes"| CB["Client B"]
+  Hub -->|"C — no"| CC["Client C never fetched u1 — skipped"]
+  CA --> SA["store.setMany"]
+  CB --> SB["store.setMany"]
+  SA --> Cell["the one TodoModel cell for u1:<br/>every subscriber of u1 re-renders,<br/>no refetch, no re-select;<br/>clients without u1 are untouched"]
+  SB --> Cell
 ```
 
 ## Adding and removing items

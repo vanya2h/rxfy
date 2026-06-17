@@ -1,6 +1,6 @@
-# rxfy
+# rxfy [Typed, normalized, reactive state — built on RxJS]
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a small library that lets you declare typed models and the states that query them, then access
+**rxfy** (/ɑɹ ɪks faɪ/) is a minimalistic framework that lets you declare typed models and the states that query them, then access
 their data as reactive observables. [Normalization](/core-concepts/normalization) keeps your app consistent
 and reactive at no extra cost.
 
@@ -12,7 +12,9 @@ rxfy normalizes the result, handles SSR, and rehydrates the client without a sec
 
 ## Quick taste
 
-**Step 1 — Define the model.**
+::::steps
+
+### Define the model
 
 A model binds a Zod schema to an id extractor. Every entity of this type lives in exactly one store slot, keyed by `getKey`.
 
@@ -26,7 +28,7 @@ const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done
 });
 ```
 
-**Step 2 — Define state and mutations.**
+### Define state and mutations
 
 `defineState` declares the fetch params, which models the response contains, and how mutations transform it. rxfy normalizes the result into model stores automatically.
 
@@ -46,7 +48,7 @@ const todosState = defineState({
 });
 ```
 
-**Step 3 — Fetch and render the list.**
+### Fetch and render the list
 
 `useStateData` wires the state to your fetch function and returns a reactive `data$` stream. `Pending` handles the loading and error states declaratively. The query shape carries only ids — not full entities.
 
@@ -73,7 +75,7 @@ function TodoApp() {
 }
 ```
 
-**Step 4 — Subscribe to individual entities.**
+### Subscribe to individual entities
 
 Each item subscribes to its own store slot. A single `store.set` — from a refetch, mutation, or websocket push — updates every component showing that entity, with no list re-fetch.
 
@@ -88,9 +90,13 @@ function TodoItem({ id }: { id: string }) {
 }
 ```
 
+::::
+
 Continue to [Getting Started](/getting-started).
 
+:::tip
 Using an AI coding assistant? Install the [Agent Skills](/agent-skills) to give it accurate rxfy context.
+:::
 
 ## How it compares
 
