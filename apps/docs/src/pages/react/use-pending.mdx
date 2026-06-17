@@ -1,4 +1,4 @@
-# usePending
+# usePending [The status value behind Pending]
 
 The hook behind [`Pending`](/react/pending), for when you need the status value rather than
 rendered UI. It subscribes to any `ObservableLike<T>` (an `Observable<T>` or a plain value) and
@@ -46,5 +46,7 @@ type IWrapped<T, K extends StatusEnum = StatusEnum> = {
 The matching `createIdle` / `createPending` / `createFulfilled` / `createRejected`
 constructors are exported from `rxfy` for building these values directly.
 
-> `source$` must be referentially stable across renders; wrap inline-created sources in
-> `useMemo`.
+:::warning
+`source$` must be referentially stable across renders; wrap inline-created sources in
+`useMemo`.
+:::
