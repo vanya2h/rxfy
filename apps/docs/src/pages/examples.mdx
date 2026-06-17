@@ -69,3 +69,15 @@ The same blog domain as `next-blog`, but on React Router 7 (framework mode) with
 ```bash
 pnpm --filter rxfy-example-rr7-blog dev
 ```
+
+---
+
+## waku-blog
+
+**[examples/waku-blog](https://github.com/vanya2h/rxfy/tree/main/examples/waku-blog)**
+
+The same blog domain as `next-blog` and `rr7-blog`, on [Waku](https://waku.gg) (the minimal, RSC-based React framework) — a static home (`getConfig { render: "static" }`) and a per-request dynamic post page (`render: "dynamic" }`). Waku exposes no script-injection seam (no `useServerInsertedHTML`, no custom `entry.server`), so rxfy hydrates the RSC way: each page **prefetches before render** in its Server Component, `dehydrate`s a per-request registry, and passes the JSON snapshot to a small `<HydrateSnapshot />` client component that merges it into the persistent layout-owned `StoreProvider` — zero client fetch on first paint, with the store persisting across client navigations. The `prefetch` helper is example-local, built only from public rxfy exports (`normalizeResult`, `stableStringify`, `createFulfilled`, `dehydrate`).
+
+```bash
+pnpm --filter rxfy-example-waku-blog dev
+```
