@@ -97,18 +97,10 @@ Follow these steps:
     gh pr create --title "Release {version}" --base main --body "$(cat docs/releases/{version}.md)"
     ```
 
-13. Create a single GitHub release for this version. **Requires `changeset publish` to have run first** (it creates the `rxfy@{version}` tag). If the tag does not exist yet, tell the user to run `changeset publish` first, then re-run this step.
+    The GitHub release itself is created automatically by the `Release` workflow
+    (`.github/workflows/release.yml`) once this PR is merged to `main` and
+    `changeset publish` has created the `rxfy@{version}` tag. That workflow reads
+    `docs/releases/{version}.md` (added by this PR) as the release notes, so no
+    manual `gh release create` step is needed here.
 
-    Check that the tag exists:
-    ```
-    git tag -l "rxfy@{version}"
-    ```
-
-    If it exists, create the release:
-    ```
-    gh release create rxfy@{version} \
-      --title "{version}" \
-      --notes-file docs/releases/{version}.md
-    ```
-
-14. Return the PR URL and the GitHub release URL to the user.
+13. Return the PR URL to the user.

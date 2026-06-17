@@ -1,10 +1,11 @@
-import { defineConfig } from "vocs/config";
+import { Changelog, defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "rxfy",
   description: "A small library for typed, normalized and reactive state. Built on RxJS.",
   logoUrl: { light: "/rxfy-mark.svg", dark: "/rxfy-mark-white.svg" },
   iconUrl: "/rxfy-icon-tile.svg",
+  changelog: Changelog.github({ repo: "vanya2h/rxfy" }),
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Why rxfy?", link: "/why" },
@@ -12,6 +13,7 @@ export default defineConfig({
     { text: "Agent Skills", link: "/agent-skills" },
     { text: "Comparison", link: "/comparison" },
     { text: "Examples", link: "/examples" },
+    { text: "Changelog", link: "/changelog" },
 
     {
       text: "Core Concepts",
