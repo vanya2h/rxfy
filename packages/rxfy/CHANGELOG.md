@@ -1,5 +1,11 @@
 # rxfy
 
+## 1.2.1-rc.0
+
+### Patch Changes
+
+- 72fef24: Rewrite the package README intro to match the docs site
+
 ## 1.2.0
 
 ### Minor Changes
