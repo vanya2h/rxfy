@@ -6,6 +6,7 @@ RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ patches/
 COPY apps/docs/package.json apps/docs/
 RUN pnpm install --frozen-lockfile --filter docs...
 
@@ -21,6 +22,7 @@ FROM base AS production
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=deps /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
+COPY --from=deps /app/patches ./patches
 COPY --from=deps /app/apps/docs/package.json apps/docs/
 RUN pnpm install --frozen-lockfile --filter docs... --prod
 COPY --from=build /app/apps/docs/dist apps/docs/dist
