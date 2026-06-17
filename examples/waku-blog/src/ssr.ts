@@ -1,12 +1,12 @@
 import {
   createFulfilled,
   createModelRegistry,
-  type DehydratedState,
   dehydrate,
+  type DehydratedState,
   normalizeResult,
   type QueryShapeOf,
-  type StateDescriptor,
   stableStringify,
+  type StateDescriptor,
 } from "rxfy";
 
 /**
