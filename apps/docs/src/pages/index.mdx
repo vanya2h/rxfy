@@ -92,6 +92,15 @@ Continue to [Getting Started](/getting-started).
 
 Using an AI coding assistant? Install the [Agent Skills](/agent-skills) to give it accurate rxfy context.
 
+## How it compares
+
+- **Redux Toolkit** — same normalized, immutable approach, but stream-first instead of selector-first, with fetching and SSR built in rather than wired up from RTK Query and slices.
+- **MobX** — trades direct mutation for explicit immutable streams that serialize cleanly for SSR, and adds normalization and a query layer MobX leaves to you.
+- **Jotai** — its atom is a config object resolved against a store; an rxfy `Atom` is a real RxJS Observable cell that carries its value and works outside React.
+- **TanStack Query** — caches responses by query key and refetches to reconcile; rxfy normalizes into per-entity cells, so one write reaches every subscriber with no refetch.
+
+[See full comparison →](/comparison)
+
 ## Useful links
 
 - [rxfy on npm](https://www.npmjs.com/package/rxfy)
