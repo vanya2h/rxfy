@@ -50,12 +50,15 @@ This is the RSC-idiomatic shape and requires **no library change**.
 
 1. Calls the rxfy fetcher directly into a fresh per-request `ModelRegistry`.
 2. `dehydrate`s the registry to a JSON-safe snapshot.
-3. Renders a client `StoreProvider dehydratedState={snapshot} ssr`, which hydrates the snapshot into
-   the client registry on construction.
+3. Renders a small `HydrateSnapshot` client component that merges the snapshot into the **single,
+   persistent** `StoreProvider` registry owned by the root layout (`_layout.tsx`).
 
+The `StoreProvider` lives in the layout (not per page) so the store persists across client
+navigations; each page contributes its own snapshot via `HydrateSnapshot`, which calls
+`hydrate(registry, snapshot)` once per mount (in a `useState` initializer, on both SSR and client).
 During Waku's SSR of the client tree, `useStateData` / `useModelStore` find the data already in the
 store and render fully — no fetch. On the client, hydration matches; subsequent client navigations
-reuse the warm store with no refetch.
+reuse the warm layout-owned store with no refetch.
 
 The snapshot (`dehydrate` output) is JSON-serializable, so it crosses Waku's RSC boundary cleanly as
 a prop.
@@ -111,13 +114,14 @@ examples/waku-blog/
     blog.ts               # ported from next-blog: schemas, models, states, fetchers, mutations
     db.ts                 # ported seed data
     ssr.ts                # prefetch() helper (above)
-    providers.tsx         # 'use client' — RxfyProvider wrapping StoreProvider with dehydratedState
+    providers.tsx         # 'use client' — RxfyProvider wrapping the persistent StoreProvider
     pages/
-      _layout.tsx         # root layout: <html>/<body>, global styles, RxfyProvider boundary
-      index.tsx           # Server Component, getConfig { render: 'static' } → prefetch + PostList
+      _layout.tsx         # root layout: <html>/<body>, global styles, RxfyProvider, nav
+      index.tsx           # Server Component, getConfig { render: 'static' } → prefetch + HydrateSnapshot + PostList
       posts/
-        [slug].tsx        # Server Component, getConfig { render: 'dynamic' } → prefetch + PostDetail
+        [slug].tsx        # Server Component, getConfig { render: 'dynamic' } → prefetch + HydrateSnapshot + PostDetail
     components/           # 'use client', ported from next-blog
+      HydrateSnapshot.tsx # merges a page snapshot into the layout's shared registry
       PostList.tsx
       PostDetail.tsx
       AddCommentForm.tsx
@@ -135,18 +139,29 @@ examples/waku-blog/
 `postsState`/`postDetailState`, `fetchPosts`/`fetchPostDetail`, `createComment`). Models keep their
 `name` and states keep their `key` (required for dehydration).
 
-`providers.tsx` (`'use client'`):
+`providers.tsx` (`'use client'`) owns the single persistent registry (rendered once in the layout):
 
 ```tsx
 "use client";
 import { StoreProvider } from "rxfy-react";
-import type { DehydratedState } from "rxfy";
 
-export function RxfyProvider({ dehydratedState, children }: {
-  dehydratedState: DehydratedState;
-  children: React.ReactNode;
-}) {
-  return <StoreProvider dehydratedState={dehydratedState} ssr>{children}</StoreProvider>;
+export function RxfyProvider({ children }: { children: React.ReactNode }) {
+  return <StoreProvider ssr>{children}</StoreProvider>;
+}
+```
+
+`components/HydrateSnapshot.tsx` (`'use client'`) merges a page's snapshot into that registry once:
+
+```tsx
+"use client";
+import { useState } from "react";
+import { type DehydratedState, hydrate } from "rxfy";
+import { useModelRegistry } from "rxfy-react";
+
+export function HydrateSnapshot({ snapshot }: { snapshot: DehydratedState }) {
+  const registry = useModelRegistry();
+  useState(() => { hydrate(registry, snapshot); return null; });
+  return null;
 }
 ```
 
@@ -154,16 +169,16 @@ export function RxfyProvider({ dehydratedState, children }: {
 
 ```tsx
 import { fetchPosts, postsState } from "../blog";
-import { RxfyProvider } from "../providers";
+import { HydrateSnapshot } from "../components/HydrateSnapshot";
 import { prefetch } from "../ssr";
 import PostList from "../components/PostList";
 
 export default async function HomePage() {
-  const dehydratedState = await prefetch(postsState, fetchPosts, {});
-  return <RxfyProvider dehydratedState={dehydratedState}><PostList /></RxfyProvider>;
+  const snapshot = await prefetch(postsState, fetchPosts, {});
+  return <><HydrateSnapshot snapshot={snapshot} /><PostList /></>;
 }
 
-export const getConfig = () => ({ render: "static" } as const);
+export const getConfig = async () => ({ render: "static" } as const);
 ```
 
 **Dynamic detail — `pages/posts/[slug].tsx`:**
@@ -171,17 +186,17 @@ export const getConfig = () => ({ render: "static" } as const);
 ```tsx
 import type { PageProps } from "waku/router";
 import { fetchPostDetail, type PostId, postDetailState } from "../../blog";
-import { RxfyProvider } from "../../providers";
+import { HydrateSnapshot } from "../../components/HydrateSnapshot";
 import { prefetch } from "../../ssr";
 import PostDetail from "../../components/PostDetail";
 
 export default async function PostPage({ slug }: PageProps<"/posts/[slug]">) {
   const postId = slug as PostId;
-  const dehydratedState = await prefetch(postDetailState, fetchPostDetail, { postId });
-  return <RxfyProvider dehydratedState={dehydratedState}><PostDetail postId={postId} /></RxfyProvider>;
+  const snapshot = await prefetch(postDetailState, fetchPostDetail, { postId });
+  return <><HydrateSnapshot snapshot={snapshot} /><PostDetail postId={postId} /></>;
 }
 
-export const getConfig = () => ({ render: "dynamic" } as const);
+export const getConfig = async () => ({ render: "dynamic" } as const);
 ```
 
 (Exact Waku page-prop / `getConfig` / params API to be confirmed against the installed Waku version
