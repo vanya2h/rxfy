@@ -399,6 +399,58 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  examples/waku-blog:
+    dependencies:
+      lodash:
+        specifier: ^4.17.21
+        version: 4.17.21
+      react:
+        specifier: ^19.2.7
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.2.7
+        version: 19.2.7(react@19.2.7)
+      rxfy:
+        specifier: workspace:*
+        version: link:../../packages/rxfy
+      rxfy-react:
+        specifier: workspace:*
+        version: link:../../packages/rxfy-react
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
+      waku:
+        specifier: 1.0.0-beta.3
+        version: 1.0.0-beta.3(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.7(react@19.2.7))(react-server-dom-webpack@19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0)))(react@19.2.7)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/lodash':
+        specifier: ^4.17.17
+        version: 4.17.17
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.15.29
+      '@types/react':
+        specifier: ^19.2.17
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.17)
+      '@vanya2h/eslint-config':
+        specifier: ^0.4.0
+        version: 0.4.0(eslint@9.28.0(jiti@2.7.0))(prettier@3.8.4)(turbo@2.5.4)(typescript@5.8.3)
+      eslint:
+        specifier: ^9.27.0
+        version: 9.28.0(jiti@2.7.0)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.0.1
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+
   packages/rxfy:
     devDependencies:
       '@types/lodash':
@@ -6043,6 +6095,15 @@ packages:
 
   waku@1.0.0-beta.1:
     resolution: {integrity: sha512-fsDHpz4K+h7K7Umyoweclrvxdk+jZD5lzg4dByuIh7sctiEe8YTu4DhRAxel+cRp9LvLRB8hcWgwkjCBLiqxVg==}
+    engines: {node: ^26.0.0 || ^24.0.0 || ^22.13.0}
+    hasBin: true
+    peerDependencies:
+      react: ~19.2.4
+      react-dom: ~19.2.4
+      react-server-dom-webpack: ~19.2.4
+
+  waku@1.0.0-beta.3:
+    resolution: {integrity: sha512-j8la6SzYX/pqqnjT/FTsr8de+jCwP4rthyV7IbRm/qEwECbUS0kXcG2VLs5TDGCumLnzq9uRl4iwocxG3+U8rQ==}
     engines: {node: ^26.0.0 || ^24.0.0 || ^22.13.0}
     hasBin: true
     peerDependencies:
@@ -12555,6 +12616,36 @@ snapshots:
       xml-name-validator: 5.0.0
 
   waku@1.0.0-beta.1(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.7(react@19.2.7))(react-server-dom-webpack@19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0)))(react@19.2.7)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0):
+    dependencies:
+      '@hono/node-server': 2.0.4(hono@4.12.25)
+      '@vitejs/plugin-react': 6.0.2(vite@8.0.16(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      '@vitejs/plugin-rsc': 0.5.27(react-dom@19.2.7(react@19.2.7))(react-server-dom-webpack@19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0)))(react@19.2.7)(vite@8.0.16(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      dotenv: 17.4.2
+      hono: 4.12.25
+      magic-string: 0.30.21
+      picocolors: 1.1.1
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+      react-server-dom-webpack: 19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0))
+      rsc-html-stream: 0.0.7
+      vite: 8.0.16(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - '@rolldown/plugin-babel'
+      - '@types/node'
+      - '@vitejs/devtools'
+      - babel-plugin-react-compiler
+      - esbuild
+      - jiti
+      - less
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
+
+  waku@1.0.0-beta.3(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(react-dom@19.2.7(react@19.2.7))(react-server-dom-webpack@19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(esbuild@0.28.1)(lightningcss@1.32.0)))(react@19.2.7)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0):
     dependencies:
       '@hono/node-server': 2.0.4(hono@4.12.25)
       '@vitejs/plugin-react': 6.0.2(vite@8.0.16(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
