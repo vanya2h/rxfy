@@ -1,4 +1,4 @@
-# Pending
+# Pending [Render pending, rejected, and fulfilled UI for any observable]
 
 Subscribes to any `ObservableLike<T>` and renders pending / rejected / fulfilled UI. The
 `rejected` render prop receives `{ error: unknown }`. If `rejected`
@@ -50,5 +50,7 @@ type IRenderable<TData> = React.ReactNode | ((data: TData) => React.ReactNode);
 type ObservableLike<T> = Observable<T> | T;
 ```
 
-> `Pending` is powered by the lower-level [`usePending`](/react/use-pending) hook. The `source$`
-> you pass must be referentially stable across renders, and `data$` from `useStateData` already is.
+:::warning
+`Pending` is powered by the lower-level [`usePending`](/react/use-pending) hook. The `source$`
+you pass must be referentially stable across renders, and `data$` from `useStateData` already is.
+:::

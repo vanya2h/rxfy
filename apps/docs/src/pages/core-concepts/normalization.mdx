@@ -1,10 +1,12 @@
-# Normalization
+# Normalization [Store each entity once, reference it by id]
 
 Normalization is the idea rxfy is built around: store each entity **once**, keyed by its id,
 and reference it by id everywhere else.
 
-> **Mental model:** entities are rows in a table keyed by id · a query holds a list of those
-> ids · components render by id.
+:::note[Mental model]
+Entities are rows in a table keyed by id · a query holds a list of those
+ids · components render by id.
+:::
 
 The APIs below (`defineState`, `useStateData`, `Pending`, `useModelStore`) are covered in
 [Model](/core-concepts/model), [State](/core-concepts/state), and
@@ -51,7 +53,14 @@ Because both `teamState` and `profileState` declare `UserModel`, rxfy keys every
 `getKey` id and stores it **once**, in a single `UserModel` store, no matter which state
 fetched it. Each query then keeps only **ids**; the entity data lives in the shared store:
 
-![teamState and profileState both normalize their entities by id into a single shared UserModel store (the source of truth); the Team page reads u1 and u2 from it and the Profile page reads u1, each via useModelStore.](/core-concepts/normalization.png)
+```mermaid
+graph TD
+  TS["teamState<br/>members: [u1, u2]"] -->|normalize by id| STORE
+  PS["profileState<br/>user: u1"] -->|normalize by id| STORE
+  STORE["Shared UserModel store<br/>(source of truth)<br/>u1 = Alice · u2"]
+  STORE -->|"useModelStore → u1, u2"| TEAM["Team page"]
+  STORE -->|"useModelStore → u1"| PROFILE["Profile page"]
+```
 
 Each page subscribes to its own `data$` (ids only) and reads entities by id from the shared
 store. The team page resolves `"u1"` against the same store the profile page wrote to, so both

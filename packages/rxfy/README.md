@@ -3,7 +3,15 @@
   <img alt="rxfy" src="../../assets/rxfy-lockup.svg" width="200">
 </picture>
 
-Core library for typed, normalized, reactive state. Define models and states; rxfy splits each fetch result into shared entity stores plus an id-only query shape. Every entity lives in one slot — a write reaches every subscriber with no list re-fetch.
+**rxfy** (/ɑɹ ɪks faɪ/) is a minimalistic framework that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization) keeps your app consistent and reactive at no extra cost.
+
+rxfy is built on three principles:
+
+- Every entity lives in one slot, keyed by its id; a write reaches every subscriber with no list re-fetch.
+- Each slot is an RxJS Observable that components subscribe to directly.
+- You declare the fetch shape, the model, and the mutations; rxfy normalizes the result, handles SSR, and rehydrates the client without a second fetch.
+
+[Why rxfy?](https://rxfy.vanya2h.me/why) explains the thinking behind this design.
 
 📚 **Documentation: [rxfy.vanya2h.me](https://rxfy.vanya2h.me)**
 

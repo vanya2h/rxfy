@@ -1,4 +1,4 @@
-# useStateData
+# useStateData [Fetch, normalize, and subscribe to a query]
 
 Fetches data, normalizes entities into model stores, and returns a `StateHandle`.
 **`data$` emits the normalized query shape: entity ids, not entities** (`array` fields
@@ -107,9 +107,11 @@ export default function TodoPage() {
 }
 ```
 
-> When `params` changes (navigation to a new route), the new cache key starts `IDLE` and
-> `defaultData` is applied again — so the next loader's data seeds the next page without
-> a redundant fetch.
+:::note
+When `params` changes (navigation to a new route), the new cache key starts `IDLE` and
+`defaultData` is applied again — so the next loader's data seeds the next page without
+a redundant fetch.
+:::
 
 `defaultData` is the right fit when the framework already owns data fetching and you want to
 hand rxfy a head start. The alternative is to let **rxfy own SSR end to end**: components fetch
@@ -158,6 +160,8 @@ The updater form reads the current ids and is a **no-op until the query is `FULF
 no list to amend yet). For the common pagination case you don't call `setRaw` yourself —
 [`useStatePagedData`](/react/use-state-paged-data) composes it for you.
 
-> Passing entities to `setRaw` costs O(objects passed) — only the objects are normalized, ids are
-> free. Passing the **entire** list as objects is equivalent to `set`; reach for that instead when
-> you genuinely intend to rewrite every row.
+:::info
+Passing entities to `setRaw` costs O(objects passed) — only the objects are normalized, ids are
+free. Passing the **entire** list as objects is equivalent to `set`; reach for that instead when
+you genuinely intend to rewrite every row.
+:::
