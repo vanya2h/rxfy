@@ -1,0 +1,28 @@
+import {
+  createFulfilled,
+  createModelRegistry,
+  type DehydratedState,
+  dehydrate,
+  normalizeResult,
+  type QueryShapeOf,
+  type StateDescriptor,
+  stableStringify,
+} from "rxfy";
+
+/**
+ * Server-side prefetch for Waku (RSC has no script-injection seam, so we produce the
+ * dehydrated snapshot before render and pass it down as a serializable prop). Runs the
+ * fetcher into a fresh per-request registry, normalizes the result, seeds the query cache
+ * under the same key useStateData uses, and returns the snapshot for StoreProvider to ingest.
+ */
+export async function prefetch<TParams, TShape>(
+  state: StateDescriptor<TParams, TShape, any>,
+  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
+  params: TParams,
+): Promise<DehydratedState> {
+  const registry = createModelRegistry();
+  const result = await fetchFn(params, new AbortController().signal);
+  const ids = normalizeResult(registry, state.fields, result);
+  registry.queries.getQuery<QueryShapeOf<TShape>>(`${state.key}:${stableStringify(params)}`).set(createFulfilled(ids));
+  return dehydrate(registry);
+}
