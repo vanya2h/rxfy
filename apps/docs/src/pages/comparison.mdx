@@ -1,7 +1,8 @@
 # Comparison
 
-How rxfy relates to three popular state libraries, compared against their modern,
-idiomatic forms: **Redux Toolkit** (with RTK Query), **MobX 6**, and **Jotai**.
+How rxfy relates to four popular state libraries, compared against their modern,
+idiomatic forms: **Redux Toolkit** (with RTK Query), **MobX 6**, **Jotai**, and
+**TanStack Query** (React Query v5).
 
 rxfy's premise is narrower than any of them: you **declare typed models and the states that
 query them**, then access their data as **reactive observables**.
@@ -16,16 +17,16 @@ reactive state.
 
 ✅ built in · ➖ possible, but you wire it up · ❌ not addressed
 
-|                   | rxfy                                     | Redux Toolkit                     | MobX 6                    | Jotai            |
-| ----------------- | ---------------------------------------- | --------------------------------- | ------------------------- | ---------------- |
-| **Model**         | Reactive states over normalized entities | Immutable store + reducers        | Mutable observables       | Composable atoms |
-| **Reactivity**    | Only the changed entity's subscribers    | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers |
-| **Data fetching** | ✅                                       | ➖ RTK Query                      | ❌                        | ➖ async atoms   |
-| **Normalization** | ✅                                       | ➖ manual                         | ❌                        | ➖ manual        |
-| **SSR**           | ✅                                       | ➖ manual                         | ❌                        | ➖ helpers       |
-| **Validation**    | ✅ Zod                                   | ❌                                | ❌                        | ❌               |
-| **Boilerplate**   | Low                                      | Moderate                          | Very low                  | Very low         |
-| **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          |
+|                   | rxfy                                     | Redux Toolkit                     | MobX 6                    | Jotai            | TanStack Query              |
+| ----------------- | ---------------------------------------- | --------------------------------- | ------------------------- | ---------------- | --------------------------- |
+| **Model**         | Reactive states over normalized entities | Immutable store + reducers        | Mutable observables       | Composable atoms | Async cache keyed by query key |
+| **Reactivity**    | Only the changed entity's subscribers    | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers | Components subscribed to the query key |
+| **Data fetching** | ✅                                       | ➖ RTK Query                      | ❌                        | ➖ async atoms   | ✅                          |
+| **Normalization** | ✅                                       | ➖ manual                         | ❌                        | ➖ manual        | ➖ manual                   |
+| **SSR**           | ✅                                       | ➖ manual                         | ❌                        | ➖ helpers       | ✅ hydrate/dehydrate        |
+| **Validation**    | ✅ Zod                                   | ❌                                | ❌                        | ❌               | ❌                          |
+| **Boilerplate**   | Low                                      | Moderate                          | Very low                  | Very low         | Low                         |
+| **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          | `@tanstack/react-query`     |
 
 ## vs Redux Toolkit
 
@@ -98,6 +99,28 @@ normalization, Zod validation, and streaming SSR as one API.
 client state and prefer to compose data fetching and persistence yourself. **Reach for rxfy
 when** normalized server data, per-entity reactive rendering, and first-class SSR are the core
 problem.
+
+## vs TanStack Query
+
+TanStack Query (React Query) is the closest of these to rxfy's purpose: both are about
+**server state**, not client state. React Query caches each fetch under a **query key**,
+handles background refetching, staleness, and request dedup, and ships
+`dehydrate`/`HydrationBoundary` for SSR. It is unopinionated about the shape of your data — the
+cache stores whatever the query function returns.
+
+The split is **document cache vs normalized cells**. React Query keys the *response*, so the
+same entity returned by two queries lives in two cache entries; a mutation typically
+**invalidates** the affected keys and triggers a refetch to reconcile them. rxfy normalizes the
+response into one cell per entity, so a mutation or websocket push writes the entity once and
+reaches every subscriber **without invalidating or refetching** — and there is no second copy
+to drift out of sync. rxfy also validates the response with Zod and turns each entity into a
+composable [`Atom`](/core-concepts/atom) you can drive with [`useAtom`](/react/use-atom),
+where React Query hands you a plain snapshot and leaves persistence and two-way binding to you.
+
+**Reach for TanStack Query when** you want a mature, framework-agnostic cache with rich
+refetch/staleness controls and don't need normalization. **Reach for rxfy when** the same
+entity appears across many queries and you want one update to reach every subscriber without a
+refetch, plus built-in normalization, validation, and streaming SSR.
 
 ## When rxfy is a good fit
 
