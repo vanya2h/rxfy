@@ -5,7 +5,7 @@
 
 - [`useStateData`](/react/use-state-data) — fetch, normalize, and subscribe to a query;
   returns a `StateHandle` (`data$`, `set`, `setRaw`, `reload`, `mutations`). Covers
-  `defaultData` seeding and `set` vs `setRaw`.
+  `defaultData` seeding and `set` vs `setRaw`. Also supports [local/sync state](/react/use-state-data) via `{ state, initial }` — no fetch, no PENDING, `reload()` resets to `initial`.
 - [`useStatePagedData`](/react/use-state-paged-data) — paginated / infinite-scroll lists of
   a single entity type, built on `useStateData`.
 - [`useModelStore`](/react/use-model-store) — subscribe to one normalized entity by id.

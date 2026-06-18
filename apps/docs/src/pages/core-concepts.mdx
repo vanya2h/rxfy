@@ -9,7 +9,7 @@ state.
 - [Model](/core-concepts/model) — a typed entity descriptor (`createModel`) plus the reactive
   `ModelStore` that holds live entities.
 - [State](/core-concepts/state) — a typed, normalized state shape: fetch params, model fields,
-  and optional mutations, wired into the model stores.
+  and optional mutations, wired into the model stores. `model` fields can also be [plain Zod-schema values](/core-concepts/state#plain-value-fields) that pass through `data$` without normalization.
 - [Atom](/core-concepts/atom) — the fundamental reactive cell: an `Observable<T>` with
   synchronous `get()` / `set()` / `modify()`.
 - [Lens](/core-concepts/lens) — a focused, bidirectional view into an `Atom` for reading and
