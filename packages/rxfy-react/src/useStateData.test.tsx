@@ -370,10 +370,7 @@ describe("plain value fields", () => {
       isOpen: true,
       filters: { q: "hello" },
     });
-    const { result } = renderHook(
-      () => useStateData({ state: plainState, fetchFn, params: { id: "x" } }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData({ state: plainState, fetchFn, params: { id: "x" } }), { wrapper });
     const data = await firstValueFrom(result.current.data$);
     expect(data.posts).toEqual(["1"]);
     expect(data.isOpen).toBe(true);
@@ -382,10 +379,7 @@ describe("plain value fields", () => {
 
   it("updates a plain value through a mutation", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [], isOpen: false, filters: { q: "" } });
-    const { result } = renderHook(
-      () => useStateData({ state: plainState, fetchFn, params: { id: "y" } }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData({ state: plainState, fetchFn, params: { id: "y" } }), { wrapper });
     await firstValueFrom(result.current.data$);
     act(() => result.current.mutations.setOpen(true));
     const data = await firstValueFrom(result.current.data$);
