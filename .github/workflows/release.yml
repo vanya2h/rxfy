@@ -96,14 +96,16 @@ jobs:
           fi
 
       - name: Sync version bumps to staging and develop
-        # Best-effort housekeeping: packages are already published, so a sync
-        # hiccup must not fail the job. Force the switch to discard any
-        # uncommitted pre.json churn left by `changeset version`.
         continue-on-error: true
+        # Force a merge commit (--no-ff) carrying [skip ci] so the push to
+        # staging does NOT re-trigger the RC Release workflow. GitHub evaluates
+        # the skip marker on the head commit of the push; a fast-forward would
+        # leave main's tip ("chore: trigger release") as head and fire RC.
         run: |
           for branch in staging develop; do
             git fetch origin $branch
-            git checkout -f $branch
-            git merge main --no-edit -X theirs
+            git checkout $branch
+            git merge main --no-ff --no-edit -X theirs \
+              -m "chore: sync release from main to $branch [skip ci]"
             git push origin $branch
           done
