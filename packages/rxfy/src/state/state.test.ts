@@ -1,7 +1,12 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
 import { array, createModel, single } from "../model/model.js";
-import { defineState, type QueryShapeFromFields, type QueryShapeOf, type WritableQueryShapeFromFields } from "./state.js";
+import {
+  defineState,
+  type QueryShapeFromFields,
+  type QueryShapeOf,
+  type WritableQueryShapeFromFields,
+} from "./state.js";
 
 const postModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
 const userModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
@@ -86,8 +91,8 @@ describe("plain value fields", () => {
   });
 
   it("infers data$ shape on the descriptor (type-level)", () => {
-    const state = defineState({ params: z.object({}), model: fields });
-    type Query = NonNullable<(typeof state)["_query"]>;
+    const _state = defineState({ params: z.object({}), model: fields });
+    type Query = NonNullable<(typeof _state)["_query"]>;
     expectTypeOf<Query>().toEqualTypeOf<{ posts: string[]; isOpen: boolean; filters: { q: string } }>();
   });
 });
