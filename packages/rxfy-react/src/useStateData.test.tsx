@@ -353,3 +353,44 @@ describe("useStateData", () => {
     });
   });
 });
+
+describe("plain value fields", () => {
+  const plainState = defineState({
+    key: "plain",
+    params: z.object({ id: z.string() }),
+    model: { posts: array(postModel), isOpen: z.boolean(), filters: z.object({ q: z.string() }) },
+    mutations: {
+      setOpen: (prev, open: boolean) => ({ ...prev, isOpen: open }),
+    },
+  });
+
+  it("emits plain values alongside entity ids", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({
+      posts: [{ id: "1", title: "P1" }],
+      isOpen: true,
+      filters: { q: "hello" },
+    });
+    const { result } = renderHook(
+      () => useStateData({ state: plainState, fetchFn, params: { id: "x" } }),
+      { wrapper },
+    );
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.posts).toEqual(["1"]);
+    expect(data.isOpen).toBe(true);
+    expect(data.filters).toEqual({ q: "hello" });
+  });
+
+  it("updates a plain value through a mutation", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ posts: [], isOpen: false, filters: { q: "" } });
+    const { result } = renderHook(
+      () => useStateData({ state: plainState, fetchFn, params: { id: "y" } }),
+      { wrapper },
+    );
+    await firstValueFrom(result.current.data$);
+    act(() => result.current.mutations.setOpen(true));
+    const data = await firstValueFrom(result.current.data$);
+    expect(data.isOpen).toBe(true);
+    // the mutation touches only isOpen — other plain fields must survive untouched
+    expect(data.filters).toEqual({ q: "" });
+  });
+});
