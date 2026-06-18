@@ -33,13 +33,26 @@ function TodoApp() {
 ```
 
 ```ts
-function useStateData<TParams, TShape, TMutations>(config: {
-  state: StateDescriptor<TParams, TShape, TMutations>;
-  fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
-  params: TParams;
-  defaultData?: TShape;
-}): StateHandle<TShape, TMutations>
+// The config is a discriminated union: remote (fetchFn + params) or local (initial).
+function useStateData<TParams, TShape, TMutations>(
+  config:
+    | {
+        state: StateDescriptor<TParams, TShape, TMutations>;
+        fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
+        params: TParams;
+        defaultData?: TShape;
+      }
+    | {
+        state: StateDescriptor<TParams, TShape, TMutations>;
+        initial: TShape; // pure local/sync state — no fetch (see below)
+      },
+): StateHandle<TShape, TMutations>
 ```
+
+The two forms are mutually exclusive: pass `fetchFn` + `params` to fetch, or `initial` for
+[local/sync state](#local--sync-state--initial-instead-of-fetchfn). `data$` emits the normalized
+query shape — entity ids for `array`/`single` fields, and [plain value fields](/core-concepts/state#plain-value-fields)
+(bare zod schemas in the `model`) passed through with their real value.
 
 The returned `StateHandle<TShape, TMutations>` exposes:
 
@@ -120,6 +133,43 @@ hydrates it — so you never pass `defaultData` at all, and the framework loader
 **routing-only** concern (URL validation, redirects, param extraction). The
 [rr7-blog example](/examples#rr7-blog) takes exactly this approach on React Router 7: its
 loaders never fetch domain data. See the [SSR guide](/ssr) for wiring it up.
+
+## Local / sync state — `initial` instead of `fetchFn`
+
+When there is no server fetch, pass **`initial`** (the denormalized shape) instead of
+`fetchFn` / `params`. The state becomes pure local/sync: `data$` is seeded to `FULFILLED`
+**synchronously** from `initial` — entity fields normalize into their stores, plain fields pass
+through — so there is **no `PENDING` flash** and nothing is ever fetched. `set`, `setRaw`, and
+`mutations` work exactly as in remote mode.
+
+```tsx
+import { useStateData, Pending } from "rxfy-react";
+import { counterState } from "./counter"; // defineState({ params: z.object({}), model: { count: z.number(), todos: array(TodoModel) }, mutations: { inc: (p) => ({ ...p, count: p.count + 1 }) } })
+
+function Counter() {
+  const { data$, mutations, reload } = useStateData({
+    state: counterState,
+    initial: { count: 0, todos: [] },
+  });
+
+  return (
+    <Pending value$={data$}>
+      {({ count }) => (
+        <>
+          <span>{count}</span>
+          <button onClick={() => mutations.inc()}>+1</button>
+          <button onClick={reload}>Reset</button>
+        </>
+      )}
+    </Pending>
+  );
+}
+```
+
+In local mode, **`reload()` resets** the state back to `initial` (discarding local edits) — there
+is nothing to re-fetch. A `key` still shares the atom across components via the registry, so a keyed
+local state acts as a seeded-once shared slice. `initial` is captured at first render; later changes
+to it are ignored — use `reload()` to reset.
 
 ## `set` vs `setRaw` — writing entities vs writing the id list
 

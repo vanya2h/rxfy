@@ -34,7 +34,7 @@ npm install rxfy
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started)
 - [Model](https://rxfy.vanya2h.me/core-concepts/model) — `createModel`, `array`, `single`
-- [State](https://rxfy.vanya2h.me/core-concepts/state) — `defineState`, mutations
+- [State](https://rxfy.vanya2h.me/core-concepts/state) — `defineState`, plain value fields, mutations
 - [Atom](https://rxfy.vanya2h.me/core-concepts/atom) — `createAtom`
 - [Lens](https://rxfy.vanya2h.me/core-concepts/lens) — `createLens`, `keyLens`
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)

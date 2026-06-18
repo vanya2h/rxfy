@@ -38,7 +38,10 @@ import { defineState, array } from "rxfy";
 const todosState = defineState({
   key: "todos",
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
-  model: { todos: array(TodoModel) },
+  model: {
+    todos: array(TodoModel),
+    isOpen: z.boolean(), // plain value — passes through data$ with its real type, not normalized
+  },
   mutations: {
     addTodo: (prev, todo: { id: string; title: string; done: boolean }) => ({
       ...prev,
