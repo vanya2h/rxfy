@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { array, createModel, single } from "./model.js";
+import { array, createModel, isFieldDescriptor, single } from "./model.js";
 
 const schema = z.object({ id: z.string() });
 
@@ -44,5 +44,22 @@ describe("createModel name option", () => {
     expect(named.name).toBe("thing");
     const unnamed = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
     expect(unnamed.name).toBeUndefined();
+  });
+});
+
+describe("isFieldDescriptor", () => {
+  const m = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id, name: "if-test" });
+
+  it("returns true for array and single descriptors", () => {
+    expect(isFieldDescriptor(array(m))).toBe(true);
+    expect(isFieldDescriptor(single(m))).toBe(true);
+  });
+
+  it("returns false for a zod schema and plain values", () => {
+    expect(isFieldDescriptor(z.boolean())).toBe(false);
+    expect(isFieldDescriptor(z.object({ a: z.string() }))).toBe(false);
+    expect(isFieldDescriptor(null)).toBe(false);
+    expect(isFieldDescriptor(42)).toBe(false);
+    expect(isFieldDescriptor({ kind: "other" })).toBe(false);
   });
 });

@@ -35,3 +35,12 @@ export function array<T, TKey extends string>(model: ModelDescriptor<T, TKey>): 
 export function single<T, TKey extends string>(model: ModelDescriptor<T, TKey>): FieldDescriptor<T> {
   return { kind: "single", model } as FieldDescriptor<T>;
 }
+
+/** True when a field entry is an entity descriptor (`array`/`single`) rather than a bare zod schema. */
+export function isFieldDescriptor(x: unknown): x is FieldDescriptor<any> {
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    ((x as { kind?: unknown }).kind === "array" || (x as { kind?: unknown }).kind === "single")
+  );
+}
