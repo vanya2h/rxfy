@@ -111,3 +111,69 @@ describe("normalizeWritable", () => {
     }
   });
 });
+
+describe("plain value fields", () => {
+  const post = createModel(z.object({ id: z.string(), title: z.string() }), {
+    getKey: (x) => x.id,
+    name: "norm-post",
+  });
+  const plainFields = {
+    posts: array(post),
+    isOpen: z.boolean(),
+    filters: z.object({ q: z.string() }),
+  };
+  type PlainShape = { posts: { id: string; title: string }[]; isOpen: boolean; filters: { q: string } };
+
+  const plainValue: PlainShape = {
+    posts: [{ id: "1", title: "A" }],
+    isOpen: true,
+    filters: { q: "hi" },
+  };
+
+  it("normalizeResult passes plain values through and normalizes entities", () => {
+    const registry = createModelRegistry();
+    const ids = normalizeResult(registry, plainFields, plainValue);
+    expect(ids).toEqual({ posts: ["1"], isOpen: true, filters: { q: "hi" } });
+    expect(registry.model(post).getValue("1")).toEqual({ id: "1", title: "A" });
+  });
+
+  it("denormalizeValue reads entities from the store and copies plain values", () => {
+    const registry = createModelRegistry();
+    normalizeResult(registry, plainFields, plainValue);
+    const out = denormalizeValue<PlainShape>(registry, plainFields, {
+      posts: ["1"],
+      isOpen: true,
+      filters: { q: "hi" },
+    });
+    expect(out).toEqual(plainValue);
+  });
+
+  it("normalizeWritable passes plain values through", () => {
+    const registry = createModelRegistry();
+    const ids = normalizeWritable(registry, plainFields, {
+      posts: ["1"],
+      isOpen: false,
+      filters: { q: "bye" },
+    });
+    expect(ids).toEqual({ posts: ["1"], isOpen: false, filters: { q: "bye" } });
+  });
+
+  it("validates plain values in dev and throws on mismatch", () => {
+    const registry = createModelRegistry();
+    expect(() =>
+      normalizeResult(registry, plainFields, { posts: [], isOpen: "nope" as never, filters: { q: "x" } }),
+    ).toThrow(/plain field "isOpen"/);
+  });
+
+  it("skips plain validation when NODE_ENV is production", () => {
+    const registry = createModelRegistry();
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const ids = normalizeResult(registry, plainFields, { posts: [], isOpen: "nope" as never, filters: { q: "x" } });
+      expect(ids).toEqual({ posts: [], isOpen: "nope", filters: { q: "x" } });
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+});
