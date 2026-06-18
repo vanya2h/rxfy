@@ -56,7 +56,7 @@ export type StateHandle<
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
 
-export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable> = {
+type RemoteStateConfig<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable> = {
   /** The typed, normalized state descriptor (`defineState`). */
   state: StateDescriptor<TParams, TShape, TMutations, TQuery, TWritable>;
   /** Fetches the full denormalized shape; `params` identity drives refetch. */
@@ -64,14 +64,32 @@ export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<
   params: TParams;
   /** Seed value (e.g. from a router loader) used until the first fetch settles. */
   defaultData?: TShape;
+  initial?: never;
 };
 
-export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable>({
-  state,
-  fetchFn,
-  params,
-  defaultData,
-}: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>): StateHandle<TShape, TMutations, TQuery, TWritable> {
+type LocalStateConfig<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable> = {
+  /** The typed, normalized state descriptor (`defineState`). */
+  state: StateDescriptor<TParams, TShape, TMutations, TQuery, TWritable>;
+  /** The initial denormalized value for pure local/sync state (no fetch). */
+  initial: TShape;
+  fetchFn?: never;
+  params?: never;
+  defaultData?: never;
+};
+
+export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable> =
+  | RemoteStateConfig<TParams, TShape, TMutations, TQuery, TWritable>
+  | LocalStateConfig<TParams, TShape, TMutations, TQuery, TWritable>;
+
+export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable>(
+  config: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>,
+): StateHandle<TShape, TMutations, TQuery, TWritable> {
+  const { state } = config;
+  const isLocal = "initial" in config;
+  const fetchFn = config.fetchFn;
+  const defaultData = config.defaultData;
+  const initial = config.initial;
+
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
 
@@ -83,7 +101,7 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   // Value-based key — params with the same shape resolve to the same query (and, when keyed, the
   // same shared atom). The memo keys off this string rather than `params`'s identity, so an
   // identity-unstable-but-value-stable params object does not churn data$.
-  const paramsKey = stableStringify(params);
+  const paramsKey = stableStringify(config.params);
   const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
 
   // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
@@ -101,10 +119,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       ? registry.queries.getQuery<TQuery>(cacheKey)
       : createAtom<IWrapped<TQuery>>(createIdle());
 
-    // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
-    // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
-    if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
-      atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData) as TQuery));
+    // Local mode: always seed FULFILLED from `initial` on first render (the atom is fresh/IDLE here),
+    // so data$ settles synchronously with no PENDING. Remote mode: seed from `defaultData` when given
+    // (router loader handoff); a later defaultData/initial change is intentionally ignored — see deps.
+    const seed = isLocal ? initial : defaultData;
+    if (seed !== undefined && atom$.get().type === StatusEnum.IDLE) {
+      atom$.set(createFulfilled(normalizeResult(registry, fields, seed) as TQuery));
     }
 
     // `signal` is passed for client fetches so a teardown-aborted fetch is dropped instead of
@@ -129,22 +149,23 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     // Flip the shared atom to PENDING and fetch into it; every subscriber reacts. Aborts any prior
     // in-flight request first, so the latest fetch always wins.
     const runFetch = () => {
+      if (!fetchFn) return;
       inFlight.controller?.abort();
       const controller = new AbortController();
       inFlight.controller = controller;
       atom$.set(createPending());
-      void settle(fetchFn(params, controller.signal), controller.signal);
+      void settle(fetchFn(config.params as TParams, controller.signal), controller.signal);
     };
 
     // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
-    if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
+    if (isServer && ssr && fetchFn && atom$.get().type === StatusEnum.IDLE) {
       if (!cacheKey) {
         console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
       } else {
         const inflight = registry.queries.getPromise(cacheKey);
         if (inflight) throw inflight; // dedup: another component already started this fetch
         atom$.set(createPending());
-        const promise = settle(fetchFn(params, new AbortController().signal));
+        const promise = settle(fetchFn(config.params as TParams, new AbortController().signal));
         registry.queries.setPromise(cacheKey, promise);
         throw promise;
       }
@@ -161,8 +182,8 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     );
 
     let data$: Observable<TQuery>;
-    const initial = atom$.get().type;
-    const settled = initial === StatusEnum.FULFILLED || initial === StatusEnum.REJECTED;
+    const initialStatus = atom$.get().type;
+    const settled = initialStatus === StatusEnum.FULFILLED || initialStatus === StatusEnum.REJECTED;
     if (settled) {
       // cache hit / hydrated: emit synchronously, no fetch (markSync lets usePending probe it at render)
       data$ = markSync(derived$);
@@ -233,7 +254,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     // Re-fetch into the shared atom in place — all subscribers see PENDING then the fresh result,
     // and data$ keeps its identity. The one exception: a subscription that already errored
     // (REJECTED) is terminal in Rx, so clear the error and bump the epoch to force a resubscribe.
+    // Local mode: reset to `initial` instead of fetching.
     const reload = () => {
+      if (isLocal) {
+        if (initial !== undefined) writeThrough(normalizeResult(registry, fields, initial) as TQuery);
+        return;
+      }
       if (atom$.get().type === StatusEnum.REJECTED) {
         atom$.set(createIdle());
         setReloadEpoch((e) => e + 1);
@@ -245,8 +271,9 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     attachReload(data$, reload);
 
     return { data$, set, setRaw, reload, mutations };
-    // fetchFn/params/defaultData are deliberately excluded — see the note above the memo. params'
-    // value is tracked via cacheKey/paramsKey; data$ identity stability depends on this exclusion.
+    // fetchFn/params/defaultData/initial are deliberately excluded — see the note above the memo.
+    // params' value is tracked via cacheKey/paramsKey; data$ identity stability depends on this exclusion.
+    // initial is frozen at first render (seeded once on IDLE); use reload() to reset local state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch]);
+  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch, isLocal]);
 }
