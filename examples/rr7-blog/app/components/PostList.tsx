@@ -18,15 +18,18 @@ export default function PostList() {
           </p>
         )}
       >
-        {({ posts }) =>
+        {({ posts, meta }) =>
           posts.length === 0 ? (
             <p className="status">No posts yet.</p>
           ) : (
-            <ul className="post-list">
-              {posts.map((id) => (
-                <PostItem key={id} id={id} />
-              ))}
-            </ul>
+            <>
+              <p className="meta">{meta.total} posts · loaded {new Date(meta.generatedAt).toLocaleTimeString()}</p>
+              <ul className="post-list">
+                {posts.map((id) => (
+                  <PostItem key={id} id={id} />
+                ))}
+              </ul>
+            </>
           )
         }
       </Pending>

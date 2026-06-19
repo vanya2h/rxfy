@@ -11,7 +11,10 @@ export const useTodoStore = () => useModelStore(todoModel);
 export const todosState = defineState({
   key: "todos",
   params: z.object({}),
-  model: { todos: array(todoModel) },
+  model: {
+    todos: array(todoModel),
+    meta: z.object({ total: z.number(), generatedAt: z.string() }),
+  },
   mutations: {
     addTodo: (prev, todo: Todo) => ({ ...prev, todos: [...prev.todos, todo] }),
     removeTodo: (prev, id: string) => ({ ...prev, todos: prev.todos.filter((t) => t.id !== id) }),
@@ -21,10 +24,14 @@ export const todosState = defineState({
 // On the server (SSR) fetch must be absolute; on the client a relative path is fine.
 const API_BASE = import.meta.env.SSR ? "http://localhost:5175" : "";
 
-export async function fetchTodos(_params: Record<string, never>, signal: AbortSignal): Promise<{ todos: Todo[] }> {
+export async function fetchTodos(
+  _params: Record<string, never>,
+  signal: AbortSignal,
+): Promise<{ todos: Todo[]; meta: { total: number; generatedAt: string } }> {
   const res = await fetch(`${API_BASE}/api/todos`, { signal });
   if (!res.ok) throw new Error(`Failed to load todos: ${res.status}`);
-  return (await res.json()) as { todos: Todo[] };
+  const { todos } = (await res.json()) as { todos: Todo[] };
+  return { todos, meta: { total: todos.length, generatedAt: new Date().toISOString() } };
 }
 
 // --- REST mutations the components call ---

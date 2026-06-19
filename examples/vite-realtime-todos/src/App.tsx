@@ -99,17 +99,22 @@ function TodoApp() {
           </p>
         )}
       >
-        {({ todos }) =>
-          todos.length === 0 ? (
-            <p className="status">No todos yet.</p>
-          ) : (
-            <ul className="todo-list">
-              {todos.map((id) => (
-                <TodoItem key={id} id={id} onRemove={onRemove} />
-              ))}
-            </ul>
-          )
-        }
+        {({ todos, meta }) => (
+          <>
+            <p className="status">
+              {meta.total} todos · loaded {new Date(meta.generatedAt).toLocaleTimeString()}
+            </p>
+            {todos.length === 0 ? (
+              <p className="status">No todos yet.</p>
+            ) : (
+              <ul className="todo-list">
+                {todos.map((id) => (
+                  <TodoItem key={id} id={id} onRemove={onRemove} />
+                ))}
+              </ul>
+            )}
+          </>
+        )}
       </Pending>
     </div>
   );
