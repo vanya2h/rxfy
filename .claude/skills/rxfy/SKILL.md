@@ -38,10 +38,6 @@ const { data$, mutations, set, setRaw, reload } = useStateData({ state: myState,
 // fetchFn: (params, signal: AbortSignal) => Promise<denormalized shape> — use signal to cancel
 // data$ emits the query shape — array fields → id[], single → id string, plain (zod) fields → their value
 
-// 2b. Local/sync state — pass `initial` instead of fetchFn/params (no fetch, no PENDING, sync seed)
-const local = useStateData({ state: myState, initial: { count: 0, todos: [] } });
-// local.reload() resets to `initial`; set/setRaw/mutations work the same
-
 // 3. Render async state
 <Pending value$={data$} pending={<Spinner />} rejected={(w) => <Error err={w.error} />}>
   {({ todos }) => todos.map((id) => <TodoItem key={id} id={id} />)}
@@ -61,7 +57,6 @@ const [value, setValue] = useAtom(atom$); // atom$ must be stable across renders
 | Hook | Returns | Notes |
 |------|---------|-------|
 | `useStateData({ state, fetchFn, params })` | `StateHandle` | Re-fetches when `params` value changes; `data$` identity stays stable |
-| `useStateData({ state, initial })` | `StateHandle` | Local/sync mode — seeds `initial` synchronously, no fetch/PENDING; `reload()` resets to `initial` |
 | `useStatePagedData({ model, key, params, fetchPage, getCursor, select })` | `PagedListHandle` | Infinite list — see **Pagination** below |
 | `useModelStore(descriptor)` | `ModelStore<T>` | Same descriptor → same store in the registry |
 | `useModelRegistry()` | `IModelRegistry` | The active registry — for `added$` subscriptions / manual store access |
