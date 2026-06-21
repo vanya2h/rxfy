@@ -11,7 +11,8 @@ Creates a typed model descriptor for normalizing and sharing entities across sta
 import { z } from "zod";
 import { createModel } from "rxfy";
 
-const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
+const TodoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
   getKey: (todo) => todo.id,
   name: "todo",
 });

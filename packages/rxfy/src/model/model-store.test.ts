@@ -6,7 +6,7 @@ import { isSyncMarked } from "../ssr/sync-marker.js";
 import { createModel } from "./model.js";
 import { createModelRegistry, createModelStore } from "./model-store.js";
 
-const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
+const postModel = createModel({ schema: z.object({ id: z.string(), title: z.string() }), getKey: (x) => x.id });
 
 describe("createModelStore", () => {
   it("emits value after set", async () => {
@@ -112,7 +112,7 @@ describe("createModelRegistry", () => {
 
   it("returns different ModelStores for different descriptors", () => {
     const registry = createModelRegistry();
-    const otherModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+    const otherModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
     expect(registry.model(postModel)).not.toBe(registry.model(otherModel));
   });
 
@@ -124,7 +124,7 @@ describe("createModelRegistry", () => {
 });
 
 describe("model store sync value access", () => {
-  const model = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
+  const model = createModel({ schema: z.object({ id: z.string(), title: z.string() }), getKey: (x) => x.id });
 
   it("getValue returns the latest value synchronously", () => {
     const store = createModelStore(model);
@@ -161,7 +161,8 @@ describe("model store sync value access", () => {
 });
 
 describe("createModelStore cell semantics", () => {
-  const Post = createModel(z.object({ id: z.string(), title: z.string() }), {
+  const Post = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (p) => p.id,
     name: "post-cell-test",
   });
@@ -192,7 +193,8 @@ describe("createModelStore cell semantics", () => {
 });
 
 describe("ModelStore.entity", () => {
-  const Post = createModel(z.object({ id: z.string(), title: z.string() }), {
+  const Post = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (p) => p.id,
     name: "post-entity-test",
   });
@@ -216,7 +218,8 @@ describe("ModelStore.entity", () => {
 });
 
 describe("registry SSR extensions", () => {
-  const namedModel = createModel(z.object({ id: z.string(), title: z.string() }), {
+  const namedModel = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (x) => x.id,
     name: "item",
   });
@@ -255,15 +258,17 @@ describe("registry SSR extensions", () => {
 });
 
 describe("registry added$", () => {
-  const Todo = createModel(z.object({ id: z.string(), title: z.string() }), {
+  const Todo = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (x) => x.id,
     name: "todo",
   });
-  const User = createModel(z.object({ id: z.string(), name: z.string() }), {
+  const User = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
     getKey: (x) => x.id,
     name: "user",
   });
-  const Anon = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+  const Anon = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
 
   it("emits { name, key } for entities added to a named store", () => {
     const registry = createModelRegistry();

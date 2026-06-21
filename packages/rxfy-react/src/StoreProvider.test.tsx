@@ -6,7 +6,7 @@ import { useModelRegistry } from "./registry-context.js";
 import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 
-const testModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+const testModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
@@ -38,7 +38,11 @@ describe("useModelStore", () => {
   });
 });
 
-const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+const todoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "todo",
+});
 
 describe("StoreProvider SSR props", () => {
   it("uses an externally provided registry", () => {

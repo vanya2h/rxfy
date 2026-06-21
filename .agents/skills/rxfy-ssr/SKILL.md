@@ -17,7 +17,7 @@ Two fields are required for SSR to work:
 
 | What | Field | Why |
 |------|-------|-----|
-| `createModel(schema, { getKey, name: "..." })` | `name` | Stable key for entity store dehydration |
+| `createModel({ schema, getKey, name: "..." })` | `name` | Stable key for entity store dehydration |
 | `defineState({ key: "...", ... })` | `key` | Stable key for the query cache |
 
 Models or states missing these fields are silently skipped during `dehydrate`. Plain value fields (bare zod schemas in a state's `model`) need no `name` — they ride inside the keyed state's dehydrated value, so keep them JSON-serializable.

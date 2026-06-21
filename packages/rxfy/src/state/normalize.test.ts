@@ -4,8 +4,16 @@ import { array, createModel, single } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
 import { denormalizeValue, normalizeResult, normalizeWritable } from "./normalize.js";
 
-const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "post" });
-const userModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (x) => x.id, name: "user" });
+const postModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "post",
+});
+const userModel = createModel({
+  schema: z.object({ id: z.string(), name: z.string() }),
+  getKey: (x) => x.id,
+  name: "user",
+});
 
 const fields = { posts: array(postModel), author: single(userModel) };
 
@@ -113,7 +121,8 @@ describe("normalizeWritable", () => {
 });
 
 describe("plain value fields", () => {
-  const post = createModel(z.object({ id: z.string(), title: z.string() }), {
+  const post = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (x) => x.id,
     name: "norm-post",
   });

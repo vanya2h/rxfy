@@ -7,7 +7,11 @@ import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 import { useStatePagedData } from "./useStatePagedData.js";
 
-const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "post" });
+const postModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "post",
+});
 
 type Post = { id: string; title: string };
 type PostPage = { items: Post[]; nextCursor: number };

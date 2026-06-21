@@ -5,7 +5,7 @@ import { type Todo, TodoSchema } from "../shared/todo.ts";
 
 export type { Todo };
 
-export const todoModel = createModel(TodoSchema, { getKey: (t) => t.id, name: "todo" });
+export const todoModel = createModel({ schema: TodoSchema, getKey: (t) => t.id, name: "todo" });
 export const useTodoStore = () => useModelStore(todoModel);
 
 export const todosState = defineState({

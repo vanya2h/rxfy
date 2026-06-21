@@ -5,7 +5,11 @@ import { createModelRegistry } from "../model/model-store.js";
 import { StatusEnum } from "../wrapped/wrapped.js";
 import { dehydrate, hydrate, hydrationScript } from "./hydration.js";
 
-const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+const todoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "todo",
+});
 
 describe("dehydrate", () => {
   it("serializes query entries and named model stores", () => {
@@ -28,7 +32,7 @@ describe("dehydrate", () => {
   });
 
   it("warns once for an unnamed store holding data and skips it", () => {
-    const unnamed = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+    const unnamed = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
     const registry = createModelRegistry();
     registry.model(unnamed).set("1", { id: "1" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

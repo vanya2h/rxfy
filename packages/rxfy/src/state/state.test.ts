@@ -8,8 +8,8 @@ import {
   type WritableQueryShapeFromFields,
 } from "./state.js";
 
-const postModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
-const userModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+const postModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
+const userModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
 
 describe("defineState", () => {
   it("stores paramsSchema", () => {
@@ -45,7 +45,7 @@ describe("defineState", () => {
 
 describe("defineState key option", () => {
   it("stores the optional key on the descriptor", () => {
-    const model = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
+    const model = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
     const keyed = defineState({ key: "items", params: z.object({}), model: { items: array(model) } });
     expect(keyed.key).toBe("items");
     const unkeyed = defineState({ params: z.object({}), model: { items: array(model) } });
@@ -61,7 +61,7 @@ describe("QueryShapeOf", () => {
 });
 
 describe("plain value fields", () => {
-  const post = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id, name: "p2-post" });
+  const post = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "p2-post" });
   const fields = {
     posts: array(post),
     isOpen: z.boolean(),

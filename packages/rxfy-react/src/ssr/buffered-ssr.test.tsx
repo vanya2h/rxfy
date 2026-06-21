@@ -10,7 +10,11 @@ import { StoreProvider } from "../StoreProvider.js";
 import { useModelStore } from "../useModelStore.js";
 import { useStateData } from "../useStateData.js";
 
-const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+const todoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "todo",
+});
 const todosState = defineState({ key: "todos", params: z.object({}), model: { todos: array(todoModel) } });
 
 type FetchFn = (p: object, s: AbortSignal) => Promise<{ todos: { id: string; title: string }[] }>;
