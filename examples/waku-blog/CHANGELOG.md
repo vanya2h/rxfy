@@ -1,5 +1,14 @@
 # rxfy-example-waku-blog
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [5d75854]
+- Updated dependencies [9066c5c]
+  - rxfy@1.3.0
+  - rxfy-react@1.3.0
+
 ## 0.1.2-rc.0
 
 ### Patch Changes
