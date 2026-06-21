@@ -15,7 +15,11 @@ import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 import { useStateData } from "./useStateData.js";
 
-const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+const todoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "todo",
+});
 
 type Todo = { id: string; title: string };
 

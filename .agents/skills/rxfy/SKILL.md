@@ -9,7 +9,7 @@ metadata:
 
 # rxfy
 
-RxJS-backed normalized state management. Entities live in shared `ModelStore`s keyed by id; queries store only ids. A single `store.set` — from a refetch, mutation, or websocket push — reactively updates every component showing that entity.
+Minimalistic, RxJS-backed framework for typed, normalized, reactive state in React — built for consistency and granular reactivity at no extra cost. Entities live in shared `ModelStore`s keyed by id; each page declares its own state over those stores, where the query holds only ids and resolves entities from the stores. A single `store.set` — from a refetch, mutation, or websocket push — reactively updates every component showing that entity. States and stores are serializable, so SSR is first-class.
 
 ## Core Building Blocks
 
@@ -18,9 +18,10 @@ RxJS-backed normalized state management. Entities live in shared `ModelStore`s k
 | `createAtom(value)` | `BehaviorSubject`-backed `Observable<T>` with `.get()`, `.set()`, `.modify()` |
 | `createLens(source$, lens)` | Derived `IAtom` over a slice of an `Atom`; `keyLens(key)` for object fields |
 | `IWrapped<T>` / `StatusEnum` | `IDLE \| PENDING \| FULFILLED \| REJECTED` discriminated union |
-| `createModel(schema, { getKey, name })` | Entity type + id extractor |
-| `defineState({ key, params, model, mutations })` | Typed fetch descriptor |
+| `createModel({ schema, getKey, name })` | Entity type + id extractor |
+| `defineState({ key, params, model, mutations })` | Typed fetch descriptor; each `model` entry is `array(model)`, `single(model)`, or a bare zod schema |
 | `array(model)` / `single(model)` | Declare a `model` field as a list of / one entity — used in `defineState({ model })` |
+| _bare zod schema_ as a `model` entry | A **plain value field** (boolean/primitive/object) — passes through `data$` with its real value, never normalized into a store. Validated in dev only |
 | `ModelStore<T>` | `get(id)`, `set`, `setMany`, `entity(id)`, `added$` |
 | `IModelRegistry` | Shared store registry — one per request (SSR) or app lifetime (client) |
 
@@ -35,7 +36,7 @@ RxJS-backed normalized state management. Entities live in shared `ModelStore`s k
 // 2. Fetch and normalize
 const { data$, mutations, set, setRaw, reload } = useStateData({ state: myState, fetchFn, params });
 // fetchFn: (params, signal: AbortSignal) => Promise<denormalized shape> — use signal to cancel
-// data$ emits QueryShapeOf<TShape> — arrays become id[], singles become an id string
+// data$ emits the query shape — array fields → id[], single → id string, plain (zod) fields → their value
 
 // 3. Render async state
 <Pending value$={data$} pending={<Spinner />} rejected={(w) => <Error err={w.error} />}>

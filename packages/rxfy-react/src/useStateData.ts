@@ -35,28 +35,30 @@ export type BoundMutations<TShape, TMutations extends MutationDefs<TShape>> = {
     : never;
 };
 
-export type StateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = {
-  /** Normalized query state — entity ids only. Read entity data through model stores. */
-  readonly data$: Observable<QueryShapeOf<TShape>>;
+export type StateHandle<
+  TShape,
+  TMutations extends MutationDefs<TShape> = Record<never, never>,
+  TQuery = QueryShapeOf<TShape>,
+  TWritable = WritableQueryShapeOf<TShape>,
+> = {
+  /** Normalized query state — entity ids plus plain field values. Read entity data through model stores. */
+  readonly data$: Observable<TQuery>;
   readonly set: (value: Updater<TShape>) => void;
   /**
    * Low-level sibling of `set` that writes the **id shape** directly — no denormalize round-trip.
-   * Its value may contain ids, denormalized entities, or a mix in model-field slots: object
-   * entities are written to their stores (validated in dev), strings pass through as ids. The
-   * updater receives the current ids and must return the writable shape; it is a no-op until the
+   * Entity slots accept ids, denormalized entities, or a mix; plain fields take their value. The
+   * updater receives the current shape and must return the writable shape; it is a no-op until the
    * query is FULFILLED. Use for append / prepend / reorder / dedup where re-normalizing the whole
    * list (`set`) would be O(N).
    */
-  readonly setRaw: (
-    ids: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
-  ) => void;
+  readonly setRaw: (ids: TWritable | ((prev: TQuery) => TWritable)) => void;
   readonly reload: () => void;
   readonly mutations: BoundMutations<TShape, TMutations>;
 };
 
-export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>> = {
+export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable> = {
   /** The typed, normalized state descriptor (`defineState`). */
-  state: StateDescriptor<TParams, TShape, TMutations>;
+  state: StateDescriptor<TParams, TShape, TMutations, TQuery, TWritable>;
   /** Fetches the full denormalized shape; `params` identity drives refetch. */
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
   params: TParams;
@@ -64,12 +66,12 @@ export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<
   defaultData?: TShape;
 };
 
-export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>>({
+export function useStateData<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable>({
   state,
   fetchFn,
   params,
   defaultData,
-}: UseStateDataConfig<TParams, TShape, TMutations>): StateHandle<TShape, TMutations> {
+}: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>): StateHandle<TShape, TMutations, TQuery, TWritable> {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
 
@@ -95,14 +97,14 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     const isServer = typeof window === "undefined";
 
     // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
-    const atom$: Atom<IWrapped<QueryShapeOf<TShape>>> = cacheKey
-      ? registry.queries.getQuery<QueryShapeOf<TShape>>(cacheKey)
-      : createAtom<IWrapped<QueryShapeOf<TShape>>>(createIdle());
+    const atom$: Atom<IWrapped<TQuery>> = cacheKey
+      ? registry.queries.getQuery<TQuery>(cacheKey)
+      : createAtom<IWrapped<TQuery>>(createIdle());
 
     // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
     // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
     if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
-      atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData)));
+      atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData) as TQuery));
     }
 
     // `signal` is passed for client fetches so a teardown-aborted fetch is dropped instead of
@@ -112,7 +114,7 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       run.then(
         (result) => {
           if (signal?.aborted) return;
-          atom$.set(createFulfilled(normalizeResult(registry, fields, result)));
+          atom$.set(createFulfilled(normalizeResult(registry, fields, result) as TQuery));
         },
         (error: unknown) => {
           if (signal?.aborted) return;
@@ -158,9 +160,9 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       switchMap((w) => (w.type === StatusEnum.FULFILLED ? of(w.value) : throwError(() => toError(w.error)))),
     );
 
-    let data$: Observable<QueryShapeOf<TShape>>;
-    const initial = atom$.get().type;
-    const settled = initial === StatusEnum.FULFILLED || initial === StatusEnum.REJECTED;
+    let data$: Observable<TQuery>;
+    const initialStatus = atom$.get().type;
+    const settled = initialStatus === StatusEnum.FULFILLED || initialStatus === StatusEnum.REJECTED;
     if (settled) {
       // cache hit / hydrated: emit synchronously, no fetch (markSync lets usePending probe it at render)
       data$ = markSync(derived$);
@@ -189,7 +191,7 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     // Every explicit write commits FULFILLED and aborts any in-flight fetch, so a set / mutation
     // can't be clobbered by a late-arriving fetch result.
-    const writeThrough = (ids: QueryShapeOf<TShape>) => {
+    const writeThrough = (ids: TQuery) => {
       inFlight.controller?.abort();
       atom$.set(createFulfilled(ids));
     };
@@ -197,27 +199,26 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     const applyUpdate = (updater: (prev: TShape) => TShape) => {
       const current = atom$.get();
       if (current.type !== StatusEnum.FULFILLED) return;
-      const prev = denormalizeValue<TShape>(registry, fields, current.value);
-      writeThrough(normalizeResult(registry, fields, updater(prev)));
+      const prev = denormalizeValue<TShape>(registry, fields, current.value as never);
+      writeThrough(normalizeResult(registry, fields, updater(prev)) as TQuery);
     };
 
     const set = (valueOrUpdater: Updater<TShape>) => {
       if (typeof valueOrUpdater === "function") {
         applyUpdate(valueOrUpdater as (prev: TShape) => TShape);
       } else {
-        writeThrough(normalizeResult(registry, fields, valueOrUpdater));
+        writeThrough(normalizeResult(registry, fields, valueOrUpdater) as TQuery);
       }
     };
 
-    const setRaw = (
-      idsOrUpdater: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
-    ) => {
+    const setRaw = (idsOrUpdater: TWritable | ((prev: TQuery) => TWritable)) => {
       if (typeof idsOrUpdater === "function") {
         const current = atom$.get();
         if (current.type !== StatusEnum.FULFILLED) return;
-        writeThrough(normalizeWritable(registry, fields, idsOrUpdater(current.value)));
+        const updater = idsOrUpdater as (prev: TQuery) => TWritable;
+        writeThrough(normalizeWritable(registry, fields, updater(current.value) as never) as TQuery);
       } else {
-        writeThrough(normalizeWritable(registry, fields, idsOrUpdater));
+        writeThrough(normalizeWritable(registry, fields, idsOrUpdater as never) as TQuery);
       }
     };
 

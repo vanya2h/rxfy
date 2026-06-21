@@ -39,6 +39,13 @@ app.get("/api/users", (req, res) => {
   res.json(getUsersPage(cursor));
 });
 
+// Header API — used by the client to fetch the header state (topUser + meta).
+app.get("/api/users-header", (_req, res) => {
+  const total = 1000;
+  const { items } = getUsersPage(null);
+  res.json({ topUser: items[0], meta: { total, generatedAt: new Date().toISOString() } });
+});
+
 app.use("*all", async (req, res) => {
   try {
     const url = req.originalUrl.replace(base, "");

@@ -38,16 +38,20 @@ export type Comment = z.infer<typeof CommentSchema>;
 
 // ── rxfy models ────────────────────────────────────────────────────────────────
 
-export const userModel = createModel(UserSchema, { getKey: (x) => x.id, name: "user" });
-export const postModel = createModel(PostSchema, { getKey: (x) => x.id, name: "post" });
-export const commentModel = createModel(CommentSchema, { getKey: (x) => x.id, name: "comment" });
+export const userModel = createModel({ schema: UserSchema, getKey: (x) => x.id, name: "user" });
+export const postModel = createModel({ schema: PostSchema, getKey: (x) => x.id, name: "post" });
+export const commentModel = createModel({ schema: CommentSchema, getKey: (x) => x.id, name: "comment" });
 
 // ── State definitions ──────────────────────────────────────────────────────────
 
 export const postsState = defineState({
   key: "posts",
   params: z.object({}),
-  model: { posts: array(postModel), authors: array(userModel) },
+  model: {
+    posts: array(postModel),
+    authors: array(userModel),
+    meta: z.object({ total: z.number(), generatedAt: z.string() }),
+  },
 });
 
 export const postDetailState = defineState({
@@ -71,11 +75,11 @@ export const postDetailState = defineState({
 export async function fetchPosts(
   _: Record<never, never>,
   signal: AbortSignal,
-): Promise<{ posts: Post[]; authors: User[] }> {
+): Promise<{ posts: Post[]; authors: User[]; meta: { total: number; generatedAt: string } }> {
   await delay(400, signal);
   const authorIds = new Set(db.posts.map((p) => p.userId));
   const authors = db.users.filter((u) => authorIds.has(u.id));
-  return { posts: db.posts, authors };
+  return { posts: db.posts, authors, meta: { total: db.posts.length, generatedAt: new Date().toISOString() } };
 }
 
 export async function fetchPostDetail(

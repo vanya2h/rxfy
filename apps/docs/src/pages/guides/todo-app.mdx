@@ -80,7 +80,8 @@ gets stored once under that id, so every component renders the same copy.
 import { z } from "zod";
 import { createModel } from "rxfy";
 
-export const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
+export const TodoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
   getKey: (todo) => todo.id,
   name: "todo",
 });

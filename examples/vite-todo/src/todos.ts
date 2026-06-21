@@ -18,13 +18,16 @@ export function parseFilter(value: string | null | undefined): Filter {
   return (FILTERS as string[]).includes(value ?? "") ? (value as Filter) : "all";
 }
 
-export const todoModel = createModel(TodoSchema, { getKey: (x) => x.id, name: "todo" });
+export const todoModel = createModel({ schema: TodoSchema, getKey: (x) => x.id, name: "todo" });
 export const useTodoStore = () => useModelStore(todoModel);
 
 export const todosState = defineState({
   key: "todos",
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
-  model: { todos: array(todoModel) },
+  model: {
+    todos: array(todoModel),
+    meta: z.object({ total: z.number(), generatedAt: z.string() }),
+  },
   mutations: {
     addTodo: (prev, todo: Todo) => ({ ...prev, todos: [...prev.todos, todo] }),
     removeTodo: (prev, id: string) => ({ ...prev, todos: prev.todos.filter((t) => t.id !== id) }),
@@ -39,7 +42,10 @@ let db: Todo[] = [
 ];
 let nextId = 4;
 
-export async function fetchTodos({ filter }: { filter: Filter }, signal: AbortSignal): Promise<{ todos: Todo[] }> {
+export async function fetchTodos(
+  { filter }: { filter: Filter },
+  signal: AbortSignal,
+): Promise<{ todos: Todo[]; meta: { total: number; generatedAt: string } }> {
   await new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
       reject(signal.reason);
@@ -52,7 +58,7 @@ export async function fetchTodos({ filter }: { filter: Filter }, signal: AbortSi
     });
   });
   const todos = filter === "all" ? db : db.filter((t) => t.done === (filter === "done"));
-  return { todos };
+  return { todos, meta: { total: todos.length, generatedAt: new Date().toISOString() } };
 }
 
 export function createTodo(title: string): Todo {

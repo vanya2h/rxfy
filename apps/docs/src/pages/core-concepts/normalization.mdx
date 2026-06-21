@@ -43,10 +43,11 @@ until it happens to re-fetch. Now the two copies disagree, and one is wrong.
 Both states reference the same **model**. A model is an entity type plus how to read its id:
 
 ```ts
-const UserModel = createModel(
-  z.object({ id: z.string(), name: z.string() }),
-  { getKey: (user) => user.id, name: "user" },
-);
+const UserModel = createModel({
+  schema: z.object({ id: z.string(), name: z.string() }),
+  getKey: (user) => user.id,
+  name: "user",
+});
 ```
 
 Because both `teamState` and `profileState` declare `UserModel`, rxfy keys every user by that

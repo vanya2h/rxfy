@@ -19,13 +19,20 @@ export type FieldDescriptor<TShape> = {
   readonly model: ModelDescriptor<any, any>;
 };
 
+export type CreateModelConfig<TOutput, TKey extends string, TInput = TOutput> = {
+  schema: z.ZodType<TOutput, TInput>;
+  getKey: (item: TOutput) => TKey;
+  name?: string;
+};
+
 // Both Zod generics are inferred so T comes from Output and TInput from Input —
 // z.ZodType<T> alone would unify both positions and widen branded types away.
-export function createModel<TOutput, TKey extends string, TInput = TOutput>(
-  schema: z.ZodType<TOutput, TInput>,
-  opts: { getKey: (item: TOutput) => TKey; name?: string },
-): ModelDescriptor<TOutput, TKey> {
-  return { _key: Symbol(), name: opts.name, schema, getKey: opts.getKey };
+export function createModel<TOutput, TKey extends string, TInput = TOutput>({
+  schema,
+  getKey,
+  name,
+}: CreateModelConfig<TOutput, TKey, TInput>): ModelDescriptor<TOutput, TKey> {
+  return { _key: Symbol(), name, schema, getKey };
 }
 
 export function array<T, TKey extends string>(model: ModelDescriptor<T, TKey>): FieldDescriptor<T[]> {
@@ -34,4 +41,13 @@ export function array<T, TKey extends string>(model: ModelDescriptor<T, TKey>): 
 
 export function single<T, TKey extends string>(model: ModelDescriptor<T, TKey>): FieldDescriptor<T> {
   return { kind: "single", model } as FieldDescriptor<T>;
+}
+
+/** True when a field entry is an entity descriptor (`array`/`single`) rather than a bare zod schema. */
+export function isFieldDescriptor(x: unknown): x is FieldDescriptor<any> {
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    ((x as { kind?: unknown }).kind === "array" || (x as { kind?: unknown }).kind === "single")
+  );
 }

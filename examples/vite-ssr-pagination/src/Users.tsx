@@ -1,11 +1,38 @@
 import { useMemo, useState } from "react";
-import { Pending, useStatePagedData } from "rxfy-react";
-import { fetchUsers } from "./api.ts";
+import { Pending, useStateData, useStatePagedData } from "rxfy-react";
+import { fetchUsers, fetchUsersHeader } from "./api.ts";
 import { LoadMoreSentinel } from "./LoadMoreSentinel.tsx";
 import { UserRow } from "./UserRow.tsx";
-import { userModel } from "./users.ts";
+import { userModel, usersHeaderState, useUserStore } from "./users.ts";
 
 type Mode = "scroll" | "click";
+
+/** Renders the header line — entity (topUser name via store) + plain value (meta). */
+function UsersHeaderLine() {
+  const headerParams = useMemo(() => ({}), []);
+  const { data$ } = useStateData({
+    state: usersHeaderState,
+    fetchFn: fetchUsersHeader,
+    params: headerParams,
+  });
+  const store = useUserStore();
+
+  return (
+    <Pending value$={data$} pending={<p className="status">Loading header…</p>}>
+      {({ topUser: topUserId, meta }) => {
+        // topUser is a normalized id — look up the real entity from the store synchronously.
+        const user = store.getValue(topUserId);
+        const name = user?.name ?? topUserId;
+        const time = new Date(meta.generatedAt).toLocaleTimeString();
+        return (
+          <p className="header-caption">
+            Top: <strong>{name}</strong> · {meta.total} users · loaded {time}
+          </p>
+        );
+      }}
+    </Pending>
+  );
+}
 
 export function Users() {
   // Stable params → one query identity → loadMore accumulates a single growing list.
@@ -28,6 +55,8 @@ export function Users() {
 
   return (
     <>
+      <UsersHeaderLine />
+
       <div className="mode-toggle" role="group" aria-label="How to load more users">
         <button className={mode === "scroll" ? "active" : ""} onClick={() => setMode("scroll")}>
           Infinite scroll

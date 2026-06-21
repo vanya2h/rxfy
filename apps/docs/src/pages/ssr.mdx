@@ -10,6 +10,8 @@ already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
 give models a `name` and states a `key` (stable string identities), and
 write `fetchFn` to work in both environments (it runs on the server during SSR and on the
 client for reloads).
+
+[Plain value fields](/core-concepts/state#plain-value-fields) (bare Zod schemas in `model`) don't need a model `name` — they travel inside the keyed state's dehydrated value. Keep them JSON-serializable.
 :::
 
 ## Buffered mode (any Node server)

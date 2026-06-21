@@ -9,7 +9,11 @@ import { StoreProvider } from "../StoreProvider.js";
 import { useStateData } from "../useStateData.js";
 import { collectStateData } from "./collect-state-data.js";
 
-const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+const todoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "todo",
+});
 const todosState = defineState({ key: "todos", params: z.object({}), model: { todos: array(todoModel) } });
 
 describe("collectStateData", () => {

@@ -31,7 +31,7 @@ function TodoItem({ id }: { id: string }) {
 }
 
 type TodoListProps = {
-  data$: Observable<{ todos: string[] }>;
+  data$: Observable<{ todos: string[]; meta: { total: number; generatedAt: string } }>;
   reload: () => void;
 };
 
@@ -46,15 +46,20 @@ function TodoList({ data$, reload }: TodoListProps) {
         </p>
       )}
     >
-      {({ todos }) =>
+      {({ todos, meta }) =>
         todos.length === 0 ? (
           <p className="status">No todos here.</p>
         ) : (
-          <ul className="todo-list">
-            {todos.map((id) => (
-              <TodoItem key={id} id={id} />
-            ))}
-          </ul>
+          <>
+            <ul className="todo-list">
+              {todos.map((id) => (
+                <TodoItem key={id} id={id} />
+              ))}
+            </ul>
+            <p className="status">
+              {meta.total} todos · loaded {new Date(meta.generatedAt).toLocaleTimeString()}
+            </p>
+          </>
         )
       }
     </Pending>

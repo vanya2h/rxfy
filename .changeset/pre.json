@@ -1,5 +1,5 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "rc",
   "initialVersions": {
     "docs": "0.0.0",
@@ -8,9 +8,9 @@
     "rxfy-example-realtime-todos": "0.1.0",
     "rxfy-example-ssr-pagination": "0.1.0",
     "rxfy-example-todo-app": "0.1.0",
-    "rxfy-example-waku-blog": "0.1.0",
-    "rxfy": "1.2.0",
-    "rxfy-react": "1.2.0"
+    "rxfy-example-waku-blog": "0.1.1",
+    "rxfy": "1.2.1",
+    "rxfy-react": "1.2.1"
   },
   "changesets": []
 }

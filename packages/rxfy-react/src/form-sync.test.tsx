@@ -8,7 +8,8 @@ import { useAtom } from "./useAtom.js";
 import { useModelStore } from "./useModelStore.js";
 
 type PostT = { id: string; title: string };
-const Post = createModel<PostT, string>(z.object({ id: z.string(), title: z.string() }), {
+const Post = createModel<PostT, string>({
+  schema: z.object({ id: z.string(), title: z.string() }),
   getKey: (p) => p.id,
   name: "post",
 });

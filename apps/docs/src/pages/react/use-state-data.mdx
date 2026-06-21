@@ -41,6 +41,10 @@ function useStateData<TParams, TShape, TMutations>(config: {
 }): StateHandle<TShape, TMutations>
 ```
 
+`data$` emits the normalized query shape — entity ids for `array`/`single` fields, and
+[plain value fields](/core-concepts/state#plain-value-fields) (bare zod schemas in the `model`)
+passed through with their real value.
+
 The returned `StateHandle<TShape, TMutations>` exposes:
 
 ```ts
