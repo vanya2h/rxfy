@@ -1,5 +1,22 @@
 # rxfy
 
+## 1.3.0-rc.0
+
+### Minor Changes
+
+- 5d75854: `createModel` now takes a single config object instead of two positional arguments.
+
+  The schema has been merged into the options object, matching the config-object shape used elsewhere
+  (e.g. `useStateData`). Update call sites from
+  `createModel(schema, { getKey, name })` to `createModel({ schema, getKey, name })`.
+
+- 9066c5c: Support plain (non-normalized) value fields in `defineState`.
+
+  `defineState({ model })` now accepts a bare zod schema as a field entry to declare a plain value
+  (boolean, primitive, or object). Such fields live in the query state and pass through `data# rxfy
+unchanged, distinct from `array()`/`single()` entity fields that normalize into model stores. Plain
+  values are validated against their schema in development and passed through in production.
+
 ## 1.2.1
 
 ### Patch Changes
