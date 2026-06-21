@@ -6,8 +6,8 @@ idiomatic forms: **Redux Toolkit** (with RTK Query), **MobX 6**, **Jotai**, and
 
 rxfy's premise is narrower than any of them: you **declare typed models and the states that
 query them**, then access their data as **reactive observables**.
-[Normalization](/core-concepts/normalization) is the storage strategy underneath, and it keeps your app
-consistent and reactive at no extra cost. `data$` emits entity **ids**, values live in
+[Normalization](/core-concepts/normalization) is the storage strategy underneath, and it gives you
+consistency and granular reactivity at no extra cost. `data$` emits entity **ids**, values live in
 per-entity Observable cells, and one `store.set` (refetch, mutation, or websocket) updates
 the components subscribed to that entity and nothing else: no global re-selection, no
 refetch. A `defineState` declaration bundles fetching, normalization, and SSR into one

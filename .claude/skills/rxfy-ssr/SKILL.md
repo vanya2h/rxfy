@@ -9,7 +9,7 @@ metadata:
 
 # rxfy SSR
 
-rxfy captures fetch results on the server into a per-request `ModelRegistry`, serializes them with `dehydrate`, injects the snapshot into the HTML, and the client `StoreProvider` rehydrates it automatically — zero client fetches on first paint.
+rxfy's states and stores are serializable, so SSR is first-class: rxfy captures fetch results on the server into a per-request `ModelRegistry`, serializes them with `dehydrate`, injects the snapshot into the HTML, and the client `StoreProvider` rehydrates it automatically — zero client fetches on first paint.
 
 ## Prerequisites
 

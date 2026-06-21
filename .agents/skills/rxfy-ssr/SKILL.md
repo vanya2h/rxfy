@@ -9,7 +9,7 @@ metadata:
 
 # rxfy SSR
 
-rxfy captures fetch results on the server into a per-request `ModelRegistry`, serializes them with `dehydrate`, injects the snapshot into the HTML, and the client `StoreProvider` rehydrates it automatically — zero client fetches on first paint.
+rxfy's states and stores are serializable, so SSR is first-class: rxfy captures fetch results on the server into a per-request `ModelRegistry`, serializes them with `dehydrate`, injects the snapshot into the HTML, and the client `StoreProvider` rehydrates it automatically — zero client fetches on first paint.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ Two fields are required for SSR to work:
 | `createModel(schema, { getKey, name: "..." })` | `name` | Stable key for entity store dehydration |
 | `defineState({ key: "...", ... })` | `key` | Stable key for the query cache |
 
-Models or states missing these fields are silently skipped during `dehydrate`.
+Models or states missing these fields are silently skipped during `dehydrate`. Plain value fields (bare zod schemas in a state's `model`) need no `name` — they ride inside the keyed state's dehydrated value, so keep them JSON-serializable.
 
 ## Mode 1 — Buffered (`renderToPipeableStream` + `onAllReady`)
 
