@@ -22,7 +22,8 @@ A model binds a Zod schema to an id extractor. Every entity of this type lives i
 import { z } from "zod";
 import { createModel } from "rxfy";
 
-const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
+const TodoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
   getKey: (x) => x.id,
   name: "todo",
 });

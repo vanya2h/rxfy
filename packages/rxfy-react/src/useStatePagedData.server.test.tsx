@@ -9,7 +9,8 @@ import { StoreProvider } from "./StoreProvider.js";
 import { useStatePagedData } from "./useStatePagedData.js";
 
 // Distinct model name from the jsdom test file to avoid any cross-file registration collisions.
-const postModel = createModel(z.object({ id: z.string(), title: z.string() }), {
+const postModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
   getKey: (x) => x.id,
   name: "ssr-paged-post",
 });

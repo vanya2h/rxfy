@@ -3,7 +3,7 @@ import { useModelStore } from "rxfy-react";
 import { z } from "zod";
 import { UserSchema } from "../shared/users.ts";
 
-export const userModel = createModel(UserSchema, { getKey: (u) => u.id, name: "user" });
+export const userModel = createModel({ schema: UserSchema, getKey: (u) => u.id, name: "user" });
 
 export const useUserStore = () => useModelStore(userModel);
 

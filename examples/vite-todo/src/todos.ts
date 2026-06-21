@@ -18,7 +18,7 @@ export function parseFilter(value: string | null | undefined): Filter {
   return (FILTERS as string[]).includes(value ?? "") ? (value as Filter) : "all";
 }
 
-export const todoModel = createModel(TodoSchema, { getKey: (x) => x.id, name: "todo" });
+export const todoModel = createModel({ schema: TodoSchema, getKey: (x) => x.id, name: "todo" });
 export const useTodoStore = () => useModelStore(todoModel);
 
 export const todosState = defineState({

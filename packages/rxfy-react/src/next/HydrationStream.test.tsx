@@ -7,7 +7,11 @@ import { StoreProvider } from "../StoreProvider.js";
 import { HydrationStream } from "./HydrationStream.js";
 import { insertedCallbacks, resetInsertedCallbacks } from "./next-navigation.stub.js";
 
-const todoModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "todo" });
+const todoModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "todo",
+});
 
 function extractPayload(node: React.ReactNode): DehydratedState {
   const html = renderToString(<>{node}</>);

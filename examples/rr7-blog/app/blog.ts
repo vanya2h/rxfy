@@ -38,9 +38,9 @@ export type Comment = z.infer<typeof CommentSchema>;
 
 // ── rxfy models ────────────────────────────────────────────────────────────────
 
-export const userModel = createModel(UserSchema, { getKey: (x) => x.id, name: "user" });
-export const postModel = createModel(PostSchema, { getKey: (x) => x.id, name: "post" });
-export const commentModel = createModel(CommentSchema, { getKey: (x) => x.id, name: "comment" });
+export const userModel = createModel({ schema: UserSchema, getKey: (x) => x.id, name: "user" });
+export const postModel = createModel({ schema: PostSchema, getKey: (x) => x.id, name: "post" });
+export const commentModel = createModel({ schema: CommentSchema, getKey: (x) => x.id, name: "comment" });
 
 // ── State definitions ──────────────────────────────────────────────────────────
 

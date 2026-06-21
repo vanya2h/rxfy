@@ -3,8 +3,8 @@ import { z } from "zod";
 import { createModel } from "../model/model.js";
 import { modelTopic, type Topic } from "./topic.js";
 
-const TodoModel = createModel(z.object({ id: z.string() }), { getKey: (t) => t.id, name: "todo" });
-const UnnamedModel = createModel(z.object({ id: z.string() }), { getKey: (t) => t.id });
+const TodoModel = createModel({ schema: z.object({ id: z.string() }), getKey: (t) => t.id, name: "todo" });
+const UnnamedModel = createModel({ schema: z.object({ id: z.string() }), getKey: (t) => t.id });
 
 describe("modelTopic", () => {
   it("returns name:id string", () => {

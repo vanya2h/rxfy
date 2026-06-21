@@ -7,8 +7,16 @@ import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 import { useStateData } from "./useStateData.js";
 
-const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id, name: "post" });
-const userModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (x) => x.id, name: "user" });
+const postModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "post",
+});
+const userModel = createModel({
+  schema: z.object({ id: z.string(), name: z.string() }),
+  getKey: (x) => x.id,
+  name: "user",
+});
 
 type Post = { id: string; title: string };
 

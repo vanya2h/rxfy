@@ -4,7 +4,7 @@ import { createModel } from "../model/model.js";
 import { createSubscriptionManager } from "./subscription-manager.js";
 import { modelTopic } from "./topic.js";
 
-const TodoModel = createModel(z.object({ id: z.string() }), { getKey: (t) => t.id, name: "todo" });
+const TodoModel = createModel({ schema: z.object({ id: z.string() }), getKey: (t) => t.id, name: "todo" });
 const t1 = modelTopic(TodoModel, "1");
 const t2 = modelTopic(TodoModel, "2");
 
