@@ -523,6 +523,9 @@ importers:
       next:
         specifier: '>=14'
         version: 16.2.9(@babel/core@7.29.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      rxfy-protocol:
+        specifier: workspace:*
+        version: link:../rxfy-protocol
     devDependencies:
       '@testing-library/jest-dom':
         specifier: ^6.9.1
