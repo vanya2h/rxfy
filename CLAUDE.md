@@ -33,7 +33,7 @@ After any public API change to a published package (`rxfy`, `rxfy-react`), creat
 
 ## Architecture
 
-**rxfy** is a pnpm + Turbo monorepo for a minimalistic, RxJS-based framework: typed, normalized, reactive state for React, with first-class SSR. Entities live in shared normalized stores keyed by id; each page declares its own state over those stores (the query holds only ids), and both states and stores are serializable.
+**rxfy** is a pnpm + Turbo monorepo for a minimalistic, RxJS-based library: typed, normalized, reactive state for React, with first-class SSR. Entities live in shared normalized stores keyed by id; each page declares its own state over those stores (the query holds only ids), and both states and stores are serializable.
 
 ### Packages
 
