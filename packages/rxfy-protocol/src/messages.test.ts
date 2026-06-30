@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROTOCOL_VERSION, patch, stale, subscribe, unsubscribe } from "./messages.js";
+import { patch, PROTOCOL_VERSION, stale, subscribe, unsubscribe } from "./messages.js";
 
 describe("PROTOCOL_VERSION", () => {
   it("is the literal 1", () => {
