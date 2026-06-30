@@ -27,7 +27,7 @@ Two distinct, deliberately different live behaviors:
 - `defineResource` — bind a Drizzle table to an rxfy `ModelDescriptor` (no codegen).
 - Server write functions: `update` (live patch), `create` / `delete` (structural touch).
 - Transport-agnostic broadcast core: subscription hub + revision counters.
-- Capability tokens (`grant` / signer / verifier) for stateless authorization.
+- Hashed topic keys (`grant` / topic-key deriver) for stateless authorization.
 - `window`/partition split for paginated state invalidation.
 - `rxfy-ws` default transport adapter over the `ws` library.
 - Client wiring: live client + integration into `useStateData` (entity patches + counter).
@@ -49,7 +49,7 @@ Two distinct, deliberately different live behaviors:
 | 1 | Source of truth for model shape | **DB schema leads** — Drizzle table → derive rxfy model + Zod via `drizzle-zod` |
 | 2 | Change detection | **Framework-mediated writes** — write functions persist *and* broadcast |
 | 3 | Subscription granularity | **Per-entity topics + named channels** |
-| 4 | Authorization | **Capability tokens** — signed topic grants issued at data-send time, verified statelessly |
+| 4 | Authorization | **Hashed topic keys** — opaque `HMAC(secret, topic + window)` ids issued at data-send time; possession = capability; pure routing, self-expiring |
 | 5 | Runtime scope | **Core + transport adapters** (default `rxfy-ws`) |
 | 6 | Client write path | **Server functions; the app exposes them** via its own endpoints |
 | 7 | Update granularity | **Hybrid** — live in-place entity patches + per-state counter for structure |
@@ -63,14 +63,14 @@ Two distinct, deliberately different live behaviors:
   │  defineResource(table) ─► { model, zod, getKey, name, channels }    │
   │  defineState({ window }) ─► invalidationChannel() derivation         │
   │  protocol (ServerMessage | ClientMessage, version field)            │
-  │  token format (sign/verify shape)                                   │
+  │  topic-key shape (HMAC id derivation, types)                        │
   └──────────────────────────────────────────────────────────────────┘
         │ imported by server                    │ imported by client
         ▼                                        ▼
   ┌─────────────────────────┐            ┌──────────────────────────────┐
   │ rxfy-server (server)     │            │ rxfy-server/client + rxfy-react│
   │  createServer({db,hub,   │            │  createLiveClient(...)         │
-  │    signer, resources})   │            │  useStateData (counter+patch)  │
+  │    keyer, resources})    │            │  useStateData (counter+patch)  │
   │  update / create / delete │            │  applies patch -> store.set    │
   │  touch / grant           │            │  tracks rev -> updatesAvailable │
   │  Broadcaster + Hub + revs │            └──────────────────────────────┘
@@ -79,7 +79,7 @@ Two distinct, deliberately different live behaviors:
         ▼                                             │
   ┌─────────────────────────┐    ws    ┌──────────────────────────────┐
   │ rxfy-ws (server adapter) │◄────────►│ rxfy-ws (client adapter)      │
-  │  verify(token)->topic    │          │  subscribe/unsubscribe/resume  │
+  │  route by opaque id      │          │  subscribe/unsubscribe/resume  │
   │  bind conn <-> topics    │          │                                │
   └─────────────────────────┘          └──────────────────────────────┘
 ```
@@ -167,7 +167,7 @@ Server-only. Constructed once via `createServer`:
 
 ```ts
 import { drizzle } from "drizzle-orm/node-postgres";
-import { createServer, createInMemoryHub, createTokenSigner } from "rxfy-server";
+import { createServer, createInMemoryHub, createTopicKeyer } from "rxfy-server";
 
 const db = drizzle(process.env.DATABASE_URL!);
 
@@ -175,7 +175,7 @@ export const live = createServer({
   db,
   resources,
   hub: createInMemoryHub(),
-  signer: createTokenSigner({ secret: process.env.RXFY_SECRET!, ttl: "10m" }),
+  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET!, windowMs: 10 * 60_000 }),
 });
 ```
 
@@ -183,7 +183,7 @@ export const live = createServer({
 // UPDATE — live entity patch (+ optional structural touch if membership changed)
 const row = await live.update(posts, id, { title }, { touch?: TouchTarget[] });
 //  1. db.update(table).set(patch).where(eq(pk,id)).returning() -> full row
-//  2. hub.publish(`post:${id}`, { v:1, kind:"patch", name:"post", id, data: row })
+//  2. publish on topic `post:${id}` (keyer.forPublish derives the hub ids), msg { v:1, kind:"patch", name:"post", id, data: row }
 //  3. for each touch target: bump + publish stale (see touch)
 
 // CREATE — structural; counter only, no data pushed
@@ -226,51 +226,72 @@ type Hub = {
 };
 ```
 
-`createInMemoryHub()` keeps `Map<topic, Set<ConnId>>` and `Map<channel, number>` for revs, and
-delivers via the registered sink. A transport adapter registers a sink that serializes and
-writes to the matching socket. Multi-process backends (Redis pub/sub + `INCR`) implement the
-same contract later with no protocol change.
+At the hub boundary, `topic`/`channel` keys are the **opaque hashed ids** from §5.5, not the
+plaintext names: subscribers join by id, and the server's publish helper derives the id(s) via
+`keyer.forPublish(topic)` before calling `publish`/`bump`. So the hub never sees a plaintext
+topic and needs no secret — it is pure opaque-string routing.
 
-### 5.5 Capability tokens & grants
+`createInMemoryHub()` keeps `Map<id, Set<ConnId>>` and `Map<id, number>` for revs, and delivers
+via the registered sink. A transport adapter registers a sink that serializes and writes to the
+matching socket. Multi-process backends (Redis pub/sub + `INCR`) implement the same contract
+later with no protocol change.
 
-A token is a signed statement "bearer may subscribe to topic T until E":
+### 5.5 Hashed topic keys & grants
+
+A subscribable topic is addressed not by its plaintext name but by an **opaque, unguessable
+id** derived with a keyed hash. Possession of the id *is* the capability — an attacker who
+lacks it cannot guess it (the secret makes it unforgeable) and therefore cannot subscribe.
 
 ```
-token   = base64url(payload) + "." + base64url(HMAC-SHA256(secret, payload))
-payload = { t: "post:42", exp: <unix>, sid?: "<session>" }
+topicId(topic, t) = base64url(HMAC-SHA256(secret, `${topic}:${windowOf(t)}`))
+windowOf(t)       = floor(t / windowMs)
 ```
 
 ```ts
-createTokenSigner({ secret, ttl, clock? }) => {
-  sign(topic: string, opts?: { sid?: string }): string;
-  verify(token: string, ctx?: { sid?: string }): string | null;  // returns topic or null
+createTopicKeyer({ secret, windowMs }) => {
+  current(topic: string): string;          // id for the current window
+  forPublish(topic: string): string[];     // [current, previous] window ids (boundary cover)
 };
 ```
 
-Verification recomputes the HMAC and checks `exp` (and `sid` if bound) — fully stateless, so
-any server instance validates any token. Revocation is handled by short `ttl` plus re-issuing
-grants on every refetch/reconnect.
+There is **no verification step**: the `rxfy-ws` adapter treats ids as opaque routing keys.
+Routing is still fully stateless because the server recomputes the *same* id at publish time —
+`live.update(posts, 42, …)` publishes on `current("post:42")`, which equals the id the client
+holds. The hub matches opaque strings; no reverse map.
 
-`grant()` turns "what this response is allowed to see" into tokens, reusing the authorization
-the app already performed when it chose which rows to fetch:
+**Expiry is structural.** Because the window id is folded into the hash, an id stops matching
+once the window rolls. The publisher emits on both the current and previous window ids so a
+subscription never drops mid-window; a client holding an expired id simply goes quiet and
+re-subscribes after its next grant refresh (on refetch, or a periodic refresh shorter than
+`windowMs`). A leaked id is therefore only useful until the window expires.
+
+**Tradeoffs (documented, accepted):** revocation granularity is the window, not per-client;
+early/selective revocation ("kick one user now") requires server-side subscription state and is
+a v1 non-goal (signed tokens share this limitation). Ids MUST be treated as secrets: never
+logged, only sent over `wss`. The id is more sensitive than the data snapshot it ships beside,
+because it grants access to *future* updates — hence the bounded window.
+
+`grant()` turns "what this response is allowed to see" into topic ids, reusing the
+authorization the app already performed when it chose which rows to fetch:
 
 ```ts
 const grants = live.grant(registry, {
-  entities: posts,                                   // auto: token per post:<id> in the store
-  states: [{ state: postsState, params: { orgId, page, sort } }],  // channel token + baseline rev
+  entities: posts,                                   // auto: id per post:<id> in the store
+  states: [{ state: postsState, params: { orgId, page, sort } }],  // channel id + baseline rev
 });
 // grants = {
-//   entities: Record<topic, token>,                 // for patch subscriptions
-//   channels: Record<channel, { token, rev }>,      // for stale subscriptions + fetch baseline
+//   entities: Record<topic, id>,                    // for patch subscriptions
+//   channels: Record<channel, { id, rev }>,         // for stale subscriptions + fetch baseline
 // }
 ```
 
-- **Entity tokens are automatic** — `grant` reads the registry's `post` store
-  (`valueEntries()`) for the ids actually present, i.e. exactly the rows in the response.
-- **Channel tokens** are derived from the supplied states (it needs each state's `window` to
-  compute the channel) and carry the current `rev` as the client's fetch baseline.
-- `sid` binding (optional) ties tokens to the authenticated session so a leaked token can't be
-  replayed by another user.
+- **Entity ids are automatic** — `grant` reads the registry's `post` store (`valueEntries()`)
+  for the ids actually present, i.e. exactly the rows in the response, and derives
+  `topicId("post:<id>")` for each.
+- **Channel ids** are derived from the supplied states (it needs each state's `window` to
+  compute the invalidation channel) and carry the current `rev` as the client's fetch baseline.
+- The client never computes a hash (it has no secret); it looks ids up from the grants map by
+  plaintext topic, exactly as it would have looked up a token.
 
 ### 5.6 Wire protocol (shared, versioned)
 
@@ -283,9 +304,9 @@ type ServerMessage =
   | { v: 1; kind: "stale"; channel: string; rev: number };            // counter bump
 
 type ClientMessage =
-  | { v: 1; kind: "subscribe";   tokens: string[] }     // capability tokens
-  | { v: 1; kind: "unsubscribe"; topics: string[] }
-  | { v: 1; kind: "resume";      revs: Record<string, number> };      // reconnect baseline sync
+  | { v: 1; kind: "subscribe";   ids: string[] }        // opaque hashed topic ids
+  | { v: 1; kind: "unsubscribe"; ids: string[] }
+  | { v: 1; kind: "resume";      revs: Record<string, number> };      // reconnect baseline sync (by channel id)
 ```
 
 `stale` is level-triggered: the client always trusts the latest `rev` and diffs against its
@@ -293,13 +314,15 @@ fetch baseline, so duplicate or out-of-order delivery cannot desync the counter.
 
 ### 5.7 Transport adapter — `rxfy-ws`
 
-**Server side.** Thin wiring between a `ws` server and the hub:
+**Server side.** Thin wiring between a `ws` server and the hub — pure routing, no verify:
 
-- On connection: optionally establish `ctx` (session/`sid`) from the upgrade request.
-- On `subscribe`: `signer.verify(token, ctx)` each token; valid ones → `hub.subscribe(conn, topics)`.
-  Invalid/expired tokens are ignored (optionally a `denied` notice for diagnostics).
-- On `resume`: reply with current `hub.rev(channel)` for each requested channel so the badge is
-  correct after a dropped connection; re-subscribe via the still-valid tokens the client resends.
+- On connection: nothing required (ids carry their own authority). The upgrade handler may
+  still enforce app-level auth (cookie/session) before accepting the socket.
+- On `subscribe`: `hub.subscribe(conn, ids)` directly — ids are opaque routing keys. There is
+  no token to parse or signature to check; an id the server never publishes to simply never
+  receives anything, so a forged/expired id is inert.
+- On `resume`: reply with current `hub.rev(id)` for each requested channel id so the badge is
+  correct after a dropped connection; re-subscribe via the still-current ids the client resends.
 - Registers a hub sink that serializes `ServerMessage` and writes to the bound socket.
 - On close: `hub.drop(conn)`.
 
@@ -326,9 +349,9 @@ const liveClient = createLiveClient({
 Behavior:
 
 - **Entity patches.** Watches `registry.added$`; for each held entity it looks up the grant
-  token for `name:<id>` and subscribes. Inbound `patch` → `registry.model(byName).set(id, data)`,
+  id for `name:<id>` and subscribes. Inbound `patch` → `registry.model(byName).set(id, data)`,
   which propagates to every `store.get(id)` subscriber. New entities discovered after a refetch
-  get their tokens from the refreshed grants payload.
+  get their ids from the refreshed grants payload.
 - **Counter.** Owns per-channel `{ baseline, latest }`. Inbound `stale` updates `latest`. The
   live client exposes a per-channel `available$ = max(0, latest - baseline)`.
 - Idempotent throughout. Subscription cleanup is best-effort: when a refetch supersedes a
@@ -342,7 +365,7 @@ Behavior:
 ### 5.9 `useStateData` integration
 
 `useStateData` derives its invalidation channel from `state` + `params` + `state.window`,
-subscribes through the live client using the channel grant token, sets its baseline to the
+subscribes through the live client using the channel grant id, sets its baseline to the
 `rev` in the fetch/SSR payload, and extends the handle:
 
 ```ts
@@ -399,9 +422,10 @@ page via `fetchFn`; new entity + its grant arrive through the normal fetch path.
 
 **Delete (structural).** Same as create — counter only; the refetch reflects the removal.
 
-**Reconnect.** Client reconnects, resends `subscribe` (tokens still valid) + `resume` with last
+**Reconnect.** Client reconnects, resends `subscribe` with its current ids + `resume` with last
 revs → server replies with current revs → badge recomputed; no missed-bump desync because the
-counter is level-triggered.
+counter is level-triggered. If the reconnect spans a window boundary, the client refreshes
+grants (refetch) to obtain ids for the new window.
 
 ## 7. Package Layout
 
@@ -412,7 +436,7 @@ packages/
       resource.ts        # defineResource, channel, createResourceRegistry (shared)
       state-channel.ts   # invalidationChannel, window/partition split (shared)
       protocol.ts        # ServerMessage | ClientMessage, version (shared)
-      token.ts           # createTokenSigner (server) + verify shape (shared types)
+      topic-key.ts       # createTopicKeyer: HMAC topic-id derivation + windowing (server)
       server.ts          # createServer: update/create/delete/touch/grant (server)
       hub.ts             # Hub contract + createInMemoryHub (server)
       drizzle.ts         # drizzle-zod derivation + write helpers (server)
@@ -434,15 +458,16 @@ Peer deps: `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod` (server core); `ws` (`rxf
 
 ## 8. Testing Strategy
 
-- **Unit (Vitest, node).** Channel derivation (window/partition, key stability); token
-  sign/verify incl. expiry & `sid`; hub pub/sub + rev counters; `grant` token/rev shape from a
-  seeded registry; resource derivation (PK detection, single-PK guard).
+- **Unit (Vitest, node).** Channel derivation (window/partition, key stability); topic-key
+  derivation (unguessability, same id at publish time, window rollover + current/previous
+  coverage); hub pub/sub + rev counters; `grant` id/rev shape from a seeded registry; resource
+  derivation (PK detection, single-PK guard).
 - **Protocol.** Round-trip serialize/parse for every message variant; version field presence.
 - **Integration (in-memory hub, no real ws).** `update` → subscriber receives `patch`;
   `create`/`delete` → subscribed channel receives `stale` with incremented rev; reconnect
   `resume` returns correct revs.
-- **`rxfy-ws`.** Loopback `ws` server: token-gated subscribe (valid vs expired), fan-out,
-  drop-on-close, reconnect/resume.
+- **`rxfy-ws`.** Loopback `ws` server: id-routed subscribe (live id delivers, stale/forged id
+  inert), fan-out, drop-on-close, reconnect/resume.
 - **Client.** `createLiveClient` applies `patch` to a store and updates `available$` from
   `stale`; idempotency under duplicate delivery; `useStateData` counter + `applyUpdates` reset.
 - **DB-touching write tests** run against a disposable Postgres (testcontainers or a local
@@ -453,11 +478,13 @@ Peer deps: `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod` (server core); `ws` (`rxf
 - **Redis hub** for multi-process fan-out and shared rev counters (same `Hub` contract).
 - **CDC adapter** (`LISTEN`/`NOTIFY` or logical replication) to capture writes that bypass the
   framework — opt-in, emits the same `patch`/`stale` messages.
-- **Client command channel** — client→server mutations over the same socket with token auth,
-  if the app-endpoint write path proves insufficient.
+- **Client command channel** — client→server mutations over the same socket, authorized by the
+  same hashed-id scheme, if the app-endpoint write path proves insufficient.
+- **Selective/early revocation** — server-side subscription state to kick a specific client
+  before its window expires (both hashed ids and signed tokens lack this today).
 - **Prisma adapter** behind the same `defineResource`/write surface.
 - **Composite primary keys.**
-- **Batch tokens** — a single grant covering a set of entities to shrink large list payloads.
+- **Batch ids** — a single grant id covering a set of entities to shrink large list payloads.
 
 ## 10. Changesets
 
