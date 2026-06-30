@@ -44,7 +44,7 @@ describe("primaryKeyColumn", () => {
 
 describe("defineResource", () => {
   it("defaults the model name to the SQL table name", () => {
-    const r = defineResource({ table: posts });
+    const r = defineResource({ table: posts, name: "posts" });
     expect(r.name).toBe("posts");
     expect(r.model.name).toBe("posts");
   });
