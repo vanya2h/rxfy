@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseServerMessage, ProtocolError, serialize } from "./codec.js";
-import { patch, stale, subscribe } from "./messages.js";
+import { parseClientMessage, parseServerMessage, ProtocolError, serialize } from "./codec.js";
+import { patch, stale, subscribe, unsubscribe } from "./messages.js";
 
 describe("serialize + parseServerMessage round-trip", () => {
   it("round-trips a patch message", () => {
@@ -47,5 +47,31 @@ describe("parseServerMessage rejects invalid input", () => {
 
   it("rejects a top-level array with the object error", () => {
     expect(() => parseServerMessage("[1,2,3]")).toThrow(/message must be an object/);
+  });
+});
+
+describe("serialize + parseClientMessage round-trip", () => {
+  it("round-trips a subscribe message", () => {
+    const msg = subscribe(["k7", "9x"]);
+    expect(parseClientMessage(serialize(msg))).toEqual(msg);
+  });
+
+  it("round-trips an unsubscribe message", () => {
+    const msg = unsubscribe(["k7"]);
+    expect(parseClientMessage(serialize(msg))).toEqual(msg);
+  });
+});
+
+describe("parseClientMessage rejects invalid input", () => {
+  it("rejects subscribe with non-string ids", () => {
+    expect(() => parseClientMessage(JSON.stringify({ v: 1, kind: "subscribe", ids: [1, 2] }))).toThrow(ProtocolError);
+  });
+
+  it("rejects subscribe with a non-array ids", () => {
+    expect(() => parseClientMessage(JSON.stringify({ v: 1, kind: "subscribe", ids: "nope" }))).toThrow(ProtocolError);
+  });
+
+  it("rejects a server frame (stale) as a client message", () => {
+    expect(() => parseClientMessage(serialize(stale("c")))).toThrow(/unknown client message kind/);
   });
 });
