@@ -44,6 +44,9 @@
     "prepublishOnly": "pnpm run build",
     "test": "vitest run --passWithNoTests"
   },
+  "dependencies": {
+    "superjson": "^2.2.1"
+  },
   "devDependencies": {
     "@vanya2h/eslint-config": "^0.4.0",
     "@vanya2h/typescript-config": "^0.4.0",
