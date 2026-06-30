@@ -417,14 +417,19 @@ is built in via `window`.
 
 ### 5.10 SSR integration
 
-Grants travel inside the existing dehydration payload — no new transport:
+Grants travel inside the existing dehydration payload — no new transport, and dehydration stays
+orthogonal to granting:
 
-- `dehydrate(registry)` is unchanged (`{ queries, models }`).
-- A helper `dehydrateWithGrants(registry, live, { states })` returns
-  `{ ...dehydrate(registry), grants }`, and `hydrationScript` embeds it. The client reads
-  `window.__RXFY_SSR__.grants`.
-- **Streaming SSR** (`rxfy-react/next` `HydrationStream`): each streamed chunk carries the grants
-  for the entities/states it introduces, appended the same way query/model chunks already are.
+- `dehydrate(registry)` is **unchanged** (`{ queries, models }`) — a pure rxfy-core concern with
+  no dependency on the live layer.
+- The app composes the payload directly: `live.grant(...)` produces `grants`, and
+  `hydrationScript({ ...dehydrate(registry), grants })` embeds it. No `dehydrateWithGrants`
+  wrapper — granting needs the state descriptors (for each state's `window`) that `dehydrate`
+  doesn't, so fusing them saves a line while coupling a core primitive to `rxfy-server`. The
+  client reads `window.__RXFY_SSR__.grants`.
+- **Streaming SSR** (`rxfy-react/next` `HydrationStream`): the streaming wrapper is the one place
+  that *does* attach grants programmatically — each streamed chunk carries the grants for the
+  entities/states it introduces, appended the same way query/model chunks already are.
 - On the client, `StoreProvider` drains grants alongside the existing hydration and feeds them
   to `createLiveClient`.
 
