@@ -2,7 +2,8 @@
 
 **Date:** 2026-06-30
 **Status:** Draft for review
-**Packages:** `rxfy-server` (runtime-agnostic core), `rxfy-ws` (default WebSocket transport adapter)
+**Packages:** `rxfy-protocol` (zero-dep wire contract), `rxfy-server` (runtime-agnostic core),
+`rxfy-ws` (default WebSocket transport adapter)
 
 ## 1. Goal
 
@@ -24,6 +25,9 @@ Two distinct, deliberately different live behaviors:
 
 ### In scope (v1)
 
+- `rxfy-protocol` — a standalone, zero-dependency package holding the wire contract
+  (`ServerMessage` / `ClientMessage`, the protocol version, and serialize/parse guards), shared
+  by the server, the client, and every transport adapter.
 - `defineResource` — bind a Drizzle table to an rxfy `ModelDescriptor` (no codegen).
 - Server write functions: `update` (live patch), `create` / `delete` (structural touch).
 - Transport-agnostic broadcast core: subscription hub + revision counters.
@@ -58,11 +62,16 @@ Two distinct, deliberately different live behaviors:
 ## 4. Architecture Overview
 
 ```
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  rxfy-protocol (standalone, zero deps)                              │
+  │    ServerMessage | ClientMessage, PROTOCOL_VERSION, parse/serialize │
+  └──────────────────────────────────────────────────────────────────┘
+        ▲ depended on by server, client, and every transport adapter
+
                           shared (isomorphic, no DB driver)
   ┌──────────────────────────────────────────────────────────────────┐
   │  defineResource(table) ─► { model, zod, getKey, name, channels }    │
   │  defineState({ window }) ─► invalidationChannel() derivation         │
-  │  protocol (ServerMessage | ClientMessage, version field)            │
   │  topic-key shape (HMAC id derivation, types)                        │
   └──────────────────────────────────────────────────────────────────┘
         │ imported by server                    │ imported by client
@@ -293,10 +302,13 @@ const grants = live.grant(registry, {
 - The client never computes a hash (it has no secret); it looks ids up from the grants map by
   plaintext topic, exactly as it would have looked up a token.
 
-### 5.6 Wire protocol (shared, versioned)
+### 5.6 Wire protocol (`rxfy-protocol`, standalone & versioned)
 
-`rxfy-server/protocol` — a small documented union with a version field; the only entity-data
-message is `patch`.
+The wire contract lives in its own zero-dependency package, `rxfy-protocol`, so the server, the
+client, and every transport adapter depend on the contract — not on each other. It exports the
+message unions, a `PROTOCOL_VERSION` constant, and `serialize`/`parse` guards (the only logic;
+no runtime deps). A small documented union with a version field; the only entity-data message
+is `patch`.
 
 ```ts
 type ServerMessage =
@@ -431,30 +443,39 @@ grants (refetch) to obtain ids for the new window.
 
 ```
 packages/
+  rxfy-protocol/         # standalone, zero runtime deps
+    src/
+      messages.ts        # ServerMessage | ClientMessage, PROTOCOL_VERSION
+      codec.ts           # serialize / parse guards
+      index.ts
+    package.json         # exports: "."
   rxfy-server/
     src/
       resource.ts        # defineResource, channel, createResourceRegistry (shared)
       state-channel.ts   # invalidationChannel, window/partition split (shared)
-      protocol.ts        # ServerMessage | ClientMessage, version (shared)
       topic-key.ts       # createTopicKeyer: HMAC topic-id derivation + windowing (server)
       server.ts          # createServer: update/create/delete/touch/grant (server)
       hub.ts             # Hub contract + createInMemoryHub (server)
       drizzle.ts         # drizzle-zod derivation + write helpers (server)
       client/
         live-client.ts   # createLiveClient (client)
-    package.json         # exports: ".", "./client", "./protocol"
+    package.json         # exports: ".", "./client"; dep: rxfy-protocol
   rxfy-ws/
     src/
-      server.ts          # ws <-> hub adapter (server)
-      client.ts          # ws transport for createLiveClient (client)
+      server.ts          # ws <-> hub adapter (server); deps: rxfy-protocol, rxfy-server (Hub type)
+      client.ts          # ws transport for createLiveClient (client); dep: rxfy-protocol
     package.json         # exports: ".", "./client"
 ```
 
 Client-safe modules avoid any DB-driver import. `rxfy-react` gains the `useStateData` counter
 integration and `StoreProvider` `liveClient` prop (a `rxfy-server` peer dep, optional).
 
-Peer deps: `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod` (server core); `ws` (`rxfy-ws` server);
-`rxfy`, `react` (client).
+Dependency graph (no cycles): `rxfy-protocol` ← `rxfy-server`, `rxfy-ws`. `rxfy-ws` server also
+imports the `Hub` *type* from `rxfy-server`; the `rxfy-ws` client imports only `rxfy-protocol`
+(plus the transport-interface type from `rxfy-server/client`).
+
+Peer deps: `rxfy-protocol` (none); `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod`, `rxfy-protocol`
+(server core); `ws`, `rxfy-protocol` (`rxfy-ws` server); `rxfy`, `react` (client).
 
 ## 8. Testing Strategy
 
@@ -488,7 +509,8 @@ Peer deps: `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod` (server core); `ws` (`rxf
 
 ## 10. Changesets
 
-Per repo convention, new public exports in published packages require a changeset. `rxfy-server`
-and `rxfy-ws` are new packages (initial `minor`/`0.x`); the `rxfy-react` additions
+Per repo convention, new public exports in published packages require a changeset.
+`rxfy-protocol`, `rxfy-server`, and `rxfy-ws` are new packages (initial `minor`/`0.x`); the
+`rxfy-react` additions
 (`useStateData` counter fields, `StoreProvider.liveClient`) get their own changesets at implementation time. No new `rxfy` core exports are required for
 v1 (the live layer writes through the existing `ModelStore.set`).
