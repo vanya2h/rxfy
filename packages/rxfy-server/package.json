@@ -1,7 +1,7 @@
 {
   "name": "rxfy-server",
   "version": "0.0.0",
-  "description": "Server-side live data framework for rxfy",
+  "description": "Server-side live data library for rxfy",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
     "url": "https://github.com/vanya2h/rxfy/issues"

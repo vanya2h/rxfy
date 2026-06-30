@@ -40,4 +40,12 @@ describe("invalidationChannel", () => {
     const s = { key: "search" };
     expect(invalidationChannel(s, { filter: { q: "x" } })).toBe('search:filter={"q":"x"}');
   });
+
+  it("encodes object params deterministically regardless of nested key order", () => {
+    const s = { key: "search" };
+    const a = invalidationChannel(s, { filter: { a: 1, b: 2 } });
+    const b = invalidationChannel(s, { filter: { b: 2, a: 1 } });
+    expect(a).toBe(b);
+    expect(a).toBe('search:filter={"a":1,"b":2}');
+  });
 });
