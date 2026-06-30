@@ -59,7 +59,7 @@ export function createLiveClient({ registry, transport, grants }: LiveClientConf
       registry
         .namedStores()
         .get(message.name)
-        ?.set(message.id, message.data as never);
+        ?.set(message.id, message.data as unknown);
     } else {
       const counter = counters.get(message.channel);
       if (counter) counter.next(counter.value + 1);

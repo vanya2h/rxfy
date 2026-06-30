@@ -20,4 +20,11 @@ describe("stateChannel", () => {
   it("is order-independent and encodes primitives without quotes", () => {
     expect(stateChannel({ key: "x" }, { b: 2, a: "1" })).toBe("x:a=1&b=2");
   });
+
+  it("encodes object params deterministically regardless of nested key order (matches server)", () => {
+    const a = stateChannel({ key: "s" }, { filter: { a: 1, b: 2 } });
+    const b = stateChannel({ key: "s" }, { filter: { b: 2, a: 1 } });
+    expect(a).toBe(b);
+    expect(a).toBe('s:filter={"a":1,"b":2}');
+  });
 });
