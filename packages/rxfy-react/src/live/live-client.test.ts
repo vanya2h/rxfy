@@ -75,4 +75,11 @@ describe("createLiveClient", () => {
     live.addGrants({ entities: {}, channels: { "posts:orgId=A": "cid" } });
     expect(subscribed).toContain("cid");
   });
+
+  it("ignores a patch for a store that is not in the registry (no-op)", () => {
+    const registry = createModelRegistry();
+    const { transport, deliver } = fakeTransport();
+    createLiveClient({ registry, transport, grants: { entities: {}, channels: {} } });
+    expect(() => deliver(patch("nonexistent", "1", { id: "1" }))).not.toThrow();
+  });
 });
