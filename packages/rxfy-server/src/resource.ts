@@ -55,6 +55,7 @@ export function primaryKeyColumn(table: PgTable): string {
 /** Derive a resource (rxfy model + Zod + getKey) from a Drizzle table. No codegen. */
 export function defineResource<TTable extends PgTable, const TName extends string = string>(config: {
   table: TTable;
+  // @todo we can derive name from PgTable type using infer from TableConfig
   name?: TName;
 }): Resource<TTable, InferSelectModel<TTable>, TName> {
   type TRow = InferSelectModel<TTable>;
