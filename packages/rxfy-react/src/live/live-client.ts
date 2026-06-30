@@ -88,6 +88,10 @@ export function createLiveClient({ registry, transport, grants }: LiveClientConf
     },
     stop() {
       addedSub.unsubscribe();
+      for (const counter of counters.values()) counter.complete();
+      counters.clear();
+      subscribedTopics.clear();
+      subscribedChannels.clear();
     },
   };
 }
