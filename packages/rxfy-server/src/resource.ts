@@ -9,7 +9,7 @@ export type Resource<TTable extends PgTable = PgTable, TRow = InferSelectModel<T
   readonly table: TTable;
   readonly name: string;
   readonly model: ModelDescriptor<TRow>;
-  readonly zod: z.ZodType<TRow>;
+  readonly zod: z.ZodType<TRow, any>;
   readonly getKey: (row: TRow) => string;
   readonly primaryKeyColumn: string;
 };
@@ -30,6 +30,7 @@ export function primaryKeyColumn(table: PgTable): string {
     return pkColumns[0]!;
   }
   if (pkColumns.length > 1) {
+    // @todo why can't we have composite ids?
     throw new Error(
       `rxfy-server: table "${getTableConfig(table).name}" has multiple primary key columns; composite keys are not supported`,
     );
