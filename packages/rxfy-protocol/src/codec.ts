@@ -1,9 +1,4 @@
-import {
-  PROTOCOL_VERSION,
-  type ClientMessage,
-  type ProtocolMessage,
-  type ServerMessage,
-} from "./messages.js";
+import { type ClientMessage, PROTOCOL_VERSION, type ProtocolMessage, type ServerMessage } from "./messages.js";
 
 /** Thrown when a payload is not a valid protocol message. */
 export class ProtocolError extends Error {

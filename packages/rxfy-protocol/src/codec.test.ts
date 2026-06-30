@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ProtocolError, parseServerMessage, serialize } from "./codec.js";
+import { parseServerMessage, ProtocolError, serialize } from "./codec.js";
 import { patch, stale, subscribe } from "./messages.js";
 
 describe("serialize + parseServerMessage round-trip", () => {
@@ -24,33 +24,25 @@ describe("parseServerMessage rejects invalid input", () => {
   });
 
   it("rejects an unsupported version", () => {
-    expect(() =>
-      parseServerMessage(JSON.stringify({ v: 2, kind: "stale", channel: "c" })),
-    ).toThrow(/unsupported protocol version/);
+    expect(() => parseServerMessage(JSON.stringify({ v: 2, kind: "stale", channel: "c" }))).toThrow(
+      /unsupported protocol version/,
+    );
   });
 
   it("rejects an unknown kind", () => {
-    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "nope" }))).toThrow(
-      /unknown server message kind/,
-    );
+    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "nope" }))).toThrow(/unknown server message kind/);
   });
 
   it("rejects a patch with missing fields", () => {
-    expect(() =>
-      parseServerMessage(JSON.stringify({ v: 1, kind: "patch", name: "post" })),
-    ).toThrow(ProtocolError);
+    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "patch", name: "post" }))).toThrow(ProtocolError);
   });
 
   it("rejects a stale with a non-string channel", () => {
-    expect(() =>
-      parseServerMessage(JSON.stringify({ v: 1, kind: "stale", channel: 5 })),
-    ).toThrow(ProtocolError);
+    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "stale", channel: 5 }))).toThrow(ProtocolError);
   });
 
   it("rejects a client frame (subscribe) as a server message", () => {
-    expect(() => parseServerMessage(serialize(subscribe(["a"])))).toThrow(
-      /unknown server message kind/,
-    );
+    expect(() => parseServerMessage(serialize(subscribe(["a"])))).toThrow(/unknown server message kind/);
   });
 
   it("rejects a top-level array with the object error", () => {
