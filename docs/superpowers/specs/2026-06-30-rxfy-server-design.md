@@ -301,6 +301,48 @@ const grants = live.grant(registry, {
 - The client never computes a hash (it has no secret); it looks ids up from the grants map by
   plaintext topic, exactly as it would have looked up a token.
 
+**Grant shape.** A grant is a lookup table from a plaintext topic the client can reason about to
+the opaque id it must present to subscribe:
+
+```ts
+grants = {
+  entities: { "post:1": "k7Fa9…", "post:2": "9xQ2b…" },   // topic           -> id (patch subs)
+  channels: { "posts:orgId=A": "p3Lm0…" },                 // invalidation ch -> id (stale subs)
+}
+```
+
+**Grant lifecycle (server → wire → client).**
+
+1. **Mint (server, at data-send time).** Whenever the server sends data it mints grants for
+   exactly that data, reusing the authorization the fetch already performed. `live.grant` reads
+   the seeded registry for entity ids and runs `invalidationChannel` for each state, deriving a
+   windowed `topicId` for each. Possession of the data and the right to subscribe are produced
+   together.
+
+2. **Deliver (two paths).**
+   - **SSR:** embedded in the hydration script next to the data —
+     `hydrationScript({ ...dehydrate(registry), grants })` emits
+     `window.__RXFY_SSR__ = { queries, models, grants }`. `StoreProvider` drains it and feeds
+     `grants` to `createLiveClient`.
+   - **Client fetch** (navigation, `reload`, new page): the data endpoint returns
+     `{ data, grants }`; the `fetchFn` calls `liveClient.addGrants(grants)` and returns `data`.
+
+   Either way the live client accumulates a `Map<topic, id>` of currently-valid grants.
+
+3. **Use (client, by lookup — never computes an id).**
+   - **Entity patches:** the live client watches `registry.added$`; for each `{ name, key }` it
+     looks up `grants.entities["${name}:${key}"]` and subscribes with that id. A server `patch`
+     on `post:1` then routes back and applies via `store.set`.
+   - **Staleness:** `useStateData` derives its channel with `invalidationChannel(state, params)`,
+     looks up `grants.channels[channel]`, and subscribes; inbound `stale` increments the local
+     counter.
+
+4. **Refresh & expiry.** Grants are short-lived (the hash's time window). Every refetch returns
+   fresh-window grants that `addGrants` merges and re-subscribes with — this is also how a
+   newly-created entity (pulled in by a post-`stale` refetch) obtains *its* grant, through the
+   normal fetch path with no special create-token machinery. If a window rolls while the client
+   is idle, stale ids quietly stop matching until the next refetch supplies new-window ids.
+
 ### 5.6 Wire protocol (`rxfy-protocol`, standalone & versioned)
 
 The wire contract lives in its own zero-dependency package, `rxfy-protocol`, so the server, the
@@ -353,10 +395,17 @@ const liveClient = createLiveClient({
   url: "wss://example.com/live",
   registry,                 // the same registry StoreProvider uses
   resources,                // name -> model
-  grants: window.__RXFY_SSR__.grants,
+  grants: window.__RXFY_SSR__.grants,   // initial table (SSR); optional
   transport: wsTransport,   // from rxfy-ws/client (default)
 });
+
+// later, on every client-side fetch:
+liveClient.addGrants(grants);   // merge fresh-window ids; re-subscribes affected topics
 ```
+
+`addGrants(grants)` merges a new `{ entities, channels }` table into the live client's
+`Map<topic, id>` (newer ids supersede older ones for the same topic) and re-subscribes any topic
+whose id changed. It is the single entry point both delivery paths feed into.
 
 Behavior:
 
