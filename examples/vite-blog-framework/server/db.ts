@@ -30,9 +30,24 @@ export function initDb(): Promise<void> {
         { id: "u3", name: "Carol Lee", email: "carol@example.com" },
       ]);
       await db.insert(posts).values([
-        { id: "p1", authorId: "u1", title: "Getting Started with rxfy", body: "rxfy is a stream-based, normalized state library built on RxJS." },
-        { id: "p2", authorId: "u2", title: "RxJS Patterns in 2025", body: "Reactive programming has evolved; clean operator chains and minimal subscriptions win." },
-        { id: "p3", authorId: "u3", title: "Zod for Runtime Type Safety", body: "TypeScript is compile-time; Zod fills the runtime gap with a chainable schema API." },
+        {
+          id: "p1",
+          authorId: "u1",
+          title: "Getting Started with rxfy",
+          body: "rxfy is a stream-based, normalized state library built on RxJS.",
+        },
+        {
+          id: "p2",
+          authorId: "u2",
+          title: "RxJS Patterns in 2025",
+          body: "Reactive programming has evolved; clean operator chains and minimal subscriptions win.",
+        },
+        {
+          id: "p3",
+          authorId: "u3",
+          title: "Zod for Runtime Type Safety",
+          body: "TypeScript is compile-time; Zod fills the runtime gap with a chainable schema API.",
+        },
       ]);
       await db.insert(comments).values([
         { id: "c1", postId: "p1", author: "Bob Smith", body: "Great intro!" },
