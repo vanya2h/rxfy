@@ -30,7 +30,7 @@ Two distinct, deliberately different live behaviors:
   by the server, the client, and every transport adapter.
 - `defineResource` — bind a Drizzle table to an rxfy `ModelDescriptor` (no codegen).
 - Server write functions: `update` (live patch), `create` / `delete` (structural touch).
-- Transport-agnostic broadcast core: subscription hub + revision counters.
+- Transport-agnostic broadcast core: a pure pub/sub subscription hub (no server-side counters).
 - Hashed topic keys (`grant` / topic-key deriver) for stateless authorization.
 - `window`/partition split for paginated state invalidation.
 - `rxfy-ws` default transport adapter over the `ws` library.
@@ -81,21 +81,21 @@ Two distinct, deliberately different live behaviors:
   │  createServer({db,hub,   │            │  createLiveClient(...)         │
   │    keyer, resources})    │            │  useStateData (counter+patch)  │
   │  update / create / delete │            │  applies patch -> store.set    │
-  │  touch / grant           │            │  tracks rev -> updatesAvailable │
-  │  Broadcaster + Hub + revs │            └──────────────────────────────┘
+  │  touch / grant           │            │  counts stale -> updatesAvailable│
+  │  Broadcaster + Hub (pub/sub)│           └──────────────────────────────┘
   └─────────────────────────┘                        ▲
         │ publishes messages                          │ ws frames
         ▼                                             │
   ┌─────────────────────────┐    ws    ┌──────────────────────────────┐
   │ rxfy-ws (server adapter) │◄────────►│ rxfy-ws (client adapter)      │
-  │  route by opaque id      │          │  subscribe/unsubscribe/resume  │
+  │  route by opaque id      │          │  subscribe / unsubscribe       │
   │  bind conn <-> topics    │          │                                │
   └─────────────────────────┘          └──────────────────────────────┘
 ```
 
 Data enters rxfy's normalized stores through exactly the paths that already exist; the live
-layer is an additional writer into `ModelStore.set` (for patches) and a signal source for the
-query-cache-backed counter (for staleness).
+layer is an additional writer into `ModelStore.set` (for patches) and a `stale`-signal source
+that drives a purely client-side per-state counter (for staleness).
 
 ## 5. Component Design
 
@@ -164,8 +164,8 @@ const postsState = defineState({
 ```
 
 `stableKey` is a canonical, sorted, JSON-ish encoding of the partition params so key order is
-irrelevant. A create/delete in org A bumps `posts:orgId=A` exactly once → every page and sort
-order of org A shows the badge; org B is untouched.
+irrelevant. A create/delete in org A touches `posts:orgId=A` exactly once → every subscribed
+client on any page and sort order of org A increments its local counter; org B is untouched.
 
 Membership-affecting filters (e.g. `status`) are partition dims by intent; the app decides
 which partition(s) a write touches.
@@ -193,17 +193,17 @@ export const live = createServer({
 const row = await live.update(posts, id, { title }, { touch?: TouchTarget[] });
 //  1. db.update(table).set(patch).where(eq(pk,id)).returning() -> full row
 //  2. publish on topic `post:${id}` (keyer.forPublish derives the hub ids), msg { v:1, kind:"patch", name:"post", id, data: row }
-//  3. for each touch target: bump + publish stale (see touch)
+//  3. for each touch target: publish { v:1, kind:"stale", channel } (see touch)
 
 // CREATE — structural; counter only, no data pushed
 const row = await live.create(posts, values, { touch: [touch(postsState, { orgId })] });
 //  1. db.insert(table).values(values).returning() -> full row
-//  2. for each touch target: bump + publish stale
+//  2. for each touch target: publish { v:1, kind:"stale", channel } to subscribers
 
 // DELETE — structural; counter only
 await live.delete(posts, id, { touch: [touch(postsState, { orgId })] });
 //  1. db.delete(table).where(eq(pk,id))
-//  2. for each touch target: bump + publish stale
+//  2. for each touch target: publish { v:1, kind:"stale", channel } to subscribers
 ```
 
 Writes use `.returning()` so the `patch` broadcast carries the authoritative merged row;
@@ -217,33 +217,31 @@ exists standalone for changes not tied to a single write.
 The app calls these from its own endpoints (REST/RPC/server action); clients write via normal
 `fetch`/POST. The framework stays out of the request layer.
 
-### 5.4 Broadcaster, hub, and revision counters
+### 5.4 Broadcaster / hub (pure pub/sub)
 
-`rxfy-server` defines a transport-agnostic `Broadcaster`/`Hub` contract:
+`rxfy-server` defines a transport-agnostic `Broadcaster`/`Hub` contract. It is **pure pub/sub**
+— it holds no counters. The "N updates available" number is a purely client-side count (see
+§5.8); the server never tracks per-channel revisions, so a `touch` is just a broadcast.
 
 ```ts
 type Hub = {
-  // pub/sub
   publish(topic: string, msg: ServerMessage): void;
   subscribe(conn: ConnId, topics: string[]): void;
   unsubscribe(conn: ConnId, topics: string[]): void;
   drop(conn: ConnId): void;
-  // revision counters for stale channels
-  bump(channel: string): number;          // ++rev, returns new rev
-  rev(channel: string): number;           // current rev (0 if unseen)
   onPublish(sink: (conn: ConnId, msg: ServerMessage) => void): void;
 };
 ```
 
 At the hub boundary, `topic`/`channel` keys are the **opaque hashed ids** from §5.5, not the
 plaintext names: subscribers join by id, and the server's publish helper derives the id(s) via
-`keyer.forPublish(topic)` before calling `publish`/`bump`. So the hub never sees a plaintext
-topic and needs no secret — it is pure opaque-string routing.
+`keyer.forPublish(topic)` before calling `publish`. So the hub never sees a plaintext topic and
+needs no secret — it is pure opaque-string routing.
 
-`createInMemoryHub()` keeps `Map<id, Set<ConnId>>` and `Map<id, number>` for revs, and delivers
-via the registered sink. A transport adapter registers a sink that serializes and writes to the
-matching socket. Multi-process backends (Redis pub/sub + `INCR`) implement the same contract
-later with no protocol change.
+`createInMemoryHub()` keeps a single `Map<id, Set<ConnId>>` and delivers via the registered
+sink. A transport adapter registers a sink that serializes and writes to the matching socket.
+Multi-process backends (Redis pub/sub) implement the same contract later with no protocol
+change.
 
 ### 5.5 Hashed topic keys & grants
 
@@ -286,11 +284,11 @@ authorization the app already performed when it chose which rows to fetch:
 ```ts
 const grants = live.grant(registry, {
   entities: posts,                                   // auto: id per post:<id> in the store
-  states: [{ state: postsState, params: { orgId, page, sort } }],  // channel id + baseline rev
+  states: [{ state: postsState, params: { orgId, page, sort } }],  // channel id
 });
 // grants = {
 //   entities: Record<topic, id>,                    // for patch subscriptions
-//   channels: Record<channel, { id, rev }>,         // for stale subscriptions + fetch baseline
+//   channels: Record<channel, id>,                  // for stale subscriptions
 // }
 ```
 
@@ -298,7 +296,8 @@ const grants = live.grant(registry, {
   for the ids actually present, i.e. exactly the rows in the response, and derives
   `topicId("post:<id>")` for each.
 - **Channel ids** are derived from the supplied states (it needs each state's `window` to
-  compute the invalidation channel) and carry the current `rev` as the client's fetch baseline.
+  compute the invalidation channel). No baseline number is sent — the staleness count lives
+  entirely on the client (§5.8) and resets on refetch.
 - The client never computes a hash (it has no secret); it looks ids up from the grants map by
   plaintext topic, exactly as it would have looked up a token.
 
@@ -313,16 +312,18 @@ is `patch`.
 ```ts
 type ServerMessage =
   | { v: 1; kind: "patch"; name: string; id: string; data: unknown }  // live entity update
-  | { v: 1; kind: "stale"; channel: string; rev: number };            // counter bump
+  | { v: 1; kind: "stale"; channel: string };                         // "this channel changed"
 
 type ClientMessage =
   | { v: 1; kind: "subscribe";   ids: string[] }        // opaque hashed topic ids
-  | { v: 1; kind: "unsubscribe"; ids: string[] }
-  | { v: 1; kind: "resume";      revs: Record<string, number> };      // reconnect baseline sync (by channel id)
+  | { v: 1; kind: "unsubscribe"; ids: string[] };
 ```
 
-`stale` is level-triggered: the client always trusts the latest `rev` and diffs against its
-fetch baseline, so duplicate or out-of-order delivery cannot desync the counter.
+`stale` carries no number — it is a bare "something changed in this channel" signal. The client
+increments its own per-channel counter on receipt (§5.8). Reconnect is just re-`subscribe`
+(there is no server-side revision to resynchronize), so no `resume` message is needed. The
+tradeoff: a `stale` missed during a disconnect under-counts, and a duplicate over-counts — both
+acceptable because the count is a soft hint and `applyUpdates()` reconciles by refetching.
 
 ### 5.7 Transport adapter — `rxfy-ws`
 
@@ -333,14 +334,13 @@ fetch baseline, so duplicate or out-of-order delivery cannot desync the counter.
 - On `subscribe`: `hub.subscribe(conn, ids)` directly — ids are opaque routing keys. There is
   no token to parse or signature to check; an id the server never publishes to simply never
   receives anything, so a forged/expired id is inert.
-- On `resume`: reply with current `hub.rev(id)` for each requested channel id so the badge is
-  correct after a dropped connection; re-subscribe via the still-current ids the client resends.
 - Registers a hub sink that serializes `ServerMessage` and writes to the bound socket.
 - On close: `hub.drop(conn)`.
 
-**Client side** (`rxfy-ws/client`, consumed by `createLiveClient`): opens the socket,
-sends `subscribe`/`unsubscribe`/`resume`, parses `ServerMessage`, hands them to the live client.
-Handles reconnect with backoff and replays current subscriptions via `resume`.
+**Client side** (`rxfy-ws/client`, consumed by `createLiveClient`): opens the socket, sends
+`subscribe`/`unsubscribe`, parses `ServerMessage`, hands them to the live client. Handles
+reconnect with backoff and replays its current subscription ids (re-`subscribe`); there is no
+revision to resync, so reconnect is stateless on the wire.
 
 ### 5.8 Client live wiring
 
@@ -364,9 +364,14 @@ Behavior:
   id for `name:<id>` and subscribes. Inbound `patch` → `registry.model(byName).set(id, data)`,
   which propagates to every `store.get(id)` subscriber. New entities discovered after a refetch
   get their ids from the refreshed grants payload.
-- **Counter.** Owns per-channel `{ baseline, latest }`. Inbound `stale` updates `latest`. The
-  live client exposes a per-channel `available$ = max(0, latest - baseline)`.
-- Idempotent throughout. Subscription cleanup is best-effort: when a refetch supersedes a
+- **Counter (purely client-side, per client, never shared).** Owns one integer per subscribed
+  channel, starting at `0`. Each inbound `stale` for that channel does `count++`. The count
+  resets to `0` whenever the state's `fetchFn` completes (refetch). The live client exposes a
+  per-channel `available$` that emits this count. There is no server-side revision, baseline, or
+  diff — `available$` *is* the local count. A `stale` missed during a disconnect under-counts and
+  a duplicate over-counts; both are acceptable because the count is a soft "want to refresh?"
+  hint that `applyUpdates()` reconciles by refetching.
+- Idempotent on the patch path. Subscription cleanup is best-effort: when a refetch supersedes a
   query and an entity is no longer referenced by any live query, the client may prune its
   `name:<id>` subscription. Stale entities lingering in a store are harmless (deletes are
   surfaced via the counter + refetch, not a live store removal), so no `ModelStore.remove`
@@ -377,17 +382,19 @@ Behavior:
 ### 5.9 `useStateData` integration
 
 `useStateData` derives its invalidation channel from `state` + `params` + `state.window`,
-subscribes through the live client using the channel grant id, sets its baseline to the
-`rev` in the fetch/SSR payload, and extends the handle:
+subscribes through the live client using the channel grant id, and extends the handle:
 
 ```ts
 type StateHandle<...> = {
   data$: Observable<TQuery>;
   // ...existing: set, setRaw, reload, mutations
-  updatesAvailable$: Observable<number>;   // latest - baseline for this state's channel(s)
-  applyUpdates(): void;                     // reload() + reset baseline to the new fetch payload's rev
+  updatesAvailable$: Observable<number>;   // local per-channel count, ++ on stale, 0 on refetch
+  applyUpdates(): void;                     // reload() + reset the local count to 0
 };
 ```
+
+When `fetchFn` completes (initial load, `reload`, `applyUpdates`, or a params change), the
+channel's local count resets to `0`. `applyUpdates()` is sugar for "refetch and clear the badge."
 
 Component usage:
 
@@ -428,16 +435,18 @@ Grants travel inside the existing dehydration payload — no new transport:
 refetch, non-disruptive.
 
 **Create (structural).** `createPost` endpoint → `live.create(posts, values, { touch:[touch(postsState,{orgId})] })`
-→ DB insert + `bump("posts:orgId=A")` + `stale` broadcast → every page/sort of org A increments
-`updatesAvailable$` → user clicks "N updates available" → `applyUpdates()` refetches the current
-page via `fetchFn`; new entity + its grant arrive through the normal fetch path.
+→ DB insert + `stale` broadcast on `post:list:<orgId>`'s id → every subscribed client (any
+page/sort of org A) does `count++`, so `updatesAvailable$` increments → user clicks "N updates
+available" → `applyUpdates()` refetches the current page via `fetchFn` and resets the count to
+0; the new entity + its grant arrive through the normal fetch path.
 
 **Delete (structural).** Same as create — counter only; the refetch reflects the removal.
 
-**Reconnect.** Client reconnects, resends `subscribe` with its current ids + `resume` with last
-revs → server replies with current revs → badge recomputed; no missed-bump desync because the
-counter is level-triggered. If the reconnect spans a window boundary, the client refreshes
-grants (refetch) to obtain ids for the new window.
+**Reconnect.** Client reconnects and re-sends `subscribe` with its current ids — there is no
+server revision to resync. `stale` signals missed while disconnected are simply not counted, so
+the badge may under-report until the next refetch (a soft hint, by design). If the reconnect
+spans a window boundary, the client refreshes grants (refetch) to obtain ids for the new window,
+which also resets the count.
 
 ## 7. Package Layout
 
@@ -481,22 +490,22 @@ Peer deps: `rxfy-protocol` (none); `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod`, 
 
 - **Unit (Vitest, node).** Channel derivation (window/partition, key stability); topic-key
   derivation (unguessability, same id at publish time, window rollover + current/previous
-  coverage); hub pub/sub + rev counters; `grant` id/rev shape from a seeded registry; resource
-  derivation (PK detection, single-PK guard).
+  coverage); hub pub/sub fan-out; `grant` id shape from a seeded registry; resource derivation
+  (PK detection, single-PK guard).
 - **Protocol.** Round-trip serialize/parse for every message variant; version field presence.
 - **Integration (in-memory hub, no real ws).** `update` → subscriber receives `patch`;
-  `create`/`delete` → subscribed channel receives `stale` with incremented rev; reconnect
-  `resume` returns correct revs.
-- **`rxfy-ws`.** Loopback `ws` server: id-routed subscribe (live id delivers, stale/forged id
-  inert), fan-out, drop-on-close, reconnect/resume.
-- **Client.** `createLiveClient` applies `patch` to a store and updates `available$` from
-  `stale`; idempotency under duplicate delivery; `useStateData` counter + `applyUpdates` reset.
+  `create`/`delete` → subscribers of the touched channel receive a `stale` signal; an
+  unsubscribed/other channel receives nothing.
+- **`rxfy-ws`.** Loopback `ws` server: id-routed subscribe (live id delivers, forged/expired id
+  inert), fan-out, drop-on-close, reconnect re-subscribe.
+- **Client.** `createLiveClient` applies `patch` to a store; `available$` increments once per
+  `stale` and resets to `0` on refetch; `useStateData` counter + `applyUpdates` reset.
 - **DB-touching write tests** run against a disposable Postgres (testcontainers or a local
   instance), kept separate from the pure-unit suite.
 
 ## 9. Open Questions / Future Work
 
-- **Redis hub** for multi-process fan-out and shared rev counters (same `Hub` contract).
+- **Redis hub** for multi-process fan-out (same pub/sub `Hub` contract; no counters to share).
 - **CDC adapter** (`LISTEN`/`NOTIFY` or logical replication) to capture writes that bypass the
   framework — opt-in, emits the same `patch`/`stale` messages.
 - **Client command channel** — client→server mutations over the same socket, authorized by the
