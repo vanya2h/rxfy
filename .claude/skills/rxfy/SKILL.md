@@ -9,7 +9,7 @@ metadata:
 
 # rxfy
 
-Minimalistic, RxJS-backed framework for typed, normalized, reactive state in React — built for consistency and granular reactivity at no extra cost. Entities live in shared `ModelStore`s keyed by id; each page declares its own state over those stores, where the query holds only ids and resolves entities from the stores. A single `store.set` — from a refetch, mutation, or websocket push — reactively updates every component showing that entity. States and stores are serializable, so SSR is first-class.
+Minimalistic, RxJS-backed library for typed, normalized, reactive state in React — built for consistency and granular reactivity at no extra cost. Entities live in shared `ModelStore`s keyed by id; each page declares its own state over those stores, where the query holds only ids and resolves entities from the stores. A single `store.set` — from a refetch, mutation, or websocket push — reactively updates every component showing that entity. States and stores are serializable, so SSR is first-class.
 
 ## Core Building Blocks
 
