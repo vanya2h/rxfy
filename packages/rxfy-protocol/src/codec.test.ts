@@ -52,4 +52,8 @@ describe("parseServerMessage rejects invalid input", () => {
       /unknown server message kind/,
     );
   });
+
+  it("rejects a top-level array with the object error", () => {
+    expect(() => parseServerMessage("[1,2,3]")).toThrow(/message must be an object/);
+  });
 });
