@@ -20,6 +20,7 @@ export type WebSocketFactory = (url: string) => WebSocketLike;
 export type ClientTransport = {
   subscribe: (ids: string[]) => void;
   unsubscribe: (ids: string[]) => void;
+  /** Register the inbound-message handler. Single slot — a later call replaces the previous handler. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
   close: () => void;
 };
