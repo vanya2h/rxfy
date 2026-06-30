@@ -5,6 +5,7 @@ import type { Resource } from "./resource.js";
 type AnyResource = Resource<PgTable, any>;
 
 /** Indexes resources by name for server writes and client live wiring. */
+// @todo this must handle all the resources that are passed to registry via generics
 export type ResourceRegistry = {
   byName: (name: string) => AnyResource | undefined;
   model: (name: string) => ModelDescriptor<any> | undefined;
