@@ -47,11 +47,13 @@ export type Live = {
     id: string,
     values: Partial<InferInsertModel<TTable>>,
     opts?: WriteOpts,
+    // @todo this must not return undefined
   ) => Promise<InferSelectModel<TTable> | undefined>;
   create: <TTable extends PgTable>(
     resource: Resource<TTable>,
     values: InferInsertModel<TTable>,
     opts?: WriteOpts,
+    // @todo this must not return undefined
   ) => Promise<InferSelectModel<TTable> | undefined>;
   delete: (resource: AnyResource, id: string, opts?: WriteOpts) => Promise<void>;
   touch: (...targets: TouchTarget[]) => void;
