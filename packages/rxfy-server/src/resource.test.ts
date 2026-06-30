@@ -82,4 +82,8 @@ describe("defineResource", () => {
   it("throws when the table has no single primary key", () => {
     expect(() => defineResource({ table: logs })).toThrow(/primary key/i);
   });
+
+  it("throws for a composite primary key", () => {
+    expect(() => defineResource({ table: memberships })).toThrow(/composite|multiple|single/i);
+  });
 });
