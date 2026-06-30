@@ -12,6 +12,8 @@ export function serialize(message: ProtocolMessage): string {
   return JSON.stringify(message);
 }
 
+// @todo I think here we can use https://github.com/flightcontrolhq/superjson
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -37,6 +39,8 @@ function decode(raw: string): Record<string, unknown> {
   }
   return parsed;
 }
+
+// @todo here we can use zod models and its parsing function
 
 export function parseServerMessage(raw: string): ServerMessage {
   const msg = decode(raw);

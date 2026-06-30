@@ -5,6 +5,7 @@ import { createModel, type ModelDescriptor } from "rxfy";
 import type { z } from "zod";
 
 /** A Drizzle table bound to an rxfy model + Zod schema + key extractor. */
+// @todo add jsdocs for each key
 export type Resource<TTable extends PgTable = PgTable, TRow = InferSelectModel<TTable>> = {
   readonly table: TTable;
   readonly name: string;
@@ -52,7 +53,14 @@ export function defineResource<TTable extends PgTable>(config: { table: TTable; 
   // We use `any` for the TInput param to avoid TS2719 (dual-module ZodType identity clash).
   const zod = createSelectSchema(config.table) as unknown as z.ZodType<TRow, any>;
   const getKey = (row: TRow): string => String((row as Record<string, unknown>)[pk]);
-  const model = createModel<TRow, string, any>({ schema: zod, getKey, name });
+  const model = createModel<TRow, string>({ schema: zod, getKey, name });
 
-  return { table: config.table, name, model, zod, getKey, primaryKeyColumn: pk };
+  return {
+    table: config.table,
+    name,
+    model,
+    zod,
+    getKey,
+    primaryKeyColumn: pk,
+  };
 }

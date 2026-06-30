@@ -1,6 +1,8 @@
 export const PROTOCOL_VERSION = 1 as const;
 export type ProtocolVersion = typeof PROTOCOL_VERSION;
 
+// @todo I'm thinking whether it is possible to add T extends generic for values like "name" and "channel" so then we could derive union type anywhere we combine them
+
 // --- Server -> client messages ---
 
 /** Live entity update: holders of `name:id` apply this in place. */
