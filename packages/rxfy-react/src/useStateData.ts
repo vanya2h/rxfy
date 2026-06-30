@@ -71,7 +71,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   fetchFn,
   params,
   defaultData,
-}: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>): StateHandle<TShape, TMutations, TQuery, TWritable> {
+}: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>): StateHandle<
+  TShape,
+  TMutations,
+  TQuery,
+  TWritable
+> {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
 
