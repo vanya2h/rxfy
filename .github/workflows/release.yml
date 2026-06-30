@@ -50,8 +50,10 @@ jobs:
         run: |
           if grep -q '"mode": *"pre"' .changeset/pre.json 2>/dev/null; then
             npx changeset pre exit
-            git add .changeset/pre.json
-            git diff --cached --quiet || git commit -m "chore: exit pre-release mode [skip ci]"
+            # `changeset pre exit` only flips mode to "exit"; it leaves the file
+            # behind. Remove it so it doesn't linger and skew `changeset status`.
+            git rm -f .changeset/pre.json
+            git commit -m "chore: exit pre-release mode [skip ci]"
           fi
 
       - name: Version packages
