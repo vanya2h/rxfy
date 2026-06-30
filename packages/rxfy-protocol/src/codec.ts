@@ -1,3 +1,4 @@
+import superjson from "superjson";
 import { type ClientMessage, PROTOCOL_VERSION, type ProtocolMessage, type ServerMessage } from "./messages.js";
 
 /** Thrown when a payload is not a valid protocol message. */
@@ -9,10 +10,8 @@ export class ProtocolError extends Error {
 }
 
 export function serialize(message: ProtocolMessage): string {
-  return JSON.stringify(message);
+  return superjson.stringify(message);
 }
-
-// @todo I think here we can use https://github.com/flightcontrolhq/superjson
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -27,9 +26,9 @@ const clip = (value: unknown): string => String(value).slice(0, 64);
 function decode(raw: string): Record<string, unknown> {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = superjson.parse(raw);
   } catch {
-    throw new ProtocolError("invalid JSON");
+    throw new ProtocolError("invalid payload");
   }
   if (!isRecord(parsed)) {
     throw new ProtocolError("message must be an object");
