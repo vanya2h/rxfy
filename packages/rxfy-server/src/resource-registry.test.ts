@@ -1,5 +1,5 @@
 import { pgTable, text } from "drizzle-orm/pg-core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { defineResource } from "./resource.js";
 import { createResourceRegistry } from "./resource-registry.js";
 
@@ -30,5 +30,11 @@ describe("createResourceRegistry", () => {
 
   it("throws on duplicate resource names", () => {
     expect(() => createResourceRegistry([postResource, postResource])).toThrow(/duplicate/i);
+  });
+
+  it("preserves per-resource row types (not erased to any)", () => {
+    const reg = createResourceRegistry([postResource, userResource]);
+    expectTypeOf(reg.byName("post")).toEqualTypeOf<typeof postResource | undefined>();
+    expectTypeOf(reg.model("user")).toEqualTypeOf<typeof userResource.model | undefined>();
   });
 });

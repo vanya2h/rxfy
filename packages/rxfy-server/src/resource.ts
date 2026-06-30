@@ -5,13 +5,22 @@ import { createModel, type ModelDescriptor } from "rxfy";
 import type { z } from "zod";
 
 /** A Drizzle table bound to an rxfy model + Zod schema + key extractor. */
-// @todo add jsdocs for each key
-export type Resource<TTable extends PgTable = PgTable, TRow = InferSelectModel<TTable>> = {
+export type Resource<
+  TTable extends PgTable = PgTable,
+  TRow = InferSelectModel<TTable>,
+  TName extends string = string,
+> = {
+  /** The underlying Drizzle table. */
   readonly table: TTable;
-  readonly name: string;
+  /** Topic namespace / rxfy model name (defaults to the SQL table name). */
+  readonly name: TName;
+  /** The derived rxfy model — a drop-in `ModelDescriptor` for `useModelStore`/`useStateData`. */
   readonly model: ModelDescriptor<TRow>;
+  /** The row schema derived from the table via drizzle-zod. */
   readonly zod: z.ZodType<TRow, any>;
+  /** Extracts the entity key (the single primary-key column) as a string. */
   readonly getKey: (row: TRow) => string;
+  /** JS property name of the single primary-key column. */
   readonly primaryKeyColumn: string;
 };
 
@@ -44,11 +53,14 @@ export function primaryKeyColumn(table: PgTable): string {
 }
 
 /** Derive a resource (rxfy model + Zod + getKey) from a Drizzle table. No codegen. */
-export function defineResource<TTable extends PgTable>(config: { table: TTable; name?: string }): Resource<TTable> {
+export function defineResource<TTable extends PgTable, const TName extends string = string>(config: {
+  table: TTable;
+  name?: TName;
+}): Resource<TTable, InferSelectModel<TTable>, TName> {
   type TRow = InferSelectModel<TTable>;
 
   const pk = primaryKeyColumn(config.table);
-  const name = config.name ?? getTableConfig(config.table).name;
+  const name = (config.name ?? getTableConfig(config.table).name) as TName;
   // drizzle-zod's output type and InferSelectModel agree at runtime (verified); bridge the nominal gap.
   // We use `any` for the TInput param to avoid TS2719 (dual-module ZodType identity clash).
   const zod = createSelectSchema(config.table) as unknown as z.ZodType<TRow, any>;
