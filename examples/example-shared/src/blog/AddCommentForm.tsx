@@ -1,12 +1,12 @@
 "use client";
 import { useState } from "react";
-import { type Comment } from "../data/models";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { useBlog } from "./BlogContext";
 
-export function AddCommentForm({ postId, onAdded }: { postId: string; onAdded?: (comment: Comment) => void }) {
+/** `onSubmitted` fires after a successful add so the host can refresh the thread (e.g. refetch). */
+export function AddCommentForm({ postId, onSubmitted }: { postId: string; onSubmitted?: () => void }) {
   const { onAddComment } = useBlog();
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
@@ -14,8 +14,8 @@ export function AddCommentForm({ postId, onAdded }: { postId: string; onAdded?: 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!name.trim() || !body.trim()) return;
-    const created = await onAddComment(postId, { name: name.trim(), body: body.trim() });
-    if (created && onAdded) onAdded(created);
+    await onAddComment(postId, { name: name.trim(), body: body.trim() });
+    onSubmitted?.();
     setName("");
     setBody("");
   };

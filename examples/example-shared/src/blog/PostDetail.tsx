@@ -1,6 +1,6 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
-import { type ReactNode, useEffect, useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { combineLatest } from "rxjs";
 import {
@@ -32,21 +32,19 @@ export function PostDetail({
   fetchPostDetail,
   actions,
   renderCommentActions,
-  onReady,
 }: {
   postId: PostId;
   fetchPostDetail: PostDetailFetcher;
   actions?: ReactNode;
-  renderCommentActions?: (id: CommentId) => ReactNode;
-  onReady?: (controls: StateControls) => void;
+  renderCommentActions?: (id: CommentId, controls: StateControls) => ReactNode;
 }) {
   const { navigate } = useBlog();
   const params = useMemo(() => ({ postId }), [postId]);
   const handle = useStateData({ state: postDetailState, fetchFn: fetchPostDetail, params });
-  const { reload, applyUpdates } = handle;
-  useEffect(() => {
-    onReady?.({ reload, applyUpdates });
-  }, [onReady, reload, applyUpdates]);
+  const controls = useMemo<StateControls>(
+    () => ({ reload: handle.reload, applyUpdates: handle.applyUpdates }),
+    [handle.reload, handle.applyUpdates],
+  );
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -62,12 +60,7 @@ export function PostDetail({
         rejected={() => <p className="text-destructive">Failed to load.</p>}
       >
         {(ids) => (
-          <Article
-            ids={ids}
-            actions={actions}
-            renderCommentActions={renderCommentActions}
-            onAdded={handle.mutations.addComment}
-          />
+          <Article ids={ids} actions={actions} renderCommentActions={renderCommentActions} controls={controls} />
         )}
       </Pending>
     </div>
@@ -78,12 +71,12 @@ function Article({
   ids,
   actions,
   renderCommentActions,
-  onAdded,
+  controls,
 }: {
   ids: DetailIds;
   actions?: ReactNode;
-  renderCommentActions?: (id: CommentId) => ReactNode;
-  onAdded?: (comment: Comment) => void;
+  renderCommentActions?: (id: CommentId, controls: StateControls) => ReactNode;
+  controls: StateControls;
 }) {
   const postStore = useModelStore(postModel);
   const userStore = useModelStore(userModel);
@@ -106,10 +99,10 @@ function Article({
             <h3 className="font-medium">Comments ({ids.comments.length})</h3>
             <div className="flex flex-col gap-2">
               {ids.comments.map((cid) => (
-                <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid)} />
+                <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid, controls)} />
               ))}
             </div>
-            <AddCommentForm postId={post.id} onAdded={onAdded} />
+            <AddCommentForm postId={post.id} onSubmitted={controls.applyUpdates} />
           </CardContent>
         </Card>
       )}

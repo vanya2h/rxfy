@@ -5,7 +5,7 @@ import { Pending, useModelStore } from "rxfy-react";
 import { deletePost } from "../blog/api-client.js";
 import { EditPostForm } from "./EditPostForm.js";
 
-export function PostActions({ id }: { id: PostId }) {
+export function PostActions({ id, onDeleted }: { id: PostId; onDeleted?: () => void }) {
   const store = useModelStore(postModel);
   const post$ = useMemo(() => store.get(id), [store, id]);
   const [editing, setEditing] = useState(false);
@@ -23,7 +23,7 @@ export function PostActions({ id }: { id: PostId }) {
       <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
         Edit
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => void deletePost(id)}>
+      <Button variant="ghost" size="sm" onClick={() => void deletePost(id).then(() => onDeleted?.())}>
         Delete
       </Button>
     </>
