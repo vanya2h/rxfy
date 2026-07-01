@@ -4,4 +4,5 @@ export default [
   index("routes/_index.tsx"),
   route("posts", "routes/posts.tsx"),
   route("posts/:postId", "routes/posts.$postId.tsx"),
+  route("api/*", "routes/api.$.tsx"),
 ] satisfies RouteConfig;
