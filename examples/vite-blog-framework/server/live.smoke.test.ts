@@ -53,7 +53,9 @@ describe("vite-blog-framework live server", () => {
     );
     expect(row).toMatchObject({ id: "p1", title: "Hi" });
     expect(received).toEqual([{ v: 1, kind: "stale", channel: "posts" }]);
-  });
+    // Generous timeout: each test cold-starts a PGlite (wasm Postgres) instance, which is fast
+    // locally (~1s) but several times slower on CI runners.
+  }, 30_000);
 
   it("update broadcasts a patch on the entity topic", async () => {
     const db = await freshDb();
@@ -77,5 +79,5 @@ describe("vite-blog-framework live server", () => {
         data: { id: "p1", userId: "u1", title: "New", body: "B", createdAt: expect.any(Date) },
       },
     ]);
-  });
+  }, 30_000);
 });
