@@ -1,5 +1,5 @@
-import PostList from "../components/PostList";
+import { HomeView } from "../components/HomeView";
 
 export default function HomePage() {
-  return <PostList />;
+  return <HomeView />;
 }
