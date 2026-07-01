@@ -5,7 +5,6 @@ import { createLiveClient, readSsrGrants, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 import { App } from "./App.js";
 import { setLiveClient } from "./live-singleton.js";
-import "./styles.css";
 
 const registry = createModelRegistry();
 const liveClient = createLiveClient({
