@@ -4,6 +4,6 @@ import { Linter } from "eslint";
 export default [
   ...config,
   {
-    ignores: ["dist/**", ".turbo/**", "node_modules/**"],
+    ignores: ["dist/**", ".turbo/**", "node_modules/**", "src/components/ui/**", "src/lib/utils.ts"],
   },
 ] satisfies Linter.Config[];
