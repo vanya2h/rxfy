@@ -11,7 +11,7 @@ import { CommentItem } from "./CommentItem.js";
 import { UpdatesBadge } from "./UpdatesBadge.js";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 export function PostDetail({ postId }: { postId: string }) {
@@ -59,7 +59,7 @@ function Article({ ids, postId }: { ids: { post: string; author: string; comment
         <Card>
           <CardHeader>
             <CardTitle>{post.title}</CardTitle>
-            <p className="text-muted-foreground text-sm">by {author.name}</p>
+            <CardDescription>by {author.name}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p>{post.body}</p>

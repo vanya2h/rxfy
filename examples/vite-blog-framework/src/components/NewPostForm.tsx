@@ -3,7 +3,7 @@ import { useState } from "react";
 import { createPost } from "../blog/api-client.js";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,11 +29,11 @@ export function NewPostForm() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>New post</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form className="flex flex-col gap-3" onSubmit={submit}>
+      <form onSubmit={submit}>
+        <CardHeader>
+          <CardTitle>New post</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
           <Select value={authorId} onValueChange={setAuthorId}>
             <SelectTrigger>
               <SelectValue placeholder="Author" />
@@ -50,12 +50,14 @@ export function NewPostForm() {
           </Select>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
           <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write something…" />
-          <Button type="submit" className="self-start">
+        </CardContent>
+        <CardFooter>
+          <Button type="submit">
             <Plus data-icon="inline-start" />
             Publish
           </Button>
-        </form>
-      </CardContent>
+        </CardFooter>
+      </form>
     </Card>
   );
 }
