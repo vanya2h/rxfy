@@ -11,6 +11,9 @@ A live blog example that demonstrates the rxfy live framework (`rxfy-server` + `
 - **rxfy-server** — `defineResource` / `createServer` / `createTopicKeyer` / `touch`
 - **rxfy-ws** — WebSocket protocol layer (server-side `createWsServer`)
 - **rxfy-react** — `useStateData`, live client, `StoreProvider`
+- **shadcn/ui** (Tailwind v4) — `Card`/`Button`/`Input`/`Textarea`/`Select` components, semantic theme
+  tokens, and a light/dark toggle in the header (persisted to `localStorage`). The data + live
+  wiring is unchanged by the UI layer.
 
 ## Run
 
