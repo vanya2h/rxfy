@@ -1,8 +1,9 @@
 import { eq, getTableColumns } from "drizzle-orm";
 import { type PgColumn, pgTable, text } from "drizzle-orm/pg-core";
-import { createModelRegistry } from "rxfy";
+import { createModel, createModelRegistry } from "rxfy";
 import { type ServerMessage } from "rxfy-protocol";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { type ConnId, createInMemoryHub } from "./hub.js";
 import { defineResource } from "./resource.js";
 import { createResourceRegistry } from "./resource-registry.js";
@@ -148,6 +149,30 @@ describe("createServer.grant", () => {
     const { live } = harness(db);
     const registry = createModelRegistry();
     expect(live.grant(registry, {})).toEqual({ entities: {}, channels: {} });
+  });
+
+  it("grants entity ids from an injected model's store", async () => {
+    const { db } = await createTestDb(CREATE_POSTS);
+    const { live } = harness(db);
+
+    const sharedPost = createModel({
+      schema: z.object({ id: z.string(), orgId: z.string(), title: z.string() }),
+      getKey: (p: { id: string }) => p.id,
+      name: "post",
+    });
+    const sharedPostResource = defineResource({ table: postsTable, model: sharedPost });
+
+    const registry = createModelRegistry();
+    registry.model(sharedPost).setMany([
+      { id: "1", orgId: "A", title: "a" },
+      { id: "2", orgId: "A", title: "b" },
+    ]);
+
+    const grants = live.grant(registry, { entities: sharedPostResource });
+    expect(grants.entities).toEqual({
+      "post:1": keyer.current("post:1"),
+      "post:2": keyer.current("post:2"),
+    });
   });
 });
 
