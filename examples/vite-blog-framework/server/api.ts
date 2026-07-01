@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { createModelRegistry, normalizeResult } from "rxfy";
 import { type StateChannelDescriptor, touch } from "rxfy-server";
 import { commentResource, postResource, userResource } from "../src/blog/resources.js";
-import { postDetailState, postsState } from "../src/blog/states.js";
+import { postDetailState, postsState } from "examples-shared/data";
 import { comments, db, posts, users } from "./db.js";
 import { live } from "./live.js";
 
