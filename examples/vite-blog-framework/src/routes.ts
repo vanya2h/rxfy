@@ -1,5 +1,5 @@
-import type { StateChannelDescriptor } from "rxfy-server";
 import { postDetailState, postsState } from "examples-shared/data";
+import type { StateChannelDescriptor } from "rxfy-server";
 
 export type Route = { name: "home" } | { name: "post"; postId: string } | { name: "not-found" };
 

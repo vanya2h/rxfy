@@ -1,9 +1,8 @@
+import { Button } from "examples-shared/ui/button";
+import { Input } from "examples-shared/ui/input";
+import { Textarea } from "examples-shared/ui/textarea";
 import { useState } from "react";
 import { editPost } from "../blog/api-client.js";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 export function EditPostForm({
   id,

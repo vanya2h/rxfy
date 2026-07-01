@@ -1,12 +1,11 @@
+import { Button } from "examples-shared/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "examples-shared/ui/card";
+import { Input } from "examples-shared/ui/input";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "examples-shared/ui/select";
+import { Textarea } from "examples-shared/ui/textarea";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { createPost } from "../blog/api-client.js";
-
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 const AUTHORS = [
   { id: "u1", name: "Alice Doe" },
@@ -15,14 +14,14 @@ const AUTHORS = [
 ];
 
 export function NewPostForm() {
-  const [authorId, setAuthorId] = useState("u1");
+  const [userId, setUserId] = useState("u1");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    await createPost({ authorId, title: title.trim(), body: body.trim() });
+    await createPost({ userId, title: title.trim(), body: body.trim() });
     setTitle("");
     setBody("");
   };
@@ -34,7 +33,7 @@ export function NewPostForm() {
           <CardTitle>New post</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <Select value={authorId} onValueChange={setAuthorId}>
+          <Select value={userId} onValueChange={setUserId}>
             <SelectTrigger>
               <SelectValue placeholder="Author" />
             </SelectTrigger>

@@ -1,6 +1,5 @@
+import { Button } from "examples-shared/ui/button";
 import { Moon, Sun } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
 
 /**
  * Toggles the `dark` class on <html> and persists to localStorage. The icon is driven purely by
