@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { combineLatest } from "rxjs";
@@ -9,28 +10,32 @@ import { AddCommentForm } from "./AddCommentForm.js";
 import { CommentItem } from "./CommentItem.js";
 import { UpdatesBadge } from "./UpdatesBadge.js";
 
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
 export function PostDetail({ postId }: { postId: string }) {
   const params = useMemo(() => ({ postId }), [postId]);
   const handle = useStateData({ state: postDetailState, fetchFn: fetchPostDetail, params });
 
   return (
-    <div>
-      <a
-        href="/"
-        onClick={(e) => {
-          e.preventDefault();
-          navigate("/");
-        }}
-      >
-        ← All posts
-      </a>
-      <UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="comment" />
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
+          <ArrowLeft data-icon="inline-start" />
+          All posts
+        </Button>
+        <UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="comment" />
+      </div>
       <Pending
         value$={handle.data$}
-        pending={<p className="status">Loading…</p>}
+        pending={<p className="text-muted-foreground">Loading…</p>}
         rejected={() => (
-          <p className="status error">
-            Failed to load. <button onClick={handle.reload}>Retry</button>
+          <p className="text-destructive">
+            Failed to load.{" "}
+            <Button variant="outline" size="sm" onClick={handle.reload}>
+              Retry
+            </Button>
           </p>
         )}
       >
@@ -51,18 +56,23 @@ function Article({ ids, postId }: { ids: { post: string; author: string; comment
   return (
     <Pending value$={both$}>
       {({ post, author }) => (
-        <article>
-          <h1>{post.title}</h1>
-          <p className="post-meta">by {author.name}</p>
-          <p>{post.body}</p>
-          <h3>Comments ({ids.comments.length})</h3>
-          <ul className="comment-list">
-            {ids.comments.map((cid) => (
-              <CommentItem key={cid} id={cid} postId={postId} />
-            ))}
-          </ul>
-          <AddCommentForm postId={postId} />
-        </article>
+        <Card>
+          <CardHeader>
+            <CardTitle>{post.title}</CardTitle>
+            <p className="text-muted-foreground text-sm">by {author.name}</p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p>{post.body}</p>
+            <Separator />
+            <h3 className="font-medium">Comments ({ids.comments.length})</h3>
+            <div className="flex flex-col gap-2">
+              {ids.comments.map((cid) => (
+                <CommentItem key={cid} id={cid} postId={postId} />
+              ))}
+            </div>
+            <AddCommentForm postId={postId} />
+          </CardContent>
+        </Card>
       )}
     </Pending>
   );
