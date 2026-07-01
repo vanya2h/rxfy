@@ -52,16 +52,36 @@ export function primaryKeyColumn(table: PgTable): string {
   throw new Error(`rxfy-server: table "${name}" has no primary key`);
 }
 
-/** Derive a resource (rxfy model + Zod + getKey) from a Drizzle table. No codegen. */
-export function defineResource<TTable extends PgTable, const TName extends string = string>(config: {
+/** Derive a resource from a Drizzle table, or bind the table to a pre-made rxfy `model`. No codegen. */
+export function defineResource<
+  TTable extends PgTable,
+  const TName extends string = string,
+  // TRow follows the injected model's row type; otherwise the table's select model. The table's
+  // own row may have extra columns (e.g. `createdAt`) the shared model omits — that's fine.
+  TRow = InferSelectModel<TTable>,
+>(config: {
   table: TTable;
   // @todo we can derive name from PgTable type using infer from TableConfig
   name?: TName;
-}): Resource<TTable, InferSelectModel<TTable>, TName> {
-  type TRow = InferSelectModel<TTable>;
-
+  /** A pre-made rxfy model to bind (e.g. a shared model). When omitted, one is derived via drizzle-zod. */
+  model?: ModelDescriptor<TRow>;
+}): Resource<TTable, TRow, TName> {
   const pk = primaryKeyColumn(config.table);
-  const name = (config.name ?? getTableConfig(config.table).name) as TName;
+  const name = (config.name ?? config.model?.name ?? getTableConfig(config.table).name) as TName;
+
+  if (config.model) {
+    // Bind the table (for SQL) to the supplied model (for the client store / live routing).
+    // `name` defaults to the model's name so live patch/stale topics route into the model's store.
+    return {
+      table: config.table,
+      name,
+      model: config.model,
+      zod: config.model.schema,
+      getKey: config.model.getKey as (row: TRow) => string,
+      primaryKeyColumn: pk,
+    };
+  }
+
   // drizzle-zod's output type and InferSelectModel agree at runtime (verified); bridge the nominal gap.
   // We use `any` for the TInput param to avoid TS2719 (dual-module ZodType identity clash).
   const zod = createSelectSchema(config.table) as unknown as z.ZodType<TRow, any>;
