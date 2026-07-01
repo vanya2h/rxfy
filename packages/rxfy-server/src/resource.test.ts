@@ -1,5 +1,7 @@
 import { integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import { createModel } from "rxfy";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { defineResource, primaryKeyColumn } from "./resource.js";
 
 const posts = pgTable("posts", {
@@ -85,5 +87,26 @@ describe("defineResource", () => {
 
   it("throws for a composite primary key", () => {
     expect(() => defineResource({ table: memberships })).toThrow(/composite|multiple|single/i);
+  });
+
+  it("uses an injected model instead of deriving one", () => {
+    const sharedPost = createModel({
+      schema: z.object({ id: z.string(), orgId: z.string(), title: z.string(), views: z.number() }),
+      getKey: (p: { id: string }) => p.id,
+      name: "post",
+    });
+    const r = defineResource({ table: posts, model: sharedPost });
+    expect(r.model).toBe(sharedPost);
+    expect(r.name).toBe("post");
+    expect(r.zod).toBe(sharedPost.schema);
+    expect(r.getKey).toBe(sharedPost.getKey);
+    expect(r.primaryKeyColumn).toBe("id");
+  });
+
+  it("prefers an explicit name over the injected model's name", () => {
+    const m = createModel({ schema: z.object({ id: z.string() }), getKey: (p: { id: string }) => p.id, name: "post" });
+    const r = defineResource({ table: posts, name: "article", model: m });
+    expect(r.name).toBe("article");
+    expect(r.model).toBe(m);
   });
 });
