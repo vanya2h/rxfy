@@ -1,4 +1,7 @@
-import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { BlogProvider } from "examples-shared";
+import { useMemo } from "react";
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, useNavigate } from "react-router";
+import { addCommentRpc } from "./blog/fetchers";
 import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -12,7 +15,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <div className="container">{children}</div>
+        <div className="container mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">{children}</div>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -21,5 +24,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  const navigate = useNavigate();
+  const blog = useMemo(
+    () => ({
+      navigate: (path: string) => navigate(path),
+      onAddComment: (postId: string, input: { name: string; body: string }) => addCommentRpc(postId, input),
+    }),
+    [navigate],
+  );
+  return (
+    <BlogProvider value={blog}>
+      <Outlet />
+    </BlogProvider>
+  );
 }

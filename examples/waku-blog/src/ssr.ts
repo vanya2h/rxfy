@@ -16,7 +16,10 @@ import {
  * under the same key useStateData uses, and returns the snapshot for StoreProvider to ingest.
  */
 export async function prefetch<TParams, TShape>(
-  state: StateDescriptor<TParams, TShape, any>,
+  // TShape is inferred from fetchFn; the state's query/writable shapes are left open (`any`) so a
+  // state with plain-object fields (e.g. `meta`) isn't re-derived through QueryShapeOf<TShape>,
+  // which disagrees with the field-derived query shape on nested-object fields.
+  state: StateDescriptor<TParams, TShape, any, any, any>,
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
   params: TParams,
 ): Promise<DehydratedState> {

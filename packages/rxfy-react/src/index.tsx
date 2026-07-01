@@ -1,3 +1,9 @@
+export type { ChannelStateDescriptor } from "./live/channel.js";
+export { stateChannel } from "./live/channel.js";
+export type { ChannelCounter, Grants, LiveClient, LiveClientConfig, LiveTransport } from "./live/live-client.js";
+export { createLiveClient } from "./live/live-client.js";
+export { readSsrGrants } from "./live/read-grants.js";
+export { LiveClientContext, useLiveClient } from "./live-context.js";
 export type { IPendingProps } from "./Pending.js";
 export { Pending } from "./Pending.js";
 export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
