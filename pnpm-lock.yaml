@@ -141,6 +141,12 @@ importers:
 
   examples/next-blog:
     devDependencies:
+      '@fontsource-variable/geist':
+        specifier: ^5.2.9
+        version: 5.2.9
+      '@tailwindcss/postcss':
+        specifier: ^4.3.2
+        version: 4.3.2
       '@types/lodash':
         specifier: ^4.17.17
         version: 4.17.17
@@ -156,15 +162,33 @@ importers:
       '@vanya2h/eslint-config':
         specifier: ^0.4.0
         version: 0.4.0(eslint@9.28.0(jiti@2.7.0))(prettier@3.8.4)(turbo@2.5.4)(typescript@5.8.3)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       eslint:
         specifier: ^9.27.0
         version: 9.28.0(jiti@2.7.0)
+      examples-shared:
+        specifier: workspace:*
+        version: link:../example-shared
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.25
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
+      lucide-react:
+        specifier: ^1.22.0
+        version: 1.22.0(react@19.2.7)
       next:
         specifier: ^16.2.9
         version: 16.2.9(@babel/core@7.29.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      radix-ui:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -183,6 +207,18 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+      shadcn:
+        specifier: ^4.12.0
+        version: 4.12.0(typescript@5.8.3)
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
+      tailwindcss:
+        specifier: ^4.3.2
+        version: 4.3.2
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
@@ -839,6 +875,10 @@ packages:
 
   '@adobe/css-tools@4.4.3':
     resolution: {integrity: sha512-VQKMkwriZbaOgVCby1UDY/LDk5fIjhQicCvVPFqfe+69fWaPWydbWJ3wRt59/YzIwda1I81loas3oCoHxnqvdA==}
+
+  '@alloc/quick-lru@5.2.0':
+    resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
+    engines: {node: '>=10'}
 
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
@@ -3207,6 +3247,9 @@ packages:
   '@tailwindcss/oxide@4.3.2':
     resolution: {integrity: sha512-z8ZgnzX8gdNoWLBLqBPoh/sjnxkwvf9ZuWjnO0l0yIzbLa5/9S+eC5QxGZKRobVHIC3/1BoMWjHblqWjcgFgag==}
     engines: {node: '>= 20'}
+
+  '@tailwindcss/postcss@4.3.2':
+    resolution: {integrity: sha512-rjVWYCa7Ngbi5AarT6k8TkxUG3Wl1QKzHdIZVsjZSzf36Jmo2IKZt/NHRAwly8oDkbBOH0YTu+CHuf9jPxMc+g==}
 
   '@tailwindcss/vite@4.3.1':
     resolution: {integrity: sha512-hItDHuIIlEV61R+faXu66s1K36aTurO/Qw0e45Vskz57gXl9pWOT6eg3zmcEui6CZXddbN7zd41bwmvag4JGwQ==}
@@ -7901,6 +7944,8 @@ snapshots:
 
   '@adobe/css-tools@4.4.3': {}
 
+  '@alloc/quick-lru@5.2.0': {}
+
   '@antfu/install-pkg@1.1.0':
     dependencies:
       package-manager-detector: 1.6.0
@@ -10341,6 +10386,14 @@ snapshots:
       '@tailwindcss/oxide-wasm32-wasi': 4.3.2
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.2
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.2
+
+  '@tailwindcss/postcss@4.3.2':
+    dependencies:
+      '@alloc/quick-lru': 5.2.0
+      '@tailwindcss/node': 4.3.2
+      '@tailwindcss/oxide': 4.3.2
+      postcss: 8.5.15
+      tailwindcss: 4.3.2
 
   '@tailwindcss/vite@4.3.1(vite@8.0.16(@types/node@22.15.29)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
