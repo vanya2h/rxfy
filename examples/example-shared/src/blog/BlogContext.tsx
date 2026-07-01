@@ -1,9 +1,10 @@
 "use client";
 import { createContext, type ReactNode, useContext } from "react";
+import { type Comment } from "../data/models.js";
 
 export type BlogContextValue = {
   navigate: (path: string) => void;
-  onAddComment: (postId: string, input: { name: string; body: string }) => void | Promise<void>;
+  onAddComment: (postId: string, input: { name: string; body: string }) => void | Comment | Promise<void | Comment>;
 };
 
 const BlogContext = createContext<BlogContextValue | null>(null);

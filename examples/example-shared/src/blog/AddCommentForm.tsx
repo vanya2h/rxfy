@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
+import { type Comment } from "../data/models.js";
 import { Button } from "../ui/button.js";
 import { Input } from "../ui/input.js";
 import { Textarea } from "../ui/textarea.js";
 import { useBlog } from "./BlogContext.js";
 
-export function AddCommentForm({ postId }: { postId: string }) {
+export function AddCommentForm({ postId, onAdded }: { postId: string; onAdded?: (comment: Comment) => void }) {
   const { onAddComment } = useBlog();
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
@@ -13,7 +14,8 @@ export function AddCommentForm({ postId }: { postId: string }) {
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!name.trim() || !body.trim()) return;
-    await onAddComment(postId, { name: name.trim(), body: body.trim() });
+    const created = await onAddComment(postId, { name: name.trim(), body: body.trim() });
+    if (created && onAdded) onAdded(created);
     setName("");
     setBody("");
   };

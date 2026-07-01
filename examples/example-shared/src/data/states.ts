@@ -1,6 +1,6 @@
 import { array, defineState, single } from "rxfy";
 import { z } from "zod";
-import { commentModel, PostIdSchema, postModel, userModel } from "./models.js";
+import { type Comment, commentModel, PostIdSchema, postModel, userModel } from "./models.js";
 
 export const postsState = defineState({
   key: "posts",
@@ -16,4 +16,7 @@ export const postDetailState = defineState({
   key: "post-detail",
   params: z.object({ postId: PostIdSchema }),
   model: { post: single(postModel), author: single(userModel), comments: array(commentModel) },
+  mutations: {
+    addComment: (prev, comment: Comment) => ({ ...prev, comments: [...prev.comments, comment] }),
+  },
 });
