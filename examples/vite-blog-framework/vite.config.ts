@@ -10,4 +10,10 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  ssr: {
+    noExternal: ["examples-shared"],
+  },
+  optimizeDeps: {
+    exclude: ["examples-shared"],
+  },
 });
