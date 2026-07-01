@@ -1,3 +1,3 @@
-export * from "./models.js";
-export * from "./seed.js";
-export * from "./states.js";
+export * from "./models";
+export * from "./seed";
+export * from "./states";

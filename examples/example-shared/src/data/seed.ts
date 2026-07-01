@@ -1,4 +1,4 @@
-import type { Comment, CommentId, Post, PostId, User, UserId } from "./models.js";
+import type { Comment, CommentId, Post, PostId, User, UserId } from "./models";
 
 export const seedUsers: User[] = [
   { id: "1" as UserId, name: "Alice Doe", email: "alice@example.com" },

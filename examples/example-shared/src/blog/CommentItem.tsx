@@ -1,7 +1,7 @@
 "use client";
 import { type ReactNode, useMemo } from "react";
 import { Pending, useModelStore } from "rxfy-react";
-import { type CommentId, commentModel } from "../data/models.js";
+import { type CommentId, commentModel } from "../data/models";
 
 export function CommentItem({ id, actions }: { id: CommentId; actions?: ReactNode }) {
   const store = useModelStore(commentModel);

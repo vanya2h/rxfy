@@ -2,7 +2,7 @@
 import { RefreshCw } from "lucide-react";
 import { useObservable } from "rxfy-react";
 import type { Observable } from "rxjs";
-import { Button } from "../ui/button.js";
+import { Button } from "../ui/button";
 
 export function UpdatesBadge({
   available$,

@@ -1,6 +1,6 @@
 "use client";
 import { createContext, type ReactNode, useContext } from "react";
-import { type Comment } from "../data/models.js";
+import { type Comment } from "../data/models";
 
 export type BlogContextValue = {
   navigate: (path: string) => void;

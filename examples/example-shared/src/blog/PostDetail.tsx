@@ -12,15 +12,15 @@ import {
   type User,
   type UserId,
   userModel,
-} from "../data/models.js";
-import { postDetailState } from "../data/states.js";
-import { Button } from "../ui/button.js";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card.js";
-import { Separator } from "../ui/separator.js";
-import { AddCommentForm } from "./AddCommentForm.js";
-import { useBlog } from "./BlogContext.js";
-import { CommentItem } from "./CommentItem.js";
-import { UpdatesBadge } from "./UpdatesBadge.js";
+} from "../data/models";
+import { postDetailState } from "../data/states";
+import { Button } from "../ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Separator } from "../ui/separator";
+import { AddCommentForm } from "./AddCommentForm";
+import { useBlog } from "./BlogContext";
+import { CommentItem } from "./CommentItem";
+import { UpdatesBadge } from "./UpdatesBadge";
 
 export type PostDetailData = { post: Post; author: User; comments: Comment[] };
 export type PostDetailFetcher = (params: { postId: PostId }, signal: AbortSignal) => Promise<PostDetailData>;

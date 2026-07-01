@@ -1,6 +1,6 @@
 import { array, defineState, single } from "rxfy";
 import { z } from "zod";
-import { type Comment, commentModel, PostIdSchema, postModel, userModel } from "./models.js";
+import { type Comment, commentModel, PostIdSchema, postModel, userModel } from "./models";
 
 export const postsState = defineState({
   key: "posts",

@@ -1,8 +1,8 @@
 import { createModelRegistry, normalizeResult } from "rxfy";
 import { describe, expect, it } from "vitest";
-import { postModel, userModel } from "./models.js";
-import { seedComments, seedPosts, seedUsers } from "./seed.js";
-import { postDetailState, postsState } from "./states.js";
+import { postModel, userModel } from "./models";
+import { seedComments, seedPosts, seedUsers } from "./seed";
+import { postDetailState, postsState } from "./states";
 
 describe("shared blog data", () => {
   it("seed content is present and consistent", () => {

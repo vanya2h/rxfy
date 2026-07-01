@@ -1,2 +1,2 @@
-export * from "./blog/index.js";
-export * from "./data/index.js";
+export * from "./blog/index";
+export * from "./data/index";

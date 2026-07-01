@@ -1,7 +1,7 @@
 import { type PostId } from "examples-shared/data";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { addComment, getPostDetail, listPosts } from "./store.js";
+import { addComment, getPostDetail, listPosts } from "./store";
 
 export const app = new Hono()
   .basePath("/api")
