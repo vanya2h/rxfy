@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { editPost } from "../blog/api-client.js";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
 export function EditPostForm({
   id,
   title: initialTitle,
@@ -22,10 +26,17 @@ export function EditPostForm({
   };
 
   return (
-    <form className="form" onSubmit={submit}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} />
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} />
-      <button type="submit">Save</button>
+    <form className="flex flex-col gap-3 pt-3" onSubmit={submit}>
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+      <Textarea value={body} onChange={(e) => setBody(e.target.value)} />
+      <div className="flex gap-2">
+        <Button type="submit" size="sm">
+          Save
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
     </form>
   );
 }

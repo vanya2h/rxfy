@@ -1,5 +1,8 @@
+import { RefreshCw } from "lucide-react";
 import { useObservable } from "rxfy-react";
 import type { Observable } from "rxjs";
+
+import { Button } from "@/components/ui/button";
 
 export function UpdatesBadge({
   available$,
@@ -13,9 +16,10 @@ export function UpdatesBadge({
   const n = useObservable(available$, 0);
   if (n <= 0) return null;
   return (
-    <button className="badge-button" onClick={onApply}>
+    <Button variant="secondary" size="sm" onClick={onApply}>
+      <RefreshCw data-icon="inline-start" />
       {n} new {noun}
-      {n === 1 ? "" : "s"} · click to refresh
-    </button>
+      {n === 1 ? "" : "s"} · refresh
+    </Button>
   );
 }
