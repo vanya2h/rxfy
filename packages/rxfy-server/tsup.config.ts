@@ -8,5 +8,6 @@ export default defineConfig({
   outDir: config.distDir,
   entry: {
     index: path.join(config.srcDir, "index.ts"),
+    browser: path.join(config.srcDir, "browser.ts"),
   },
 });
