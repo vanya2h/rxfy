@@ -1,6 +1,7 @@
-import { fetchPosts, postsState } from "../blog";
+import { postsState } from "examples-shared/data";
+import { fetchPosts } from "../blog/fetchers";
+import { HomeView } from "../components/HomeView";
 import { HydrateSnapshot } from "../components/HydrateSnapshot";
-import PostList from "../components/PostList";
 import { prefetch } from "../ssr";
 
 export default async function HomePage() {
@@ -8,7 +9,7 @@ export default async function HomePage() {
   return (
     <>
       <HydrateSnapshot snapshot={snapshot} />
-      <PostList />
+      <HomeView />
     </>
   );
 }

@@ -1,7 +1,8 @@
+import { postDetailState, type PostId } from "examples-shared/data";
 import type { PageProps } from "waku/router";
-import { fetchPostDetail, postDetailState, type PostId } from "../../blog";
+import { fetchPostDetail } from "../../blog/fetchers";
 import { HydrateSnapshot } from "../../components/HydrateSnapshot";
-import PostDetail from "../../components/PostDetail";
+import { PostView } from "../../components/PostView";
 import { prefetch } from "../../ssr";
 
 export default async function PostPage({ slug }: PageProps<"/posts/[slug]">) {
@@ -10,7 +11,7 @@ export default async function PostPage({ slug }: PageProps<"/posts/[slug]">) {
   return (
     <>
       <HydrateSnapshot snapshot={snapshot} />
-      <PostDetail postId={postId} />
+      <PostView postId={postId} />
     </>
   );
 }
