@@ -13,7 +13,7 @@ const AUTHORS = [
   { id: "u3", name: "Carol Lee" },
 ];
 
-export function NewPostForm() {
+export function NewPostForm({ onCreated }: { onCreated?: () => void }) {
   const [userId, setUserId] = useState("u1");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -22,6 +22,7 @@ export function NewPostForm() {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
     await createPost({ userId, title: title.trim(), body: body.trim() });
+    onCreated?.();
     setTitle("");
     setBody("");
   };
@@ -32,7 +33,7 @@ export function NewPostForm() {
         <CardHeader>
           <CardTitle>New post</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-3 py-4">
           <Select value={userId} onValueChange={setUserId}>
             <SelectTrigger>
               <SelectValue placeholder="Author" />

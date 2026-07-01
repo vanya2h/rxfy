@@ -1,5 +1,5 @@
 "use client";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Pending, useStateData } from "rxfy-react";
 import { type Post, type PostId, type User } from "../data/models";
 import { postsState } from "../data/states";
@@ -15,22 +15,21 @@ export function PostList({
   fetchPosts,
   header,
   renderItemActions,
-  onReady,
 }: {
   fetchPosts: PostsFetcher;
-  header?: ReactNode;
-  renderItemActions?: (id: PostId) => ReactNode;
-  onReady?: (controls: StateControls) => void;
+  /** A node, or a render function receiving the state's refresh controls (e.g. for a "new post" form). */
+  header?: ReactNode | ((controls: StateControls) => ReactNode);
+  renderItemActions?: (id: PostId, controls: StateControls) => ReactNode;
 }) {
   const handle = useStateData({ state: postsState, fetchFn: fetchPosts, params: {} });
-  const { reload, applyUpdates } = handle;
-  useEffect(() => {
-    onReady?.({ reload, applyUpdates });
-  }, [onReady, reload, applyUpdates]);
+  const controls = useMemo<StateControls>(
+    () => ({ reload: handle.reload, applyUpdates: handle.applyUpdates }),
+    [handle.reload, handle.applyUpdates],
+  );
   return (
     <div className="flex flex-col gap-4">
       <UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />
-      {header}
+      {typeof header === "function" ? header(controls) : header}
       <Pending
         value$={handle.data$}
         pending={<p className="text-muted-foreground">Loading posts…</p>}
@@ -45,7 +44,7 @@ export function PostList({
                 {meta.total} posts · loaded {new Date(meta.generatedAt).toLocaleTimeString()}
               </p>
               {posts.map((id) => (
-                <PostItem key={id} id={id} actions={renderItemActions?.(id)} />
+                <PostItem key={id} id={id} actions={renderItemActions?.(id, controls)} />
               ))}
             </div>
           )
