@@ -47,7 +47,11 @@ api.get("/posts/:id", async (c) => {
 
 api.post("/posts", async (c) => {
   const { authorId, title, body } = (await c.req.json()) as { authorId: string; title: string; body: string };
-  const row = await live.create(postResource, { id: newId(), authorId, title, body }, { touch: [touch(postsChannel, {})] });
+  const row = await live.create(
+    postResource,
+    { id: newId(), authorId, title, body },
+    { touch: [touch(postsChannel, {})] },
+  );
   return c.json(row);
 });
 

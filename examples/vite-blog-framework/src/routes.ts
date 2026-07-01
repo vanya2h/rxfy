@@ -1,10 +1,7 @@
 import type { StateChannelDescriptor } from "rxfy-server";
 import { postDetailState, postsState } from "./blog/states.js";
 
-export type Route =
-  | { name: "home" }
-  | { name: "post"; postId: string }
-  | { name: "not-found" };
+export type Route = { name: "home" } | { name: "post"; postId: string } | { name: "not-found" };
 
 /** Parse a pathname into a route. */
 export function matchRoute(pathname: string): Route {
@@ -15,9 +12,7 @@ export function matchRoute(pathname: string): Route {
 }
 
 /** The state instances a route renders — used to mint grant channels during SSR. */
-export function routeStates(
-  route: Route,
-): Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }> {
+export function routeStates(route: Route): Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }> {
   if (route.name === "home") return [{ state: postsState as StateChannelDescriptor, params: {} }];
   if (route.name === "post")
     return [{ state: postDetailState as StateChannelDescriptor, params: { postId: route.postId } }];
