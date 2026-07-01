@@ -98,7 +98,8 @@ function Article({
             <Separator />
             <h3 className="font-medium">Comments ({ids.comments.length})</h3>
             <div className="flex flex-col gap-2">
-              {ids.comments.map((cid) => (
+              {/* Newest first: sources return comments in insertion order (oldest→newest). */}
+              {[...ids.comments].reverse().map((cid) => (
                 <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid, controls)} />
               ))}
             </div>
