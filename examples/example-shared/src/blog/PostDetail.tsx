@@ -54,7 +54,14 @@ export function PostDetail({
         pending={<p className="text-muted-foreground">Loading…</p>}
         rejected={() => <p className="text-destructive">Failed to load.</p>}
       >
-        {(ids) => <Article ids={ids} actions={actions} renderCommentActions={renderCommentActions} />}
+        {(ids) => (
+          <Article
+            ids={ids}
+            actions={actions}
+            renderCommentActions={renderCommentActions}
+            onAdded={handle.mutations.addComment}
+          />
+        )}
       </Pending>
     </div>
   );
@@ -64,10 +71,12 @@ function Article({
   ids,
   actions,
   renderCommentActions,
+  onAdded,
 }: {
   ids: DetailIds;
   actions?: ReactNode;
   renderCommentActions?: (id: CommentId) => ReactNode;
+  onAdded?: (comment: Comment) => void;
 }) {
   const postStore = useModelStore(postModel);
   const userStore = useModelStore(userModel);
@@ -93,7 +102,7 @@ function Article({
                 <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid)} />
               ))}
             </div>
-            <AddCommentForm postId={post.id} />
+            <AddCommentForm postId={post.id} onAdded={onAdded} />
           </CardContent>
         </Card>
       )}
