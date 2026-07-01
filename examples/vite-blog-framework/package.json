@@ -28,6 +28,7 @@
     "cross-env": "^7.0.3",
     "drizzle-orm": "^0.45.2",
     "eslint": "^9.27.0",
+    "examples-shared": "workspace:*",
     "hono": "^4.7.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
