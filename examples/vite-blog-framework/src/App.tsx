@@ -8,6 +8,7 @@ import { PostActions } from "./components/PostActions.js";
 import { ThemeToggle } from "./components/ThemeToggle.js";
 import { bindNavigation, navigate } from "./navigation.js";
 import { matchRoute } from "./routes.js";
+import { setStateControls } from "./state-controls.js";
 
 const blog = {
   navigate,
@@ -51,6 +52,7 @@ export function App({ url }: { url: string }) {
             fetchPosts={fetchPosts}
             header={<NewPostForm />}
             renderItemActions={(id) => <PostActions id={id} />}
+            onReady={(c) => setStateControls("posts", c)}
           />
         )}
         {route.name === "post" && (
@@ -58,6 +60,7 @@ export function App({ url }: { url: string }) {
             postId={route.postId as PostId}
             fetchPostDetail={fetchPostDetail}
             renderCommentActions={(id) => <CommentActions postId={route.postId} id={id} />}
+            onReady={(c) => setStateControls("post-detail", c)}
           />
         )}
         {route.name === "not-found" && <p className="text-muted-foreground">Not found.</p>}

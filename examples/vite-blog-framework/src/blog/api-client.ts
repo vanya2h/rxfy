@@ -2,6 +2,7 @@ import type { PostDetailData, PostId, PostsData } from "examples-shared";
 import { hc } from "hono/client";
 import type { AppType } from "../../server/api.js";
 import { getLiveClient } from "../live-singleton.js";
+import { refreshState } from "../state-controls.js";
 
 const isServer = typeof window === "undefined";
 const client = hc<AppType>("/api");
@@ -42,11 +43,29 @@ export async function fetchPostDetail({ postId }: { postId: PostId }): Promise<P
   return body.data;
 }
 
-export const createPost = (p: { userId: string; title: string; body: string }) => client.posts.$post({ json: p });
+// Mutations that touch a state channel (create/delete) also refresh the initiating client's view:
+// the server broadcasts a "stale" signal to every subscriber, but the client that made the change
+// should reflect it immediately rather than waiting for a manual badge click. `editPost`/`editComment`
+// are entity patches that apply automatically on every client, so they need no explicit refresh.
+export const createPost = async (p: { userId: string; title: string; body: string }) => {
+  const res = await client.posts.$post({ json: p });
+  refreshState("posts");
+  return res;
+};
 export const editPost = (id: string, p: { title?: string; body?: string }) =>
   client.posts[":id"].$patch({ param: { id }, json: p });
-export const deletePost = (id: string) => client.posts[":id"].$delete({ param: { id } });
-export const addComment = (postId: string, p: { name: string; body: string }) =>
-  client.posts[":id"].comments.$post({ param: { id: postId }, json: p });
-export const deleteComment = (postId: string, id: string) =>
-  client.posts[":postId"].comments[":id"].$delete({ param: { postId, id } });
+export const deletePost = async (id: string) => {
+  const res = await client.posts[":id"].$delete({ param: { id } });
+  refreshState("posts");
+  return res;
+};
+export const addComment = async (postId: string, p: { name: string; body: string }) => {
+  const res = await client.posts[":id"].comments.$post({ param: { id: postId }, json: p });
+  refreshState("post-detail");
+  return res;
+};
+export const deleteComment = async (postId: string, id: string) => {
+  const res = await client.posts[":postId"].comments[":id"].$delete({ param: { postId, id } });
+  refreshState("post-detail");
+  return res;
+};
