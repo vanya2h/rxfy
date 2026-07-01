@@ -43,7 +43,8 @@ export function PostList({
               <p className="text-muted-foreground text-sm">
                 {meta.total} posts · loaded {new Date(meta.generatedAt).toLocaleTimeString()}
               </p>
-              {posts.map((id) => (
+              {/* Newest first: sources return rows in insertion order (oldest→newest). */}
+              {[...posts].reverse().map((id) => (
                 <PostItem key={id} id={id} actions={renderItemActions?.(id, controls)} />
               ))}
             </div>
