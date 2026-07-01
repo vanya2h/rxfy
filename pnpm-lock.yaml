@@ -228,6 +228,9 @@ importers:
 
   examples/rr7-blog:
     devDependencies:
+      '@fontsource-variable/geist':
+        specifier: ^5.2.9
+        version: 5.2.9
       '@react-router/dev':
         specifier: ^7.9.0
         version: 7.17.0(@react-router/serve@7.17.0(react-router@7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.8.3))(@types/node@22.15.29)(@vitejs/plugin-rsc@0.5.27(react-dom@19.2.7(react@19.2.7))(react-server-dom-webpack@19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(lightningcss@1.32.0)))(react@19.2.7)(vite@6.3.5(@types/node@22.15.29)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0)))(jiti@2.7.0)(lightningcss@1.32.0)(react-router@7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-server-dom-webpack@19.2.7(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(webpack@5.107.2(lightningcss@1.32.0)))(terser@5.48.0)(tsx@4.22.4)(typescript@5.8.3)(vite@6.3.5(@types/node@22.15.29)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)
@@ -237,6 +240,9 @@ importers:
       '@react-router/serve':
         specifier: ^7.9.0
         version: 7.17.0(react-router@7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.8.3)
+      '@tailwindcss/vite':
+        specifier: ^4.3.2
+        version: 4.3.2(vite@6.3.5(@types/node@22.15.29)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
       '@types/node':
         specifier: ^22.0.0
         version: 22.15.29
@@ -249,9 +255,27 @@ importers:
       '@vanya2h/eslint-config':
         specifier: ^0.4.0
         version: 0.4.0(eslint@9.28.0(jiti@2.7.0))(prettier@3.8.4)(turbo@2.5.4)(typescript@5.8.3)
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       eslint:
         specifier: ^9.27.0
         version: 9.28.0(jiti@2.7.0)
+      examples-shared:
+        specifier: workspace:*
+        version: link:../example-shared
+      hono:
+        specifier: ^4.7.0
+        version: 4.12.25
+      lucide-react:
+        specifier: ^1.22.0
+        version: 1.22.0(react@19.2.7)
+      radix-ui:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -273,6 +297,18 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+      shadcn:
+        specifier: ^4.12.0
+        version: 4.12.0(typescript@5.8.3)
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
+      tailwindcss:
+        specifier: ^4.3.2
+        version: 4.3.2
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
