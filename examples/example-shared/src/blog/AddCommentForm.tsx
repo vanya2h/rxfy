@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
-import { type Comment } from "../data/models.js";
-import { Button } from "../ui/button.js";
-import { Input } from "../ui/input.js";
-import { Textarea } from "../ui/textarea.js";
-import { useBlog } from "./BlogContext.js";
+import { type Comment } from "../data/models";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { useBlog } from "./BlogContext";
 
 export function AddCommentForm({ postId, onAdded }: { postId: string; onAdded?: (comment: Comment) => void }) {
   const { onAddComment } = useBlog();

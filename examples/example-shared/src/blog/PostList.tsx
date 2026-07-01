@@ -1,10 +1,10 @@
 "use client";
 import { type ReactNode } from "react";
 import { Pending, useStateData } from "rxfy-react";
-import { type Post, type PostId, type User } from "../data/models.js";
-import { postsState } from "../data/states.js";
-import { PostItem } from "./PostItem.js";
-import { UpdatesBadge } from "./UpdatesBadge.js";
+import { type Post, type PostId, type User } from "../data/models";
+import { postsState } from "../data/states";
+import { PostItem } from "./PostItem";
+import { UpdatesBadge } from "./UpdatesBadge";
 
 export type PostsData = { posts: Post[]; authors: User[]; meta: { total: number; generatedAt: string } };
 export type PostsFetcher = (params: Record<never, never>, signal: AbortSignal) => Promise<PostsData>;

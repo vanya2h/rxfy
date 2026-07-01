@@ -1,13 +1,13 @@
 import { type Comment, type CommentId, type PostDetailData, type PostId, type PostsData } from "examples-shared";
 import { hc } from "hono/client";
-import type { AppType } from "../server/app.js";
+import type { AppType } from "../server/app";
 
 const isServer = typeof window === "undefined";
 const client = hc<AppType>("/");
 
 export async function fetchPosts(): Promise<PostsData> {
   if (isServer) {
-    const { listPosts } = await import("../server/store.js");
+    const { listPosts } = await import("../server/store");
     return listPosts() as unknown as PostsData;
   }
   const res = await client.api.posts.$get();
@@ -16,7 +16,7 @@ export async function fetchPosts(): Promise<PostsData> {
 
 export async function fetchPostDetail({ postId }: { postId: PostId }): Promise<PostDetailData> {
   if (isServer) {
-    const { getPostDetail } = await import("../server/store.js");
+    const { getPostDetail } = await import("../server/store");
     const detail = getPostDetail(postId);
     if (!detail) throw new Error(`Post "${postId}" not found`);
     return detail as unknown as PostDetailData;

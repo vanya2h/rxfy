@@ -1,9 +1,9 @@
 "use client";
 import { type ReactNode, useMemo } from "react";
 import { Pending, useModelStore } from "rxfy-react";
-import { type PostId, postModel, type UserId, userModel } from "../data/models.js";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card.js";
-import { useBlog } from "./BlogContext.js";
+import { type PostId, postModel, type UserId, userModel } from "../data/models";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
+import { useBlog } from "./BlogContext";
 
 export function PostItem({ id, actions }: { id: PostId; actions?: ReactNode }) {
   const { navigate } = useBlog();
