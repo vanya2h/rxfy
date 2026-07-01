@@ -20,6 +20,7 @@
     "@electric-sql/pglite": "^0.5.3",
     "@hono/node-server": "^1.14.0",
     "@hono/node-ws": "^1.1.0",
+    "@tailwindcss/vite": "^4.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vanya2h/eslint-config": "^0.4.0",
@@ -36,10 +37,21 @@
     "rxfy-server": "workspace:*",
     "rxfy-ws": "workspace:*",
     "rxjs": "^7.8.2",
+    "tailwindcss": "^4.3.2",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^3.1.4",
     "zod": "^4.4.3"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.2.9",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.22.0",
+    "radix-ui": "^1.6.1",
+    "shadcn": "^4.12.0",
+    "tailwind-merge": "^3.6.0",
+    "tw-animate-css": "^1.4.0"
   }
 }
