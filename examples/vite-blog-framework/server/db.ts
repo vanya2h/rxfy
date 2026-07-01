@@ -2,7 +2,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { comments, posts, users } from "../src/db/schema.js";
 
-const client = new PGlite(); // in-memory, fresh per process
+const globalForPglite = globalThis as unknown as { __blogPglite?: PGlite };
+const client = (globalForPglite.__blogPglite ??= new PGlite());
 export const db = drizzle(client);
 
 const DDL = `
