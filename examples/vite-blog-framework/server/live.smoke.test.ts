@@ -1,8 +1,13 @@
-import type { PublishSink, StateChannelDescriptor } from "rxfy-server";
+import { postsState } from "examples-shared/data";
+import type { PublishSink, Resource, StateChannelDescriptor } from "rxfy-server";
 import { createInMemoryHub, createServer, createTopicKeyer, touch } from "rxfy-server";
 import { describe, expect, it } from "vitest";
 import { commentResource, postResource, resources, userResource } from "../src/blog/resources.js";
-import { postsState } from "../src/blog/states.js";
+import { posts } from "./db.js";
+
+// `live.create`/`live.update` accept `Resource<TTable>` with the table's raw `InferSelectModel` row;
+// the injected shared model brands ids and omits `createdAt`, so cast to the table's writer resource.
+const postWriteResource = postResource as unknown as Resource<typeof posts>;
 
 /** Derive ServerMessage from the PublishSink type exported by rxfy-server. */
 type ServerMessage = Parameters<PublishSink>[1];
@@ -18,8 +23,8 @@ async function freshDb() {
   const db = drizzle(client);
   await client.exec(`
     CREATE TABLE users (id text PRIMARY KEY, name text NOT NULL, email text NOT NULL);
-    CREATE TABLE posts (id text PRIMARY KEY, author_id text NOT NULL, title text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
-    CREATE TABLE comments (id text PRIMARY KEY, post_id text NOT NULL, author text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
+    CREATE TABLE posts (id text PRIMARY KEY, user_id text NOT NULL, title text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
+    CREATE TABLE comments (id text PRIMARY KEY, post_id text NOT NULL, name text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
   `);
   return db;
 }
@@ -42,8 +47,8 @@ describe("vite-blog-framework live server", () => {
     hub.subscribe("client", [keyer.current("posts")]);
 
     const row = await live.create(
-      postResource,
-      { id: "p1", authorId: "u1", title: "Hi", body: "B" },
+      postWriteResource,
+      { id: "p1", userId: "u1", title: "Hi", body: "B" },
       { touch: [touch(postsChannel, {})] },
     );
     expect(row).toMatchObject({ id: "p1", title: "Hi" });
@@ -55,13 +60,13 @@ describe("vite-blog-framework live server", () => {
     const hub = createInMemoryHub();
     const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
     const live = createServer({ db, resources, hub, keyer });
-    await live.create(postResource, { id: "p1", authorId: "u1", title: "Old", body: "B" });
+    await live.create(postWriteResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
     hub.subscribe("client", [keyer.current("post:p1")]);
 
-    const row = await live.update(postResource, "p1", { title: "New" });
+    const row = await live.update(postWriteResource, "p1", { title: "New" });
     expect(row).toMatchObject({ title: "New" });
     expect(received).toEqual([
       {
@@ -69,7 +74,7 @@ describe("vite-blog-framework live server", () => {
         kind: "patch",
         name: "post",
         id: "p1",
-        data: { id: "p1", authorId: "u1", title: "New", body: "B", createdAt: expect.any(Date) },
+        data: { id: "p1", userId: "u1", title: "New", body: "B", createdAt: expect.any(Date) },
       },
     ]);
   });
