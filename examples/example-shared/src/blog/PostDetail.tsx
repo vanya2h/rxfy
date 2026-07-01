@@ -1,6 +1,6 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { combineLatest } from "rxjs";
 import {
@@ -20,6 +20,7 @@ import { Separator } from "../ui/separator";
 import { AddCommentForm } from "./AddCommentForm";
 import { useBlog } from "./BlogContext";
 import { CommentItem } from "./CommentItem";
+import { type StateControls } from "./PostList";
 import { UpdatesBadge } from "./UpdatesBadge";
 
 export type PostDetailData = { post: Post; author: User; comments: Comment[] };
@@ -31,15 +32,21 @@ export function PostDetail({
   fetchPostDetail,
   actions,
   renderCommentActions,
+  onReady,
 }: {
   postId: PostId;
   fetchPostDetail: PostDetailFetcher;
   actions?: ReactNode;
   renderCommentActions?: (id: CommentId) => ReactNode;
+  onReady?: (controls: StateControls) => void;
 }) {
   const { navigate } = useBlog();
   const params = useMemo(() => ({ postId }), [postId]);
   const handle = useStateData({ state: postDetailState, fetchFn: fetchPostDetail, params });
+  const { reload, applyUpdates } = handle;
+  useEffect(() => {
+    onReady?.({ reload, applyUpdates });
+  }, [onReady, reload, applyUpdates]);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
