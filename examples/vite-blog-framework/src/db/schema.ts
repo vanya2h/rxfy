@@ -8,7 +8,7 @@ export const users = pgTable("users", {
 
 export const posts = pgTable("posts", {
   id: text("id").primaryKey(),
-  authorId: text("author_id").notNull(),
+  userId: text("user_id").notNull(),
   title: text("title").notNull(),
   body: text("body").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -17,7 +17,7 @@ export const posts = pgTable("posts", {
 export const comments = pgTable("comments", {
   id: text("id").primaryKey(),
   postId: text("post_id").notNull(),
-  author: text("author").notNull(),
+  name: text("name").notNull(),
   body: text("body").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
