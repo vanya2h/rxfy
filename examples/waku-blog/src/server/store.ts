@@ -35,7 +35,12 @@ export function getPostDetail(postId: PostId): { post: Post; author: User; comme
 }
 
 export function addComment(postId: PostId, input: { name: string; body: string }): Comment {
-  const comment: Comment = { id: String(store.nextCommentId++) as CommentId, postId, name: input.name, body: input.body };
+  const comment: Comment = {
+    id: String(store.nextCommentId++) as CommentId,
+    postId,
+    name: input.name,
+    body: input.body,
+  };
   store.comments = [...store.comments, comment];
   return comment;
 }
