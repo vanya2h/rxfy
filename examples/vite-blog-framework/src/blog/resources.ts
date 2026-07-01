@@ -1,4 +1,4 @@
-import { createResourceRegistry, defineResource } from "rxfy-server";
+import { createResourceRegistry, defineResource } from "rxfy-server/browser";
 import { comments, posts, users } from "../db/schema.js";
 
 export const userResource = defineResource({ table: users, name: "user" });
