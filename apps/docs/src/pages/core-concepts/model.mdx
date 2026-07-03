@@ -93,7 +93,7 @@ registry.model(UserModel).set("1", { id: "1", name: "Alice" }); // → "user:1"
 It replays entities already in the registry and follows stores created later; unnamed stores
 are skipped, since there's no `name` to address them by. This is what lets a live-update layer
 track exactly what the client holds without each query wiring its ids in by hand; see
-[Live updates over WebSockets](/guides/live-updates-websockets).
+the [Framework](/framework).
 
 ## ModelStore entity
 
