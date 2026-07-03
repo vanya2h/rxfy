@@ -131,8 +131,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`next` is an optional peer dependency; only this subpath needs it.
-
 ## Two-pass mode (strict `renderToString`)
 
 For environments without React stream APIs, `collectStateData` loops render passes until
@@ -148,14 +146,35 @@ const html = await collectStateData(registry, () =>
 const state = hydrationScript(dehydrate(registry));
 ```
 
+### How it works
+
+`renderToString` is synchronous — it can't wait for a fetch. So `collectStateData` renders
+repeatedly, warming the query cache one level at a time (the classic Apollo `getDataFromTree`
+pattern): each render starts any missing fetches and suspends; `collectStateData` awaits the
+inflight fetches and renders again, until a pass leaves nothing pending. That final HTML is
+returned, and `dehydrate(registry)` snapshots the now-warm registry.
+
+A pass only discovers the fetches reachable with the data it already has, so a fetch waterfall
+**N** levels deep costs **N+1** full renders; independent queries at one level are found and
+awaited together.
+
+**Trade-offs:** works anywhere `renderToString` does (edge runtimes, custom renderers) and is
+simple to reason about — but it renders the whole tree N+1 times, flushes nothing until every
+fetch has settled, and pays the _sum_ of a waterfall's fetch times.
+
+:::tip
+If you have `renderToPipeableStream`, prefer [buffered mode](#buffered-mode-any-node-server)
+or [streaming mode](#streaming-mode-nextjs-app-router) — both avoid the repeated renders.
+:::
+
 ## Hydration helpers
 
 The server snapshot is produced and embedded with three helpers from `rxfy`:
 
 ```ts
 type DehydratedState = {
-  queries: Record<string, SerializedWrapped>;          // settled query results, by key
-  models: Record<string, Record<string, unknown>>;     // entities, by model name then id
+  queries: Record<string, SerializedWrapped>; // settled query results, by key
+  models: Record<string, Record<string, unknown>>; // entities, by model name then id
 };
 
 // Snapshot a request's registry; only named models and keyed queries are included.
@@ -168,11 +187,8 @@ function hydrationScript(state: DehydratedState): string;
 function hydrate(registry: IModelRegistry, state: DehydratedState): void;
 ```
 
-In the common path you never call `hydrate` directly: the embedded script populates
-`window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically. Call
-`hydrate` yourself only when you hold the registry and the snapshot directly, e.g. passing
-`dehydratedState` to `StoreProvider` for a buffered two-pass render rather than an inline
-script.
+In the common path you never call `hydrate` directly — the embedded script populates
+`window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically.
 
 ## Error handling
 
