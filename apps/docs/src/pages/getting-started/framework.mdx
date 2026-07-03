@@ -1,0 +1,73 @@
+# Framework quickstart [Install the full stack for a live app]
+
+The framework path adds server-side rendering and real-time updates on top of the store:
+the server writes and publishes changes, the client subscribes and applies them. See
+[Framework (Real-time)](/framework) for the concepts.
+
+:::note[New to rxfy?]
+If you haven't used the core store yet, do the [Store quickstart](/getting-started/store)
+first — the framework builds directly on models, states, and `StoreProvider`.
+:::
+
+## Install
+
+Install the core packages plus the live-update stack:
+
+:::code-group
+
+```bash [npm]
+npm install rxfy rxfy-react rxfy-server rxfy-ws
+```
+
+```bash [pnpm]
+pnpm add rxfy rxfy-react rxfy-server rxfy-ws
+```
+
+```bash [yarn]
+yarn add rxfy rxfy-react rxfy-server rxfy-ws
+```
+
+```bash [bun]
+bun add rxfy rxfy-react rxfy-server rxfy-ws
+```
+
+:::
+
+Add the peer dependencies. Alongside the core `rxjs`, `zod`, and `lodash`, `rxfy-server`
+expects [Drizzle](https://orm.drizzle.team) (`drizzle-orm`, `drizzle-zod`), and `rxfy-ws`
+expects `ws` on the server:
+
+:::code-group
+
+```bash [npm]
+npm install rxjs zod lodash drizzle-orm drizzle-zod ws
+```
+
+```bash [pnpm]
+pnpm add rxjs zod lodash drizzle-orm drizzle-zod ws
+```
+
+```bash [yarn]
+yarn add rxjs zod lodash drizzle-orm drizzle-zod ws
+```
+
+```bash [bun]
+bun add rxjs zod lodash drizzle-orm drizzle-zod ws
+```
+
+:::
+
+## The shape of a live app
+
+Three pieces sit on top of your existing store:
+
+- **Resources + server** — bind Drizzle tables to models and write through `createServer`,
+  which publishes `patch` / `stale` messages. See [rxfy-server](/framework/server).
+- **Transport** — carry those messages to clients over WebSockets. See [rxfy-ws](/framework/ws).
+- **SSR grants** — mint the subscription tokens a client is allowed to use at render time.
+  See [Grants & live hydration](/framework/grants).
+
+## Follow the tutorial
+
+The [Live blog guide](/guides/live-blog) builds all three end to end, backed by the
+runnable [`vite-blog-framework`](/examples) example.
