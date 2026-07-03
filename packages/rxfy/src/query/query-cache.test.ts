@@ -21,13 +21,6 @@ describe("createQueryCache", () => {
     sub.unsubscribe();
   });
 
-  it("peek returns the current value without creating a cell", () => {
-    const cache = createQueryCache();
-    expect(cache.peek("absent")).toBeUndefined();
-    cache.getQuery("k").set(createFulfilled(1));
-    expect(cache.peek("k")).toEqual(createFulfilled(1));
-  });
-
   it("entries returns only terminal states", () => {
     const cache = createQueryCache();
     cache.getQuery("idle"); // stays IDLE
@@ -41,42 +34,38 @@ describe("createQueryCache", () => {
     expect(keys).toEqual(["bad", "ok"]);
   });
 
-  it("delete removes the atom and its in-flight promise", () => {
-    const cache = createQueryCache();
-    const p = Promise.resolve();
-    cache.setPromise("k", p);
-    cache.getQuery("k").set(createFulfilled(1));
-    cache.delete("k");
-    expect(cache.peek("k")).toBeUndefined();
-    expect(cache.getPromise("k")).toBeUndefined();
-  });
-
   it("tracks in-flight promises", () => {
     const cache = createQueryCache();
     const p = new Promise<void>(() => {});
-    cache.setPromise("k", p);
+    cache.getOrStart("k", () => p);
     expect(cache.inflight()).toEqual([p]);
   });
 
-  it("getQuery after delete returns a fresh IDLE atom", () => {
+  it("getOrStart returns the existing promise and skips start on a hit", () => {
     const cache = createQueryCache();
-    const first = cache.getQuery("k");
-    first.set(createFulfilled(1));
-    cache.delete("k");
-    const second = cache.getQuery("k");
-    expect(second).not.toBe(first);
-    expect(second.get()).toEqual({ type: StatusEnum.IDLE });
+    const p = new Promise<void>(() => {});
+    const first = cache.getOrStart("k", () => p);
+    let secondStartCalled = false;
+    const second = cache.getOrStart("k", () => {
+      secondStartCalled = true;
+      return new Promise<void>(() => {});
+    });
+    expect(first).toBe(p);
+    expect(second).toBe(p);
+    expect(secondStartCalled).toBe(false);
   });
 
   it("clears the in-flight promise from inflight() after it settles", async () => {
     const cache = createQueryCache();
     let resolve!: () => void;
     const p = new Promise<void>((r) => (resolve = r));
-    cache.setPromise("k", p);
+    cache.getOrStart("k", () => p);
     expect(cache.inflight()).toEqual([p]);
     resolve();
     await p;
     expect(cache.inflight()).toEqual([]);
-    expect(cache.getPromise("k")).toBeUndefined();
+    // slot cleared → the next getOrStart is a miss and runs start again
+    const next = new Promise<void>(() => {});
+    expect(cache.getOrStart("k", () => next)).toBe(next);
   });
 });

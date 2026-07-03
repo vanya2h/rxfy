@@ -158,12 +158,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       if (!cacheKey) {
         console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
       } else {
-        const inflight = registry.queries.getPromise(cacheKey);
-        if (inflight) throw inflight; // dedup: another component already started this fetch
-        atom$.set(createPending());
-        const promise = settle(fetchFn(params, new AbortController().signal));
-        registry.queries.setPromise(cacheKey, promise);
-        throw promise;
+        // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
+        // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
+        throw registry.queries.getOrStart(cacheKey, () => {
+          atom$.set(createPending());
+          return settle(fetchFn(params, new AbortController().signal));
+        });
       }
     }
 

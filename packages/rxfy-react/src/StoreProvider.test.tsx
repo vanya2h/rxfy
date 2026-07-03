@@ -61,7 +61,7 @@ describe("StoreProvider SSR props", () => {
     const { result } = renderHook(() => useModelRegistry(), {
       wrapper: ({ children }) => <StoreProvider dehydratedState={dehydrated}>{children}</StoreProvider>,
     });
-    expect(result.current.queries.peek("todos:{}")).toEqual(createFulfilled({ todos: ["1"] }));
+    expect(result.current.queries.getQuery("todos:{}").get()).toEqual(createFulfilled({ todos: ["1"] }));
     expect(result.current.model(todoModel).getValue("1")).toEqual({ id: "1", title: "Hydrated" });
   });
 

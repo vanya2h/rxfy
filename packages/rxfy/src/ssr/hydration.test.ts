@@ -61,7 +61,7 @@ describe("hydrate", () => {
     const target = createModelRegistry();
     hydrate(target, dehydrate(source));
 
-    expect(target.queries.peek("todos:{}")).toEqual({ type: StatusEnum.FULFILLED, value: { todos: ["1"] } });
+    expect(target.queries.getQuery("todos:{}").get()).toEqual({ type: StatusEnum.FULFILLED, value: { todos: ["1"] } });
     // store not created yet — created on first model() call, seeded from stash
     expect(target.model(todoModel).getValue("1")).toEqual({ id: "1", title: "A" });
   });
@@ -72,7 +72,7 @@ describe("hydrate", () => {
       queries: { "posts:{}": { type: StatusEnum.FULFILLED, value: { posts: ["1"] } } },
       models: {},
     });
-    expect(registry.queries.peek("posts:{}")).toEqual({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
+    expect(registry.queries.getQuery("posts:{}").get()).toEqual({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
   });
 });
 
