@@ -9,9 +9,16 @@ export default defineConfig({
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Why rxfy?", link: "/why" },
-    { text: "Getting Started", link: "/getting-started" },
-    { text: "Agent Skills", link: "/agent-skills" },
     { text: "Comparison", link: "/comparison" },
+    {
+      text: "Getting Started",
+      link: "/getting-started",
+      items: [
+        { text: "Store quickstart", link: "/getting-started/store" },
+        { text: "Framework quickstart", link: "/getting-started/framework" },
+      ],
+    },
+    { text: "Agent Skills", link: "/agent-skills" },
     { text: "Examples", link: "/examples" },
     { text: "Changelog", link: "/changelog" },
 
@@ -38,6 +45,20 @@ export default defineConfig({
         { text: "Pending", link: "/react/pending" },
         { text: "usePending", link: "/react/use-pending" },
         { text: "useObservable", link: "/react/use-observable" },
+        { text: "Live client", link: "/react/live-client" },
+      ],
+    },
+
+    { text: "Server-Side Rendering", link: "/ssr" },
+
+    {
+      text: "Framework (Real-time)",
+      link: "/framework",
+      items: [
+        { text: "rxfy-server", link: "/framework/server" },
+        { text: "rxfy-protocol", link: "/framework/protocol" },
+        { text: "rxfy-ws", link: "/framework/ws" },
+        { text: "Grants & live hydration", link: "/framework/grants" },
       ],
     },
 
@@ -45,10 +66,9 @@ export default defineConfig({
       text: "Guides",
       link: "/guides",
       items: [
-        { text: "Server-Side Rendering", link: "/ssr" },
         { text: "Build a Todo app", link: "/guides/todo-app" },
         { text: "Pagination and infinite scroll", link: "/guides/pagination" },
-        { text: "Live updates over WebSockets", link: "/guides/live-updates-websockets" },
+        { text: "Live blog", link: "/guides/live-blog" },
       ],
     },
   ],
