@@ -25,10 +25,13 @@ Installs two skills for AI coding assistants — `rxfy` (core API, React hooks, 
 
 ## Packages
 
-| Package                             | Purpose                                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| [`rxfy`](packages/rxfy)             | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
-| [`rxfy-react`](packages/rxfy-react) | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
+| Package                                   | Purpose                                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| [`rxfy`](packages/rxfy)                   | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy-react`](packages/rxfy-react)       | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
+| [`rxfy-server`](packages/rxfy-server)     | Server-side live data: Drizzle resources, write + publish, grants           |
+| [`rxfy-protocol`](packages/rxfy-protocol) | Wire protocol and codec for live updates                                    |
+| [`rxfy-ws`](packages/rxfy-ws)             | Default WebSocket transport (client + server)                               |
 
 ## Install
 
@@ -59,6 +62,7 @@ npm install rxfy rxfy-react
 
 - [React Bindings](https://rxfy.vanya2h.me/react)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/ssr)
+- [Framework (Real-time)](https://rxfy.vanya2h.me/framework)
 - [rxfy package README](packages/rxfy/README.md)
 - [rxfy-react package README](packages/rxfy-react/README.md)
 
@@ -66,13 +70,13 @@ npm install rxfy rxfy-react
 
 - [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live updates over WebSockets](https://rxfy.vanya2h.me/guides/live-updates-websockets)
+- [Live blog](https://rxfy.vanya2h.me/guides/live-blog)
 - [Examples](https://rxfy.vanya2h.me/examples)
 
 **Examples**
 
 - [vite-todo](examples/vite-todo) — Todo app with Vite SSR
-- [vite-realtime-todos](examples/vite-realtime-todos) — normalized state driven by WebSocket server-push (Vite SSR · Hono · Drizzle SQLite)
+- [vite-blog-framework](examples/vite-blog-framework) — live blog: SSR + WebSocket patches/stale, HMAC grants (Vite · Hono · PGlite · Drizzle · rxfy-server · rxfy-ws)
 - [vite-ssr-pagination](examples/vite-ssr-pagination) — infinite paginated list with a switch between Load-more button and infinite scroll; streaming SSR; rows generated on demand with faker
 - [next-blog](examples/next-blog) — Next.js App Router with streaming SSR
 - [rr7-blog](examples/rr7-blog) — React Router 7 (framework mode) with buffered SSR; rxfy as the single data layer, loaders for routing only
