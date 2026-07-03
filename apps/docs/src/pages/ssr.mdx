@@ -22,34 +22,84 @@ SSR also mints the subscription **grants** a live client uses. See
 ## Buffered mode (any Node server)
 
 Wait for every Suspense boundary with `onAllReady`, then send the complete document. This
-is the recommended non-Next mode.
+is the recommended non-Next mode. Here it is wired end to end: a render function that
+resolves once every `useStateData` fetch has settled, an HTTP handler that injects the HTML
+and the dehydrated snapshot into an `index.html` template, and the client entry that
+hydrates it.
 
 :::code-group
 
-```tsx [server.tsx]
+```tsx [entry-server.tsx]
+import { PassThrough } from "node:stream";
+import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
 import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
 
-const registry = createModelRegistry(); // one per request
-renderToPipeableStream(
-  <StoreProvider registry={registry} ssr><App /></StoreProvider>,
-  {
-    onAllReady() {
-      // collect the stream to a string, then inject:
-      //   template.replace("<!--app-state-->", hydrationScript(dehydrate(registry)))
-    },
-  },
-);
+// Runs on the server per request. Returns the rendered HTML plus the <script>
+// that carries the dehydrated store snapshot.
+export function render(url: string): Promise<{ html: string; state: string }> {
+  const registry = createModelRegistry(); // one registry per request — never shared
+
+  return new Promise((resolve, reject) => {
+    const { pipe } = renderToPipeableStream(
+      <StrictMode>
+        <StoreProvider registry={registry} ssr>
+          <Suspense fallback={null}>
+            <App url={url} />
+          </Suspense>
+        </StoreProvider>
+      </StrictMode>,
+      {
+        // Fires once every Suspense boundary has resolved — i.e. every fetch has
+        // settled and the registry is fully populated. Buffer the stream to a
+        // string, then dehydrate the now-complete registry into the snapshot.
+        onAllReady() {
+          const sink = new PassThrough();
+          let html = "";
+          sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
+          sink.on("end", () => {
+            resolve({ html, state: hydrationScript(dehydrate(registry)) });
+          });
+          pipe(sink);
+        },
+        onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
+      },
+    );
+  });
+}
+```
+
+```ts [server.ts]
+import { readFileSync } from "node:fs";
+import { render } from "./entry-server";
+
+// index.html carries two placeholders: <!--app-html--> and <!--app-state-->
+const template = readFileSync("./index.html", "utf-8");
+
+// Express / Hono / plain node:http — whatever serves your HTML.
+app.get("*", async (req, res) => {
+  const { html, state } = await render(req.url);
+  const page = template
+    .replace("<!--app-html-->", html) // the rendered markup
+    .replace("<!--app-state-->", state); // the hydrationScript <script> tag
+  res.status(200).setHeader("Content-Type", "text/html").end(page);
+});
 ```
 
 ```tsx [client.tsx]
-// client: StoreProvider ingests the injected script automatically
+// The injected <script> populated window.__RXFY_SSR__; StoreProvider ingests it,
+// so the first paint is already fulfilled — no refetch, no hydration mismatch.
 import { hydrateRoot } from "react-dom/client";
+import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
 
 hydrateRoot(
   document.getElementById("root")!,
-  <StoreProvider ssr><App /></StoreProvider>,
+  <StoreProvider ssr>
+    <App url={window.location.pathname} />
+  </StoreProvider>,
 );
 ```
 
