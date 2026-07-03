@@ -1,0 +1,82 @@
+# rxfy-protocol [The wire contract for live updates]
+
+`rxfy-protocol` defines the message types and codec shared between `rxfy-server` and
+`rxfy-ws`. You only import it directly when building a custom transport or a non-standard
+server that must speak the same wire format.
+
+## Messages
+
+All messages carry a `v` field (protocol version) and a `kind` discriminant.
+
+### Server → client
+
+| Type | `kind` | Fields | Description |
+|---|---|---|---|
+| `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Live entity update. Holders of `name:id` apply it in place. `data` is opaque at the protocol layer; consumers validate it against their model schema. |
+| `StaleMessage` | `"stale"` | `v`, `kind`, `channel` | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch. |
+
+### Client → server
+
+| Type | `kind` | Fields | Description |
+|---|---|---|---|
+| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `ids` | Request live updates for the given entity ids (`string[]`). |
+| `UnsubscribeMessage` | `"unsubscribe"` | `v`, `kind`, `ids` | Cancel subscriptions for the given entity ids (`string[]`). |
+
+### Constructors
+
+`rxfy-protocol` exports named constructors that stamp the current `PROTOCOL_VERSION`
+automatically:
+
+```ts
+import { patch, stale, subscribe, unsubscribe } from "rxfy-protocol";
+
+patch("user", "42", { name: "Alice" });   // PatchMessage
+stale("posts:list");                       // StaleMessage
+subscribe(["user:42", "post:7"]);          // SubscribeMessage
+unsubscribe(["post:7"]);                   // UnsubscribeMessage
+```
+
+## Codec
+
+```ts
+import {
+  serialize,
+  parseServerMessage,
+  parseClientMessage,
+  ProtocolError,
+  PROTOCOL_VERSION,
+} from "rxfy-protocol";
+```
+
+**`serialize(message: ProtocolMessage): string`**
+
+Encodes any protocol message to a JSON string via [superjson](https://github.com/blitz-js/superjson).
+Rich types (`Date`, `Map`, `Set`, `BigInt`, …) survive the wire intact.
+
+**`parseServerMessage(raw: string): ServerMessage`**
+
+Decodes a string received by a client and validates it as a `ServerMessage`
+(`patch` or `stale`). Throws `ProtocolError` on malformed input, wrong version, or unknown
+`kind`.
+
+**`parseClientMessage(raw: string): ClientMessage`**
+
+Decodes a string received by a server and validates it as a `ClientMessage`
+(`subscribe` or `unsubscribe`). Throws `ProtocolError` on the same conditions.
+
+**`ProtocolError`**
+
+Extends `Error` with `name === "ProtocolError"`. Thrown whenever a payload fails
+structural validation or carries an unexpected protocol version. Untrusted field values in
+error messages are clipped to 64 characters to prevent log flooding.
+
+## Versioning
+
+```ts
+export const PROTOCOL_VERSION = 1;
+```
+
+`PROTOCOL_VERSION` is a plain integer embedded in every message as the `v` field.
+The codec rejects any message whose `v` does not exactly equal the current constant —
+there is no negotiation or backward compatibility layer. A bump means a coordinated
+upgrade of every peer (server and all clients) is required before traffic resumes.
