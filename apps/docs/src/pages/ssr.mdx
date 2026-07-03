@@ -14,6 +14,11 @@ client for reloads).
 [Plain value fields](/core-concepts/state#plain-value-fields) (bare Zod schemas in `model`) don't need a model `name` — they travel inside the keyed state's dehydrated value. Keep them JSON-serializable.
 :::
 
+:::tip[Building a live app?]
+SSR also mints the subscription **grants** a live client uses. See
+[Grants & live hydration](/framework/grants).
+:::
+
 ## Buffered mode (any Node server)
 
 Wait for every Suspense boundary with `onAllReady`, then send the complete document. This
