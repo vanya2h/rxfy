@@ -11,7 +11,9 @@ consistency and granular reactivity at no extra cost. `data$` emits entity **ids
 per-entity Observable cells, and one `store.set` (refetch, mutation, or websocket) updates
 the components subscribed to that entity and nothing else: no global re-selection, no
 refetch. A `defineState` declaration bundles fetching, normalization, and SSR into one
-reactive state.
+reactive state. On top of that, rxfy offers a first-party live-update
+[Framework](/framework) (`rxfy-server` / `rxfy-ws`) that pushes entity changes into the same
+normalized stores — real-time is built in, not bolted on.
 
 ## At a glance
 
@@ -24,6 +26,7 @@ reactive state.
 | **Data fetching** | ✅                                       | ➖ RTK Query                      | ❌                        | ➖ async atoms   | ✅                          |
 | **Normalization** | ✅                                       | ➖ manual                         | ❌                        | ➖ manual        | ➖ manual                   |
 | **SSR**           | ✅                                       | ➖ manual                         | ❌                        | ➖ helpers       | ✅ hydrate/dehydrate        |
+| **Real-time**     | ✅ live framework                        | ➖ manual                         | ❌                        | ➖ manual        | ➖ manual                   |
 | **Validation**    | ✅ Zod                                   | ❌                                | ❌                        | ❌               | ❌                          |
 | **Boilerplate**   | Low                                      | Moderate                          | Very low                  | Very low         | Low                         |
 | **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          | `@tanstack/react-query`     |
