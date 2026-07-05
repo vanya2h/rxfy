@@ -1,6 +1,6 @@
 # rxfy-server
 
-Binds Drizzle ORM tables to rxfy models, runs database writes through the server, and publishes live update messages via a hub. Server-side only; `rxfy-server/browser` re-exports the client-safe subset (`defineResource`, `createResourceRegistry`) for shared code.
+Binds Drizzle ORM tables to rxfy models, runs database writes through the server, and publishes live update messages via a hub. Server-side only; `rxfy-server/browser` re-exports the client-safe subset (`defineResource`, `createResourceRegistry`, `invalidationChannel`, and their types) for shared code.
 
 ## defineResource
 
