@@ -3,13 +3,13 @@
   <img alt="rxfy" src="../../assets/rxfy-lockup.svg" width="200">
 </picture>
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a minimalistic library that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization) keeps your app consistent and reactive at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your UI: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization) as Observables, and scale from a client-only store to a fully live app with server-side rendering and real-time updates. It's built for consistency and granular reactivity at no extra cost.
 
 rxfy is built on three principles:
 
-- Every entity lives in one slot, keyed by its id; a write reaches every subscriber with no list re-fetch.
-- Each slot is an RxJS Observable that components subscribe to directly.
-- You declare the fetch shape, the model, and the mutations; rxfy normalizes the result, handles SSR, and rehydrates the client without a second fetch.
+- Every entity lives in a normalized store, accessed granularly by its id; an update reaches every subscriber automatically.
+- Each page has its own state composed with the data from normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
+- States and stores are serializable: rxfy has first-class Server-Side Rendering (SSR) support.
 
 [Why rxfy?](https://rxfy.vanya2h.me/why) explains the thinking behind this design.
 
