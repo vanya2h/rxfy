@@ -10,10 +10,14 @@ Official React bindings for [rxfy](../rxfy/README.md). Subscribe components to n
 ## Agent skills
 
 ```bash
-npx skills add vanya2h/rxfy
+# client-only store setup
+npx skills add vanya2h/rxfy --skill rxfy
+
+# live-app (framework) setup
+npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 
-Installs two skills for AI coding assistants — `rxfy` (core API, React hooks, mutations) and `rxfy-ssr` (SSR setup). See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
+Installs one of two agent skills for AI coding assistants — `rxfy` (store + React + SSR) or `rxfy-framework` (everything in `rxfy` plus the real-time layer). Install the one matching your setup — never both. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
 
 ## Install
 
