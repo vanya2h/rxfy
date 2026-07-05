@@ -10,24 +10,20 @@ npx skills add vanya2h/rxfy
 
 This installs two skills — `rxfy` for the core API and `rxfy-react` hooks, and `rxfy-ssr` for server-side rendering setup. See [Agent Skills](/agent-skills) for what each skill covers and how to invoke them.
 
-## Two ways to start
+## Choose your path
 
 rxfy scales from a client-only store to a fully live app. Pick where you are:
 
-:::steps
+**[Store quickstart](/getting-started/store)** — rxfy with no server: typed models, normalized entities, and reactive subscriptions in a plain React app.
 
-### Just normalized state?
+- **Pros:** drops into an existing React app; two packages (`rxfy`, `rxfy-react`) plus the `rxjs`/`zod`/`lodash` peers; nothing server-side to run.
+- **Cons:** no SSR and no real-time updates — a client-only store you fetch into yourself.
+- **Pick this if:** you want normalized reactive state on the client and will wire up data fetching your way.
 
-You want typed, normalized, reactive stores in a React app — no server required.
+**[Framework quickstart](/getting-started/framework)** — everything in the store path plus server-side rendering and real-time updates: the server writes and publishes changes, the client subscribes and applies them.
 
-→ **[Store quickstart](/getting-started/store)**
-
-### Building a live app?
-
-You want server-side rendering and real-time updates across clients.
-
-→ **[Framework quickstart](/getting-started/framework)**
-
-:::
+- **Pros:** SSR out of the box and live updates with no manual refetch; one model definition drives server and client.
+- **Cons:** more to install and operate (`rxfy-server`, `rxfy-ws`, plus Drizzle and `ws`) and a server to run; builds on the store concepts, so learn those first.
+- **Pick this if:** you're building a live app that needs SSR and pushed updates end to end.
 
 Both paths converge: the Store quickstart links onward to SSR and the Framework when you need them.

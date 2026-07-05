@@ -2,7 +2,7 @@ import { Changelog, defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "rxfy",
-  description: "A small library for typed, normalized and reactive state. Built on RxJS.",
+  description: "A reactive data-flow layer for your UI: typed models, states, and normalized stores as RxJS Observables.",
   logoUrl: { light: "/rxfy-mark.svg", dark: "/rxfy-mark-white.svg" },
   iconUrl: "/rxfy-icon-tile.svg",
   changelog: Changelog.github({ repo: "vanya2h/rxfy" }),
