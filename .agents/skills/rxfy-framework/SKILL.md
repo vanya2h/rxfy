@@ -47,11 +47,3 @@ live.create/delete + touch() → hub.publish(stale) → channel counter → "N n
 | `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect |
 | `references/live-client.md` | `createLiveClient`, `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop |
 | `references/grants-hydration.md` | `live.grant`, `readSsrGrants`, SSR grant injection, state channels |
-
-## Verification (run these)
-
-1. Copies identical: `for f in models-states react-bindings mutations-writes lens-atoms ssr common-mistakes; do diff -q .agents/skills/rxfy/references/$f.md .agents/skills/rxfy-framework/references/$f.md || echo "DRIFT: $f"; done` → no DRIFT output
-2. `ls .agents/skills/rxfy-framework/references/ | wc -l` → 11
-3. `head -3 .agents/skills/rxfy-framework/SKILL.md` → frontmatter with `name: rxfy-framework`
-4. Every file named in both SKILL.md tables exists on disk
-5. `grep -c "standalone .rxfy. skill" .agents/skills/rxfy-framework/SKILL.md` or similar — exactly one mention of the sibling skill, phrased as an alternative install, no dependency on it
