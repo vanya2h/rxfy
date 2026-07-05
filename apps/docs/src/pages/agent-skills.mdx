@@ -4,31 +4,43 @@ rxfy ships two **agent skills** — structured reference files that AI coding as
 
 Without a skill an agent has only its training data: it may invent hook signatures, confuse normalized ids with entity data, or silently omit the `name`/`key` fields that SSR requires. With a skill it has the real API surface and the common pitfalls already in context.
 
+## Pick one — never both
+
+The two skills mirror the two [getting-started paths](/getting-started). Each is fully self-contained; install the one matching your setup:
+
+| Your setup | Install |
+|---|---|
+| Client-only store — `rxfy` + `rxfy-react`, with or without SSR | `rxfy` |
+| Live app — the framework packages (`rxfy-server`, `rxfy-ws`) on top | `rxfy-framework` |
+
+`rxfy-framework` already contains everything in `rxfy`, so installing both only duplicates context and confuses skill routing.
+
 ## Install
 
-Run this from any project that uses rxfy:
-
 ```bash
-npx skills add vanya2h/rxfy
+# store setup
+npx skills add vanya2h/rxfy --skill rxfy
+
+# framework (live-app) setup
+npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 
 ## What the skills cover
 
-**`rxfy`** answers:
+**`rxfy`** — the store path:
 
-- How to define models (`createModel`) and states (`defineState`)
+- Models (`createModel`) and states (`defineState`), including [plain value fields](/core-concepts/state#plain-value-fields)
 - The normalized data flow: `useStateData` returns ids, `useModelStore` gives entities
 - `useAtom`, `usePending`, `<Pending>` — async rendering patterns
-- Mutations: why they receive full entities and return full entities
+- Mutations, `set` vs `setRaw`, pagination with `useStatePagedData`
 - Lens composition with `createLens` / `keyLens`
-- Common mistakes: inline observable creation, `store.entity()` guards, atom stability
-- [Plain value fields](/core-concepts/state#plain-value-fields): bare Zod schemas in `model` that pass through `data$` with their real type instead of normalizing into a model store
+- SSR: `name`/`key` requirements, buffered (`onAllReady`), streaming (`<HydrationStream />`), and two-pass (`collectStateData`) modes
+- Common mistakes: inline observable creation, `store.entity()` guards, atom stability, missing-data-after-SSR
 
-**`rxfy-ssr`** answers:
+**`rxfy-framework`** — everything above, plus the real-time layer:
 
-- The two required fields for SSR: `name` on models, `key` on states
-- Buffered SSR with `renderToPipeableStream` + `onAllReady`
-- Streaming SSR with `<HydrationStream />` (Next.js App Router)
-- Two-pass SSR with `collectStateData`
-- `StoreProvider` SSR props (`ssr`, `registry`, `dehydratedState`)
-- Why data is missing on the client and how to fix it
+- Binding Drizzle tables with `defineResource` and writing through `live.create` / `live.update` / `live.delete`
+- `patch` vs `stale`: which writes publish what, and why lists refresh instead of mutating in place
+- The wire protocol and the `rxfy-ws` transports (`createWsServer`, `createWsClient`)
+- `createLiveClient`, the `StoreProvider` `liveClient` prop, and `updatesAvailable$` / `applyUpdates`
+- Grants and live hydration: `live.grant`, `readSsrGrants`, topic keyers, and state channels
