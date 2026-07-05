@@ -20,7 +20,7 @@ What it does:
 - Calls `transport.onMessage` once. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); channel-invalidation messages increment the matching channel counter.
 - Subscribes to `registry.added$` and calls `transport.subscribe` for each newly tracked entity whose topic id (`"<name>:<key>"`) is in the grants table — late-arriving entities are covered without extra wiring.
 - Exposes `channel(name)` → `ChannelCounter` (`{ available$: Observable<number>, reset: () => void }`); `useStateData` calls it internally for each keyed state.
-- Exposes `addGrants(grants)` for subscription ids received after boot, and `stop()` to unsubscribe everything and complete all counters.
+- Exposes `addGrants(grants)` for subscription ids received after boot, and `stop()` — unsubscribe all internal RxJS subscriptions and complete all counters (it does not send transport-level unsubscribes).
 
 `grants` defaults to empty maps, but in practice always pass `grants: readSsrGrants()` so the client subscribes with server-issued ids immediately, without a round-trip (see `grants-hydration.md`).
 
