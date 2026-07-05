@@ -101,7 +101,7 @@ const html = renderToString(
 | Prop | Type | Purpose |
 |------|------|---------|
 | `ssr` | `boolean` | Enables server-side fetch-and-suspend in `useStateData`. Pass `true` on both server and client. |
-| `registry` | `IModelRegistry` | Per-request registry (server only) — pass the same instance you call `dehydrate` on. |
+| `registry` | `IModelRegistry` | The registry to use. Server: a fresh per-request instance — the same one you call `dehydrate` on. Client: usually omitted (StoreProvider creates one); pass your own when other code needs a reference to it. |
 | `dehydratedState` | `DehydratedState` | Prop-based hydration for two-pass mode. |
 
 ## SSR APIs

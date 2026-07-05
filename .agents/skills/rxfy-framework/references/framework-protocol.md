@@ -29,6 +29,8 @@ subscribe(["user:42", "post:7"]);          // SubscribeMessage
 unsubscribe(["post:7"]);                   // UnsubscribeMessage
 ```
 
+> In the standard stack the `ids` sent over the wire are the **opaque grant values** (HMAC topic ids from `live.grant` — see grants-hydration.md), never raw `"name:id"` topics; raw strings here are for illustration only.
+
 ## Codec
 
 | Export | Purpose |
