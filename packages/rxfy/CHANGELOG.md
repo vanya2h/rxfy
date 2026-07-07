@@ -1,5 +1,18 @@
 # rxfy
 
+## 2.0.0
+
+### Minor Changes
+
+- a833885: Add the optional `window` field to `defineState` (names the pagination/slice params excluded from a state's live invalidation channel), and carry live-update `grants` in the SSR hydration payload (`DehydratedState.grants`).
+- cb91a66: Replace `QueryCache`'s `getPromise` + `setPromise` pair with a single `getOrStart(key, start)`. The cache now owns the check-and-store atomically — `start` runs only on a cache miss and its promise is registered automatically — so callers can no longer create an in-flight fetch without deduping it.
+
+  Also drop the unused `peek` and `delete` methods from `QueryCache`. Read a query's current value via `getQuery(key).get()` instead of `peek(key)`.
+
+### Patch Changes
+
+- 7be2f77: Republish the 2.0.0 RC line. The `2.0.0-rc.0`/`2.0.0-rc.1` builds of `rxfy` and `rxfy-react` on npm predate the rest of the 2.0.0 release train; `2.0.0-rc.2` is the first RC where all five packages are built from the same source.
+
 ## 2.0.0-rc.2
 
 ### Patch Changes
