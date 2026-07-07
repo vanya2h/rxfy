@@ -1,6 +1,6 @@
 {
   "name": "rxfy-protocol",
-  "version": "2.0.0-rc.2",
+  "version": "2.0.0-rc.0",
   "description": "Wire protocol for rxfy live updates",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
