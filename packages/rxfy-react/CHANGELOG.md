@@ -1,5 +1,16 @@
 # rxfy-react
 
+## 2.0.0-rc.0
+
+### Minor Changes
+
+- a833885: Add the client live layer: `createLiveClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `liveClient` prop + `useLiveClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
+
+### Patch Changes
+
+- Updated dependencies [5029f3c]
+  - rxfy-protocol@2.0.0-rc.0
+
 ## 1.3.0
 
 ### Minor Changes

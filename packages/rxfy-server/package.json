@@ -1,6 +1,6 @@
 {
   "name": "rxfy-server",
-  "version": "0.0.0",
+  "version": "2.0.0-rc.0",
   "description": "Server-side live data library for rxfy",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
@@ -27,8 +27,14 @@
       }
     },
     "./browser": {
-      "import": { "types": "./dist/browser.d.ts", "default": "./dist/browser.js" },
-      "require": { "types": "./dist/browser.d.cts", "default": "./dist/browser.cjs" }
+      "import": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.js"
+      },
+      "require": {
+        "types": "./dist/browser.d.cts",
+        "default": "./dist/browser.cjs"
+      }
     }
   },
   "main": "./dist/index.js",
@@ -52,7 +58,7 @@
   "peerDependencies": {
     "drizzle-orm": "^0.45.0",
     "drizzle-zod": "^0.8.0",
-    "rxfy": "^1.0.0",
+    "rxfy": "^2.0.0-rc.0",
     "zod": "^4.0.0"
   },
   "dependencies": {
