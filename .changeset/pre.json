@@ -16,5 +16,16 @@
     "rxfy-server": "0.0.0",
     "rxfy-ws": "0.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "rxfy-core-window",
+    "rxfy-protocol-initial",
+    "rxfy-query-cache-get-or-start",
+    "rxfy-react-live",
+    "rxfy-server-browser-entry",
+    "rxfy-server-foundation",
+    "rxfy-server-resource-model",
+    "rxfy-server-resource",
+    "rxfy-server-writes",
+    "rxfy-ws-initial"
+  ]
 }
