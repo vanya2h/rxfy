@@ -27,6 +27,7 @@ A `StateDescriptor<TParams, TShape, TMutations>` exposes (note your `params` is 
 ```ts
 type StateDescriptor<TParams, TShape, TMutations> = {
   key?: string; // SSR query-cache identity; absent ⇒ opts out of caching
+  window?: readonly string[]; // param names that slice within a dataset (page, cursor, sort)
   paramsSchema: z.ZodType<TParams>; // the `params` schema, used to validate fetch params
   fields: FieldsMap; // the `model` entries: array(Model) | single(Model) | a zod schema (plain value)
   mutations: TMutations; // the reducers, bound by useStateData
@@ -98,3 +99,23 @@ Plain values ride inside the query's value, so a **keyed** state dehydrates them
 [SSR](/core-concepts/ssr) along with its entity ids — keep them JSON-serializable, the same constraint entities
 have.
 :::
+
+## `window`
+
+For live apps, `window` names the params that slice *within* a dataset — page, cursor, sort —
+as opposed to params that select *which* dataset the state shows. Windowed params are excluded
+from the state's live invalidation channel, so every page of a list shares one channel and a
+server write marks all of them stale at once.
+
+```ts
+const postsState = defineState({
+  key: "posts",
+  params: z.object({ userId: z.string(), page: z.number() }),
+  window: ["page"], // pages share one invalidation channel per userId
+  model: { posts: array(PostModel) },
+});
+```
+
+The field is inert in a client-only store — it only affects channel derivation in the
+real-time layer. See [state channels and grants](/framework/server/grants) for how the
+channel is derived and delivered.
