@@ -42,7 +42,7 @@ function useStateData<TParams, TShape, TMutations>(config: {
 ```
 
 `data$` emits the normalized query shape — entity ids for `array`/`single` fields, and
-[plain value fields](/core-concepts/state#plain-value-fields) (bare zod schemas in the `model`)
+[plain value fields](/rxfy/define-state#plain-value-fields) (bare zod schemas in the `model`)
 passed through with their real value.
 
 The returned `StateHandle<TShape, TMutations>` exposes:
@@ -123,7 +123,7 @@ on the server (Suspense), the per-request registry is dehydrated into the HTML, 
 hydrates it — so you never pass `defaultData` at all, and the framework loader stays a
 **routing-only** concern (URL validation, redirects, param extraction). The
 [rr7-blog example](/examples#rr7-blog) takes exactly this approach on React Router 7: its
-loaders never fetch domain data. See the [SSR guide](/ssr) for wiring it up.
+loaders never fetch domain data. See the [SSR guide](/core-concepts/ssr) for wiring it up.
 
 ## `set` vs `setRaw` — writing entities vs writing the id list
 

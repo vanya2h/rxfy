@@ -2,152 +2,24 @@
 
 `rxfy-server` bridges Drizzle ORM tables with rxfy models, handles database writes, and
 publishes live update messages through a hub. Install it server-side only; `rxfy-server/browser`
-re-exports the subset safe to import in shared (client+server) code.
+re-exports the subset safe to import in shared (client+server) code — `defineResource`,
+`createResourceRegistry`, `invalidationChannel`, and their types.
 
-## defineResource
+- [`defineResource`](/framework/server/define-resource) — tie a Drizzle `PgTable` to an rxfy
+  model; `createResourceRegistry` indexes resources for server-side wiring.
+- [`createServer`](/framework/server/create-server) — wire the database, resources, hub, and
+  keyer into a `Live` object with typed write methods.
+- [Writes](/framework/server/writes) — `live.create` / `live.update` / `live.delete`, plus
+  `touch()` for state-channel invalidation.
+- [`createTopicKeyer`](/framework/server/create-topic-keyer) — time-windowed HMAC ids that keep
+  raw topic strings off the wire.
+- [`live.grant`](/framework/server/grant) — mint the subscription allow-list from a rendered
+  registry.
+- [Grants & live hydration](/framework/server/grants) — how grants flow from an SSR render
+  into a connecting live client, end to end.
+- [`createInMemoryHub`](/framework/server/hub) — the single-process pub/sub backbone between
+  writes and transports.
 
-`defineResource` ties a Drizzle `PgTable` to an rxfy `ModelDescriptor`. You can either supply a
-pre-made model (the common case when sharing models between server and client) or let the package
-derive one automatically via `drizzle-zod`.
-
-```ts [src/blog/resources.ts]
-import { commentModel, postModel, userModel } from "examples-shared/data";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
-import { comments, posts, users } from "../db/schema.js";
-
-export const userResource = defineResource({ table: users, model: userModel });
-export const postResource = defineResource({ table: posts, model: postModel });
-export const commentResource = defineResource({ table: comments, model: commentModel });
-
-export const resources = createResourceRegistry([userResource, postResource, commentResource]);
-```
-
-**Name resolution** — `name` defaults to `model.name` when a model is supplied, then falls back to
-the SQL table name. It becomes the topic namespace used for live routing (`"posts:uuid-..."`) and
-must match the rxfy model's own `name` so `patch` messages land in the right client store.
-
-**`primaryKeyColumn`** — `defineResource` calls `primaryKeyColumn(table)` internally to locate the
-single `primary: true` column. Composite primary keys are not supported in v1; the function throws
-if it finds more than one PK column or a `primaryKeys`-style composite key.
-
-`createResourceRegistry` indexes resources by name, rejects duplicates, and exposes `byName`,
-`model`, and `all` for server-side wiring.
-
-## createServer
-
-`createServer` wires together the database, resource registry, hub, and keyer into a `Live` object
-with typed write methods and a grant helper.
-
-```ts [server/live.ts]
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
-import { resources } from "../src/blog/resources.js";
-import { db } from "./db.js";
-
-export const hub = createInMemoryHub();
-
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
-```
-
-`live.db` exposes the raw Drizzle database instance if you need it outside of writes.
-
-## Writes
-
-`live.create`, `live.update`, and `live.delete` run the SQL write and then publish live messages.
-All three accept an optional `{ touch: [...] }` option to mark state channels stale.
-
-```ts [server/api.ts]
-import { touch } from "rxfy-server";
-import { type StateChannelDescriptor } from "rxfy-server";
-
-const postsChannel = postsState as unknown as StateChannelDescriptor;
-const postDetailChannel = postDetailState as unknown as StateChannelDescriptor;
-
-// update — publishes a `patch` on the entity topic automatically
-await live.update(postWriteResource, postId, { title, body });
-
-// create — does NOT publish a patch; touch the state channels that list this entity
-await live.create(
-  postWriteResource,
-  { id: newId(), userId, title, body },
-  { touch: [touch(postsChannel, {})] },
-);
-
-// delete — same: no patch, touch the channels that referenced this entity
-await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
-```
-
-**Publish behaviour:**
-
-- `update` — calls `RETURNING`, publishes a `patch` message on the `"<name>:<id>"` entity topic,
-  then publishes `stale` on any touched channels.
-- `create` / `delete` — publish no entity patch (there is no row to push for a new entity, and the
-  deleted row is gone). They publish `stale` on every touched channel so clients know to refetch.
-
-`touch(stateDescriptor, params)` builds a `TouchTarget` for a specific state instance. Window
-dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key so
-all windows of the same partition share one invalidation channel.
-
-You can also call `live.touch(...targets)` directly without a write to invalidate channels out of
-band.
-
-## createTopicKeyer
-
-The keyer converts human-readable topic strings (`"posts:uuid-..."`) into time-windowed HMAC ids
-before they reach the hub or the client. Clients receive the opaque id, never the raw topic.
-
-```ts
-import { createTopicKeyer } from "rxfy-server";
-
-const keyer = createTopicKeyer({
-  secret: process.env.RXFY_SECRET, // never sent to clients
-  windowMs: 10 * 60_000,           // 10-minute windows
-});
-```
-
-- `keyer.current(topic)` — the id for `topic` in the current time window; returned to the client
-  by `live.grant` so it can subscribe.
-- `keyer.forPublish(topic)` — returns `[currentId, previousId]`. Publishing on both covers the
-  boundary between windows: a client whose grant was issued just before a rollover still receives
-  the message on the previous-window id it already subscribed to.
-
-Keep `windowMs` long enough that the round-trip between grant issuance and client subscription
-comfortably fits inside one window.
-
-:::warning[Secret rotation]
-Changing `secret` invalidates all outstanding grants immediately. Clients will miss messages until
-they re-fetch and receive a fresh grant. Rotate with care.
-:::
-
-## live.grant
-
-`live.grant(registry, spec)` issues a `{ entities, channels }` token the client uses to subscribe
-to live updates. Pass it back in the API response alongside the initial data.
-
-```ts [server/api.ts]
-const registry = createModelRegistry();
-normalizeResult(registry, postsState.fields, data);
-
-const grants = live.grant(registry, {
-  entities: [postResource, userResource],
-  states: [{ state: postsChannel, params: {} }],
-});
-
-return c.json({ data, grants });
-```
-
-For wiring grants into the client and hydrating a live session, see [Grants & live hydration](/framework/grants).
-
-## createInMemoryHub
-
-The hub is the pub/sub backbone: it maps opaque routing ids (produced by the keyer) to
-connections, and forwards `ServerMessage` objects from `live.create`/`update`/`delete` to
-connected clients. `createInMemoryHub` is a single-process, in-memory implementation suitable
-for development and single-node deployments. Register a delivery sink with `hub.onPublish(sink)`;
-the transport adapter calls `hub.subscribe`/`unsubscribe`/`drop` as connections open and close.
-
-For WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).
+Start with [`defineResource`](/framework/server/define-resource) and
+[`createServer`](/framework/server/create-server); for an end-to-end walkthrough see the
+[Live blog guide](/guides/live-blog).

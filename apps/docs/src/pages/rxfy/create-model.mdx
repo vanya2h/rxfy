@@ -1,11 +1,9 @@
-# Model [Typed entities in normalized storage]
+# createModel [Typed entities in normalized storage]
 
-A typed entity descriptor that plugs into [normalized](/core-concepts/normalization) storage. `createModel` defines the
-shape and id-extraction logic; `ModelStore` is the reactive store that holds live entities.
-
-## `createModel`
-
-Creates a typed model descriptor for normalizing and sharing entities across state slices.
+`createModel` defines a typed entity descriptor — the shape plus id-extraction logic — for
+normalizing and sharing entities across state slices (see
+[Normalization](/core-concepts/normalization)); `ModelStore` is the reactive store that holds
+the live entities.
 
 ```ts
 import { z } from "zod";
@@ -93,12 +91,12 @@ registry.model(UserModel).set("1", { id: "1", name: "Alice" }); // → "user:1"
 It replays entities already in the registry and follows stores created later; unnamed stores
 are skipped, since there's no `name` to address them by. This is what lets a live-update layer
 track exactly what the client holds without each query wiring its ids in by hand; see
-the [Framework](/framework).
+[rxfy-server](/framework/server).
 
 ## ModelStore entity
 
 `entity(key)` returns a writable `IAtom<T>` over a single entity's cell, a read/write
-handle suitable for field [Lenses](/core-concepts/lens) and form inputs. Reads reflect the
+handle suitable for field [Lenses](/rxfy/create-lens) and form inputs. Reads reflect the
 store; `.set(next)` writes back (equivalent to `store.set(key, next)`), so the change
 propagates to every subscriber of that entity.
 

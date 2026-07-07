@@ -2,7 +2,8 @@ import { Changelog, defineConfig } from "vocs/config";
 
 export default defineConfig({
   title: "rxfy",
-  description: "A reactive data-flow layer for your UI: typed models, states, and normalized stores as RxJS Observables.",
+  description:
+    "A reactive data-flow layer for your UI: typed models, states, and normalized stores as RxJS Observables.",
   logoUrl: { light: "/rxfy-mark.svg", dark: "/rxfy-mark-white.svg" },
   iconUrl: "/rxfy-icon-tile.svg",
   changelog: Changelog.github({ repo: "vanya2h/rxfy" }),
@@ -10,6 +11,10 @@ export default defineConfig({
     { text: "Introduction", link: "/" },
     { text: "Why rxfy?", link: "/why" },
     { text: "Comparison", link: "/comparison" },
+    { text: "Agent Skills", link: "/agent-skills" },
+    { text: "Examples", link: "/examples" },
+    { text: "Changelog", link: "/changelog" },
+
     {
       text: "Getting Started",
       link: "/getting-started",
@@ -18,19 +23,24 @@ export default defineConfig({
         { text: "Framework quickstart", link: "/getting-started/framework" },
       ],
     },
-    { text: "Agent Skills", link: "/agent-skills" },
-    { text: "Examples", link: "/examples" },
-    { text: "Changelog", link: "/changelog" },
 
     {
       text: "Core Concepts",
       link: "/core-concepts",
       items: [
         { text: "Normalization", link: "/core-concepts/normalization" },
-        { text: "Model", link: "/core-concepts/model" },
-        { text: "State", link: "/core-concepts/state" },
-        { text: "Atom", link: "/core-concepts/atom" },
-        { text: "Lens", link: "/core-concepts/lens" },
+        { text: "Server-Side Rendering", link: "/core-concepts/ssr" },
+      ],
+    },
+
+    {
+      text: "rxfy",
+      link: "/rxfy",
+      items: [
+        { text: "createAtom", link: "/rxfy/create-atom" },
+        { text: "createLens", link: "/rxfy/create-lens" },
+        { text: "createModel", link: "/rxfy/create-model" },
+        { text: "defineState", link: "/rxfy/define-state" },
       ],
     },
 
@@ -45,20 +55,32 @@ export default defineConfig({
         { text: "Pending", link: "/react/pending" },
         { text: "usePending", link: "/react/use-pending" },
         { text: "useObservable", link: "/react/use-observable" },
-        { text: "Live client", link: "/react/live-client" },
+        { text: "createLiveClient", link: "/react/live-client" },
       ],
     },
 
-    { text: "Server-Side Rendering", link: "/ssr" },
+    {
+      text: "rxfy-server",
+      link: "/framework/server",
+      items: [
+        { text: "defineResource", link: "/framework/server/define-resource" },
+        { text: "createServer", link: "/framework/server/create-server" },
+        { text: "Writes", link: "/framework/server/writes" },
+        { text: "Live messages", link: "/framework/server/messages" },
+        { text: "createTopicKeyer", link: "/framework/server/create-topic-keyer" },
+        { text: "live.grant", link: "/framework/server/grant" },
+        { text: "Grants & live hydration", link: "/framework/server/grants" },
+        { text: "createInMemoryHub", link: "/framework/server/hub" },
+      ],
+    },
 
     {
-      text: "Framework (Real-time)",
-      link: "/framework",
+      text: "rxfy-ws",
+      link: "/framework/ws",
       items: [
-        { text: "rxfy-server", link: "/framework/server" },
-        { text: "rxfy-protocol", link: "/framework/protocol" },
-        { text: "rxfy-ws", link: "/framework/ws" },
-        { text: "Grants & live hydration", link: "/framework/grants" },
+        { text: "createWsServer", link: "/framework/ws/server" },
+        { text: "createWsClient", link: "/framework/ws/client" },
+        { text: "Custom transports", link: "/framework/ws/custom-transport" },
       ],
     },
 

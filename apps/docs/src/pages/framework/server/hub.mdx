@@ -1,0 +1,23 @@
+# createInMemoryHub [The pub/sub backbone]
+
+The hub is the pub/sub backbone: it maps opaque routing ids (produced by the keyer) to
+connections, and forwards `ServerMessage` objects from `live.create`/`update`/`delete` to
+connected clients.
+
+```ts [server/live.ts]
+import { createInMemoryHub } from "rxfy-server";
+
+export const hub = createInMemoryHub();
+```
+
+`createInMemoryHub` is a single-process, in-memory implementation suitable for development and
+single-node deployments.
+
+**Wiring:**
+
+- Register a delivery sink with `hub.onPublish(sink)` — every published message flows through it
+  to the transport.
+- The transport adapter calls `hub.subscribe` / `hub.unsubscribe` as clients open and close
+  subscriptions, and `hub.drop` when a connection dies.
+
+For WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).

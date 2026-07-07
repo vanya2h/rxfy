@@ -1,0 +1,64 @@
+# createAtom [A reactive cell with synchronous get, set, and modify]
+
+`createAtom` makes an **Atom**: a container for a single value that you can read, write, and
+watch for changes. Most of rxfy builds on it.
+
+## Why?
+
+An Atom holds one value — a number, an object, whatever — and does three things:
+
+- **Read it any time.** `get()` returns the current value synchronously, no subscription needed.
+- **Write it safely.** `set(value)` replaces the value; `modify(fn)` reads the current value and
+  writes the result in one atomic step, so you never work from a stale read.
+- **React to changes.** Subscribe to an Atom and you receive the current value immediately,
+  then every value written after that. An Atom is an RxJS `Observable<T>`, so it plugs into
+  `pipe`, `combineLatest`, and the rest of the RxJS toolbox — but you don't need to know RxJS
+  to use one.
+
+Reach for an Atom whenever you have a piece of long-lived state that several parts of your app
+read or update: a counter, a filter, the current user.
+
+```ts
+import { createAtom } from "rxfy";
+
+const count = createAtom(0);
+
+count.get(); // 0
+count.set(5);
+count.modify((n) => n + 1);
+count.get(); // 6
+
+count.subscribe((n) => console.log(n)); // emits current value, then future changes
+```
+
+## Signature
+
+```ts
+function createAtom<T>(value: T): Atom<T>;
+```
+
+`Atom<T>` implements `IAtom<T>`, an `Observable<T>` you can also read and write synchronously:
+
+```ts
+type IAtom<T> = Observable<T> & {
+  get(): T; // synchronous current value, no subscription
+  set(val: T): void; // replace the value, notifying every subscriber
+  modify(fn: (val: T) => T): void; // atomic read-modify-write (get → fn → set)
+};
+```
+
+## Why not a `BehaviorSubject`?
+
+Under the hood an Atom wraps a `BehaviorSubject` and narrows it to a **state cell**:
+
+- **No producer methods on the surface.** Atom extends `Observable<T>` rather than
+  `BehaviorSubject<T>`, leaving `next()`, `error()`, `complete()`, and `unsubscribe()` off the
+  surface. Every write goes through `set()` or `modify()`; nothing else can push into the cell.
+- **It can't terminate.** Without `error()` or `complete()`, an Atom has no end state, so
+  subscribers never handle a "this cell ended" case. It lives as long as your state does.
+- **Atomic read-modify-write.** `modify(fn)` reads the current value and writes the
+  result in one call, instead of pairing `getValue()` with `next()` by hand.
+
+Reach for a raw `BehaviorSubject` (or `Subject`) when you want stream semantics: completion,
+errors, or an externally driven producer. Reach for an Atom when you want long-lived state you
+can read synchronously.

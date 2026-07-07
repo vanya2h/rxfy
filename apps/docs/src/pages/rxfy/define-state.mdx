@@ -1,12 +1,8 @@
-# State [Typed, normalized state shapes with fetching and mutations]
+# defineState [Typed, normalized state shapes with fetching and mutations]
 
-Declares a typed, normalized state shape: fetch params, model fields, and optional mutations.
-The result wires automatically into the [Model](/core-concepts/model) stores managed by
-`StoreProvider`.
-
-## `defineState`
-
-Defines a typed state shape: fetch params schema, model fields, and optional mutations.
+`defineState` declares a typed, normalized state shape: fetch params, model fields, and
+optional mutations. The result wires automatically into the
+[`createModel`](/rxfy/create-model) stores managed by `StoreProvider`.
 
 ```ts
 import { z } from "zod";
@@ -69,7 +65,7 @@ const userPageState = defineState({
 
 Not every field is a normalized entity. A `model` entry can also be a **bare zod schema** — a
 boolean, a primitive, or a plain object — declared inline alongside `array()` / `single()`. These
-**plain value fields** are not stored in any [Model](/core-concepts/model) store: they live in the
+**plain value fields** are not stored in any [Model](/rxfy/create-model) store: they live in the
 query state and pass straight through `data$` with their real value and type, while entity fields
 still resolve to ids.
 
@@ -99,6 +95,6 @@ in development and passed through untouched in production.
 
 :::note
 Plain values ride inside the query's value, so a **keyed** state dehydrates them for
-[SSR](/ssr) along with its entity ids — keep them JSON-serializable, the same constraint entities
+[SSR](/core-concepts/ssr) along with its entity ids — keep them JSON-serializable, the same constraint entities
 have.
 :::

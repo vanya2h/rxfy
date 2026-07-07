@@ -13,4 +13,4 @@ The wire protocol and codec for [rxfy](https://rxfy.vanya2h.me) live updates. Yo
 - `parseServerMessage(raw)` / `parseClientMessage(raw)` — validate and decode.
 - `PROTOCOL_VERSION` — bumped on breaking wire changes.
 
-See the [Framework docs](https://rxfy.vanya2h.me/framework/protocol).
+See the [Live messages docs](https://rxfy.vanya2h.me/framework/server/messages).
