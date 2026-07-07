@@ -1,5 +1,7 @@
 # rxfy-protocol
 
+## 2.0.0-rc.2
+
 ## 2.0.0-rc.0
 
 ### Minor Changes
