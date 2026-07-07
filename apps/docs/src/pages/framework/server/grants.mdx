@@ -15,11 +15,14 @@ server controls.
 
 ## On the server
 
-Call `live.grant(registry, spec)` after `onAllReady`, once the registry is fully populated.
-Pass the entity resources whose loaded rows should be grantable, and the concrete state instances
-(descriptor + params) that the rendered route used.
+`live.grant(registry, spec)` mints the allow-list from a rendered registry. Call it after
+`onAllReady`, once the registry is fully populated, and spread the returned `grants` object into
+`hydrationScript` alongside the dehydrated state:
 
-Spread the returned `grants` object into `hydrationScript` alongside the dehydrated state:
+`live` comes from [`createServer`](/framework/server/create-server); the `resources.ts` and
+`routes.ts` tabs show the `entities` and `states` you hand to `live.grant`:
+
+:::code-group
 
 ```tsx [entry-server.tsx]
 import { dehydrate, hydrationScript } from "rxfy";
@@ -37,8 +40,54 @@ onAllReady() {
 }
 ```
 
+```ts [src/blog/resources.ts]
+import { commentModel, postModel, userModel } from "./models.js";
+import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { comments, posts, users } from "../db/schema.js";
+
+export const userResource = defineResource({ table: users, model: userModel });
+export const postResource = defineResource({ table: posts, model: postModel });
+export const commentResource = defineResource({ table: comments, model: commentModel });
+
+export const resources = createResourceRegistry([userResource, postResource, commentResource]);
+```
+
+```ts [src/routes.ts]
+import type { StateChannelDescriptor } from "rxfy-server";
+import { postDetailState, postsState } from "./blog/states.js";
+
+export type Route = { name: "home" } | { name: "post"; postId: string } | { name: "not-found" };
+
+/** Parse a pathname into a route. */
+export function matchRoute(pathname: string): Route {
+  if (pathname === "/") return { name: "home" };
+  const m = /^\/posts\/([^/]+)\/?$/.exec(pathname);
+  if (m) return { name: "post", postId: decodeURIComponent(m[1]!) };
+  return { name: "not-found" };
+}
+
+/** The state instances a route renders — used to mint grant channels during SSR. */
+export function routeStates(route: Route): Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }> {
+  if (route.name === "home") return [{ state: postsState as unknown as StateChannelDescriptor, params: {} }];
+  if (route.name === "post")
+    return [{ state: postDetailState as unknown as StateChannelDescriptor, params: { postId: route.postId } }];
+  return [];
+}
+```
+
+:::
+
+- `entities` — the resources whose loaded rows should be grantable. Only ids actually present in
+  the registry are included, keyed through
+  [`createTopicKeyer`](/framework/server/create-topic-keyer).
+- `states` — concrete state instances (`{ state: StateChannelDescriptor; params }`) whose
+  invalidation channels the client may watch.
+
 `grants` has shape `{ entities: Record<string, string>; channels: Record<string, string> }` —
 a topic-or-channel → hashed-key lookup the client uses when opening subscriptions.
+
+Outside SSR you can mint grants the same way and return them directly in the API response
+(`return c.json({ data, grants })`); the client reads them instead of `readSsrGrants()`.
 
 ## On the client
 

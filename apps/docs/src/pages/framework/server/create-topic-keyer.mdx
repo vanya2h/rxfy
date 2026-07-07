@@ -13,7 +13,7 @@ const keyer = createTopicKeyer({
 ```
 
 - `keyer.current(topic)` — the id for `topic` in the current time window; returned to the client
-  by [`live.grant`](/framework/server/grant) so it can subscribe.
+  by [`live.grant`](/framework/server/grants) so it can subscribe.
 - `keyer.forPublish(topic)` — returns `[currentId, previousId]`. Publishing on both covers the
   boundary between windows: a client whose grant was issued just before a rollover still receives
   the message on the previous-window id it already subscribed to.

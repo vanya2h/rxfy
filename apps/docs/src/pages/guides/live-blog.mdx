@@ -47,7 +47,7 @@ Resources are the bridge between your Drizzle tables and rxfy's normalized model
 [rxfy-server](/framework/server) exports `defineResource` and `createResourceRegistry`:
 
 ```ts [src/blog/resources.ts]
-import { commentModel, postModel, userModel } from "examples-shared/data";
+import { commentModel, postModel, userModel } from "./models.js";
 import { createResourceRegistry, defineResource } from "rxfy-server/browser";
 import { comments, posts, users } from "../db/schema.js";
 
@@ -138,6 +138,23 @@ adapts Hono's callback API to the `on("message")` / `on("close")` interface rxfy
 All mutations go through `live.create`, `live.update`, and `live.delete`. Each method writes to the
 database **and** broadcasts the appropriate live event to subscribed clients.
 
+:::code-group
+
+```ts [server/api.ts (setup)]
+import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
+import { commentResource, postResource } from "../src/blog/resources.js";
+import { postDetailState, postsState } from "../src/blog/states.js";
+import { comments, posts } from "./db.js";
+import { live } from "./live.js";
+
+// A state doubles as its channel descriptor; a resource needs a raw-row cast for writes.
+// See Writes (/framework/server/writes) for why each cast is required.
+const postsChannel = postsState as unknown as StateChannelDescriptor;
+const postDetailChannel = postDetailState as unknown as StateChannelDescriptor;
+const postWriteResource = postResource as unknown as Resource<typeof posts>;
+const commentWriteResource = commentResource as unknown as Resource<typeof comments>;
+```
+
 ```ts [server/api.ts (posts)]
 // POST /posts — create a post, mark the posts list as stale
 const row = await live.create(
@@ -167,6 +184,8 @@ const row = await live.update(commentWriteResource, c.req.param("id"), patch);
 // DELETE /posts/:postId/comments/:id — delete, stale the post detail view
 await live.delete(commentResource, c.req.param("id"), { touch: [touch(postDetailChannel, { postId })] });
 ```
+
+:::
 
 **`update` emits a `patch`** — the new field values are merged into the normalized store on every
 connected client immediately, with no round-trip. The UI re-renders in place.

@@ -29,6 +29,7 @@ export default defineConfig({
       link: "/core-concepts",
       items: [
         { text: "Normalization", link: "/core-concepts/normalization" },
+        { text: "Late Unwrapping", link: "/core-concepts/late-unwrapping" },
         { text: "Server-Side Rendering", link: "/core-concepts/ssr" },
       ],
     },
@@ -37,10 +38,10 @@ export default defineConfig({
       text: "rxfy",
       link: "/rxfy",
       items: [
-        { text: "createAtom", link: "/rxfy/create-atom" },
-        { text: "createLens", link: "/rxfy/create-lens" },
         { text: "createModel", link: "/rxfy/create-model" },
         { text: "defineState", link: "/rxfy/define-state" },
+        { text: "createAtom", link: "/rxfy/create-atom" },
+        { text: "createLens", link: "/rxfy/create-lens" },
       ],
     },
 
@@ -67,9 +68,8 @@ export default defineConfig({
         { text: "createServer", link: "/framework/server/create-server" },
         { text: "Writes", link: "/framework/server/writes" },
         { text: "Live messages", link: "/framework/server/messages" },
-        { text: "createTopicKeyer", link: "/framework/server/create-topic-keyer" },
-        { text: "live.grant", link: "/framework/server/grant" },
         { text: "Grants & live hydration", link: "/framework/server/grants" },
+        { text: "createTopicKeyer", link: "/framework/server/create-topic-keyer" },
         { text: "createInMemoryHub", link: "/framework/server/hub" },
       ],
     },
