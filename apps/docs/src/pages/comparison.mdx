@@ -6,12 +6,17 @@ idiomatic forms: **Redux Toolkit** (with RTK Query), **MobX 6**, **Jotai**, and
 
 rxfy's premise is narrower than any of them: you **declare typed models and the states that
 query them**, then access their data as **reactive observables**.
+
 [Normalization](/core-concepts/normalization) is the storage strategy underneath, and it gives you
 consistency and granular reactivity at no extra cost. `data$` emits entity **ids**, values live in
 per-entity Observable cells, and one `store.set` (refetch, mutation, or websocket) updates
 the components subscribed to that entity and nothing else: no global re-selection, no
 refetch. A `defineState` declaration bundles fetching, normalization, and SSR into one
 reactive state.
+
+On top of that, rxfy offers a first-party
+[live-update framework](/framework/server) (`rxfy-server` / `rxfy-ws`) that pushes entity changes into the same
+normalized stores — real-time is built in, not bolted on.
 
 ## At a glance
 
@@ -24,9 +29,14 @@ reactive state.
 | **Data fetching** | ✅                                       | ➖ RTK Query                      | ❌                        | ➖ async atoms   | ✅                          |
 | **Normalization** | ✅                                       | ➖ manual                         | ❌                        | ➖ manual        | ➖ manual                   |
 | **SSR**           | ✅                                       | ➖ manual                         | ❌                        | ➖ helpers       | ✅ hydrate/dehydrate        |
+| **Real-time**     | ✅ [live framework](/getting-started/framework) | ➖ manual                  | ❌                        | ➖ manual        | ➖ manual                   |
 | **Validation**    | ✅ Zod                                   | ❌                                | ❌                        | ❌               | ❌                          |
 | **Boilerplate**   | Low                                      | Moderate                          | Very low                  | Very low         | Low                         |
 | **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          | `@tanstack/react-query`     |
+
+**Core deps** lists the store path. The real-time ✅ is the opt-in
+[framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` packages (peers:
+`drizzle-orm`, `ws`) that add nothing to a client-only app.
 
 ## vs Redux Toolkit
 
@@ -71,8 +81,8 @@ rxfy trades that mutable transparency for **explicit streams and immutable value
 immutable snapshots serialize and rehydrate as-is, which is central to rxfy's SSR story, where
 mutable proxy graphs are harder to capture; MobX gives you no built-in normalization or
 query/SSR layer anyway. Two-way binding shows the difference: MobX mutates the observable, while rxfy
-composes a [`Lens`](/core-concepts/lens) over a
-[`store.entity(id)`](/core-concepts/model#modelstore-entity) and drives it with
+composes a [`Lens`](/rxfy/create-lens) over a
+[`store.entity(id)`](/rxfy/create-model#modelstore-entity) and drives it with
 [`useAtom`](/react/use-atom), so the write flows back into the normalized
 store and reaches every subscriber.
 
@@ -88,7 +98,7 @@ and shared client state without a central store.
 
 The shared word "atom" hides the difference. A Jotai atom is a **config object** with no value
 of its own, resolved against a store (usually a React `Provider`). An rxfy
-[`Atom`](/core-concepts/atom) is a real **RxJS `Observable` cell** that carries its value,
+[`Atom`](/rxfy/create-atom) is a real **RxJS `Observable` cell** that carries its value,
 exposes synchronous `get()`/`set()`, and composes with the full operator set outside React.
 Scope differs too: Jotai is a content-agnostic primitive, so normalization, validation, and a
 fetch/SSR pipeline are things you assemble (often via `jotai-tanstack-query`). rxfy is
@@ -111,22 +121,51 @@ cache stores whatever the query function returns.
 The split is **document cache vs normalized cells**. React Query keys the *response*, so the
 same entity returned by two queries lives in two cache entries; a mutation typically
 **invalidates** the affected keys and triggers a refetch to reconcile them. rxfy normalizes the
-response into one cell per entity, so a mutation or websocket push writes the entity once and
-reaches every subscriber **without invalidating or refetching** — and there is no second copy
-to drift out of sync. rxfy also validates the response with Zod and turns each entity into a
-composable [`Atom`](/core-concepts/atom) you can drive with [`useAtom`](/react/use-atom),
-where React Query hands you a plain snapshot and leaves persistence and two-way binding to you.
+response into one cell per entity, so an entity edit — a mutation or a live push — writes the
+entity once and reaches every subscriber **without invalidating or refetching** — and there is
+no second copy to drift out of sync. rxfy also validates the response with Zod and turns each
+entity into a composable [`Atom`](/rxfy/create-atom) you can drive with
+[`useAtom`](/react/use-atom), where React Query hands you a plain snapshot and leaves
+persistence and two-way binding to you.
+
+Real-time sharpens the split. React Query leaves the socket to you: subscribe, then call
+`setQueryData` or `invalidateQueries` for each affected key, and decide yourself who may
+listen to what. rxfy's [framework](/framework/server) ships that pipeline — server write functions
+persist via Drizzle and publish on their own, HMAC-signed grants scope each client to the
+entities its own fetches returned, and the WebSocket transport reconnects and replays
+subscriptions. Edits patch the entity cell in place; creates and deletes surface as an
+"updates available" count ([`updatesAvailable$` / `applyUpdates`](/react/live-client)), so
+the client reloads on its own terms instead of through an eager key invalidation. SSR carries
+this through: rxfy's `dehydrate` embeds the live grants next to the data, so a
+server-rendered page resumes its subscriptions along with its cache.
 
 **Reach for TanStack Query when** you want a mature, framework-agnostic cache with rich
 refetch/staleness controls and don't need normalization. **Reach for rxfy when** the same
 entity appears across many queries and you want one update to reach every subscriber without a
 refetch, plus built-in normalization, validation, and streaming SSR.
 
+## vs sync engines
+
+The [framework](/framework/server) invites one more comparison: **Convex**, **Supabase Realtime**,
+**Electric SQL**, and **Zero**/**Replicache** also stream server changes into client state.
+The difference is what you adopt. A sync engine is a database decision — your schema,
+queries, and often your hosting move onto its platform or its replication protocol. rxfy
+layers onto what you already run: `defineResource` binds a Drizzle table you own to the same
+model the client renders, writes are Drizzle calls in your own API routes, and the store path
+needs no server at all — you can put one resource behind the live stack and leave the rest of
+the app fetch-only.
+
+**Reach for a sync engine when** you want the whole platform: offline writes, conflict
+resolution, managed infrastructure. **Reach for rxfy when** you have a database-plus-fetch
+app and want live updates without re-platforming it.
+
 ## When rxfy is a good fit
 
 - Your app is driven by **normalized server data** that several views render at once.
 - You want a single live entity update (refetch, mutation, websocket) to reach every
   subscriber **without re-fetching or re-selecting**.
+- Changes must **appear across clients as they happen**, and you'd rather not build the push
+  layer, its auth, and its transport yourself — the [framework](/framework/server) ships them.
 - **SSR with no loading flash and no hydration mismatch** matters.
 - Your team is comfortable with **RxJS**, or willing to learn the small surface rxfy uses.
 

@@ -2,16 +2,18 @@ import { Atom, createAtom } from "../atom/atom.js";
 import { createIdle, type IWrapped, StatusEnum } from "../wrapped/wrapped.js";
 
 export type QueryCache = {
-  /** Get-or-create the query's status Atom, seeded IDLE. Shared per key → dedup. Note: TValue is an unchecked assertion — the cache stores Atom<IWrapped<unknown>> internally, matching how peek works. */
+  /** Get-or-create the query's status Atom, seeded IDLE. Shared per key → dedup. Note: TValue is an unchecked assertion — the cache stores Atom<IWrapped<unknown>> internally. */
   getQuery: <TValue = unknown>(key: string) => Atom<IWrapped<TValue>>;
-  /** Current value without creating a cell — used by serialization and sync reads. */
-  peek: <TValue = unknown>(key: string) => IWrapped<TValue> | undefined;
-  delete: (key: string) => void;
   /** Terminal-state entries (FULFILLED/REJECTED) for serialization. */
   entries: () => [string, IWrapped<unknown>][];
-  /** In-flight promise slot — SSR Suspense throws and server-side request dedup. Never serialized. */
-  getPromise: (key: string) => Promise<unknown> | undefined;
-  setPromise: (key: string, promise: Promise<unknown>) => void;
+  /**
+   * Get-or-start the in-flight promise for a key — SSR Suspense throws the result and server-side
+   * requests dedup on it. On a cache miss, `start` is called and its promise is stored (auto-cleared
+   * when it settles); on a hit, the existing promise is returned and `start` is never called. Owning
+   * the check-and-store here means a caller can't create an in-flight fetch without registering it.
+   * Never serialized.
+   */
+  getOrStart: (key: string, start: () => Promise<unknown>) => Promise<unknown>;
   inflight: () => Promise<unknown>[];
 };
 
@@ -32,22 +34,20 @@ export function createQueryCache(): QueryCache {
 
   return {
     getQuery,
-    peek: <TValue = unknown>(key: string) => atoms.get(key)?.get() as IWrapped<TValue> | undefined,
-    delete: (key) => {
-      atoms.delete(key);
-      promises.delete(key);
-    },
     entries: () =>
       [...atoms.entries()]
         .map(([k, a]) => [k, a.get()] as [string, IWrapped<unknown>])
         .filter(([, w]) => isTerminal(w)),
-    getPromise: (key) => promises.get(key),
-    setPromise: (key, promise) => {
+    getOrStart: (key, start) => {
+      const existing = promises.get(key);
+      if (existing) return existing;
+      const promise = start();
       promises.set(key, promise);
       const cleanup = () => {
         if (promises.get(key) === promise) promises.delete(key);
       };
       void promise.then(cleanup, cleanup);
+      return promise;
     },
     inflight: () => [...promises.values()],
   };

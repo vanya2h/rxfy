@@ -1,0 +1,18 @@
+# rxfy [The core package: atoms, lenses, models, and states]
+
+`rxfy` is the core package — the reactive primitives everything else builds on. It has no
+React dependency; [React Bindings](/react) consume these APIs through hooks. For the ideas
+behind them, start with [Core Concepts](/core-concepts).
+
+- [`createAtom`](/rxfy/create-atom) — the fundamental reactive cell: an `Observable<T>` with
+  synchronous `get()` / `set()` / `modify()`.
+- [`createLens`](/rxfy/create-lens) — a focused, two-way view into an Atom for reading and
+  writing nested slices of state.
+- [`createModel`](/rxfy/create-model) — a typed entity descriptor plus the reactive
+  `ModelStore` / `ModelRegistry` that hold live entities.
+- [`defineState`](/rxfy/define-state) — a typed, normalized state shape: fetch params, model
+  fields (`array` / `single` / plain Zod values), and optional mutations.
+
+The SSR helpers (`dehydrate` / `hydrate` / `hydrationScript`) also ship in this package; they
+are documented with the full SSR story in
+[Server-Side Rendering](/core-concepts/ssr).

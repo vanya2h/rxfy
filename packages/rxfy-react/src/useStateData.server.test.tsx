@@ -91,7 +91,7 @@ describe("useStateData server suspend (ssr mode)", () => {
     renderApp(registry, fetchFn);
     await Promise.all(registry.queries.inflight());
 
-    const entry = registry.queries.peek("todos:{}");
+    const entry = registry.queries.getQuery("todos:{}").get();
     expect(entry?.type).toBe(StatusEnum.REJECTED);
     const error = entry?.type === StatusEnum.REJECTED ? entry.error : undefined;
     expect(error).toBeInstanceOf(TypeError);

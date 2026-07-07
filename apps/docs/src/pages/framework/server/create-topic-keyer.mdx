@@ -1,0 +1,27 @@
+# createTopicKeyer [Time-windowed HMAC ids for topics]
+
+The keyer converts human-readable topic strings (`"posts:uuid-..."`) into time-windowed HMAC ids
+before they reach the hub or the client. Clients receive the opaque id, never the raw topic.
+
+```ts
+import { createTopicKeyer } from "rxfy-server";
+
+const keyer = createTopicKeyer({
+  secret: process.env.RXFY_SECRET, // never sent to clients
+  windowMs: 10 * 60_000,           // 10-minute windows
+});
+```
+
+- `keyer.current(topic)` — the id for `topic` in the current time window; returned to the client
+  by [`live.grant`](/framework/server/grant) so it can subscribe.
+- `keyer.forPublish(topic)` — returns `[currentId, previousId]`. Publishing on both covers the
+  boundary between windows: a client whose grant was issued just before a rollover still receives
+  the message on the previous-window id it already subscribed to.
+
+Keep `windowMs` long enough that the round-trip between grant issuance and client subscription
+comfortably fits inside one window.
+
+:::warning[Secret rotation]
+Changing `secret` invalidates all outstanding grants immediately. Clients will miss messages until
+they re-fetch and receive a fresh grant. Rotate with care.
+:::

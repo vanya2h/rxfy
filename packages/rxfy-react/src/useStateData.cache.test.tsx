@@ -68,7 +68,7 @@ describe("useStateData cache integration", () => {
     });
     await firstValueFrom(result.current.data$);
 
-    expect(registry.queries.peek("todos:{}")).toEqual(createFulfilled({ todos: ["9"] }));
+    expect(registry.queries.getQuery("todos:{}").get()).toEqual(createFulfilled({ todos: ["9"] }));
   });
 
   it("mutations write through to the cache (remounts see mutated data)", () => {
@@ -81,7 +81,7 @@ describe("useStateData cache integration", () => {
     });
     act(() => result.current.mutations.addTodo({ id: "2", title: "New" }));
 
-    expect(registry.queries.peek("todos:{}")).toEqual(createFulfilled({ todos: ["1", "2"] }));
+    expect(registry.queries.getQuery("todos:{}").get()).toEqual(createFulfilled({ todos: ["1", "2"] }));
     expect(registry.model(todoModel).getValue("2")).toEqual({ id: "2", title: "New" });
   });
 

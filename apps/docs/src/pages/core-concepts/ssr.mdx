@@ -1,0 +1,198 @@
+# Server-Side Rendering [Dehydrate on the server, hydrate with no refetch]
+
+SSR is on-demand; there is no prefetch API. Components declare their data with
+`useStateData` exactly as on the client; on the server (`<StoreProvider ssr>`) a cache
+miss suspends until the fetch settles. Results (fulfilled or rejected) are captured in the
+registry, serialized into the HTML, and ingested on the client so the first paint is
+already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
+
+:::info[Requirements]
+give models a `name` and states a `key` (stable string identities), and
+write `fetchFn` to work in both environments (it runs on the server during SSR and on the
+client for reloads).
+
+[Plain value fields](/rxfy/define-state#plain-value-fields) (bare Zod schemas in `model`) don't need a model `name` — they travel inside the keyed state's dehydrated value. Keep them JSON-serializable.
+:::
+
+:::tip[Building a live app?]
+SSR also mints the subscription **grants** a live client uses. See
+[Grants & live hydration](/framework/server/grants).
+:::
+
+## Buffered mode (any Node server)
+
+Wait for every Suspense boundary with `onAllReady`, then send the complete document. This
+is the recommended non-Next mode. Here it is wired end to end: a render function that
+resolves once every `useStateData` fetch has settled, an HTTP handler that injects the HTML
+and the dehydrated snapshot into an `index.html` template, and the client entry that
+hydrates it.
+
+:::code-group
+
+```tsx [entry-server.tsx]
+import { PassThrough } from "node:stream";
+import { StrictMode, Suspense } from "react";
+import { renderToPipeableStream } from "react-dom/server";
+import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
+
+// Runs on the server per request. Returns the rendered HTML plus the <script>
+// that carries the dehydrated store snapshot.
+export function render(url: string): Promise<{ html: string; state: string }> {
+  const registry = createModelRegistry(); // one registry per request — never shared
+
+  return new Promise((resolve, reject) => {
+    const { pipe } = renderToPipeableStream(
+      <StrictMode>
+        <StoreProvider registry={registry} ssr>
+          <Suspense fallback={null}>
+            <App url={url} />
+          </Suspense>
+        </StoreProvider>
+      </StrictMode>,
+      {
+        // Fires once every Suspense boundary has resolved — i.e. every fetch has
+        // settled and the registry is fully populated. Buffer the stream to a
+        // string, then dehydrate the now-complete registry into the snapshot.
+        onAllReady() {
+          const sink = new PassThrough();
+          let html = "";
+          sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
+          sink.on("end", () => {
+            resolve({ html, state: hydrationScript(dehydrate(registry)) });
+          });
+          pipe(sink);
+        },
+        onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
+      },
+    );
+  });
+}
+```
+
+```ts [server.ts]
+import { readFileSync } from "node:fs";
+import { render } from "./entry-server";
+
+// index.html carries two placeholders: <!--app-html--> and <!--app-state-->
+const template = readFileSync("./index.html", "utf-8");
+
+// Express / Hono / plain node:http — whatever serves your HTML.
+app.get("*", async (req, res) => {
+  const { html, state } = await render(req.url);
+  const page = template
+    .replace("<!--app-html-->", html) // the rendered markup
+    .replace("<!--app-state-->", state); // the hydrationScript <script> tag
+  res.status(200).setHeader("Content-Type", "text/html").end(page);
+});
+```
+
+```tsx [client.tsx]
+// The injected <script> populated window.__RXFY_SSR__; StoreProvider ingests it,
+// so the first paint is already fulfilled — no refetch, no hydration mismatch.
+import { hydrateRoot } from "react-dom/client";
+import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
+
+hydrateRoot(
+  document.getElementById("root")!,
+  <StoreProvider ssr>
+    <App url={window.location.pathname} />
+  </StoreProvider>,
+);
+```
+
+:::
+
+See the [rr7-blog example](/examples#rr7-blog) for this mode wired into a React Router 7
+(framework mode) app, with loaders kept for routing only. The
+[vite-ssr-pagination example](/examples#vite-ssr-pagination) uses the same single-snapshot
+injection, but over a streaming shell (`onShellReady`) on a plain Vite server.
+
+## Streaming mode (Next.js App Router)
+
+`rxfy-react/next` ships `<HydrationStream />`: on each stream flush it emits newly settled
+queries and entities as `window.__RXFY_SSR__.push(...)` script tags; the client
+`StoreProvider` ingests them, including chunks arriving after hydration starts.
+
+```tsx [app/providers.tsx]
+"use client";
+import { StoreProvider } from "rxfy-react";
+import { HydrationStream } from "rxfy-react/next";
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <StoreProvider ssr>
+      <HydrationStream />
+      {children}
+    </StoreProvider>
+  );
+}
+```
+
+## Two-pass mode (strict `renderToString`)
+
+For environments without React stream APIs, `collectStateData` loops render passes until
+nothing suspends (each fetch waterfall level costs one extra pass):
+
+```ts
+import { renderToString } from "react-dom/server";
+import { collectStateData } from "rxfy-react";
+
+const html = await collectStateData(registry, () =>
+  renderToString(<StoreProvider registry={registry} ssr><App /></StoreProvider>),
+);
+const state = hydrationScript(dehydrate(registry));
+```
+
+### How it works
+
+`renderToString` is synchronous — it can't wait for a fetch. So `collectStateData` renders
+repeatedly, warming the query cache one level at a time (the classic Apollo `getDataFromTree`
+pattern): each render starts any missing fetches and suspends; `collectStateData` awaits the
+inflight fetches and renders again, until a pass leaves nothing pending. That final HTML is
+returned, and `dehydrate(registry)` snapshots the now-warm registry.
+
+A pass only discovers the fetches reachable with the data it already has, so a fetch waterfall
+**N** levels deep costs **N+1** full renders; independent queries at one level are found and
+awaited together.
+
+**Trade-offs:** works anywhere `renderToString` does (edge runtimes, custom renderers) and is
+simple to reason about — but it renders the whole tree N+1 times, flushes nothing until every
+fetch has settled, and pays the _sum_ of a waterfall's fetch times.
+
+:::tip
+If you have `renderToPipeableStream`, prefer [buffered mode](#buffered-mode-any-node-server)
+or [streaming mode](#streaming-mode-nextjs-app-router) — both avoid the repeated renders.
+:::
+
+## Hydration helpers
+
+The server snapshot is produced and embedded with three helpers from `rxfy`:
+
+```ts
+type DehydratedState = {
+  queries: Record<string, SerializedWrapped>; // settled query results, by key
+  models: Record<string, Record<string, unknown>>; // entities, by model name then id
+};
+
+// Snapshot a request's registry; only named models and keyed queries are included.
+function dehydrate(registry: IModelRegistry): DehydratedState;
+
+// Serialize a snapshot into a ready-to-inject <script> tag (HTML-safe).
+function hydrationScript(state: DehydratedState): string;
+
+// Apply a snapshot into a fresh client registry.
+function hydrate(registry: IModelRegistry, state: DehydratedState): void;
+```
+
+In the common path you never call `hydrate` directly — the embedded script populates
+`window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically.
+
+## Error handling
+
+A `fetchFn` rejection on the server is captured as a serialized rejected entry
+(`{ type: "REJECTED", error: { name, message } }`, stack stripped) and hydrates as rejected
+state: the server HTML shows your `<Pending rejected>` UI, and the handle's `reload()`
+retries client-side with a real fetch.

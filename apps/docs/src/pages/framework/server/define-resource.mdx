@@ -1,0 +1,34 @@
+# defineResource [Tie a Drizzle table to an rxfy model]
+
+`defineResource` ties a Drizzle `PgTable` to an rxfy `ModelDescriptor`. You can either supply a
+pre-made model (the common case when sharing models between server and client) or let the package
+derive one automatically via `drizzle-zod`.
+
+```ts [src/blog/resources.ts]
+import { commentModel, postModel, userModel } from "examples-shared/data";
+import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { comments, posts, users } from "../db/schema.js";
+
+export const userResource = defineResource({ table: users, model: userModel });
+export const postResource = defineResource({ table: posts, model: postModel });
+export const commentResource = defineResource({ table: comments, model: commentModel });
+
+export const resources = createResourceRegistry([userResource, postResource, commentResource]);
+```
+
+**Name resolution** — `name` defaults to `model.name` when a model is supplied, then falls back to
+the SQL table name. It becomes the topic namespace used for live routing (`"posts:uuid-..."`) and
+must match the rxfy model's own `name` so `patch` messages land in the right client store.
+
+**`primaryKeyColumn`** — `defineResource` calls `primaryKeyColumn(table)` internally to locate the
+single `primary: true` column. Composite primary keys are not supported in v1; the function throws
+if it finds more than one PK column or a `primaryKeys`-style composite key.
+
+## createResourceRegistry
+
+`createResourceRegistry` indexes resources by name, rejects duplicates, and exposes `byName`,
+`model`, and `all` for server-side wiring. Pass the registry to
+[`createServer`](/framework/server/create-server).
+
+Both `defineResource` and `createResourceRegistry` are client-safe: import them from
+`rxfy-server/browser` in code shared between server and client.
