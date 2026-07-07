@@ -175,6 +175,7 @@ The server snapshot is produced and embedded with three helpers from `rxfy`:
 type DehydratedState = {
   queries: Record<string, SerializedWrapped>; // settled query results, by key
   models: Record<string, Record<string, unknown>>; // entities, by model name then id
+  grants?: { entities: Record<string, string>; channels: Record<string, string> }; // live-update subscription grants, if the server minted any
 };
 
 // Snapshot a request's registry; only named models and keyed queries are included.
@@ -189,6 +190,10 @@ function hydrate(registry: IModelRegistry, state: DehydratedState): void;
 
 In the common path you never call `hydrate` directly — the embedded script populates
 `window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically.
+
+`grants` only appears in live apps: the server [mints subscription grants](/framework/server/grants)
+for the entities and state channels in the response, and the client live layer reads them from the
+same snapshot via [`readSsrGrants`](/react/live-client#readssrgrants).
 
 ## Error handling
 

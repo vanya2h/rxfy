@@ -11,11 +11,12 @@ npm install rxfy-server
 
 ## What it gives you
 
-- `defineResource` — bind a Drizzle table to an rxfy model.
+- `defineResource` — bind a Drizzle table to an rxfy model (derived automatically, or pass a pre-made `model` shared with client code).
 - `createResourceRegistry` — a typed index of resources.
 - `createServer` — `live.create` / `live.update` / `live.delete` that write to the DB and publish `patch` / `stale` messages.
 - `createInMemoryHub` — pub/sub routing from topics to connections.
 - `createTopicKeyer` — HMAC, time-windowed topic ids so clients cannot forge subscriptions.
 - `live.grant` — mint the subscription grants a client is allowed to use (typically at SSR time).
+- `rxfy-server/browser` — browser-safe subpath exporting the resource API without the Node-only topic keyer, so resources and their models can be imported into client bundles.
 
 See the [rxfy-server docs](https://rxfy.vanya2h.me/framework/server) for the full walkthrough.

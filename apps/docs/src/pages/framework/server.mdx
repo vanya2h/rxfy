@@ -13,10 +13,8 @@ re-exports the subset safe to import in shared (client+server) code — `defineR
   `touch()` for state-channel invalidation.
 - [`createTopicKeyer`](/framework/server/create-topic-keyer) — time-windowed HMAC ids that keep
   raw topic strings off the wire.
-- [`live.grant`](/framework/server/grant) — mint the subscription allow-list from a rendered
-  registry.
-- [Grants & live hydration](/framework/server/grants) — how grants flow from an SSR render
-  into a connecting live client, end to end.
+- [Grants & live hydration](/framework/server/grants) — mint the subscription allow-list with
+  `live.grant` and flow it from an SSR render into a connecting live client, end to end.
 - [`createInMemoryHub`](/framework/server/hub) — the single-process pub/sub backbone between
   writes and transports.
 

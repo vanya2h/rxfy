@@ -1,0 +1,135 @@
+# Late Unwrapping [Unwrap async state at the leaf, not the trunk]
+
+One of rxfy's [four principles](/) is that values unwrap **as late as possible**. Async data
+travels through your app still wrapped in its loading status, and only the leaf that actually
+renders a value unwraps it.
+
+:::note[Mental model]
+Async state is a value-over-time that carries its own status · intermediate code passes the
+wrapper along untouched · a single leaf unwraps it, right where the value is shown.
+:::
+
+The APIs below (`useStateData`, `Pending`, `usePending`, `store.get`/`store.set`) are covered in
+[State](/rxfy/define-state) and [React Bindings](/react); they appear here only to make the idea
+concrete.
+
+## The problem: unwrapping too early
+
+The reflex in most apps is to unwrap async state at the top of a component and branch on it:
+
+```tsx
+function Dashboard() {
+  const { data, isLoading, error } = useQuery(/* … */);
+
+  if (isLoading) return <Spinner />; // ← everything below waits on this one flag
+  if (error) return <Error error={error} />;
+
+  return (
+    <Layout>
+      <Header user={data.user} />
+      <PostList posts={data.posts} />
+      <Sidebar stats={data.stats} />
+    </Layout>
+  );
+}
+```
+
+Three costs follow from unwrapping at the trunk:
+
+- **One flag gates a whole subtree.** The header, the list, and the sidebar all disappear behind
+  a single spinner, even though they could render independently.
+- **Every consumer re-renders when it flips.** `isLoading` going `true → false` re-renders the
+  entire component, not just the parts whose data changed.
+- **Writes get stuck behind reads.** With the value locked inside `data`, code that wants to
+  *write* an entity has to wait for the read to resolve and thread the update back through it.
+
+## Wrapped values travel; leaves unwrap
+
+In rxfy, async data does not arrive as `{ data, isLoading, error }`. It arrives as an
+`Observable` that carries an `IWrapped<T>` — the discriminated union
+`IDLE | PENDING | FULFILLED | REJECTED` (`StatusEnum`). Two of the most common sources:
+
+- `data$` from [`useStateData`](/react/use-state-data) — a state's query result (a shape of ids).
+- `store.get(id)` from a [model store](/react/use-model-store) — one entity's cell.
+
+Intermediate code never inspects the status. It subscribes, composes, and passes the wrapper
+along. The status rides inside the value all the way down to the component that renders it.
+
+## `Pending`: unwrap at the edge
+
+The leaf that turns a value into UI is the one — and only one — that unwraps. In React that is
+[`Pending`](/react/pending): give it the wrapped observable and a render prop per status.
+
+```tsx
+import { Pending, useStateData } from "rxfy-react";
+import { postsState, fetchPosts } from "./posts";
+
+function PostList({ params }: { params: { page: number } }) {
+  const { data$, reload } = useStateData({ state: postsState, fetchFn: fetchPosts, params });
+
+  return (
+    <Pending
+      value$={data$}
+      pending={<p>Loading…</p>}
+      rejected={({ error }) => (
+        <p>Error: {String(error)} <button onClick={reload}>Retry</button></p>
+      )}
+    >
+      {({ posts }) => <ul>{posts.map((id) => <PostRow key={id} id={id} />)}</ul>}
+    </Pending>
+  );
+}
+```
+
+`PostRow` then unwraps *its own* entity, again at the leaf — so a single post arriving or
+changing re-renders that row alone, not the list:
+
+```tsx
+import { useMemo } from "react";
+import { StatusEnum } from "rxfy";
+import { usePending, useModelStore } from "rxfy-react";
+import { PostModel } from "./models";
+
+function PostRow({ id }: { id: string }) {
+  const store = useModelStore(PostModel);
+  const post$ = useMemo(() => store.get(id), [store, id]);
+  const post = usePending(post$); // IWrapped<Post>, narrowed to PENDING | FULFILLED | REJECTED
+
+  if (post.type === StatusEnum.PENDING) return <li>…</li>;
+  if (post.type === StatusEnum.REJECTED) return <li>failed to load</li>;
+  return <li>{post.value.title}</li>;
+}
+```
+
+Use `Pending` when you want to render UI per status, and [`usePending`](/react/use-pending) when
+you need the `IWrapped<T>` value itself. Either way, the unwrap is as narrow as the thing being
+shown.
+
+## Writes never unwrap at all
+
+A write does not participate in the status lifecycle. `store.set(id, entity)` fills a slot
+whether or not any query over it has settled:
+
+```ts
+const store = useModelStore(PostModel);
+
+// Lands immediately — no "wait for the list to load, then patch it in".
+store.set(post.id, post);
+```
+
+Because entities live in one [normalized](/core-concepts/normalization) store keyed by id, a write
+reaches every subscriber of that id on its own. A websocket patch, an optimistic update, and a
+freshly fetched row all take the same path — none of them has to find and unwrap a read first.
+
+## Why it matters
+
+Re-render scope tracks unwrap scope. Unwrap at the trunk and the whole subtree re-renders on
+every status change; unwrap at the leaf and only that leaf does. The narrower the unwrap:
+
+- the narrower the re-render — a single entity updating touches a single component;
+- the more independent the UI — each region shows its own pending and error state instead of one
+  spinner for everything;
+- the simpler writes stay — they target a slot by id and never wait on a read.
+
+Keeping values wrapped until the last moment is what lets loading and error UI live exactly where
+the data is used, and lets writes move independently of reads.
