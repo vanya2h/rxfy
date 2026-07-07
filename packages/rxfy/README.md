@@ -3,16 +3,20 @@
   <img alt="rxfy" src="../../assets/rxfy-lockup.svg" width="200">
 </picture>
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your UI: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization) as Observables, and scale from a client-only store to a fully live app with server-side rendering and real-time updates. It's built for consistency and granular reactivity at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your React app: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization), and scale from a client-only store to a fully live app with server-side rendering and real-time updates via websockets. It's built for consistency and granular RxJS-based reactivity at no extra cost.
+
+Keeping every view of your data in agreement is hard. Doing it across many connected clients, in real time, is way harder. Rename one todo and the list, the sidebar counter, and the search results all have to show the new title; the usual fixes — refetch the list, patch the cache in place, invalidate caches by hand — are workarounds for one root cause: your app holds multiple copies of the same entity.
+
+rxfy removes the copies. Each entity is stored **once**, in a normalized store keyed by its id; states hold only references by id, and components subscribe to the exact entities they render, so one write reaches every subscriber. The server serializes the filled stores and the client restores them, which makes SSR first-class. With websockets on top, the write crosses the network too: the server persists it and publishes it to every connected client.
 
 rxfy is built on four principles:
 
-- Every entity lives in a normalized store, accessed granularly by its id; an update reaches every subscriber automatically.
-- Each page has its own state composed with the data from normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
-- Values unwrap late: data travels through the app still wrapped as Observables, only the leaf component that renders a value unwraps it, and a write to the store never unwraps anything.
-- States and stores are serializable: rxfy has first-class Server-Side Rendering (SSR) support.
+- **Every entity lives in one normalized store**, in a single slot keyed by its id. Writing to the slot is the only write path — you can't fork a copy — so an update reaches every subscriber automatically.
+- **Each page declares its own state over those stores.** The state carries only ids, and each component re-renders only when the entity it reads changes, nothing else.
+- **Values unwrap as late as possible**: data travels wrapped, only the leaf component that renders a value unwraps it, and a write never unwraps anything — see [Late Unwrapping](https://rxfy.vanya2h.me/core-concepts/late-unwrapping).
+- **States and stores are serializable**: [SSR](https://rxfy.vanya2h.me/core-concepts/ssr) is first-class and works with frameworks like Next.js or React Router v7.
 
-[Why rxfy?](https://rxfy.vanya2h.me/why) explains the thinking behind this design.
+rxfy doesn't invent a reactivity system — it's built on [RxJS](https://rxjs.dev). An Atom **is** an `Observable` with synchronous `get()` and `set()`, so the whole operator library works on your app state, delivery is push-based and granular, and a websocket push is just another stream flowing into the same stores.
 
 📚 **Documentation: [rxfy.vanya2h.me](https://rxfy.vanya2h.me)**
 
