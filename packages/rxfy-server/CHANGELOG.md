@@ -1,5 +1,11 @@
 # rxfy-server
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- rxfy-protocol@2.0.0-rc.2
+
 ## 2.0.0-rc.0
 
 ### Minor Changes
