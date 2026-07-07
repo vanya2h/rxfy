@@ -227,7 +227,7 @@ describe("registry SSR extensions", () => {
   it("exposes a query cache", () => {
     const registry = createModelRegistry();
     registry.queries.getQuery("k").set({ type: "FULFILLED", value: 1 } as any);
-    expect(registry.queries.peek("k")).toEqual({ type: "FULFILLED", value: 1 });
+    expect(registry.queries.getQuery("k").get()).toEqual({ type: "FULFILLED", value: 1 });
   });
 
   it("tracks named stores", () => {

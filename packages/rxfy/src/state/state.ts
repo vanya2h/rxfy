@@ -61,6 +61,8 @@ export type StateDescriptor<
 > = {
   /** Stable string identity for the SSR query cache. States without a key opt out of SSR caching. */
   readonly key?: string;
+  /** Param names that slice *within* a dataset (page, cursor, sort) — excluded from the live invalidation channel. */
+  readonly window?: readonly string[];
   // Input is `any` so schemas whose Input differs from Output (e.g. branded ids) stay assignable.
   readonly paramsSchema: z.ZodType<TParams, any>;
   // Deliberately erased to FieldsMap (not a per-key mapped type): the runtime discriminates each
@@ -75,6 +77,7 @@ export type StateDescriptor<
 // Overload: no mutations provided
 export function defineState<TParams, TFields extends FieldsMap>(def: {
   key?: string;
+  window?: readonly string[];
   // TParams is inferred from the Output position only — z.ZodType<TParams> would also place it
   // in the Input position and widen branded types away.
   params: z.ZodType<TParams, any>;
@@ -95,6 +98,7 @@ export function defineState<
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
   key?: string;
+  window?: readonly string[];
   params: z.ZodType<TParams, any>;
   model: TFields;
   mutations: TMutations;
@@ -113,6 +117,7 @@ export function defineState<
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
   key?: string;
+  window?: readonly string[];
   params: z.ZodType<TParams, any>;
   model: TFields;
   mutations?: TMutations;
@@ -125,6 +130,7 @@ export function defineState<
 > {
   return {
     key: def.key,
+    window: def.window,
     paramsSchema: def.params,
     fields: def.model as any,
     mutations: (def.mutations ?? {}) as any,

@@ -39,6 +39,7 @@
     "changeset:publish": "turbo run build && changeset publish",
     "changeset:version": "changeset version",
     "check-types": "turbo run check-types",
+    "check:skills-drift": "./scripts/check-skills-drift.sh",
     "docs": "turbo run dev --filter=docs",
     "docs:docker": "docker compose up --build docs",
     "lint": "turbo run lint",

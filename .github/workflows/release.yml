@@ -50,8 +50,10 @@ jobs:
         run: |
           if grep -q '"mode": *"pre"' .changeset/pre.json 2>/dev/null; then
             npx changeset pre exit
-            git add .changeset/pre.json
-            git diff --cached --quiet || git commit -m "chore: exit pre-release mode [skip ci]"
+            # `changeset pre exit` only flips mode to "exit"; it leaves the file
+            # behind. Remove it so it doesn't linger and skew `changeset status`.
+            git rm -f .changeset/pre.json
+            git commit -m "chore: exit pre-release mode [skip ci]"
           fi
 
       - name: Version packages
@@ -105,7 +107,18 @@ jobs:
           for branch in staging develop; do
             git fetch origin $branch
             git checkout $branch
-            git merge main --no-ff --no-edit -X theirs \
-              -m "chore: sync release from main to $branch [skip ci]"
+            if ! git merge main --no-ff --no-edit -X theirs \
+              -m "chore: sync release from main to $branch [skip ci]"; then
+              # `-X theirs` only resolves content conflicts; .changeset/pre.json
+              # can hit a modify/delete conflict (main deletes it on pre exit).
+              # The deletion is the intent — pre.json never outlives the RC cycle.
+              git rm -f --ignore-unmatch .changeset/pre.json
+              if git ls-files -u | grep -q .; then
+                echo "::warning::main -> $branch sync has unresolved conflicts; merge manually."
+                git merge --abort
+                exit 1
+              fi
+              git commit -m "chore: sync release from main to $branch [skip ci]"
+            fi
             git push origin $branch
           done

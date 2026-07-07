@@ -9,7 +9,7 @@ ids · components render by id.
 :::
 
 The APIs below (`defineState`, `useStateData`, `Pending`, `useModelStore`) are covered in
-[Model](/core-concepts/model), [State](/core-concepts/state), and
+[Model](/rxfy/create-model), [State](/rxfy/define-state), and
 [React Bindings](/react); they appear here only to make the idea concrete.
 
 ## The problem: the same entity on two pages
@@ -89,7 +89,7 @@ That one write, equally from a mutation or a websocket push, updates the profile
 
 The same dedup happens within one query: if a state has the user as two separate fields (say an
 `author` and a list of `commenters`), both fields resolve to the one cell. Mutations take the
-same path; see [State](/core-concepts/state#definestate).
+same path; see [State](/rxfy/define-state).
 
 ## What it costs
 
@@ -105,8 +105,8 @@ re-fetching. It pays off most when the same entity appears on many pages.
 
 ## In rxfy
 
-- [`createModel`](/core-concepts/model#createmodel) defines an entity type and its id (`getKey`).
-- [`defineState`](/core-concepts/state#definestate) declares which fields hold which model; the fetch
+- [`createModel`](/rxfy/create-model) defines an entity type and its id (`getKey`).
+- [`defineState`](/rxfy/define-state) declares which fields hold which model; the fetch
   result is normalized into the shared model stores plus an id-only query shape automatically.
 - [`data$`](/react/use-state-data) emits that id shape; [`useModelStore`](/react/use-model-store)
   reads an entity by id and re-renders only when that entity changes, across every page that

@@ -1,130 +1,63 @@
 # rxfy [Typed, normalized, reactive state — built on RxJS]
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a minimalistic framework that helps you declare models, states, and normalized stores as an Observables-based data-flow layer in your React apps. Focused on consistency and granular reactivity at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your UI: declare typed models, states, and normalized stores as Observables, and scale from a client-only store to a fully live app with server-side rendering and real-time updates. It's built for consistency and granular reactivity at no extra cost.
 
-rxfy is built on three principles:
+rxfy is built on four principles:
 
 - Every entity lives in a normalized store, accessed granularly by its id; an update reaches every subscriber automatically.
-- Each page has its own state, built from data in the normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
+- Each page has its own state composed with the data from normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
+- Values unwrap late: data travels through the app still wrapped as Observables, only the leaf component that renders a value unwraps it, and a write to the store never unwraps anything.
 - States and stores are serializable: rxfy has first-class Server-Side Rendering (SSR) support.
+
+```bash
+npm install rxfy rxfy-react
+```
 
 [Why rxfy?](/why) explains the thinking behind this design.
 
-## Quick taste
+## The problem it solves
 
-::::steps
+You update one todo: mark it done, rename it from a detail view, or apply a websocket push the
+server already made. Every view of that entity now has to agree. Most apps pick one of three
+fixes: refetch the list (a round-trip for data you already have), patch it in place (two copies
+that diverge as soon as another query renders the same entity), or coordinate the cache by hand
+(miss one invalidation and the first symptom is a stale UI in production). SSR compounds it —
+after server-rendering the page, rehydration wiring is usually left to you.
 
-### Define the model
+rxfy stores each entity **once**, in a normalized cell keyed by its id. The state holds only
+ids that components will use to reference the single source of truth that live in entity stores; components subscribe to the exact cells they render, so one write reaches every
+subscriber. States and stores are serialized, which gives you server-side rendering out of the box.
+With the framework on top, the write crosses the network too: the server persists it and
+publishes it to every connected client, where each store recalculates the places that entity
+is used.
 
-A model binds a Zod schema to an id extractor. Every entity of this type lives in exactly one store slot, accessible via `getKey` method.
+```mermaid
+sequenceDiagram
+    participant A as Client A
+    participant S as Server
+    participant DB as Database
+    participant B as Client B
 
-```tsx
-import { z } from "zod";
-import { createModel } from "rxfy";
-
-const TodoModel = createModel({
-  schema: z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
-  getKey: (x) => x.id,
-  name: "todo",
-});
-```
-
-### Define state and mutations
-
-`defineState` declares the state and the way how it is fetched via provided fetch function. It supports mutations that changes the state. rxfy normalizes the result into model stores automatically.
-
-```tsx
-import { defineState, array } from "rxfy";
-
-const todosState = defineState({
-  key: "todos",
-  params: z.object({
-    filter: z.enum(["all", "active", "done"]),
-  }),
-  model: {
-    todos: array(TodoModel),
-    isOpen: z.boolean(),
-  },
-  mutations: {
-    addTodo: (
-      prev,
-      todo: {
-        id: string;
-        title: string;
-        done: boolean;
-      },
-    ) => ({
-      ...prev,
-      todos: [...prev.todos, todo],
-    }),
-  },
-});
-```
-
-### Fetch and render the list
-
-`useStateData` wires the state to your fetch function and returns a reactive `data$` stream. `Pending` handles the loading and error states declaratively. The query shape carries only ids — not full entities.
-
-```tsx
-import { Pending, useStateData } from "rxfy-react";
-
-function TodoApp() {
-  const { data$, mutations } = useStateData({
-    state: todosState,
-    fetchFn: fetchTodos,
-    params: { filter: "all" },
-  });
-
-  return (
-    <Pending value$={data$} pending={<p>Loading...</p>} rejected={({ error }) => <p>{String(error)}</p>}>
-      {({ todos }) => (
-        <ul>
-          {todos.map((id) => (
-            <TodoItem key={id} id={id} />
-          ))}
-        </ul>
-      )}
-    </Pending>
-  );
-}
-```
-
-### Subscribe to individual entities
-
-Each item subscribes to its own store. A single `store.set` updates every component showing that entity, with no list re-fetch.
-
-```tsx
-import { useMemo } from "react";
-import { useModelStore } from "rxfy-react";
-
-function TodoItem({ id }: { id: string }) {
-  const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
-
-  return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
-}
+    A->>A: update entity in the store
+    A->>S: send mutation
+    S->>DB: persist change
+    S-->>A: publish updated entity
+    S-->>B: publish updated entity
+    Note over A: store recalculates every place<br/>this entity is used
+    Note over B: store recalculates every place<br/>this entity is used
 ```
 
 ::::
 
-Continue to [Getting Started](/getting-started).
+## Continue with
 
-:::tip
-Using an AI coding assistant? Install the [Agent Skills](/agent-skills) to give it accurate rxfy context.
-:::
-
-## How it compares
-
-- **Redux Toolkit** — same normalized, immutable approach, but stream-first instead of selector-first, with fetching and SSR built in rather than wired up from RTK Query and slices.
-- **MobX** — trades direct mutation for explicit immutable streams that serialize cleanly for SSR, and adds normalization and a query layer MobX leaves to you.
-- **Jotai** — its atom is a config object resolved against a store; an rxfy `Atom` is a real RxJS Observable cell that carries its value and works outside React.
-- **TanStack Query** — caches responses by query key and refetches to reconcile; rxfy normalizes into per-entity cells, so one write reaches every subscriber with no refetch.
-
-[See full comparison →](/comparison)
+- [Getting Started](/getting-started) — install rxfy and choose your path: a client-only store or the full live-app stack.
+- [Using rxfy with agent skills](/agent-skills) — give your AI coding assistant accurate rxfy context.
+- [Comparison with other libraries](/comparison) — how rxfy relates to TanStack Query and other libraries.
+- [Why should I use rxfy?](/why) — the thinking behind the design.
 
 ## Useful links
 
 - [rxfy on npm](https://www.npmjs.com/package/rxfy)
-- [rxfy-react on npm](https://www.npmjs.com/package/rxfy-react)
 - [GitHub repository](https://github.com/vanya2h/rxfy)
 - [About the author](https://vanya2h.me)

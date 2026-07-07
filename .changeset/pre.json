@@ -1,16 +1,31 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "rc",
   "initialVersions": {
     "docs": "0.0.0",
+    "examples-shared": "0.0.0",
     "rxfy-example-next-blog": "0.1.0",
     "rxfy-example-rr7-blog": "0.1.0",
-    "rxfy-example-realtime-todos": "0.1.0",
+    "vite-blog-framework": "0.1.0",
     "rxfy-example-ssr-pagination": "0.1.0",
     "rxfy-example-todo-app": "0.1.0",
-    "rxfy-example-waku-blog": "0.1.1",
-    "rxfy": "1.2.1",
-    "rxfy-react": "1.2.1"
+    "rxfy-example-waku-blog": "0.1.2",
+    "rxfy": "1.3.0",
+    "rxfy-protocol": "0.0.0",
+    "rxfy-react": "1.3.0",
+    "rxfy-server": "0.0.0",
+    "rxfy-ws": "0.0.0"
   },
-  "changesets": []
+  "changesets": [
+    "rxfy-core-window",
+    "rxfy-protocol-initial",
+    "rxfy-query-cache-get-or-start",
+    "rxfy-react-live",
+    "rxfy-server-browser-entry",
+    "rxfy-server-foundation",
+    "rxfy-server-resource-model",
+    "rxfy-server-resource",
+    "rxfy-server-writes",
+    "rxfy-ws-initial"
+  ]
 }

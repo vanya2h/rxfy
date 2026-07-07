@@ -3,13 +3,14 @@
   <img alt="rxfy" src="assets/rxfy-lockup.svg" width="200">
 </picture>
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a minimalistic framework that lets you declare typed models and the states that query them, then access their data as reactive observables. [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization) keeps your app consistent and reactive at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your UI: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization) as Observables, and scale from a client-only store to a fully live app with server-side rendering and real-time updates. It's built for consistency and granular reactivity at no extra cost.
 
-rxfy is built on three principles:
+rxfy is built on four principles:
 
-- Every entity lives in one slot, keyed by its id; a write reaches every subscriber with no list re-fetch.
-- Each slot is an RxJS Observable that components subscribe to directly.
-- You declare the fetch shape, the model, and the mutations; rxfy normalizes the result, handles SSR, and rehydrates the client without a second fetch.
+- Every entity lives in a normalized store, accessed granularly by its id; an update reaches every subscriber automatically.
+- Each page has its own state composed with the data from normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
+- Values unwrap late: data travels through the app still wrapped as Observables, only the leaf component that renders a value unwraps it, and a write to the store never unwraps anything.
+- States and stores are serializable: rxfy has first-class Server-Side Rendering (SSR) support.
 
 [Why rxfy?](https://rxfy.vanya2h.me/why) explains the thinking behind this design.
 
@@ -18,17 +19,24 @@ rxfy is built on three principles:
 ## Agent skills
 
 ```bash
-npx skills add vanya2h/rxfy
+# client-only store setup
+npx skills add vanya2h/rxfy --skill rxfy
+
+# live-app (framework) setup
+npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 
-Installs two skills for AI coding assistants — `rxfy` (core API, React hooks, mutations) and `rxfy-ssr` (SSR setup). See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
+Installs one of two agent skills for AI coding assistants — `rxfy` (store + React + SSR) or `rxfy-framework` (everything in `rxfy` plus the real-time layer). Install the one matching your setup — never both. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
 
 ## Packages
 
-| Package                             | Purpose                                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| [`rxfy`](packages/rxfy)             | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
-| [`rxfy-react`](packages/rxfy-react) | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
+| Package                                   | Purpose                                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| [`rxfy`](packages/rxfy)                   | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy-react`](packages/rxfy-react)       | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
+| [`rxfy-server`](packages/rxfy-server)     | Server-side live data: Drizzle resources, write + publish, grants           |
+| [`rxfy-protocol`](packages/rxfy-protocol) | Wire protocol and codec for live updates                                    |
+| [`rxfy-ws`](packages/rxfy-ws)             | Default WebSocket transport (client + server)                               |
 
 ## Install
 
@@ -49,16 +57,15 @@ npm install rxfy rxfy-react
 
 **Core Concepts**
 
-- [Model](https://rxfy.vanya2h.me/core-concepts/model)
-- [State](https://rxfy.vanya2h.me/core-concepts/state)
-- [Atom](https://rxfy.vanya2h.me/core-concepts/atom)
-- [Lens](https://rxfy.vanya2h.me/core-concepts/lens)
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
+- [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr)
 
 **API Reference**
 
+- [rxfy](https://rxfy.vanya2h.me/rxfy) — `createAtom`, `createLens`, `createModel`, `defineState`
 - [React Bindings](https://rxfy.vanya2h.me/react)
-- [Server-Side Rendering](https://rxfy.vanya2h.me/ssr)
+- [rxfy-server](https://rxfy.vanya2h.me/framework/server)
+- [rxfy-ws](https://rxfy.vanya2h.me/framework/ws)
 - [rxfy package README](packages/rxfy/README.md)
 - [rxfy-react package README](packages/rxfy-react/README.md)
 
@@ -66,13 +73,13 @@ npm install rxfy rxfy-react
 
 - [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live updates over WebSockets](https://rxfy.vanya2h.me/guides/live-updates-websockets)
+- [Live blog](https://rxfy.vanya2h.me/guides/live-blog)
 - [Examples](https://rxfy.vanya2h.me/examples)
 
 **Examples**
 
 - [vite-todo](examples/vite-todo) — Todo app with Vite SSR
-- [vite-realtime-todos](examples/vite-realtime-todos) — normalized state driven by WebSocket server-push (Vite SSR · Hono · Drizzle SQLite)
+- [vite-blog-framework](examples/vite-blog-framework) — live blog: SSR + WebSocket patches/stale, HMAC grants (Vite · Hono · PGlite · Drizzle · rxfy-server · rxfy-ws)
 - [vite-ssr-pagination](examples/vite-ssr-pagination) — infinite paginated list with a switch between Load-more button and infinite scroll; streaming SSR; rows generated on demand with faker
 - [next-blog](examples/next-blog) — Next.js App Router with streaming SSR
 - [rr7-blog](examples/rr7-blog) — React Router 7 (framework mode) with buffered SSR; rxfy as the single data layer, loaders for routing only

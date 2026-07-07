@@ -23,6 +23,8 @@ import {
   StatusEnum,
 } from "rxfy";
 import { filter, merge, Observable, of, ReplaySubject, share, switchMap, throwError, timer } from "rxjs";
+import { stateChannel } from "./live/channel.js";
+import { useLiveClient } from "./live-context.js";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
 
@@ -54,6 +56,8 @@ export type StateHandle<
   readonly setRaw: (ids: TWritable | ((prev: TQuery) => TWritable)) => void;
   readonly reload: () => void;
   readonly mutations: BoundMutations<TShape, TMutations>;
+  readonly updatesAvailable$: Observable<number>;
+  readonly applyUpdates: () => void;
 };
 
 export type UseStateDataConfig<TParams, TShape, TMutations extends MutationDefs<TShape>, TQuery, TWritable> = {
@@ -71,9 +75,15 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   fetchFn,
   params,
   defaultData,
-}: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>): StateHandle<TShape, TMutations, TQuery, TWritable> {
+}: UseStateDataConfig<TParams, TShape, TMutations, TQuery, TWritable>): StateHandle<
+  TShape,
+  TMutations,
+  TQuery,
+  TWritable
+> {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
+  const liveClient = useLiveClient();
 
   // Re-subscribe epoch. Only ever bumped by a reload() that recovers from a terminal REJECTED: an
   // Rx error ends the subscription, so those consumers must resubscribe. Every other reload — and
@@ -85,6 +95,7 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   // identity-unstable-but-value-stable params object does not churn data$.
   const paramsKey = stableStringify(params);
   const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
+  const channel = stateChannel(state, params as Record<string, unknown>);
 
   // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
   // keep a stable identity across renders (directive: as stable as possible) and across a changing
@@ -107,6 +118,11 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData) as TQuery));
     }
 
+    // Live-updates counter for this state's channel. Null when no live client or no channel key.
+    // Defined before `settle` so the FULFILLED branch can reset it.
+    const counter = liveClient && channel ? liveClient.channel(channel) : null;
+    const updatesAvailable$: Observable<number> = counter ? counter.available$ : of(0);
+
     // `signal` is passed for client fetches so a teardown-aborted fetch is dropped instead of
     // latching a spurious result/REJECTED into the (possibly shared) query atom. SSR fetches
     // omit it (their throwaway signal never aborts), preserving the original behavior.
@@ -115,6 +131,7 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
         (result) => {
           if (signal?.aborted) return;
           atom$.set(createFulfilled(normalizeResult(registry, fields, result) as TQuery));
+          counter?.reset();
         },
         (error: unknown) => {
           if (signal?.aborted) return;
@@ -141,12 +158,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       if (!cacheKey) {
         console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
       } else {
-        const inflight = registry.queries.getPromise(cacheKey);
-        if (inflight) throw inflight; // dedup: another component already started this fetch
-        atom$.set(createPending());
-        const promise = settle(fetchFn(params, new AbortController().signal));
-        registry.queries.setPromise(cacheKey, promise);
-        throw promise;
+        // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
+        // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
+        throw registry.queries.getOrStart(cacheKey, () => {
+          atom$.set(createPending());
+          return settle(fetchFn(params, new AbortController().signal));
+        });
       }
     }
 
@@ -244,9 +261,14 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     attachReload(data$, reload);
 
-    return { data$, set, setRaw, reload, mutations };
+    const applyUpdates = (): void => {
+      counter?.reset();
+      reload();
+    };
+
+    return { data$, set, setRaw, reload, mutations, updatesAvailable$, applyUpdates };
     // fetchFn/params/defaultData are deliberately excluded — see the note above the memo. params'
     // value is tracked via cacheKey/paramsKey; data$ identity stability depends on this exclusion.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch]);
+  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch, liveClient, channel]);
 }

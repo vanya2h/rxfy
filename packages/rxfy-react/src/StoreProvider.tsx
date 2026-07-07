@@ -1,5 +1,7 @@
 import { createContext, type PropsWithChildren, useEffect, useState } from "react";
 import { createModelRegistry, type DehydratedState, hydrate, type IModelRegistry } from "rxfy";
+import type { LiveClient } from "./live/live-client.js";
+import { LiveClientContext } from "./live-context.js";
 import { ModelRegistryContext } from "./registry-context.js";
 
 /** True when the app opted into SSR — gates useStateData's server-side Suspense behavior. */
@@ -19,9 +21,17 @@ export type StoreProviderProps = PropsWithChildren<{
   registry?: IModelRegistry;
   /** Snapshot from dehydrate() for prop-based hydration (buffered/two-pass SSR). */
   dehydratedState?: DehydratedState;
+  /** Optional live client for real-time updates. When omitted, useLiveClient() returns null. */
+  liveClient?: LiveClient;
 }>;
 
-export function StoreProvider({ children, ssr = false, registry: external, dehydratedState }: StoreProviderProps) {
+export function StoreProvider({
+  children,
+  ssr = false,
+  registry: external,
+  dehydratedState,
+  liveClient,
+}: StoreProviderProps) {
   const [registry] = useState(() => {
     const r = external ?? createModelRegistry();
     if (dehydratedState) hydrate(r, dehydratedState);
@@ -39,7 +49,9 @@ export function StoreProvider({ children, ssr = false, registry: external, dehyd
 
   return (
     <ModelRegistryContext.Provider value={registry}>
-      <SsrContext.Provider value={ssr}>{children}</SsrContext.Provider>
+      <SsrContext.Provider value={ssr}>
+        <LiveClientContext.Provider value={liveClient ?? null}>{children}</LiveClientContext.Provider>
+      </SsrContext.Provider>
     </ModelRegistryContext.Provider>
   );
 }

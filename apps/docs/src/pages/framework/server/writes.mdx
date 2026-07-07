@@ -1,0 +1,105 @@
+# Writes [live.create / live.update / live.delete and touch]
+
+`live.create`, `live.update`, and `live.delete` run the SQL write and then publish live messages.
+All three accept an optional `{ touch: [...] }` option to mark state channels stale.
+
+`server/api.ts` pulls together four things declared elsewhere — the tabs below show each one:
+
+- `live` — the `Live` object from [`createServer`](/framework/server/create-server).
+- `postResource` — a resource from [`defineResource`](/framework/server/define-resource).
+- `postsState` — a state from [`defineState`](/rxfy/define-state), the **same state you pass to
+  `useStateData`** on the client. It already carries the `{ key, window }` a channel needs, so it
+  doubles as a `StateChannelDescriptor`.
+
+:::code-group
+
+```ts [server/api.ts]
+import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
+import { postsState } from "../src/blog/states.js";
+import { postResource } from "../src/blog/resources.js";
+import { posts } from "./db.js";
+import { live } from "./live.js";
+
+// A defineState result has more fields than the descriptor, so cast through `unknown`.
+const postsChannel = postsState as unknown as StateChannelDescriptor;
+
+// Shared-model resources carry a branded row (`id: PostId`); the writers want the raw table row.
+// The bound table is identical — re-view it as `Resource<typeof posts>` so `values` type-checks.
+const postWriteResource = postResource as unknown as Resource<typeof posts>;
+
+// update — publishes a `patch` on the entity topic automatically
+await live.update(postWriteResource, postId, { title, body });
+
+// create — does NOT publish a patch; touch the state channels that list this entity
+await live.create(
+  postWriteResource,
+  { id: newId(), userId, title, body },
+  { touch: [touch(postsChannel, {})] },
+);
+
+// delete — same: no patch, touch the channels that referenced this entity
+await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
+```
+
+```ts [server/live.ts]
+import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { resources } from "../src/blog/resources.js";
+import { db } from "./db.js";
+
+export const hub = createInMemoryHub();
+
+export const live = createServer({
+  db,
+  resources,
+  hub,
+  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
+});
+```
+
+```ts [src/blog/resources.ts]
+import { postModel, userModel } from "./models.js";
+import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { posts, users } from "../db/schema.js";
+
+export const userResource = defineResource({ table: users, model: userModel });
+export const postResource = defineResource({ table: posts, model: postModel });
+
+export const resources = createResourceRegistry([userResource, postResource]);
+```
+
+```ts [src/blog/states.ts]
+import { array, defineState } from "rxfy";
+import { z } from "zod";
+import { postModel, userModel } from "./models.js";
+
+// Declared once, imported by both the client (useStateData) and the server (touch).
+export const postsState = defineState({
+  key: "posts",
+  params: z.object({}),
+  model: { posts: array(postModel), authors: array(userModel) },
+});
+```
+
+:::
+
+**Publish behaviour:**
+
+| Call | SQL | Publishes |
+|---|---|---|
+| `live.update(resource, id, patch)` | UPDATE … RETURNING | `patch` on the `"<name>:<id>"` entity topic, then `stale` on touched channels |
+| `live.create(resource, row, { touch })` | INSERT | `stale` on touched channels only (no patch) |
+| `live.delete(resource, id, { touch })` | DELETE | `stale` on touched channels only |
+| `live.touch(...targets)` | none | `stale` out of band |
+
+`create` and `delete` publish no entity patch — there is no row to push for a new entity, and the
+deleted row is gone. They publish `stale` on every touched channel so clients know to refetch.
+
+## touch
+
+`touch(stateDescriptor, params)` builds a `TouchTarget` for a specific state instance. Window
+dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key so
+all windows of the same partition share one invalidation channel — see
+[Grants & live hydration](/framework/server/grants) for how channels are derived.
+
+You can also call `live.touch(...targets)` directly without a write to invalidate channels out of
+band.

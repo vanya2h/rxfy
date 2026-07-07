@@ -3,7 +3,8 @@ import { z } from "zod";
 import { createModel } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
 import { StatusEnum } from "../wrapped/wrapped.js";
-import { dehydrate, hydrate, hydrationScript } from "./hydration.js";
+import { dehydrate, type DehydratedState, hydrate, hydrationScript } from "./hydration.js";
+import { serializeForHtml } from "./serialize.js";
 
 const todoModel = createModel({
   schema: z.object({ id: z.string(), title: z.string() }),
@@ -60,7 +61,7 @@ describe("hydrate", () => {
     const target = createModelRegistry();
     hydrate(target, dehydrate(source));
 
-    expect(target.queries.peek("todos:{}")).toEqual({ type: StatusEnum.FULFILLED, value: { todos: ["1"] } });
+    expect(target.queries.getQuery("todos:{}").get()).toEqual({ type: StatusEnum.FULFILLED, value: { todos: ["1"] } });
     // store not created yet — created on first model() call, seeded from stash
     expect(target.model(todoModel).getValue("1")).toEqual({ id: "1", title: "A" });
   });
@@ -71,7 +72,19 @@ describe("hydrate", () => {
       queries: { "posts:{}": { type: StatusEnum.FULFILLED, value: { posts: ["1"] } } },
       models: {},
     });
-    expect(registry.queries.peek("posts:{}")).toEqual({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
+    expect(registry.queries.getQuery("posts:{}").get()).toEqual({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
+  });
+});
+
+describe("DehydratedState grants round-trip", () => {
+  it("preserves grants through serializeForHtml → JSON.parse", () => {
+    const state: DehydratedState = {
+      queries: {},
+      models: {},
+      grants: { entities: { "post:1": "tok-a" }, channels: { "posts:orgId=A": "tok-c" } },
+    };
+    const parsed = JSON.parse(serializeForHtml(state).replace(/\\u003c/g, "<"));
+    expect(parsed.grants).toEqual(state.grants);
   });
 });
 

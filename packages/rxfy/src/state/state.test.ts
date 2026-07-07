@@ -60,6 +60,23 @@ describe("QueryShapeOf", () => {
   });
 });
 
+describe("defineState window", () => {
+  it("stores the window param names on the descriptor", () => {
+    const s = defineState({
+      key: "posts",
+      params: z.object({ orgId: z.string(), page: z.number() }),
+      window: ["page"],
+      model: { isOpen: z.boolean() },
+    });
+    expect(s.window).toEqual(["page"]);
+  });
+
+  it("defaults window to undefined", () => {
+    const s = defineState({ key: "posts", params: z.object({ orgId: z.string() }), model: { isOpen: z.boolean() } });
+    expect(s.window).toBeUndefined();
+  });
+});
+
 describe("plain value fields", () => {
   const post = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "p2-post" });
   const fields = {
