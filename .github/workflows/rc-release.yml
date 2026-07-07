@@ -101,5 +101,17 @@ jobs:
         run: |
           git fetch origin develop
           git checkout -f develop
-          git merge staging --no-edit -X theirs
+          if ! git merge staging --no-edit -X theirs; then
+            # `-X theirs` only resolves content conflicts. .changeset/pre.json
+            # hits a modify/delete conflict every RC cycle: pre-release state
+            # is staging-only, and develop keeps it deleted. Anything else
+            # conflicting is unexpected — abort so a human can sort it out.
+            git rm -f --ignore-unmatch .changeset/pre.json
+            if git ls-files -u | grep -q .; then
+              echo "::warning::staging -> develop sync has unresolved conflicts; merge manually."
+              git merge --abort
+              exit 1
+            fi
+            git commit --no-edit
+          fi
           git push origin develop
