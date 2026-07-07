@@ -9,7 +9,6 @@ export default defineConfig({
   changelog: Changelog.github({ repo: "vanya2h/rxfy" }),
   sidebar: [
     { text: "Introduction", link: "/" },
-    { text: "Why rxfy?", link: "/why" },
     { text: "Comparison", link: "/comparison" },
     { text: "Agent Skills", link: "/agent-skills" },
     { text: "Examples", link: "/examples" },
