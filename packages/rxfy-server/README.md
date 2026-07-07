@@ -18,4 +18,4 @@ npm install rxfy-server
 - `createTopicKeyer` — HMAC, time-windowed topic ids so clients cannot forge subscriptions.
 - `live.grant` — mint the subscription grants a client is allowed to use (typically at SSR time).
 
-See the [Framework docs](https://rxfy.vanya2h.me/framework) for the full walkthrough.
+See the [rxfy-server docs](https://rxfy.vanya2h.me/framework/server) for the full walkthrough.

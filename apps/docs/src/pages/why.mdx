@@ -26,8 +26,9 @@ The same model works for SSR. The server fills the slots and serializes them. Th
 
 ## The principles
 
-This is where rxfy's [three principles](/) come from — here is the thinking beneath each.
+This is where rxfy's [four principles](/) come from — here is the thinking beneath each.
 
 - **Every entity lives in one normalized store.** `createModel` declares the Zod schema and an id extractor; every entity lands in a single `ModelStore` slot, accessed granularly by its id. `store.set` is the only write path — you can't fork a copy — so an update reaches every subscriber automatically.
 - **Each page declares its own state over those stores.** `defineState` bundles the fetch params, model shape, and mutation logic into one declaration; its `data$` carries only ids, resolved against the shared stores. Components are the granular consumers — each subscribes to the entity it reads (an RxJS `Observable`) and re-runs only when that entity changes, nothing else.
+- **Values unwrap as late as possible.** Async state travels wrapped — `data$` from a state, `store.get(id)` from a store — and only the leaf that renders a value unwraps it, with `Pending`. A write skips unwrapping entirely: `store.set(id, entity)` works whether or not any query has settled. The narrower the unwrap, the narrower the re-render, and loading UI lives exactly where the data is used.
 - **States and stores are serializable.** The same declaration the client renders from, the server fills and serializes; the client restores the snapshot and skips what it already fetched. SSR is first-class, not bolted on.

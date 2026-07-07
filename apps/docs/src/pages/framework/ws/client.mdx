@@ -1,0 +1,52 @@
+# createWsClient [The browser transport with reconnect and replay]
+
+`createWsClient` opens a WebSocket to `url` and returns a `ClientTransport` that
+`createLiveClient` (from `rxfy-react`) consumes.
+
+```ts
+import { createWsClient } from "rxfy-ws/client";
+
+type WsClientOptions = {
+  url: string;
+  /** Defaults to the global `WebSocket`. Inject for Node or tests. */
+  WebSocketImpl?: (url: string) => WebSocketLike;
+  /** Delay before each reconnect attempt. Default: 1000 ms. */
+  reconnectDelayMs?: number;
+};
+
+function createWsClient(options: WsClientOptions): ClientTransport;
+```
+
+**Auto-reconnect and subscription replay.** The client keeps an internal set of
+active subscription ids. On `"close"` it schedules a reconnect after
+`reconnectDelayMs`; on `"open"` it immediately re-sends a subscribe frame for every
+id in that set. Subscriptions made before the socket is `OPEN` are buffered and sent
+once the connection is ready — no caller-side queuing needed.
+
+```tsx [src/entry-client.tsx]
+import { createModelRegistry } from "rxfy";
+import { createLiveClient, readSsrGrants, StoreProvider } from "rxfy-react";
+import { createWsClient } from "rxfy-ws/client";
+
+const registry = createModelRegistry();
+const liveClient = createLiveClient({
+  registry,
+  transport: createWsClient({
+    url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`,
+  }),
+  grants: readSsrGrants(),
+});
+
+hydrateRoot(
+  document.getElementById("root") as HTMLElement,
+  <StrictMode>
+    <StoreProvider registry={registry} ssr liveClient={liveClient}>
+      <App url={location.pathname} />
+    </StoreProvider>
+  </StrictMode>,
+);
+```
+
+The `ClientTransport` shape it returns — and how to substitute your own — is covered in
+[Custom transports](/framework/ws/custom-transport). For the consuming side, see
+[Live client](/react/live-client).

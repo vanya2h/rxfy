@@ -5,10 +5,11 @@
 
 **rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your UI: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization) as Observables, and scale from a client-only store to a fully live app with server-side rendering and real-time updates. It's built for consistency and granular reactivity at no extra cost.
 
-rxfy is built on three principles:
+rxfy is built on four principles:
 
 - Every entity lives in a normalized store, accessed granularly by its id; an update reaches every subscriber automatically.
 - Each page has its own state composed with the data from normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
+- Values unwrap late: data travels through the app still wrapped as Observables, only the leaf component that renders a value unwraps it, and a write to the store never unwraps anything.
 - States and stores are serializable: rxfy has first-class Server-Side Rendering (SSR) support.
 
 [Why rxfy?](https://rxfy.vanya2h.me/why) explains the thinking behind this design.
@@ -37,19 +38,19 @@ npm install rxfy
 ## Links
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started)
-- [Model](https://rxfy.vanya2h.me/core-concepts/model) — `createModel`, `array`, `single`
-- [State](https://rxfy.vanya2h.me/core-concepts/state) — `defineState`, plain value fields, mutations
-- [Atom](https://rxfy.vanya2h.me/core-concepts/atom) — `createAtom`
-- [Lens](https://rxfy.vanya2h.me/core-concepts/lens) — `createLens`, `keyLens`
+- [Model](https://rxfy.vanya2h.me/rxfy/create-model) — `createModel`, `array`, `single`
+- [State](https://rxfy.vanya2h.me/rxfy/define-state) — `defineState`, plain value fields, mutations
+- [Atom](https://rxfy.vanya2h.me/rxfy/create-atom) — `createAtom`
+- [Lens](https://rxfy.vanya2h.me/rxfy/create-lens) — `createLens`, `keyLens`
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
-- [Server-Side Rendering](https://rxfy.vanya2h.me/ssr) — `dehydrate`, `hydrate`, `hydrationScript`
+- [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — `dehydrate`, `hydrate`, `hydrationScript`
 - [rxfy-react](../rxfy-react/README.md) — React bindings
 
 ## Guides
 
 - [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live updates over WebSockets](https://rxfy.vanya2h.me/guides/live-updates-websockets)
+- [Live blog guide](https://rxfy.vanya2h.me/guides/live-blog)
 
 ## License
 

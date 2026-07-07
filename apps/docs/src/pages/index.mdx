@@ -2,10 +2,11 @@
 
 **rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your UI: declare typed models, states, and normalized stores as Observables, and scale from a client-only store to a fully live app with server-side rendering and real-time updates. It's built for consistency and granular reactivity at no extra cost.
 
-rxfy is built on three principles:
+rxfy is built on four principles:
 
 - Every entity lives in a normalized store, accessed granularly by its id; an update reaches every subscriber automatically.
 - Each page has its own state composed with the data from normalized stores; components are the granular consumers of that state — each updates only when the data it reads changes.
+- Values unwrap late: data travels through the app still wrapped as Observables, only the leaf component that renders a value unwraps it, and a write to the store never unwraps anything.
 - States and stores are serializable: rxfy has first-class Server-Side Rendering (SSR) support.
 
 ```bash
@@ -23,9 +24,9 @@ that diverge as soon as another query renders the same entity), or coordinate th
 (miss one invalidation and the first symptom is a stale UI in production). SSR compounds it —
 after server-rendering the page, rehydration wiring is usually left to you.
 
-rxfy stores each entity **once**, in a normalized cell keyed by its id. Page state holds only
-ids; components subscribe to the exact cells they render, so one write reaches every
-subscriber. States and stores serialize, which gives you server-side rendering out of the box.
+rxfy stores each entity **once**, in a normalized cell keyed by its id. The state holds only
+ids that components will use to reference the single source of truth that live in entity stores; components subscribe to the exact cells they render, so one write reaches every
+subscriber. States and stores are serialized, which gives you server-side rendering out of the box.
 With the framework on top, the write crosses the network too: the server persists it and
 publishes it to every connected client, where each store recalculates the places that entity
 is used.
@@ -44,105 +45,6 @@ sequenceDiagram
     S-->>B: publish updated entity
     Note over A: store recalculates every place<br/>this entity is used
     Note over B: store recalculates every place<br/>this entity is used
-```
-
-## See it in code
-
-::::steps
-
-### Model: one cell per entity
-
-A model binds a Zod schema to an id extractor, so every todo lives in exactly one store slot,
-found by `getKey`. This is what lets the same entity be shared instead of copied.
-
-```tsx
-import { z } from "zod";
-import { createModel } from "rxfy";
-
-const TodoModel = createModel({
-  schema: z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
-  getKey: (x) => x.id,
-  name: "todo",
-});
-```
-
-### State: the query keeps only ids
-
-`defineState` declares what a page loads and how a fetch result maps onto it. `array(TodoModel)`
-means "a list of todo ids" — rxfy normalizes the fetched entities into the store and leaves the
-query holding ids, so the list never owns a second copy of each todo.
-
-```tsx
-import { defineState, array } from "rxfy";
-
-const todosState = defineState({
-  key: "todos",
-  params: z.object({ filter: z.enum(["all", "active", "done"]) }),
-  model: {
-    todos: array(TodoModel),
-  },
-});
-```
-
-### Render the list from ids
-
-`useStateData` wires the state to your fetch function and returns a reactive `data$`. `Pending`
-handles loading and error states declaratively. Notice the list maps over **ids** and delegates
-each row — it never touches todo fields, so adding or editing a todo never re-renders the list.
-
-```tsx
-import { Pending, useStateData } from "rxfy-react";
-
-function TodoApp() {
-  const { data$ } = useStateData({
-    state: todosState,
-    fetchFn: fetchTodos,
-    params: { filter: "all" },
-  });
-
-  return (
-    <Pending value$={data$} pending={<p>Loading...</p>} rejected={({ error }) => <p>{String(error)}</p>}>
-      {({ todos }) => (
-        <ul>
-          {todos.map((id) => (
-            <TodoItem key={id} id={id} />
-          ))}
-        </ul>
-      )}
-    </Pending>
-  );
-}
-```
-
-### One write, every view agrees
-
-Each row subscribes to its own cell and writes straight to it. Toggling a todo updates that one
-cell — this row re-renders, and so would a detail panel or a header count reading the same id.
-No refetch, no manual sync. That is the problem from the top, solved.
-
-```tsx
-import { useMemo } from "react";
-import { useModelStore } from "rxfy-react";
-
-function TodoItem({ id }: { id: string }) {
-  const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
-
-  return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <input
-            type="checkbox"
-            checked={todo.done}
-            onChange={() => store.entity(id).modify((t) => ({ ...t, done: !t.done }))}
-          />
-          {todo.title}
-        </li>
-      )}
-    </Pending>
-  );
-}
 ```
 
 ::::

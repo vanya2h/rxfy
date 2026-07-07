@@ -1,73 +1,199 @@
-# Framework quickstart [Install the full stack for a live app]
+# Framework quickstart [The full stack for a live app]
 
-The framework path adds server-side rendering and real-time updates on top of the store:
-the server writes and publishes changes, the client subscribes and applies them. See
-[Framework (Real-time)](/framework) for the concepts.
+The framework path puts the same normalized store behind a persistent connection. The
+server owns writes: it applies changes in database, then publishes the new entity value automatically; every connected
+client writes that value into its shared store, and every component subscribed to that
+entity re-renders. Same store, same components — nothing in `useStateData` or
+`useModelStore` is live-aware — the write just arrives over the wire instead of from a
+local call.
 
-:::note[New to rxfy?]
-If you haven't used the core store yet, do the [Store quickstart](/getting-started/store)
-first — the framework builds directly on models, states, and `StoreProvider`.
+This page walks the whole loop: install, wire the server, write through it, and watch an
+edit land in another browser tab.
+
+:::note[Is this path for you?]
+The framework fits best when you're starting a new app, or when your backend already runs
+on Node with [Drizzle](https://orm.drizzle.team) — `rxfy-server` binds live resources
+directly to Drizzle tables. With a different backend stack, stay on the
+[Store quickstart](/getting-started/store) path and fetch your API your way; you can
+still add [SSR](/core-concepts/ssr) without the live stack.
 :::
 
 ## Install
 
-Install the core packages plus the live-update stack:
+Everything from the store path plus the live stack: `rxfy-server` (writes and
+publishing) and `rxfy-ws` (the WebSocket transport), with
+[Drizzle](https://orm.drizzle.team) and `ws` as their peers.
+The wire contract between them (see [Live messages](/framework/server/messages)) comes
+along as an internal dependency.
 
 :::code-group
 
 ```bash [npm]
 npm install rxfy rxfy-react rxfy-server rxfy-ws
-```
-
-```bash [pnpm]
-pnpm add rxfy rxfy-react rxfy-server rxfy-ws
-```
-
-```bash [yarn]
-yarn add rxfy rxfy-react rxfy-server rxfy-ws
-```
-
-```bash [bun]
-bun add rxfy rxfy-react rxfy-server rxfy-ws
-```
-
-:::
-
-Add the peer dependencies. Alongside the core `rxjs`, `zod`, and `lodash`, `rxfy-server`
-expects [Drizzle](https://orm.drizzle.team) (`drizzle-orm`, `drizzle-zod`), and `rxfy-ws`
-expects `ws` on the server:
-
-:::code-group
-
-```bash [npm]
 npm install rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [pnpm]
+pnpm add rxfy rxfy-react rxfy-server rxfy-ws
 pnpm add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [yarn]
+yarn add rxfy rxfy-react rxfy-server rxfy-ws
 yarn add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [bun]
+bun add rxfy rxfy-react rxfy-server rxfy-ws
 bun add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 :::
 
-## The shape of a live app
+## Bind tables to models
 
-Three pieces sit on top of your existing store:
+A resource pairs a Drizzle table with the rxfy model that governs it — the model's name
+becomes the live topic namespace, and its `getKey` locates the primary key. The registry
+gives the server one object to route events through:
 
-- **Resources + server** — bind Drizzle tables to models and write through `createServer`,
-  which publishes `patch` / `stale` messages. See [rxfy-server](/framework/server).
-- **Transport** — carry those messages to clients over WebSockets. See [rxfy-ws](/framework/ws).
-- **SSR grants** — mint the subscription tokens a client is allowed to use at render time.
-  See [Grants & live hydration](/framework/grants).
+```ts [src/resources.ts]
+import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { postModel } from "./models.js";
+import { posts } from "./db/schema.js";
 
-## Follow the tutorial
+export const postResource = defineResource({ table: posts, model: postModel });
+export const resources = createResourceRegistry([postResource]);
+```
 
-The [Live blog guide](/guides/live-blog) builds all three end to end, backed by the
-runnable [`vite-blog-framework`](/examples) example.
+## Stand up the live server
+
+`createServer` wires the database, the resources, a pub/sub hub, and a topic keyer into
+the `live` object your API routes will call:
+
+```ts [server/live.ts]
+import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { resources } from "../src/resources.js";
+import { db } from "./db.js";
+
+export const hub = createInMemoryHub();
+
+export const live = createServer({
+  db,
+  resources,
+  hub,
+  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
+});
+```
+
+- `createInMemoryHub` — the pub/sub backbone for one process; swap it for a distributed
+  adapter when you scale out.
+- `createTopicKeyer` — signs topics with an HMAC so clients can only subscribe to what
+  the server explicitly grants.
+
+## Serve the socket
+
+`createWsServer(hub)` speaks the subscription protocol; a plain `ws` socket satisfies its
+connection interface directly:
+
+```ts [server/ws.ts]
+import { WebSocketServer } from "ws";
+import { createWsServer } from "rxfy-ws";
+import { hub } from "./live.js";
+
+const wsServer = createWsServer(hub);
+// `httpServer` is the node:http server your app already listens on
+const wss = new WebSocketServer({ server: httpServer, path: "/live" });
+
+wss.on("connection", (socket) => wsServer.handleConnection(socket));
+```
+
+Framework servers that wrap the raw socket (Hono, Bun) need a thin adapter — see
+[rxfy-ws](/framework/ws) for the Hono bridge.
+
+## Write through the server
+
+All mutations go through `live.create`, `live.update`, and `live.delete`. Each runs the
+SQL write, then publishes:
+
+```ts [server/api.ts]
+import { touch } from "rxfy-server";
+import { live } from "./live.js";
+
+// edit — publishes a `patch`; every subscribed client applies it in place
+await live.update(postResource, postId, { title, body });
+
+// create / delete — publish `stale` on the state channels that list this entity
+await live.create(postResource, { id: newId(), title, body }, { touch: [touch(postsChannel, {})] });
+await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
+```
+
+## Go live on the client
+
+Give `StoreProvider` a live client built from the WebSocket transport and the grants the
+server embedded during SSR. Your components stay exactly as they were on the store path:
+
+```tsx [src/entry-client.tsx]
+import { createModelRegistry } from "rxfy";
+import { createLiveClient, readSsrGrants, StoreProvider } from "rxfy-react";
+import { createWsClient } from "rxfy-ws/client";
+
+const registry = createModelRegistry();
+const liveClient = createLiveClient({
+  registry,
+  transport: createWsClient({ url: `ws://${location.host}/live` }),
+  grants: readSsrGrants(),
+});
+
+hydrateRoot(
+  document.getElementById("root")!,
+  <StoreProvider registry={registry} ssr liveClient={liveClient}>
+    <App />
+  </StoreProvider>,
+);
+```
+
+`grants` is the allow-list of topics this client may subscribe to. The server mints it
+during SSR from what the render actually fetched (`live.grant`) and embeds it next to the
+dehydrated state; API routes return fresh grants the same way. See
+[Grants & live hydration](/framework/server/grants).
+
+## Open two tabs
+
+Edit a post in tab A. Tab B updates in place — no spinner, no reload, no code in the
+component asking for it.
+
+What happened, in order:
+
+1. `live.update` ran the update to database and got the new row.
+2. It published a `patch` message on the entity's topic (`post:42`), keyed through the
+   HMAC keyer, into the hub.
+3. The hub forwarded it to every connection subscribed to that topic — the clients that
+   fetched and were granted that entity.
+4. Each client wrote the entity into its shared `ModelStore` — the same write as
+   `store.set` on the store path.
+5. Every component subscribed to that id re-rendered. The query's id list was untouched,
+   and nothing is re-fetched and nothing is re-rendered except the updated entity.
+
+Edits travel as `patch`; creates and deletes instead mark the lists that reference the
+entity as `stale`, surfacing a "click to refresh" badge. The two message kinds — and why
+lists aren't updated in place — are covered in [Live messages](/framework/server/messages).
+
+## Next steps
+
+Go deeper on the concepts and each piece of the loop:
+
+- [Live messages](/framework/server/messages): `patch` vs `stale`, and what travels on the wire.
+- [rxfy-server](/framework/server): `defineResource`, `createServer`, writes, the keyer, and `live.grant` in full.
+- [rxfy-ws](/framework/ws): the WebSocket transport on both sides, and bringing your own.
+- [Grants & live hydration](/framework/server/grants): how the subscription allow-list is minted and read.
+- [Live client](/react/live-client): `createLiveClient`, reconnection, and stale handling in React.
+
+Then build the whole thing end to end: the [Live blog guide](/guides/live-blog) walks
+through the runnable [`vite-blog-framework`](/examples) example — schema, server, sockets,
+SSR grants, and both live behaviors in two tabs.
+
+:::tip
+Not ready for a server? Everything above sits on the store concepts — the
+[Store quickstart](/getting-started/store) covers them in one file, and
+[Server-Side Rendering](/core-concepts/ssr) adds SSR without the live stack.
+:::

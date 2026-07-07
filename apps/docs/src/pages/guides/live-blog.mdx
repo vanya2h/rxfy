@@ -227,7 +227,7 @@ export function render(url: string): Promise<{ html: string; state: string }> {
 `live.grant` inspects the registry to see which entity ids were actually rendered and which state
 channels were queried, then returns signed tokens for those subscriptions only. The result is merged
 into the existing `dehydrate(registry)` snapshot and serialized to a `<script>` block by
-`hydrationScript`. See [Grants and live hydration](/framework/grants) for the full grant API.
+`hydrationScript`. See [Grants and live hydration](/framework/server/grants) for the full grant API.
 
 The API routes do the same thing per-request, for clients that fetch data client-side after the
 initial SSR:
@@ -319,6 +319,6 @@ database setup is required.
 
 - [rxfy-server](/framework/server) — full API for `createServer`, `defineResource`, `createInMemoryHub`.
 - [rxfy-ws](/framework/ws) — WebSocket transport reference.
-- [Grants and live hydration](/framework/grants) — how grant tokens work and how to scope them.
+- [Grants and live hydration](/framework/server/grants) — how grant tokens work and how to scope them.
 - [Live client](/react/live-client) — `createLiveClient`, `readSsrGrants`, and stale handling in React.
-- [Server-Side Rendering](/ssr) — `dehydrate`, `hydrate`, and `hydrationScript` for non-live SSR.
+- [Server-Side Rendering](/core-concepts/ssr) — `dehydrate`, `hydrate`, and `hydrationScript` for non-live SSR.

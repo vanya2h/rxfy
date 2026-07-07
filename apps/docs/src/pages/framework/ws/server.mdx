@@ -1,0 +1,56 @@
+# createWsServer [Attach a Hub to WebSocket connections]
+
+`createWsServer(hub)` attaches a `Hub` to WebSocket connections. Call it once at
+startup; call `handleConnection` for every new socket.
+
+```ts
+import { createWsServer } from "rxfy-ws";
+
+type ServerSocket = {
+  send: (data: string) => void;
+  on: (event: string, listener: (...args: unknown[]) => void) => void;
+};
+
+function createWsServer(hub: Hub): { handleConnection: (socket: ServerSocket) => void };
+```
+
+`ServerSocket` is a structural type — the `ws` package's `WebSocket` satisfies it
+directly. Frameworks that wrap the underlying socket (Hono, Bun, etc.) need a thin
+adapter.
+
+## Adapter pattern (Hono)
+
+The Hono bridge from `examples/vite-blog-framework` shows the pattern: create an
+`EventEmitter` to act as the event bus, pass a `ServerSocket` literal to
+`handleConnection` on open, and relay `onMessage` / `onClose` events through the emitter.
+
+```ts [server/ws.ts]
+import { EventEmitter } from "node:events";
+import type { UpgradeWebSocket } from "hono/ws";
+import { createWsServer } from "rxfy-ws";
+import { hub } from "./live.js";
+
+const wsServer = createWsServer(hub);
+
+export function liveRoute(upgradeWebSocket: UpgradeWebSocket) {
+  return upgradeWebSocket(() => {
+    const emitter = new EventEmitter();
+    return {
+      onOpen(_evt: Event, ws: { send: (data: string) => void }) {
+        wsServer.handleConnection({
+          send: (data: string) => ws.send(data),
+          on: (event, cb) => emitter.on(event, cb),
+        });
+      },
+      onMessage(evt: MessageEvent) {
+        emitter.emit("message", evt.data);
+      },
+      onClose() {
+        emitter.emit("close");
+      },
+    };
+  });
+}
+```
+
+The hub side of this wiring is covered in [createInMemoryHub](/framework/server/hub).

@@ -73,7 +73,7 @@ createRoot(document.getElementById("root")!).render(
 
 ### Define a model
 
-A [model](/core-concepts/model#createmodel) is an entity type plus how to read its id. Each todo
+A [model](/rxfy/create-model) is an entity type plus how to read its id. Each todo
 gets stored once under that id, so every component renders the same copy.
 
 ```ts [todos.ts]
@@ -91,7 +91,7 @@ export type Todo = z.infer<typeof TodoModel.schema>;
 
 ### Define a state and a fake fetch
 
-A [state](/core-concepts/state#definestate) declares the params it takes, the model fields it
+A [state](/rxfy/define-state) declares the params it takes, the model fields it
 returns, and the mutations that change it. Add three mutations now: add a todo, toggle
 `done`, and save an edited todo (Step 6 uses the last one):
 
@@ -176,9 +176,10 @@ Two things are wired here already: `mutations.addTodo` appends a todo and the li
 re-renders with its new id, and `mutations.toggleTodo` flips `done` on one todo. Both
 update the store in place, no re-fetch. (`updateTodo` gets wired in Step 6.)
 
-:::warning
-`params` is wrapped in `useMemo` so its identity is stable; a fresh object every render
-would restart the fetch.
+:::note
+`useStateData` compares `params` by value, so the fetch restarts when `filter` changes,
+not when the object identity does. The `useMemo` is a habit worth keeping anyway:
+[`useStatePagedData`](/react/use-state-paged-data) does key its list off params identity.
 :::
 
 ### Render one todo
@@ -218,8 +219,8 @@ Last step: edit a todo through a form that keeps its changes local until you sub
 wants a draft the user can type into (and discard) without touching the rest of the app;
 you persist it only on **Save**.
 
-Hold that draft in a local [`Atom`](/core-concepts/atom) seeded from the todo, focus the
-field you're editing with a [`Lens`](/core-concepts/lens), and bind it with
+Hold that draft in a local [`Atom`](/rxfy/create-atom) seeded from the todo, focus the
+field you're editing with a [`Lens`](/rxfy/create-lens), and bind it with
 [`useAtom`](/react/use-atom). The form never reads or writes the store;
 on submit it hands the edited todo to an `onSave` callback, and the parent does the write.
 
@@ -305,6 +306,6 @@ where you'd `await` a `PATCH` before (or after) updating the store.
 ## Where to go next
 
 - [Normalization](/core-concepts/normalization): why `data$` emits ids, and what it buys you.
-- [Model](/core-concepts/model), [State](/core-concepts/state), and [React Bindings](/react): the full API.
-- [Atom](/core-concepts/atom) and [Lens](/core-concepts/lens): the draft-and-save form here, in depth.
+- [Model](/rxfy/create-model), [State](/rxfy/define-state), and [React Bindings](/react): the full API.
+- [Atom](/rxfy/create-atom) and [Lens](/rxfy/create-lens): the draft-and-save form here, in depth.
 - [Live blog](/guides/live-blog) and [Pagination](/guides/pagination): common next tasks.

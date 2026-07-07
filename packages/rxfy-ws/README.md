@@ -14,4 +14,4 @@ npm install rxfy-ws
 - `createWsServer(hub)` — returns `{ handleConnection(socket) }`; wire it to your WS server's connection handler.
 - `createWsClient({ url })` — returns a transport with `subscribe` / `unsubscribe` / `onMessage` / `close`, auto-reconnecting and re-subscribing.
 
-Works with the Node `ws` package or the browser `WebSocket`. See the [Framework docs](https://rxfy.vanya2h.me/framework/ws).
+Works with the Node `ws` package or the browser `WebSocket`. See the [rxfy-ws docs](https://rxfy.vanya2h.me/framework/ws).

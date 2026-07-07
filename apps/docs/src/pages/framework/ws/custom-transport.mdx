@@ -1,0 +1,33 @@
+# Custom transports [Bring your own ClientTransport]
+
+`ClientTransport` is a plain interface. [`createWsClient`](/framework/ws/client) is the
+default implementation, but anything that satisfies the four-method shape works — a
+mock for tests, a custom reconnection policy, or a non-WebSocket channel.
+
+```ts
+type ClientTransport = {
+  subscribe: (ids: string[]) => void;
+  unsubscribe: (ids: string[]) => void;
+  /** Single-slot inbound handler — a later call replaces the previous one. */
+  onMessage: (handler: (message: ServerMessage) => void) => void;
+  close: () => void;
+};
+```
+
+Note that `onMessage` is single-slot: a later call replaces the previous handler.
+
+If you inject a custom socket into `createWsClient` instead of replacing the whole
+transport, it must satisfy `WebSocketLike`:
+
+```ts
+type WebSocketLike = {
+  readyState: number;
+  send: (data: string) => void;
+  close: () => void;
+  addEventListener: (type: string, listener: (event: unknown) => void) => void;
+  removeEventListener?: (type: string, listener: (event: unknown) => void) => void;
+};
+```
+
+The messages a custom transport must produce and consume are described in
+[Live messages](/framework/server/messages).

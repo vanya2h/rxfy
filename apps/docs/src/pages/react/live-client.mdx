@@ -32,7 +32,7 @@ than waiting for the first round-trip (see [readSsrGrants](#readssrgrants) below
 - Exposes `channel(name)` — returns a `ChannelCounter` (`{ available$: Observable<number>,
   reset: () => void }`) that `useStateData` calls internally for each keyed state.
 - Exposes `addGrants(grants)` for adding subscription ids received after boot (used by
-  the [Framework](/framework) layer).
+  the live-update layer).
 - Exposes `stop()` to unsubscribe all RxJS subscriptions and complete all counters.
 
 ## `StoreProvider` `liveClient` prop
@@ -128,4 +128,4 @@ const liveClient = createLiveClient({
 
 This ensures the client subscribes to entity topics and state channels immediately on
 boot, without a server round-trip. For how the server injects grants into the hydration
-script, see [Grants & live hydration](/framework/grants).
+script, see [Grants & live hydration](/framework/server/grants).

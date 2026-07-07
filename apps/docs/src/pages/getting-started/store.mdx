@@ -1,91 +1,54 @@
 # Store quickstart [Normalized reactive state in a client-only app]
 
 The store path is rxfy with no server: typed models, normalized entities, and reactive
-subscriptions in a plain React app. Choose this path if you want to introduce data flow with normalized stores in your existing React app.
+subscriptions in a plain React app. The idea in one paragraph: rxfy stores each entity
+**once**, in a shared store keyed by its id. A query holds only ids and resolves entities
+from the store, so when you write an entity — from a refetch, a mutation, or a websocket
+push — every component showing it updates, and nothing else re-renders.
+
+This page takes you from install to that behavior on screen, in one file.
 
 ## Install
 
-Install the two rxfy packages:
+Install the two rxfy packages plus the `rxjs`/`zod`/`lodash` peers:
 
 :::code-group
 
 ```bash [npm]
 npm install rxfy rxfy-react
-```
-
-```bash [pnpm]
-pnpm add rxfy rxfy-react
-```
-
-```bash [yarn]
-yarn add rxfy rxfy-react
-```
-
-```bash [bun]
-bun add rxfy rxfy-react
-```
-
-:::
-
-:::warning[Peer dependencies]
-rxfy declares `rxjs`, `zod`, and `lodash` as **peer dependencies**: it expects your app to
-provide them rather than bundling its own copies, so the whole app shares one instance of
-each (one RxJS, one Zod). npm does not install peer dependencies automatically, so add them
-yourself:
-:::
-
-:::code-group
-
-```bash [npm]
 npm install rxjs zod lodash
 ```
 
 ```bash [pnpm]
+pnpm add rxfy rxfy-react
 pnpm add rxjs zod lodash
 ```
 
 ```bash [yarn]
+yarn add rxfy rxfy-react
 yarn add rxjs zod lodash
 ```
 
 ```bash [bun]
+bun add rxfy rxfy-react
 bun add rxjs zod lodash
 ```
 
 :::
 
-Version ranges: `rxjs ^7`, `zod ^4`, `lodash ^4`. `rxfy-react` additionally needs
-`react`/`react-dom` 18+ (which your React app already has), plus `next >=14` if you use the
-`rxfy-react/next` subpath. In a TypeScript project, also add `@types/react` as a dev dependency:
-
-:::code-group
-
-```bash [npm]
-npm install --save-dev @types/react
-```
-
-```bash [pnpm]
-pnpm add -D @types/react
-```
-
-```bash [yarn]
-yarn add -D @types/react
-```
-
-```bash [bun]
-bun add -d @types/react
-```
-
-:::
+rxfy declares `rxjs ^7`, `zod ^4`, and `lodash ^4` as **peer dependencies** so your whole
+app shares one copy of each; npm does not install them for you, hence the second line.
+`rxfy-react` also needs `react`/`react-dom` 18+, which your React app already has.
 
 ## Wrap your app
 
 `StoreProvider` creates the model registry that `useStateData` and `useModelStore`
-write to and read from.
+write to and read from. Wrap your root once:
 
-```tsx
+```tsx [main.tsx]
 import { StoreProvider } from "rxfy-react";
 import { createRoot } from "react-dom/client";
+import { App } from "./App";
 
 createRoot(document.getElementById("root")!).render(
   <StoreProvider>
@@ -94,22 +57,114 @@ createRoot(document.getElementById("root")!).render(
 );
 ```
 
-A plain client-only app passes no props to `StoreProvider`. The SSR props
-(`ssr`, `registry`, `dehydratedState`) are covered in
-[Server-Side Rendering](/ssr).
+A client-only app passes no props. The SSR props (`ssr`, `registry`, `dehydratedState`)
+are covered in [Server-Side Rendering](/core-concepts/ssr).
+
+## Fetch, render, update
+
+One file: a model, a state, a fetch, and two components.
+
+```tsx [App.tsx]
+import { useMemo } from "react";
+import { z } from "zod";
+import { array, createModel, defineState } from "rxfy";
+import { Pending, useModelStore, useStateData } from "rxfy-react";
+
+// A model: an entity type plus how to read its id.
+const UserModel = createModel({
+  schema: z.object({ id: z.string(), name: z.string() }),
+  getKey: (user) => user.id,
+  name: "user",
+});
+
+// A state: what one query fetches — here, a list of users.
+const usersState = defineState({
+  key: "users",
+  params: z.object({}),
+  model: { users: array(UserModel) },
+});
+
+// Stands in for a real API call; the signature stays the same when you swap it.
+async function fetchUsers() {
+  return {
+    users: [
+      { id: "1", name: "Ada Lovelace" },
+      { id: "2", name: "Grace Hopper" },
+    ],
+  };
+}
+
+// Each row subscribes to its own entity by id and re-renders only when that entity changes.
+function UserRow({ id }: { id: string }) {
+  const store = useModelStore(UserModel);
+  const user$ = useMemo(() => store.get(id), [store, id]);
+  return <Pending value$={user$}>{(user) => <li>{user.name}</li>}</Pending>;
+}
+
+export function App() {
+  const { data$ } = useStateData({ state: usersState, fetchFn: fetchUsers, params: {} });
+  const store = useModelStore(UserModel);
+
+  return (
+    <>
+      <Pending value$={data$} pending={<p>Loading…</p>}>
+        {({ users }) => (
+          <ul>
+            {users.map((id) => (
+              <UserRow key={id} id={id} />
+            ))}
+          </ul>
+        )}
+      </Pending>
+      <button onClick={() => store.set("1", { id: "1", name: "Ada King" })}>Rename Ada</button>
+    </>
+  );
+}
+```
+
+Run it. You see two names; click **Rename Ada** and the first row changes.
+
+What happened, in order:
+
+1. `useStateData` ran `fetchUsers` and **normalizes** the result: each user was written
+   into the shared `UserModel` store under its id, and `data$` emitted the query shape —
+   `{ users: ["1", "2"] }`. It holds ids, not user objects so you can then reference this entity right from the store by its id.
+2. Each `UserRow` resolved its own entity with `store.get(id)`, an observable of that one
+   user. `Pending` rendered a fallback until it settled.
+3. The button called `store.set` with a new entity for id `"1"`. The row subscribed to
+   that id re-rendered; the list and the other row did not, and nothing re-fetched.
+
+Step 3 is the point of the library. A refetch, a mutation, and a websocket message all
+land the same way — one write to the store, and every view of that entity updates with no extra (declarative) friction.
+
+Notice what unwraps where. The button sits **outside** `Pending`: a write needs no
+unwrapped data, so it never waits on the query. `App` unwraps only the id list; each
+`UserRow` unwraps its one entity. rxfy keeps values wrapped until the leaf that renders
+them — unwrap late, and both loading UI and re-renders stay exactly where the data is
+used.
+
+:::tip
+`params` compares by value, so passing a fresh `{}` each render is fine. What you fetch is
+declared by the state's `params` schema; give it real fields and `useStateData` re-fetches
+whenever their values change.
+:::
 
 ## Next steps
 
-Start with the [Tutorial: Build a Todo app](/guides/todo-app) — the
-[`vite-todo`](/examples) example — and watch the core pieces fit together.
+Go deeper on the concepts and API you just used:
 
-That's it — you have normalized reactive state. Need it on a server or live?
+- [Normalization](/core-concepts/normalization): why `data$` emits ids, and what it buys you.
+- [Model](/rxfy/create-model) and [State](/rxfy/define-state): `createModel` and `defineState` in full.
+- [React Bindings](/react): `useStateData`, `useModelStore`, `Pending`, and the rest of the hooks.
+- [Atom](/rxfy/create-atom) and [Lens](/rxfy/create-lens): the reactive primitives underneath.
 
-- Add server rendering → [Server-Side Rendering](/ssr)
-- Go full real-time → [Framework quickstart](/getting-started/framework)
+Then build something bigger: the [Tutorial: Build a Todo app](/guides/todo-app) adds
+mutations, forms with `Atom` and `Lens`, and a multi-component app on this same store.
 
-## See also
-
-- [Model](/core-concepts/model) and [State](/core-concepts/state): the high-level API for normalized data.
-- [React Bindings](/react): hooks and rendering helpers.
-- [Core Concepts](/core-concepts/atom): the reactive primitives underneath.
+:::tip
+Starting a new real-time app instead? That's the other path from
+[Getting Started](/getting-started): the [Framework quickstart](/getting-started/framework)
+builds on these same store concepts and adds full-stack framework with server-side rendering and live updates — the
+server writes and publishes changes, the client subscribes and applies them. To add SSR
+alone to the store path, see [Server-Side Rendering](/core-concepts/ssr).
+:::

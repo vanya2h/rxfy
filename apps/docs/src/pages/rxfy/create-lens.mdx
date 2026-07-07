@@ -1,7 +1,7 @@
-# Lens [A two-way view into part of an Atom]
+# createLens [A two-way view into part of an Atom]
 
-A focused, two-way view into an `Atom`: read a slice out, then write it back. Change
-detection uses `lodash.isEqual`.
+`createLens` makes a **Lens**: a focused, two-way view into an `Atom` — read a slice out,
+then write it back. Change detection uses `lodash.isEqual`.
 
 ## Why?
 
@@ -39,7 +39,7 @@ function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>;
 
 The signatures name two different shapes. `ILens<S, T>` is the **optic** you pass in, a pure
 view/edit pair that `keyLens` builds for you. `Lens<S, T>` is what `createLens` returns: a
-reactive cell implementing [`IAtom<T>`](/core-concepts/atom), so it drops in anywhere an `Atom`
+reactive cell implementing [`IAtom<T>`](/rxfy/create-atom), so it drops in anywhere an `Atom`
 is expected.
 
 ```ts
@@ -53,6 +53,6 @@ type Lens<S, T> = IAtom<T>; // get(): T; set(val: T): void; modify(fn: (val: T) 
 ```
 
 To bind a form input to one field of a stored entity, compose a `keyLens` over a
-[`ModelStore.entity(id)`](/core-concepts/model#modelstore-entity) handle and drive it with
+[`ModelStore.entity(id)`](/rxfy/create-model#modelstore-entity) handle and drive it with
 [`useAtom`](/react/use-atom). Edits flow back into the model store and reach every subscriber
 of that entity.
