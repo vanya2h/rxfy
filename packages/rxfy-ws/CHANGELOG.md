@@ -1,5 +1,12 @@
 # rxfy-ws
 
+## 2.0.0-rc.2
+
+### Patch Changes
+
+- rxfy-server@2.0.0-rc.2
+- rxfy-protocol@2.0.0-rc.2
+
 ## 2.0.0-rc.0
 
 ### Minor Changes
