@@ -5,6 +5,8 @@ For the API surface of each primitive, see the [rxfy](/rxfy) package section.
 
 - [Normalization](/core-concepts/normalization) — the principle behind rxfy: one keyed cell per
   entity, referenced by id everywhere else. Read this first.
+- [Late Unwrapping](/core-concepts/late-unwrapping) — why async state travels wrapped and unwraps
+  only at the leaf that renders it, so re-renders stay narrow and writes never wait on reads.
 - [Server-Side Rendering](/core-concepts/ssr) — how a per-request registry is dehydrated into
   the HTML and rehydrated on the client, in buffered, streaming, and two-pass modes.
 

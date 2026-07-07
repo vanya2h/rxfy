@@ -3,6 +3,11 @@
 `createServer` wires together the database, resource registry, hub, and keyer into a `Live` object
 with typed write methods and a grant helper.
 
+`resources` is the registry from [`defineResource`](/framework/server/define-resource) and `db` is
+any Drizzle instance — the tabs below show both:
+
+:::code-group
+
 ```ts [server/live.ts]
 import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
@@ -18,11 +23,36 @@ export const live = createServer({
 });
 ```
 
+```ts [src/blog/resources.ts]
+import { postModel, userModel } from "./models.js";
+import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { posts, users } from "../db/schema.js";
+
+export const userResource = defineResource({ table: users, model: userModel });
+export const postResource = defineResource({ table: posts, model: postModel });
+
+export const resources = createResourceRegistry([userResource, postResource]);
+```
+
+```ts [server/db.ts]
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { posts, users } from "../src/db/schema.js";
+
+// Any Drizzle database works — this example uses in-memory PGlite.
+export const db = drizzle(new PGlite());
+
+// Re-exported so server routes can import tables and `db` from one place.
+export { posts, users };
+```
+
+:::
+
 The returned `Live` object exposes:
 
 - [`live.create` / `live.update` / `live.delete` / `live.touch`](/framework/server/writes) —
   typed writes that publish live messages.
-- [`live.grant`](/framework/server/grant) — mint the client's subscription allow-list.
+- [`live.grant`](/framework/server/grants) — mint the client's subscription allow-list.
 - `live.db` — the raw Drizzle database instance if you need it outside of writes.
 
 Its collaborators each have their own article: the resource registry comes from

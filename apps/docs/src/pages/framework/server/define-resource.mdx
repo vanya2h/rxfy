@@ -4,8 +4,13 @@
 pre-made model (the common case when sharing models between server and client) or let the package
 derive one automatically via `drizzle-zod`.
 
+A resource pairs a `model` (from [`createModel`](/rxfy/create-model)) with a Drizzle `table` (a
+`pgTable`). The tabs below show both sides:
+
+:::code-group
+
 ```ts [src/blog/resources.ts]
-import { commentModel, postModel, userModel } from "examples-shared/data";
+import { commentModel, postModel, userModel } from "./models.js";
 import { createResourceRegistry, defineResource } from "rxfy-server/browser";
 import { comments, posts, users } from "../db/schema.js";
 
@@ -15,6 +20,53 @@ export const commentResource = defineResource({ table: comments, model: commentM
 
 export const resources = createResourceRegistry([userResource, postResource, commentResource]);
 ```
+
+```ts [src/blog/models.ts]
+import { createModel } from "rxfy";
+import { z } from "zod";
+
+// Branded ids keep post/user/comment ids from being mixed up — and are why the
+// writers need a raw-row cast (see Writes).
+const UserIdSchema = z.string().brand("UserId");
+const PostIdSchema = z.string().brand("PostId");
+const CommentIdSchema = z.string().brand("CommentId");
+
+const UserSchema = z.object({ id: UserIdSchema, name: z.string(), email: z.string() });
+const PostSchema = z.object({ id: PostIdSchema, userId: UserIdSchema, title: z.string(), body: z.string() });
+const CommentSchema = z.object({ id: CommentIdSchema, postId: PostIdSchema, name: z.string(), body: z.string() });
+
+export const userModel = createModel({ schema: UserSchema, getKey: (x) => x.id, name: "user" });
+export const postModel = createModel({ schema: PostSchema, getKey: (x) => x.id, name: "post" });
+export const commentModel = createModel({ schema: CommentSchema, getKey: (x) => x.id, name: "comment" });
+```
+
+```ts [src/db/schema.ts]
+import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+});
+
+export const posts = pgTable("posts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const comments = pgTable("comments", {
+  id: text("id").primaryKey(),
+  postId: text("post_id").notNull(),
+  name: text("name").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+```
+
+:::
 
 **Name resolution** — `name` defaults to `model.name` when a model is supplied, then falls back to
 the SQL table name. It becomes the topic namespace used for live routing (`"posts:uuid-..."`) and

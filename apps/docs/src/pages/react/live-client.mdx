@@ -87,7 +87,7 @@ client is present it stays `0`.
 `applyUpdates()` resets the counter to `0` and calls `reload()` — triggering a fresh
 fetch and updating `data$` in place.
 
-**Blog example** (`example-shared`): `PostList` renders an `UpdatesBadge` that subscribes
+**Blog example**: `PostList` renders an `UpdatesBadge` that subscribes
 to `updatesAvailable$` with `useObservable` and shows a "N new posts · refresh" button
 when the count is above zero. Clicking it calls `applyUpdates`:
 

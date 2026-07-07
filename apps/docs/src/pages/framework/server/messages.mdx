@@ -26,7 +26,7 @@ All messages carry a `v` field (protocol version) and a `kind` discriminant.
 | `UnsubscribeMessage` | `"unsubscribe"` | `v`, `kind`, `ids` | Cancel subscriptions for the given ids (`string[]`). |
 
 The `ids` on the wire are the opaque grant values (HMAC topic ids from
-[`live.grant`](/framework/server/grant)), never raw `"name:id"` topics.
+[`live.grant`](/framework/server/grants)), never raw `"name:id"` topics.
 
 ## Wire encoding
 
@@ -41,8 +41,9 @@ Every message embeds the current protocol version as `v`, and parsers require an
 there is no negotiation or backward compatibility layer. A version bump means a coordinated
 upgrade of the server and all clients before traffic resumes.
 
-:::info[Internal package]
-The message types and codec live in `rxfy-protocol`, an internal workspace dependency of
-`rxfy-server`, `rxfy-ws`, and `rxfy-react`. It is not published as a public package yet, so
-don't import from it directly — it installs automatically with the packages above.
+:::info[The `rxfy-protocol` package]
+The message types and codec live in [`rxfy-protocol`](https://www.npmjs.com/package/rxfy-protocol),
+a dependency of `rxfy-server`, `rxfy-ws`, and `rxfy-react` that installs automatically with them.
+You rarely import it directly — its main direct use is building a
+[custom transport](/framework/ws/custom-transport) or a non-JS client against the wire contract.
 :::
