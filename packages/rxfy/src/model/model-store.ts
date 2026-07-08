@@ -3,6 +3,7 @@ import { Atom, createAtom, type IAtom } from "../atom/atom.js";
 import { createLens } from "../lens/lens.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { markSync } from "../ssr/sync-marker.js";
+import { type ChannelLog, createChannelLog } from "../state/channel-log.js";
 import type { EntityKey, ModelDescriptor } from "./model.js";
 
 export type ModelStore<T> = {
@@ -30,6 +31,8 @@ export type IModelRegistry = {
   model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
   /** SSR query cache — fulfilled/rejected entries keyed by state key + params. */
   queries: QueryCache;
+  /** State channels materialized this request — read by live-session registration during SSR. */
+  channels: ChannelLog;
   namedStores: () => ReadonlyMap<string, ModelStore<any>>;
   stores: () => { descriptor: ModelDescriptor<any>; store: ModelStore<any> }[];
   /** Queue entities for a named model; seeds the store now if it exists, or on first creation otherwise. */
@@ -38,7 +41,8 @@ export type IModelRegistry = {
    * Every entity added to any *named* store, tagged with that store's `name` (the half of a
    * `name:key` topic). Unnamed stores are skipped — there's no name to address them by. Replays
    * what's already in the registry to new subscribers, and follows stores created after subscribe.
-   * A live-update client can drive its subscriptions straight off this instead of per-query wiring.
+   * Useful for driving side effects off entity arrivals; live updates no longer subscribe
+   * per-entity (the server tracks served sessions).
    */
   added$: Observable<{ name: string; key: string }>;
 };
@@ -109,11 +113,13 @@ export function createModelRegistry(): IModelRegistry {
   const named = new Map<string, ModelStore<any>>();
   const stash = new Map<string, Record<string, unknown>>();
   const queries = createQueryCache();
+  const channels = createChannelLog();
   // Fires once per named store as it's created, so added$ subscribers can hook stores born later.
   const namedCreated = new Subject<{ name: string; store: ModelStore<any> }>();
 
   return {
     queries,
+    channels,
     model: <T>(descriptor: ModelDescriptor<T>): ModelStore<T> => {
       if (!stores.has(descriptor._key)) {
         const store = createModelStore(descriptor);
