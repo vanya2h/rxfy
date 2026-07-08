@@ -18,6 +18,40 @@ directly to Drizzle tables. With a different backend stack, stay on the
 still add [SSR](/core-concepts/ssr) without the live stack.
 :::
 
+## Scaffold a new app
+
+The fastest start is the official scaffolder. It creates a standalone, fully server-rendered
+live app — Vite SSR, React Router, a Hono server, Drizzle on embedded Postgres
+([PGlite](https://pglite.dev)), and real-time todos wired end to end:
+
+:::code-group
+
+```bash [npm]
+npm create rxfy-app@latest my-app
+```
+
+```bash [pnpm]
+pnpm create rxfy-app my-app
+```
+
+```bash [yarn]
+yarn create rxfy-app my-app
+```
+
+:::
+
+Then:
+
+```bash
+cd my-app
+pnpm install
+pnpm dev
+```
+
+Open http://localhost:3000 in two tabs and toggle a todo — the other tab updates instantly.
+Everything below explains what the scaffold wired up; read on to understand it or to add
+the framework to an existing app by hand.
+
 ## Install
 
 Everything from the store path plus the live stack: `rxfy-server` (writes and
