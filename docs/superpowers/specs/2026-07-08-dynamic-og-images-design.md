@@ -42,7 +42,10 @@ Route: `GET /og` (Waku strips the `_api` prefix).
 ### 2. Card design
 
 - Dark background matching the docs dark theme.
-- White rxfy lockup (`public/rxfy-lockup-white.svg`) embedded as a data URI `<img>`.
+- White rxfy mark (`public/rxfy-mark-white.svg`) embedded as a data URI `<img>`, with
+  the "rxfy" wordmark rendered as satori text beside it. (The lockup SVG draws its
+  wordmark with an SVG `<text>` element in Space Grotesk, which resvg cannot
+  rasterize without that font — the mark is pure strokes and safe.)
 - Page title, large, semibold; description below in a muted tone.
 - `rxfy.vanya2h.me` as a footer line.
 - Fonts: Inter Regular + SemiBold TTFs vendored under `apps/docs/public/fonts/`,
