@@ -1,0 +1,4 @@
+{
+  "display": "Vite + Hono (live SSR app)",
+  "description": "Full live stack: Vite SSR, React Router, Hono, Drizzle + PGlite, real-time updates over WebSocket"
+}
