@@ -24,6 +24,8 @@ function fixtureTemplatesRoot(): string {
   // Junk that must never be copied into a scaffolded app:
   fs.mkdirSync(path.join(dir, "node_modules", "junk"), { recursive: true });
   fs.mkdirSync(path.join(dir, "dist"), { recursive: true });
+  fs.mkdirSync(path.join(dir, ".next", "cache"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "next-env.d.ts"), '/// <reference types="next" />\n');
   fs.writeFileSync(path.join(dir, "tsconfig.app.tsbuildinfo"), "{}");
   return root;
 }
@@ -53,6 +55,19 @@ describe("listTemplates", () => {
     fs.writeFileSync(path.join(dir, "template.json"), JSON.stringify({ display: "A", description: "a" }));
     expect(listTemplates(root).map((t) => t.name)).toEqual(["aaa-first", "vite"]);
   });
+
+  it("sorts by order when present, name otherwise; missing order sorts last", () => {
+    const root = path.join(tmp, "ordered-templates");
+    const make = (name: string, meta: Record<string, unknown>) => {
+      fs.mkdirSync(path.join(root, name), { recursive: true });
+      fs.writeFileSync(path.join(root, name, "template.json"), JSON.stringify(meta));
+    };
+    make("zz-first", { display: "Z", description: "z", order: 1 });
+    make("mm-second", { display: "M", description: "m", order: 2 });
+    make("bb-unordered", { display: "B", description: "b" });
+    make("aa-unordered", { display: "A", description: "a" });
+    expect(listTemplates(root).map((t) => t.name)).toEqual(["zz-first", "mm-second", "aa-unordered", "bb-unordered"]);
+  });
 });
 
 describe("scaffold", () => {
@@ -68,6 +83,8 @@ describe("scaffold", () => {
     expect(fs.existsSync(path.join(target, "template.json"))).toBe(false);
     expect(fs.existsSync(path.join(target, "node_modules"))).toBe(false);
     expect(fs.existsSync(path.join(target, "dist"))).toBe(false);
+    expect(fs.existsSync(path.join(target, ".next"))).toBe(false);
+    expect(fs.existsSync(path.join(target, "next-env.d.ts"))).toBe(false);
     expect(fs.existsSync(path.join(target, "tsconfig.app.tsbuildinfo"))).toBe(false);
 
     const pkg = JSON.parse(fs.readFileSync(path.join(target, "package.json"), "utf8"));

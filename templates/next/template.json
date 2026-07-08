@@ -1,0 +1,5 @@
+{
+  "order": 4,
+  "display": "Next.js (App Router)",
+  "description": "SSR store via React Server Components: RSC prefetch + hydrate, isomorphic fetch, server actions"
+}

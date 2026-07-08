@@ -8,7 +8,8 @@ const repoRoot = path.resolve(pkgRoot, "../..");
 const templatesSrc = path.join(repoRoot, "templates");
 const templatesOut = path.join(pkgRoot, "dist", "templates");
 
-const SKIP_DIRS = new Set(["node_modules", "dist", ".turbo"]);
+const SKIP_DIRS = new Set(["node_modules", "dist", ".turbo", ".next"]);
+const SKIP_FILES = new Set(["next-env.d.ts"]);
 
 const versions: Record<string, string> = {};
 for (const dir of fs.readdirSync(path.join(repoRoot, "packages"))) {
@@ -27,7 +28,7 @@ for (const entry of fs.readdirSync(templatesSrc, { withFileTypes: true })) {
 
   fs.cpSync(src, out, {
     recursive: true,
-    filter: (p) => !SKIP_DIRS.has(path.basename(p)) && !p.endsWith(".tsbuildinfo"),
+    filter: (p) => !SKIP_DIRS.has(path.basename(p)) && !SKIP_FILES.has(path.basename(p)) && !p.endsWith(".tsbuildinfo"),
   });
 
   // npm strips .gitignore files from published tarballs — ship as _gitignore,

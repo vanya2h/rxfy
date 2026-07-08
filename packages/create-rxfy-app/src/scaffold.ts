@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const SKIP_DIRS = new Set(["node_modules", "dist", ".turbo"]);
+const SKIP_DIRS = new Set(["node_modules", "dist", ".turbo", ".next"]);
+const SKIP_FILES = new Set(["next-env.d.ts"]);
 
-export type TemplateMeta = { name: string; display: string; description: string };
+export type TemplateMeta = { name: string; display: string; description: string; order?: number };
 
 /** Read every bundled template's `template.json`, keyed by directory name. */
 export function listTemplates(templatesRoot: string): TemplateMeta[] {
@@ -11,14 +12,17 @@ export function listTemplates(templatesRoot: string): TemplateMeta[] {
   return fs
     .readdirSync(templatesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(templatesRoot, entry.name, "template.json")))
-    .sort((a, b) => a.name.localeCompare(b.name))
     .map((entry) => {
       const meta = JSON.parse(fs.readFileSync(path.join(templatesRoot, entry.name, "template.json"), "utf8")) as Omit<
         TemplateMeta,
         "name"
       >;
       return { name: entry.name, ...meta };
-    });
+    })
+    .sort(
+      (a, b) =>
+        (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.name.localeCompare(b.name),
+    );
 }
 
 export function scaffold(options: { templateDir: string; targetDir: string; projectName: string }): void {
@@ -26,7 +30,8 @@ export function scaffold(options: { templateDir: string; targetDir: string; proj
 
   fs.cpSync(templateDir, targetDir, {
     recursive: true,
-    filter: (src) => !SKIP_DIRS.has(path.basename(src)) && !src.endsWith(".tsbuildinfo"),
+    filter: (src) =>
+      !SKIP_DIRS.has(path.basename(src)) && !SKIP_FILES.has(path.basename(src)) && !src.endsWith(".tsbuildinfo"),
   });
   fs.rmSync(path.join(targetDir, "template.json"), { force: true });
 

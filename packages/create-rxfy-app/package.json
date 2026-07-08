@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
+    "incur": "^0.4.11",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
@@ -43,13 +44,15 @@
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",
     "rxfy-template-vite": "workspace:*",
+    "rxfy-template-vite-spa": "workspace:*",
+    "rxfy-template-next": "workspace:*",
     "tsup": "^8.5.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "publishConfig": {
     "access": "public",
