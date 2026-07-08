@@ -41,6 +41,18 @@ describe("listTemplates", () => {
     const templates = listTemplates(fixtureTemplatesRoot());
     expect(templates).toEqual([{ name: "vite", display: "Vite (live SSR app)", description: "Full live stack" }]);
   });
+
+  it("returns [] when the templates root does not exist", () => {
+    expect(listTemplates(path.join(tmp, "nope"))).toEqual([]);
+  });
+
+  it("orders templates by name regardless of directory read order", () => {
+    const root = fixtureTemplatesRoot();
+    const dir = path.join(root, "aaa-first");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "template.json"), JSON.stringify({ display: "A", description: "a" }));
+    expect(listTemplates(root).map((t) => t.name)).toEqual(["aaa-first", "vite"]);
+  });
 });
 
 describe("scaffold", () => {
