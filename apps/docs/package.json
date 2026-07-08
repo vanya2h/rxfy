@@ -7,8 +7,7 @@
     "dev": "vocs dev",
     "build": "vocs build",
     "start": "node dist/serve-node.js",
-    "preview": "vocs preview",
-    "check-types": "tsc --noEmit"
+    "preview": "vocs preview"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",

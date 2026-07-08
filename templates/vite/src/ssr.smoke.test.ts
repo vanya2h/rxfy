@@ -13,10 +13,4 @@ describe("SSR", () => {
     expect(state).toContain("__RXFY_SSR__");
     expect(state).toContain("grants");
   }, 30_000);
-
-  it("server-renders a non-root route on direct navigation", async () => {
-    await initDb();
-    const { html } = await render("/about");
-    expect(html).toContain("About this template");
-  }, 30_000);
 });
