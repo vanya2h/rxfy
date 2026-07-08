@@ -1,0 +1,47 @@
+{
+  "name": "rxfy-template-vite",
+  "version": "0.0.0",
+  "private": true,
+  "description": "rxfy live app: Vite SSR + React Router + Hono + Drizzle/PGlite + real-time updates",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build --outDir dist/client",
+    "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
+    "check-types": "tsc -b --noEmit",
+    "clean": "rimraf ./dist",
+    "dev": "tsx ./server/index.ts",
+    "preview": "cross-env NODE_ENV=production tsx ./server/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.3",
+    "@hono/node-server": "^1.14.0",
+    "@hono/node-ws": "^1.1.0",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.7.0",
+    "lodash": "^4.17.21",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^7.17.0",
+    "rxfy": "workspace:*",
+    "rxfy-react": "workspace:*",
+    "rxfy-server": "workspace:*",
+    "rxfy-ws": "workspace:*",
+    "rxjs": "^7.8.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "cross-env": "^7.0.3",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.1.4"
+  }
+}
