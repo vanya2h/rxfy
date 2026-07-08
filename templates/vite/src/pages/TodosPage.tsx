@@ -37,7 +37,9 @@ export function TodosPage() {
           const next = title.trim();
           if (!next) return;
           setTitle("");
-          void createTodo(next).then(() => applyUpdates());
+          void createTodo(next)
+            .then(() => applyUpdates())
+            .catch(() => setTitle(next)); // restore the input so a failed create isn't lost
         }}
       >
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs doing?" />

@@ -1,15 +1,15 @@
 import { hc } from "hono/client";
+import type { Grants } from "rxfy-react";
 import type { AppType } from "../server/api.js";
 import { getLiveClient } from "./live-singleton.js";
 import type { Todo } from "./todos.js";
 
-const isServer = typeof window === "undefined";
 const client = hc<AppType>("/api");
 
-type Grants = { entities: Record<string, string>; channels: Record<string, string> };
-
 export async function fetchTodos(): Promise<{ todos: Todo[] }> {
-  if (isServer) {
+  // Build-time constant: the server-only branch and its PGlite import are eliminated
+  // from the client bundle. Must stay inline — hoisting it to a const regresses that.
+  if (import.meta.env.SSR) {
     const { asc } = await import("drizzle-orm");
     const { db, todos } = await import("../server/db.js");
     const rows = await db.select().from(todos).orderBy(asc(todos.createdAt), asc(todos.id));
