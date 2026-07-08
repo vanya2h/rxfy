@@ -2,15 +2,12 @@ import { asc } from "drizzle-orm";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import { createModelRegistry, normalizeResult } from "rxfy";
-import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
+import { type Resource, touch } from "rxfy-server";
 import { todoResource } from "../src/resources.js";
+import { todosChannel } from "../src/routes.js";
 import { todosState } from "../src/todos.js";
 import { db, todos } from "./db.js";
 import { live } from "./live.js";
-
-// StateDescriptor.key is `string | undefined` in rxfy but StateChannelDescriptor requires `string`;
-// todosState supplies a key, so the cast is safe.
-const todosChannel = todosState as unknown as StateChannelDescriptor;
 
 // live.create/update accept Resource<TTable> with the table's raw row shape; the model omits
 // `createdAt`, so re-view the resource as its raw-row writer resource.
@@ -32,6 +29,7 @@ export const api = new Hono()
   })
   .post(
     "/todos",
+    // Type-cast only — swap in real validation (e.g. zod) before accepting untrusted input.
     validator("json", (v) => v as { title: string }),
     async (c) => {
       const { title } = c.req.valid("json");

@@ -18,5 +18,5 @@ export async function renderPage(url: string, vite: ViteDevServer | undefined, i
     render = ((await import(entryUrl)) as { render: RenderFn }).render;
   }
   const rendered = await render(url);
-  return template.replace("<!--app-html-->", rendered.html).replace("<!--app-state-->", rendered.state);
+  return template.replace("<!--app-html-->", () => rendered.html).replace("<!--app-state-->", () => rendered.state);
 }
