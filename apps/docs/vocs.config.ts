@@ -1,10 +1,15 @@
 import { Changelog, defineConfig } from "vocs/config";
 
+// Stamped once per build; versions every OG URL so external caches (scrapers,
+// CDNs) refetch after each deploy while responses stay immutable.
+const buildId = Date.now().toString(36);
+
 export default defineConfig({
   title: "rxfy",
   description:
     "A reactive data-flow layer for your UI: typed models, states, and normalized stores as RxJS Observables.",
-  logoUrl: { light: "/rxfy-mark.svg", dark: "/rxfy-mark-white.svg" },
+  baseUrl: "https://rxfy.vanya2h.me",
+  ogImageUrl: `https://rxfy.vanya2h.me/og?title=%title&description=%description&v=${buildId}`,
   iconUrl: "/rxfy-icon-tile.svg",
   changelog: Changelog.github({ repo: "vanya2h/rxfy" }),
   sidebar: [
