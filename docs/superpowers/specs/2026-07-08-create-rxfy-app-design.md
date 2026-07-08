@@ -68,6 +68,21 @@ A stripped-down descendant of `examples/vite-blog-framework`:
 - **Client/SSR:** Vite SSR entries (`entry-client.tsx`, `entry-server.tsx`),
   `index.html` with `<!--app-html-->` / `<!--app-state-->` placeholders, dual
   client/SSR build scripts (`build:client`, `build:server`), `preview` script.
+- **Routing:** React Router (declarative/library mode) as the default routing
+  solution, wired for SSR: routes defined in `src/routes.ts(x)`,
+  `StaticRouter` (or `createStaticHandler`/`StaticRouterProvider`) in
+  `entry-server.tsx`, `BrowserRouter` in `entry-client.tsx`. This replaces the
+  hand-rolled navigation the example uses and gives users a familiar,
+  extensible routing baseline.
+- **SSR compliance (hard requirement):** the template must be fully SSR
+  compliant end to end — the server renders the routed page with data already
+  resolved (no PENDING flash), dehydrates the per-request registry into
+  `<!--app-state-->` via `dehydrate` / `hydrationScript`, and the client
+  hydrates with `hydrate` producing zero hydration mismatches. Route-level data
+  must resolve on the server (rxfy two-pass render or equivalent) so the
+  first-paint HTML contains the todos list, and direct navigation to any route
+  URL must server-render correctly (not just `/`). The smoke test asserts
+  server-rendered HTML contains the data and the hydration payload.
 - **Demo slice:** a `todos` Drizzle table on PGlite (zero DB setup), one model +
   one state, one live resource, and a page with a list + create form that
   live-updates across two browser tabs on first `pnpm dev`.
@@ -87,7 +102,8 @@ A stripped-down descendant of `examples/vite-blog-framework`:
 
 ## Deferred (out of v1)
 
-- `next`, `react-router`, and client-only templates
+- `next`, `react-router` (RR7 framework mode — distinct from the library-mode
+  routing inside `templates/vite`), and client-only templates
 - git init in the CLI
 - full install-and-run e2e in CI (scaffold-logic unit tests only for now)
 - telemetry, version-selection flags
