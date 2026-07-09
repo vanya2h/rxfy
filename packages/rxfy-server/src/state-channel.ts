@@ -1,3 +1,5 @@
+import { stateChannel } from "rxfy";
+
 /** Names of params that slice *within* a dataset (page, cursor, sort) — excluded from the channel. */
 export type WindowSpec = readonly string[];
 
@@ -7,47 +9,10 @@ export type StateChannelDescriptor = {
   window?: WindowSpec;
 };
 
-/** Deterministic JSON: object keys sorted recursively so logically-equal values stringify equally. */
-const stableStringify = (value: unknown): string => {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value) ?? "null";
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(",")}]`;
-  }
-  const record = value as Record<string, unknown>;
-  const entries = Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`);
-  return `{${entries.join(",")}}`;
-};
-
-const encode = (value: unknown): string =>
-  typeof value === "string" || typeof value === "number" || typeof value === "boolean"
-    ? String(value)
-    : stableStringify(value);
-
-/** Deterministic, order-independent encoding of the partition params. */
-const stableKey = (params: Record<string, unknown>): string =>
-  Object.keys(params)
-    .filter((key) => params[key] !== undefined)
-    .sort()
-    .map((key) => `${key}=${encode(params[key])}`)
-    .join("&");
-
 /**
- * Derive the invalidation channel for a state instance. Window dims (page, sort, cursor…) are
- * dropped so every window of the same partition shares one channel. Pure and identical on client
- * and server, so the strings always match.
+ * Derive the invalidation channel for a state instance. Thin wrapper over rxfy core's
+ * `stateChannel` — `key` is required here, so the result is always a string.
  */
 export function invalidationChannel(state: StateChannelDescriptor, params: Record<string, unknown>): string {
-  const windowKeys = new Set<string>(state.window ?? []);
-  const partition: Record<string, unknown> = {};
-  for (const key of Object.keys(params)) {
-    if (!windowKeys.has(key)) {
-      partition[key] = params[key];
-    }
-  }
-  const suffix = stableKey(partition);
-  return suffix ? `${state.key}:${suffix}` : state.key;
+  return stateChannel(state, params) as string;
 }

@@ -1,15 +1,14 @@
 import { eq, getTableColumns } from "drizzle-orm";
 import { type PgColumn, pgTable, text } from "drizzle-orm/pg-core";
-import { createModel, createModelRegistry } from "rxfy";
-import { type ServerMessage } from "rxfy-protocol";
+import { array, createModel, createModelRegistry, defineState, normalizeResult } from "rxfy";
+import { patch, type ServerMessage, stale } from "rxfy-protocol";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { type ConnId, createInMemoryHub } from "./hub.js";
+import { createInMemoryHub, type SessionId } from "./hub.js";
 import { defineResource } from "./resource.js";
 import { createResourceRegistry } from "./resource-registry.js";
 import { createServer, touch } from "./server.js";
 import { createTestDb } from "./test-db.js";
-import { createTopicKeyer } from "./topic-key.js";
 
 const postsTable = pgTable("posts", {
   id: text("id").primaryKey(),
@@ -25,15 +24,20 @@ const CREATE_POSTS = `
   );
 `;
 
-const posts = defineResource({ table: postsTable, name: "post" });
+const postModel = createModel({
+  schema: z.object({ id: z.string(), orgId: z.string(), title: z.string() }),
+  getKey: (p: { id: string }) => p.id,
+  name: "post",
+});
+
+const posts = defineResource({ table: postsTable, model: postModel });
 const resources = createResourceRegistry([posts]);
-const keyer = createTopicKeyer({ secret: "test-secret", windowMs: 60_000, now: () => 600_000 });
 
 function harness(db: Awaited<ReturnType<typeof createTestDb>>["db"]) {
   const hub = createInMemoryHub();
-  const received: Array<{ conn: ConnId; message: ServerMessage }> = [];
-  hub.onPublish((conn, message) => received.push({ conn, message }));
-  const live = createServer({ db, resources, hub, keyer });
+  const received: Array<{ session: SessionId; message: ServerMessage }> = [];
+  hub.onPublish((session, message) => received.push({ session, message }));
+  const live = createServer({ db, resources, hub });
   return { hub, live, received };
 }
 
@@ -50,9 +54,9 @@ describe("createServer.create", () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live, received } = harness(db);
     const channel = "post:orgId=A";
-    hub.subscribe("client", [keyer.current(channel)]);
+    hub.subscribe("client", [`c:${channel}`]);
     await live.create(posts, { id: "1", orgId: "A", title: "Hi" }, { touch: [touch({ key: "post" }, { orgId: "A" })] });
-    expect(received).toEqual([{ conn: "client", message: { v: 1, kind: "stale", channel } }]);
+    expect(received).toEqual([{ session: "client", message: { v: 2, kind: "stale", channel } }]);
   });
 });
 
@@ -61,13 +65,13 @@ describe("createServer.update", () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live, received } = harness(db);
     await live.create(posts, { id: "1", orgId: "A", title: "Old" });
-    hub.subscribe("client", [keyer.current("post:1")]);
+    hub.subscribe("client", ["e:post:1"]);
     const row = await live.update(posts, "1", { title: "New" });
     expect(row).toEqual({ id: "1", orgId: "A", title: "New" });
     expect(received).toEqual([
       {
-        conn: "client",
-        message: { v: 1, kind: "patch", name: "post", id: "1", data: { id: "1", orgId: "A", title: "New" } },
+        session: "client",
+        message: { v: 2, kind: "patch", name: "post", id: "1", data: { id: "1", orgId: "A", title: "New" } },
       },
     ]);
   });
@@ -76,21 +80,21 @@ describe("createServer.update", () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live, received } = harness(db);
     await live.create(posts, { id: "1", orgId: "A", title: "Old" });
-    hub.subscribe("client", [keyer.current("post:1"), keyer.current("post:orgId=A")]);
+    hub.subscribe("client", ["e:post:1", "c:post:orgId=A"]);
     await live.update(posts, "1", { title: "New" }, { touch: [touch({ key: "post" }, { orgId: "A" })] });
     expect(received).toEqual([
       {
-        conn: "client",
-        message: { v: 1, kind: "patch", name: "post", id: "1", data: { id: "1", orgId: "A", title: "New" } },
+        session: "client",
+        message: { v: 2, kind: "patch", name: "post", id: "1", data: { id: "1", orgId: "A", title: "New" } },
       },
-      { conn: "client", message: { v: 1, kind: "stale", channel: "post:orgId=A" } },
+      { session: "client", message: { v: 2, kind: "stale", channel: "post:orgId=A" } },
     ]);
   });
 
   it("returns undefined and publishes nothing when the row does not exist", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live, received } = harness(db);
-    hub.subscribe("client", [keyer.current("post:404")]);
+    hub.subscribe("client", ["e:post:404"]);
     const row = await live.update(posts, "404", { title: "X" });
     expect(row).toBeUndefined();
     expect(received).toEqual([]);
@@ -102,10 +106,10 @@ describe("createServer.delete", () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live, received } = harness(db);
     await live.create(posts, { id: "1", orgId: "A", title: "X" });
-    hub.subscribe("client", [keyer.current("post:orgId=A")]);
+    hub.subscribe("client", ["c:post:orgId=A"]);
     await live.delete(posts, "1", { touch: [touch({ key: "post" }, { orgId: "A" })] });
     expect(await db.select().from(postsTable)).toHaveLength(0);
-    expect(received).toEqual([{ conn: "client", message: { v: 1, kind: "stale", channel: "post:orgId=A" } }]);
+    expect(received).toEqual([{ session: "client", message: { v: 2, kind: "stale", channel: "post:orgId=A" } }]);
   });
 });
 
@@ -113,66 +117,88 @@ describe("createServer.touch", () => {
   it("publishes a stale signal for an explicit channel", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live, received } = harness(db);
-    hub.subscribe("client", [keyer.current("post:orgId=A")]);
+    hub.subscribe("client", ["c:post:orgId=A"]);
     live.touch(touch({ key: "post" }, { orgId: "A" }));
-    expect(received).toEqual([{ conn: "client", message: { v: 1, kind: "stale", channel: "post:orgId=A" } }]);
+    expect(received).toEqual([{ session: "client", message: { v: 2, kind: "stale", channel: "post:orgId=A" } }]);
   });
 });
 
-describe("createServer.grant", () => {
-  it("mints an id per present entity and per state channel", async () => {
+describe("createServer.serve", () => {
+  it("returns data unchanged and registers the session's entity + channel subscriptions", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
-    const { live } = harness(db);
+    const { hub, live } = harness(db);
+    const seen: string[] = [];
+    hub.onPublish((session, message) => seen.push(`${session}:${message.kind}`));
 
-    const registry = createModelRegistry();
-    registry.model(posts.model).setMany([
-      { id: "1", orgId: "A", title: "a" },
-      { id: "2", orgId: "A", title: "b" },
-    ]);
+    const state = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
+    const data = { posts: [{ id: "1", orgId: "A", title: "a" }] };
+    const result = live.serve("sess-1", state, {}, data);
+    expect(result).toBe(data); // pass-through, same reference
 
-    const grants = live.grant(registry, {
-      entities: posts,
-      states: [{ state: { key: "post", window: ["page"] }, params: { orgId: "A", page: 0 } }],
-    });
-
-    expect(grants.entities).toEqual({
-      "post:1": keyer.current("post:1"),
-      "post:2": keyer.current("post:2"),
-    });
-    expect(grants.channels).toEqual({
-      "post:orgId=A": keyer.current("post:orgId=A"),
-    });
+    hub.publish("e:post:1", patch("post", "1", { id: "1", title: "b" }));
+    hub.publish("c:posts", stale("posts"));
+    expect(seen).toEqual(["sess-1:patch", "sess-1:stale"]);
   });
 
-  it("returns empty maps when nothing is specified", async () => {
+  it("accepts a fetch Request and reads the session header", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
-    const { live } = harness(db);
-    const registry = createModelRegistry();
-    expect(live.grant(registry, {})).toEqual({ entities: {}, channels: {} });
+    const { hub, live } = harness(db);
+    const req = new Request("http://x/", { headers: { "x-rxfy-session": "sess-2" } });
+    const state = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
+    live.serve(req, state, {}, { posts: [{ id: "1", orgId: "A", title: "a" }] });
+    const seen: string[] = [];
+    hub.onPublish((session) => seen.push(session));
+    hub.publish("c:posts", stale("posts"));
+    expect(seen).toEqual(["sess-2"]);
   });
 
-  it("grants entity ids from an injected model's store", async () => {
+  it("is a no-op without a session", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { live } = harness(db);
+    const req = new Request("http://x/");
+    const state = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
+    const data = { posts: [] as Array<{ id: string; orgId: string; title: string }> };
+    expect(live.serve(req, state, {}, data)).toBe(data);
+  });
+});
 
-    const sharedPost = createModel({
-      schema: z.object({ id: z.string(), orgId: z.string(), title: z.string() }),
-      getKey: (p: { id: string }) => p.id,
-      name: "post",
-    });
-    const sharedPostResource = defineResource({ table: postsTable, model: sharedPost });
-
+describe("createServer.hydration", () => {
+  it("mints a session, registers the render registry, and embeds the session in the script", async () => {
+    const { db } = await createTestDb(CREATE_POSTS);
+    const { hub, live } = harness(db);
     const registry = createModelRegistry();
-    registry.model(sharedPost).setMany([
-      { id: "1", orgId: "A", title: "a" },
-      { id: "2", orgId: "A", title: "b" },
-    ]);
+    normalizeResult(registry, { posts: array(postModel) }, { posts: [{ id: "1", orgId: "A", title: "a" }] });
+    registry.channels.add("posts");
 
-    const grants = live.grant(registry, { entities: sharedPostResource });
-    expect(grants.entities).toEqual({
-      "post:1": keyer.current("post:1"),
-      "post:2": keyer.current("post:2"),
+    const script = live.hydration(registry);
+    expect(script).toContain("__RXFY_SSR__");
+    expect(script).toContain("session");
+
+    const session = /"session":"([^"]+)"/.exec(script)?.[1];
+    expect(session).toBeTruthy();
+
+    const seen: string[] = [];
+    hub.onPublish((s) => seen.push(s));
+    hub.publish("e:post:1", patch("post", "1", { id: "1", title: "b" }));
+    hub.publish("c:posts", stale("posts"));
+    expect(seen).toEqual([session, session]);
+  });
+
+  it("skips models with no backing resource", async () => {
+    const { db } = await createTestDb(CREATE_POSTS);
+    const { hub, live } = harness(db);
+    const registry = createModelRegistry();
+    const localModel = createModel({
+      schema: z.object({ id: z.string() }),
+      getKey: (x) => x.id,
+      name: "local-only",
     });
+    registry.model(localModel).setMany([{ id: "9" }]);
+    live.hydration(registry);
+    const seen: string[] = [];
+    hub.onPublish((s) => seen.push(s));
+    hub.publish("e:local-only:9", stale("x"));
+    expect(seen).toEqual([]);
   });
 });
 
@@ -183,7 +209,7 @@ describe("dynamic PK where", () => {
     const widgets = defineResource({ table: widgetsTable, name: "widget" });
     const reg = createResourceRegistry([widgets]);
     const hub = createInMemoryHub();
-    const live = createServer({ db, resources: reg, hub, keyer });
+    const live = createServer({ db, resources: reg, hub });
     await live.create(widgets, { sku: "S1", label: "L" });
     const row = await live.update(widgets, "S1", { label: "L2" });
     expect(row).toEqual({ sku: "S1", label: "L2" });
