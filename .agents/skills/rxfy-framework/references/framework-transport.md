@@ -4,7 +4,7 @@ The default WebSocket transport. Two entry points: `rxfy-ws` (server adapter, wi
 
 ## Server
 
-`createWsServer(hub)` returns `{ handleConnection(socket) }` — call `createWsServer` once at startup, `handleConnection` for every new socket.
+`createWsServer(hub)` returns `{ handleConnection(socket) }` — call `createWsServer` once at startup, `handleConnection` for every new socket. It bridges the `Hub` to WebSocket connections: a client identifies itself with a `hello` frame, and the hub routes pushes by session — there are no subscribe frames, subscriptions are written server-side by the serve path (`live.serve` / `live.hydration`).
 
 ```ts
 type ServerSocket = {
@@ -59,8 +59,8 @@ type WsClientOptions = {
 };
 
 type ClientTransport = {
-  subscribe: (ids: string[]) => void;
-  unsubscribe: (ids: string[]) => void;
+  /** Announce the session; automatically re-sent on every reconnect. */
+  hello: (session: string) => void;
   /** Single-slot inbound handler — a later call replaces the previous one. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
   close: () => void;
@@ -71,8 +71,8 @@ function createWsClient(options: WsClientOptions): ClientTransport;
 
 Behaviors:
 
-- Keeps the active-subscription id set; on `"close"` it reconnects after `reconnectDelayMs` (default 1000 ms), and on `"open"` it replays a subscribe frame for every id in the set.
-- Subscriptions made before the socket is `OPEN` are buffered and sent once the connection is ready — no caller-side queuing.
+- Remembers the last `hello`ed session; on `"close"` it reconnects after `reconnectDelayMs` (default 1000 ms), and on `"open"` it re-sends the `hello` frame for that session — no caller-side re-announce needed.
+- A `hello()` call made before the socket is `OPEN` is silently dropped for that connection attempt (nothing is buffered), but is remembered and sent on the next `"open"`.
 - `onMessage` is single-slot: a later call replaces the previous handler.
 
-`ClientTransport` is a plain interface — anything satisfying the four-method shape works (test mocks, custom reconnect policies, non-WebSocket channels); the wire format is defined by `rxfy-protocol`.
+`ClientTransport` is a plain interface — anything satisfying the three-method shape works (test mocks, custom reconnect policies, non-WebSocket channels); the wire format is defined by `rxfy-protocol`. The server binds a session on `hello` (see `createWsServer` above) — there is no subscribe-frame routing to replicate.

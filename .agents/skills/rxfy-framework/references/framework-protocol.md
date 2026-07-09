@@ -15,21 +15,20 @@ Client → server:
 
 | Type | `kind` | Fields | Description |
 |---|---|---|---|
-| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `ids` | Request live updates for the given entity ids (`string[]`). |
-| `UnsubscribeMessage` | `"unsubscribe"` | `v`, `kind`, `ids` | Cancel subscriptions for the given entity ids (`string[]`). |
+| `HelloMessage` | `"hello"` | `v`, `kind`, `session` | Announce the session after every (re)connect. The client's ONLY outbound frame — subscriptions are written server-side by the serve path (`live.serve` / `live.hydration`), so there is nothing else for a client to say. |
 
 Constructors stamp the current `PROTOCOL_VERSION` automatically:
 
 ```ts
-import { patch, stale, subscribe, unsubscribe } from "rxfy-protocol";
+import { hello, patch, stale } from "rxfy-protocol";
 
 patch("user", "42", { name: "Alice" });   // PatchMessage
 stale("posts:list");                       // StaleMessage
-subscribe(["user:42", "post:7"]);          // SubscribeMessage
-unsubscribe(["post:7"]);                   // UnsubscribeMessage
+hello("a1b2c3-session-id");                // HelloMessage
 ```
 
-> In the standard stack the `ids` sent over the wire are the **opaque grant values** (HMAC topic ids from `live.grant` — see grants-hydration.md), never raw `"name:id"` topics; raw strings here are for illustration only.
+There is no subscribe/unsubscribe frame — a session's subscriptions are entirely a server-side
+concern (see `live-sessions.md`).
 
 ## Codec
 
@@ -37,13 +36,14 @@ unsubscribe(["post:7"]);                   // UnsubscribeMessage
 |---|---|
 | `serialize(message)` | Encode any protocol message to a string via superjson — `Date`/`Map`/`Set`/`BigInt` survive the wire intact |
 | `parseServerMessage(raw)` | Decode + validate a `ServerMessage` (`patch` \| `stale`) on the client |
-| `parseClientMessage(raw)` | Decode + validate a `ClientMessage` (`subscribe` \| `unsubscribe`) on the server |
+| `parseClientMessage(raw)` | Decode + validate a `ClientMessage` (`hello`) on the server |
 | `ProtocolError` | Thrown on malformed input, wrong version, or unknown `kind` |
+| `RXFY_SESSION_HEADER` | `"x-rxfy-session"` — the HTTP header carrying the session id, matched to the WebSocket `hello` |
 
 ## Versioning
 
 ```ts
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 ```
 
 The codec requires an exact `v` match — no negotiation, no backward-compatibility layer. A version bump means a coordinated upgrade of the server and all clients before traffic resumes.

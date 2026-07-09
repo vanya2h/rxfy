@@ -26,22 +26,21 @@ export const resources = createResourceRegistry([userResource, postResource, com
 
 ## createServer
 
-`createServer({ db, resources, hub, keyer })` returns a `Live` object with typed write methods and a grant helper:
+`createServer({ db, resources, hub })` returns a `Live` object with typed write methods plus the two
+session-tracking calls, `serve` and `hydration`:
 
 ```ts
 // server/live.ts
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
+// The hub holds live session subscriptions, so there must be exactly ONE instance. entry-server
+// receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
+// graph never instantiates a second hub.
 export const hub = createInMemoryHub();
 
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+export const live = createServer({ db, resources, hub });
 ```
 
 `live.db` exposes the raw Drizzle instance for reads outside of writes.
@@ -76,19 +75,39 @@ await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
 
 `touch(stateDescriptor, params)` builds a `TouchTarget` for a state instance. Window dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key, so all windows of the same partition share one invalidation channel.
 
-## createTopicKeyer
-
-`createTopicKeyer({ secret, windowMs })` converts raw topic strings into time-windowed HMAC ids; clients only ever see the opaque ids.
-
-- `keyer.current(topic)` — id for the current time window; used by `live.grant` for client subscriptions.
-- `keyer.forPublish(topic)` — `[currentId, previousId]`; publishing on both covers window rollover so grants issued just before the boundary still receive messages.
-
-Keep `windowMs` long enough for the grant-to-subscribe round-trip. **Warning:** rotating `secret` invalidates all outstanding grants immediately — clients miss messages until they refetch a fresh grant.
-
 ## createInMemoryHub
 
-`createInMemoryHub()` is the single-process pub/sub backbone: maps opaque routing ids to connections and forwards `ServerMessage`s from writes to clients. Register a delivery sink with `hub.onPublish(sink)`; the transport adapter calls `hub.subscribe`/`unsubscribe`/`drop` as connections open and close.
+`createInMemoryHub({ ttlMs? })` is the single-process pub/sub backbone: pub/sub over subscription
+ids, keyed by **session** (not by connection). Subscriptions are written only by the serve path
+(`live.serve` / `live.hydration`); the WS layer only binds/releases sockets, it never writes
+subscriptions itself.
 
-## live.grant
+```ts
+export type Hub = {
+  publish: (id: string, message: ServerMessage) => void;
+  subscribe: (session: string, ids: string[]) => void;
+  unsubscribe: (session: string, ids: string[]) => void;
+  bind: (session: string) => void;
+  release: (session: string) => void;
+  drop: (session: string) => void;
+  onPublish: (sink: (session: string, message: ServerMessage) => void) => void;
+};
+```
 
-`live.grant(registry, { entities, states })` issues a `{ entities, channels }` token the client uses to subscribe to live updates — return it alongside the initial data. Covered in depth in `grants-hydration.md`.
+- `bind`/`release` track socket liveness: `createWsServer` calls `bind` when a session's `hello`
+  arrives and `release` when that socket closes. A bound session never expires.
+- An unbound session (never connected, or disconnected) keeps its subscriptions for `ttlMs`
+  (default 5 minutes) before `drop` — this covers an SSR render whose client hasn't opened the
+  WebSocket yet, and a closed tab that might reconnect.
+- Register the delivery sink with `hub.onPublish(sink)` — `createWsServer` does this internally to
+  route `patch`/`stale` messages to the right socket by session id.
+
+## live.serve and live.hydration
+
+Covered in depth in `live-sessions.md`. In short:
+
+- `live.serve(req, state, params, data)` — pass-through for a read endpoint; registers `data`'s
+  entities plus the state's channel under the requesting session (read from the
+  `RXFY_SESSION_HEADER` header, or pass a session id directly), and returns `data` unchanged.
+- `live.hydration(registry)` — one-call SSR payload: mints a session, registers everything the
+  render's registry holds, and returns the `hydrationScript` string (dehydrated state + session).
