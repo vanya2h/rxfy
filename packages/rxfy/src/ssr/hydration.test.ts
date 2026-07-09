@@ -76,15 +76,15 @@ describe("hydrate", () => {
   });
 });
 
-describe("DehydratedState grants round-trip", () => {
-  it("preserves grants through serializeForHtml → JSON.parse", () => {
+describe("DehydratedState session round-trip", () => {
+  it("preserves the session id through serializeForHtml → JSON.parse", () => {
     const state: DehydratedState = {
       queries: {},
       models: {},
-      grants: { entities: { "post:1": "tok-a" }, channels: { "posts:orgId=A": "tok-c" } },
+      session: "sess-123",
     };
     const parsed = JSON.parse(serializeForHtml(state).replace(/\\u003c/g, "<"));
-    expect(parsed.grants).toEqual(state.grants);
+    expect(parsed.session).toEqual(state.session);
   });
 });
 

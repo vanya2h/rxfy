@@ -4,7 +4,8 @@ import { deserializeWrapped, type SerializedWrapped, serializeForHtml, serialize
 export type DehydratedState = {
   queries: Record<string, SerializedWrapped>;
   models: Record<string, Record<string, unknown>>;
-  grants?: { entities: Record<string, string>; channels: Record<string, string> };
+  /** The live session the server registered this render's subscriptions under (rxfy-server's hydration()). */
+  session?: string;
 };
 
 // Streaming SSR calls dehydrate once per flush — warn once per descriptor, not per call.
