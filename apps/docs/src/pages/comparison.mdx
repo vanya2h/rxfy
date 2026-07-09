@@ -131,13 +131,13 @@ persistence and two-way binding to you.
 Real-time sharpens the split. React Query leaves the socket to you: subscribe, then call
 `setQueryData` or `invalidateQueries` for each affected key, and decide yourself who may
 listen to what. rxfy's [framework](/framework/server) ships that pipeline — server write functions
-persist via Drizzle and publish on their own, HMAC-signed grants scope each client to the
-entities its own fetches returned, and the WebSocket transport reconnects and replays
-subscriptions. Edits patch the entity cell in place; creates and deletes surface as an
+persist via Drizzle and publish on their own, and the server tracks what each browser session
+was served so it can push updates for exactly that: no client-issued subscriptions, no
+allow-list to manage. Edits patch the entity cell in place; creates and deletes surface as an
 "updates available" count ([`updatesAvailable$` / `applyUpdates`](/react/live-client)), so
 the client reloads on its own terms instead of through an eager key invalidation. SSR carries
-this through: rxfy's `dehydrate` embeds the live grants next to the data, so a
-server-rendered page resumes its subscriptions along with its cache.
+this through: `live.hydration` mints the session next to the dehydrated data, so a
+server-rendered page resumes receiving pushes along with its cache.
 
 **Reach for TanStack Query when** you want a mature, framework-agnostic cache with rich
 refetch/staleness controls and don't need normalization. **Reach for rxfy when** the same

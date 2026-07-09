@@ -1,0 +1,76 @@
+# Sessions [The server tracks what each browser was served, and pushes updates for it]
+
+There are no grants and no client subscriptions. The server tracks what each browser session was
+served and pushes updates for exactly that. The client's entire outbound protocol is one
+`hello { session }` frame — there is nothing else for it to say.
+
+## Session identity
+
+- **SSR loads** — [`live.hydration(registry)`](/framework/server/create-server) mints the session
+  server-side and embeds it in the hydration payload; the client adopts it with `readSsrSession()`.
+- **CSR-only loads** — the client mints its own id.
+
+```ts [src/session.ts]
+import { readSsrSession } from "rxfy-react";
+export const sessionId = readSsrSession() ?? crypto.randomUUID();
+```
+
+Attach it to every API request and to the live client:
+
+```ts
+import { RXFY_SESSION_HEADER } from "rxfy-react";
+const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
+
+const liveClient = createLiveClient({ registry, transport: createWsClient({ url }), session: sessionId });
+```
+
+## Serving = subscribing
+
+A read endpoint wraps its result in `live.serve` — a pass-through that returns the data unchanged
+and registers the served entities plus the state channel under the requester's session:
+
+```ts [server/api.ts]
+.get("/todos", async (c) => {
+  const rows = await db.select().from(todos);
+  return c.json(live.serve(c.req.raw, todosState, {}, { todos: rows }));
+})
+```
+
+Pass the **same** `params` you pass to `useStateData` — window keys are stripped internally, so
+the registered channel always matches the one the client's `updatesAvailable$` counts.
+
+SSR renders register everything at once: `useStateData` logs each rendered state's channel into
+`registry.channels` during SSR, and entities come from the render registry. One call at the end of
+the render hands the whole thing to the client:
+
+```tsx [entry-server.tsx]
+onAllReady() {
+  // collect pipe into `html`, then:
+  resolve({ html, state: live.hydration(registry) });
+}
+```
+
+`render` should receive `live` as a parameter from the server entry, rather than importing it —
+in dev, Vite's SSR module graph is separate from the server's, and the hub (which now holds
+subscription state) must stay a single instance across both.
+
+## Lifecycle
+
+- Pushes flow once the WebSocket `hello` binds the session; fetching before the socket connects is
+  fine — the hub record waits.
+- Reconnecting re-sends `hello` and delivery resumes. Updates published while disconnected are
+  lost — the refresh badge / `applyUpdates` refetch is the recovery path, not replay.
+- A session with no bound socket expires after the hub's `ttlMs` (default 5 minutes) — this covers
+  an SSR render whose client hasn't opened the WebSocket yet, and a closed tab that might
+  reconnect.
+
+## What stays manual
+
+- [`touch(channelDescriptor, params)`](/framework/server/writes) on writes — only the app knows
+  which lists a write invalidates.
+- One `live.serve` per read endpoint — the server can't see what a plain Drizzle read served.
+
+See [`createServer`](/framework/server/create-server) for `live.serve` / `live.hydration` in the
+full `Live` object, [`createInMemoryHub`](/framework/server/hub) for how the hub tracks sessions,
+and [Live client](/react/live-client) for `createLiveClient` and `readSsrSession` on the browser
+side.

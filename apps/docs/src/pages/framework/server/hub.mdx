@@ -1,23 +1,42 @@
-# createInMemoryHub [The pub/sub backbone]
+# createInMemoryHub [The session-keyed pub/sub backbone]
 
-The hub is the pub/sub backbone: it maps opaque routing ids (produced by the keyer) to
-connections, and forwards `ServerMessage` objects from `live.create`/`update`/`delete` to
-connected clients.
+The hub is the pub/sub backbone: it maps **sessions** (not connections) to subscriptions, and
+forwards `ServerMessage` objects from `live.create`/`update`/`delete` to whichever session should
+receive them.
 
 ```ts [server/live.ts]
 import { createInMemoryHub } from "rxfy-server";
 
-export const hub = createInMemoryHub();
+// ttlMs is optional — defaults to 5 minutes.
+export const hub = createInMemoryHub({ ttlMs: 5 * 60_000 });
 ```
 
 `createInMemoryHub` is a single-process, in-memory implementation suitable for development and
 single-node deployments.
 
+```ts
+type Hub = {
+  publish: (id: string, message: ServerMessage) => void;
+  subscribe: (session: string, ids: string[]) => void;
+  unsubscribe: (session: string, ids: string[]) => void;
+  bind: (session: string) => void;
+  release: (session: string) => void;
+  drop: (session: string) => void;
+  onPublish: (sink: (session: string, message: ServerMessage) => void) => void;
+};
+```
+
 **Wiring:**
 
-- Register a delivery sink with `hub.onPublish(sink)` — every published message flows through it
-  to the transport.
-- The transport adapter calls `hub.subscribe` / `hub.unsubscribe` as clients open and close
-  subscriptions, and `hub.drop` when a connection dies.
+- Register a delivery sink with `hub.onPublish(sink)` — `createWsServer` does this internally to
+  route `patch`/`stale` messages to the right socket by session id.
+- Subscriptions are written **only** by the serve path — [`live.serve` /
+  `live.hydration`](/framework/server/sessions). The WS layer never calls `subscribe` /
+  `unsubscribe` itself; it only binds and releases sockets.
+- `bind` / `release` track socket liveness: `createWsServer` calls `bind` when a session's `hello`
+  arrives and `release` when that socket closes. A bound session never expires.
+- An unbound session (never connected, or disconnected) keeps its subscriptions for `ttlMs`
+  (default 5 minutes) before `drop` — this covers an SSR render whose client hasn't opened the
+  WebSocket yet, and a closed tab that might reconnect.
 
 For WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).

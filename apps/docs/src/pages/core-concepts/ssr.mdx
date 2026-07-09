@@ -15,8 +15,8 @@ client for reloads).
 :::
 
 :::tip[Building a live app?]
-SSR also mints the subscription **grants** a live client uses. See
-[Grants & live hydration](/framework/server/grants).
+SSR also mints the **session** a live client uses to receive pushes. See
+[Sessions](/framework/server/sessions).
 :::
 
 ## Buffered mode (any Node server)
@@ -175,7 +175,6 @@ The server snapshot is produced and embedded with three helpers from `rxfy`:
 type DehydratedState = {
   queries: Record<string, SerializedWrapped>; // settled query results, by key
   models: Record<string, Record<string, unknown>>; // entities, by model name then id
-  grants?: { entities: Record<string, string>; channels: Record<string, string> }; // live-update subscription grants, if the server minted any
 };
 
 // Snapshot a request's registry; only named models and keyed queries are included.
@@ -191,9 +190,10 @@ function hydrate(registry: IModelRegistry, state: DehydratedState): void;
 In the common path you never call `hydrate` directly — the embedded script populates
 `window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically.
 
-`grants` only appears in live apps: the server [mints subscription grants](/framework/server/grants)
-for the entities and state channels in the response, and the client live layer reads them from the
-same snapshot via [`readSsrGrants`](/react/live-client#readssrgrants).
+Live apps use a different entry point for the same idea: [`live.hydration(registry)`](/framework/server/sessions)
+mints a session, registers everything the render served, and returns the hydration script in one
+call — the client adopts the session with [`readSsrSession`](/react/live-client#readssrsession)
+instead of calling `dehydrate` / `hydrationScript` directly.
 
 ## Error handling
 

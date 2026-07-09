@@ -17,15 +17,15 @@ type WsClientOptions = {
 function createWsClient(options: WsClientOptions): ClientTransport;
 ```
 
-**Auto-reconnect and subscription replay.** The client keeps an internal set of
-active subscription ids. On `"close"` it schedules a reconnect after
-`reconnectDelayMs`; on `"open"` it immediately re-sends a subscribe frame for every
-id in that set. Subscriptions made before the socket is `OPEN` are buffered and sent
-once the connection is ready — no caller-side queuing needed.
+**Auto-reconnect and hello replay.** The client remembers the last `hello`ed session. On
+`"close"` it schedules a reconnect after `reconnectDelayMs`; on `"open"` it immediately re-sends
+the `hello` frame for that session — no caller-side re-announce needed. A `hello()` call made
+before the socket is `OPEN` is silently dropped for that connection attempt (nothing is
+buffered), but is remembered and sent on the next `"open"`.
 
 ```tsx [src/entry-client.tsx]
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, readSsrGrants, StoreProvider } from "rxfy-react";
+import { createLiveClient, readSsrSession, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 
 const registry = createModelRegistry();
@@ -34,7 +34,7 @@ const liveClient = createLiveClient({
   transport: createWsClient({
     url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`,
   }),
-  grants: readSsrGrants(),
+  session: readSsrSession() ?? crypto.randomUUID(),
 });
 
 hydrateRoot(

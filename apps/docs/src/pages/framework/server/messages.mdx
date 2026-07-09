@@ -22,11 +22,12 @@ All messages carry a `v` field (protocol version) and a `kind` discriminant.
 
 | Type | `kind` | Fields | Description |
 |---|---|---|---|
-| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `ids` | Request live updates for the given ids (`string[]`). |
-| `UnsubscribeMessage` | `"unsubscribe"` | `v`, `kind`, `ids` | Cancel subscriptions for the given ids (`string[]`). |
+| `HelloMessage` | `"hello"` | `v`, `kind`, `session` | Announce the session after every (re)connect. |
 
-The `ids` on the wire are the opaque grant values (HMAC topic ids from
-[`live.grant`](/framework/server/grants)), never raw `"name:id"` topics.
+`hello` is the client's **only** outbound frame — there is no subscribe/unsubscribe message.
+Subscriptions are written server-side by the serve path
+([`live.serve` / `live.hydration`](/framework/server/sessions)): the server already knows which
+entities and channels a session was served, so there is nothing else for the client to request.
 
 ## Wire encoding
 

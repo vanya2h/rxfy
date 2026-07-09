@@ -1,7 +1,7 @@
-# createServer [Wire db, resources, hub, and keyer into a Live object]
+# createServer [Wire db, resources, and hub into a Live object]
 
-`createServer` wires together the database, resource registry, hub, and keyer into a `Live` object
-with typed write methods and a grant helper.
+`createServer` wires together the database, resource registry, and hub into a `Live` object
+with typed write methods plus the two session-tracking calls, `serve` and `hydration`.
 
 `resources` is the registry from [`defineResource`](/framework/server/define-resource) and `db` is
 any Drizzle instance — the tabs below show both:
@@ -9,18 +9,16 @@ any Drizzle instance — the tabs below show both:
 :::code-group
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
+// The hub holds live session subscriptions, so there must be exactly ONE instance. entry-server
+// receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
+// graph never instantiates a second hub.
 export const hub = createInMemoryHub();
 
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+export const live = createServer({ db, resources, hub });
 ```
 
 ```ts [src/blog/resources.ts]
@@ -52,10 +50,15 @@ The returned `Live` object exposes:
 
 - [`live.create` / `live.update` / `live.delete` / `live.touch`](/framework/server/writes) —
   typed writes that publish live messages.
-- [`live.grant`](/framework/server/grants) — mint the client's subscription allow-list.
+- [`live.serve(req, state, params, data)`](/framework/server/sessions) — pass-through for a read
+  endpoint; registers `data`'s entities plus the state's channel under the requesting session, and
+  returns `data` unchanged.
+- [`live.hydration(registry)`](/framework/server/sessions) — one-call SSR payload: mints a
+  session, registers everything the render's registry holds, and returns the `hydrationScript`
+  string.
 - `live.db` — the raw Drizzle database instance if you need it outside of writes.
 
 Its collaborators each have their own article: the resource registry comes from
-[`createResourceRegistry`](/framework/server/define-resource), the hub from
-[`createInMemoryHub`](/framework/server/hub), and the keyer from
-[`createTopicKeyer`](/framework/server/create-topic-keyer).
+[`createResourceRegistry`](/framework/server/define-resource), and the hub from
+[`createInMemoryHub`](/framework/server/hub) — it now holds session subscriptions, so there must
+be exactly one instance per process.

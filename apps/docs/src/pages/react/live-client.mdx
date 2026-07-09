@@ -5,35 +5,36 @@ pushes land in the normalized stores and per-state update counters tick up. Pass
 to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces
 `updatesAvailable$` / `applyUpdates` on every handle.
 
+It is a pure sink: there is nothing to subscribe, because the server already knows what this
+session was served (via `live.serve` / `live.hydration`) and pushes updates for exactly that.
+
 ## `createLiveClient`
 
 ```ts
 import { createLiveClient } from "rxfy-react";
 
 const liveClient = createLiveClient({
-  registry,    // IModelRegistry — the same one passed to StoreProvider
-  transport,   // LiveTransport — e.g. createWsClient() from rxfy-ws/client
-  grants,      // Grants (optional) — initial topic/channel → subscription-id map
+  registry,   // IModelRegistry — the same one passed to StoreProvider
+  transport,  // LiveTransport — e.g. createWsClient() from rxfy-ws/client
+  session,    // this page load's session id — see readSsrSession below
 });
 ```
 
-`grants` is optional and defaults to empty maps. In practice you always pass
-`readSsrGrants()` so the client starts with the server-issued subscription ids rather
-than waiting for the first round-trip (see [readSsrGrants](#readssrgrants) below).
+`session` typically comes from `readSsrSession() ?? crypto.randomUUID()` — adopt the
+server-minted id from SSR hydration, or mint a fresh one for a CSR-only load (see
+[Sessions](/framework/server/sessions)).
 
 **What `createLiveClient` does:**
 
+- Calls `transport.hello(session)` once at construction — the client's entire outbound
+  protocol.
 - Calls `transport.onMessage` once. Incoming `"patch"` messages are applied directly to
-  the named model store (`registry.namedStores().get(name)?.set(id, data)`). Incoming
-  channel-invalidation messages increment the matching channel counter.
-- Subscribes to `registry.added$` and calls `transport.subscribe` for each newly tracked
-  entity whose topic id is already in the grants table, so late-arriving entities are
-  covered without extra wiring.
+  the named model store (`registry.namedStores().get(name)?.set(id, data)`); incoming
+  `"stale"` messages increment the matching channel counter.
 - Exposes `channel(name)` — returns a `ChannelCounter` (`{ available$: Observable<number>,
   reset: () => void }`) that `useStateData` calls internally for each keyed state.
-- Exposes `addGrants(grants)` for adding subscription ids received after boot (used by
-  the live-update layer).
-- Exposes `stop()` to unsubscribe all RxJS subscriptions and complete all counters.
+- Exposes `stop()` — completes all channel counters. It does not send transport-level
+  unsubscribes; there is nothing to unsubscribe from.
 
 ## `StoreProvider` `liveClient` prop
 
@@ -66,7 +67,7 @@ function MyWidget() {
 
 Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient`
 prop was provided. Normally you never call this directly — `useStateData` does it for you —
-but it is exported for custom transports or imperative `addGrants` calls.
+but it is exported as an escape hatch for custom transports or direct `channel(name)` access.
 
 ## `updatesAvailable$` / `applyUpdates`
 
@@ -81,7 +82,7 @@ const { data$, updatesAvailable$, applyUpdates } = useStateData({
 ```
 
 `updatesAvailable$` is an `Observable<number>` that starts at `0` and increments each time
-the server sends a channel-invalidation message for this state's channel. When no live
+the server sends a `stale` message for this state's channel. When no live
 client is present it stays `0`.
 
 `applyUpdates()` resets the counter to `0` and calls `reload()` — triggering a fresh
@@ -104,28 +105,33 @@ return <button onClick={onApply}>{n} new {noun}{n === 1 ? "" : "s"} · refresh</
 `applyUpdates` is also used as the `onCreated` / `onDeleted` callback in mutation forms so
 that local writes reset the counter and re-fetch in one step.
 
-## `readSsrGrants`
+## `readSsrSession`
 
 ```ts
-import { readSsrGrants } from "rxfy-react";
+import { readSsrSession } from "rxfy-react";
 
-const grants = readSsrGrants(); // Grants: { entities: Record<string, string>, channels: Record<string, string> }
+const sessionId = readSsrSession() ?? crypto.randomUUID();
 ```
 
-Reads the `grants` object injected into `globalThis.__RXFY_SSR__` by the hydration script.
-The function merges grants from all SSR chunks present at load time (last-writer-wins per
-key) and returns `{ entities: {}, channels: {} }` when no chunks exist.
+Reads the session id minted server-side by `live.hydration(registry)` and embedded in the
+hydration payload. Returns `undefined` on a CSR-only load (no SSR chunk to read from), so the
+common pattern is to fall back to a freshly minted id.
 
-Pass the result straight to `createLiveClient`:
+Attach the same id to every API request via the session header, and pass it to
+`createLiveClient`:
 
 ```ts
+import { RXFY_SESSION_HEADER } from "rxfy-react";
+
+const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
+
 const liveClient = createLiveClient({
   registry,
   transport: createWsClient({ url: `ws://${location.host}/live` }),
-  grants: readSsrGrants(),
+  session: sessionId,
 });
 ```
 
-This ensures the client subscribes to entity topics and state channels immediately on
-boot, without a server round-trip. For how the server injects grants into the hydration
-script, see [Grants & live hydration](/framework/server/grants).
+There is no allow-list to read and nothing to subscribe: the server already knows what this
+session was served, and pushes updates for exactly that once the WebSocket `hello` binds it.
+For how the server mints and tracks sessions, see [Sessions](/framework/server/sessions).

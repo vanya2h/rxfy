@@ -42,18 +42,13 @@ await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
 ```
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
 export const hub = createInMemoryHub();
 
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+export const live = createServer({ db, resources, hub });
 ```
 
 ```ts [src/blog/resources.ts]
@@ -99,7 +94,7 @@ deleted row is gone. They publish `stale` on every touched channel so clients kn
 `touch(stateDescriptor, params)` builds a `TouchTarget` for a specific state instance. Window
 dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key so
 all windows of the same partition share one invalidation channel — see
-[Grants & live hydration](/framework/server/grants) for how channels are derived.
+[Sessions](/framework/server/sessions) for how channels are derived and registered.
 
 You can also call `live.touch(...targets)` directly without a write to invalidate channels out of
 band.
