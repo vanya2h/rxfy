@@ -1,10 +1,10 @@
 import { eq } from "drizzle-orm";
+import type { Comment, Post, PostId, User } from "examples-shared/data";
 import { postDetailState, postsState } from "examples-shared/data";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { createModelRegistry, normalizeResult } from "rxfy";
 import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
-import { commentResource, postResource, userResource } from "../src/blog/resources.js";
+import { commentResource, postResource } from "../src/blog/resources.js";
 import { comments, db, posts, users } from "./db.js";
 import { live } from "./live.js";
 
@@ -28,28 +28,41 @@ export const api = new Hono()
       authors: allUsers,
       meta: { total: allPosts.length, generatedAt: new Date().toISOString() },
     };
-    const registry = createModelRegistry();
-    normalizeResult(registry, postsState.fields, data);
-    const grants = live.grant(registry, {
-      entities: [postResource, userResource],
-      states: [{ state: postsChannel, params: {} }],
-    });
-    return c.json({ data, grants });
+    // serve() is a pass-through: registers this session's live subscriptions, returns the data as-is.
+    // The state's shape brands entity ids; the raw DB rows are structurally identical, so re-view
+    // `data` as the branded shape the state expects.
+    return c.json(
+      live.serve(
+        c.req.raw,
+        postsState,
+        {},
+        data as unknown as {
+          posts: Post[];
+          authors: User[];
+          meta: { total: number; generatedAt: string };
+        },
+      ),
+    );
   })
   .get("/posts/:id", async (c) => {
-    const postId = c.req.param("id");
+    const postId = c.req.param("id") as PostId;
     const [post] = await db.select().from(posts).where(eq(posts.id, postId));
     if (!post) return c.json({ error: "not found" }, 404);
     const [author] = await db.select().from(users).where(eq(users.id, post.userId));
     const postComments = await db.select().from(comments).where(eq(comments.postId, postId));
     const data = { post, author, comments: postComments };
-    const registry = createModelRegistry();
-    normalizeResult(registry, postDetailState.fields, data);
-    const grants = live.grant(registry, {
-      entities: [postResource, userResource, commentResource],
-      states: [{ state: postDetailChannel, params: { postId } }],
-    });
-    return c.json({ data, grants });
+    return c.json(
+      live.serve(
+        c.req.raw,
+        postDetailState,
+        { postId },
+        data as unknown as {
+          post: Post;
+          author: User;
+          comments: Comment[];
+        },
+      ),
+    );
   })
   .post(
     "/posts",

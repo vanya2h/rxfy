@@ -1,12 +1,11 @@
 import type { PostDetailData, PostId, PostsData } from "examples-shared";
 import { hc } from "hono/client";
+import { RXFY_SESSION_HEADER } from "rxfy-react";
 import type { AppType } from "../../server/api.js";
-import { getLiveClient } from "../live-singleton.js";
+import { sessionId } from "../session.js";
 
 const isServer = typeof window === "undefined";
-const client = hc<AppType>("/api");
-
-type Grants = { entities: Record<string, string>; channels: Record<string, string> };
+const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
 
 export async function fetchPosts(): Promise<PostsData> {
   if (isServer) {
@@ -20,9 +19,7 @@ export async function fetchPosts(): Promise<PostsData> {
     } as unknown as PostsData;
   }
   const res = await client.posts.$get();
-  const body = (await res.json()) as unknown as { data: PostsData; grants: Grants };
-  getLiveClient()?.addGrants(body.grants);
-  return body.data;
+  return (await res.json()) as unknown as PostsData;
 }
 
 export async function fetchPostDetail({ postId }: { postId: PostId }): Promise<PostDetailData> {
@@ -37,9 +34,7 @@ export async function fetchPostDetail({ postId }: { postId: PostId }): Promise<P
   }
   const res = await client.posts[":id"].$get({ param: { id: postId } });
   if (!res.ok) throw new Error(`Post ${postId} not found`);
-  const body = (await res.json()) as unknown as { data: PostDetailData; grants: Grants };
-  getLiveClient()?.addGrants(body.grants);
-  return body.data;
+  return (await res.json()) as unknown as PostDetailData;
 }
 
 export const createPost = (p: { userId: string; title: string; body: string }) => client.posts.$post({ json: p });

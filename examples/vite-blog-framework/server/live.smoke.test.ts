@@ -1,6 +1,6 @@
 import { postsState } from "examples-shared/data";
 import type { PublishSink, Resource, StateChannelDescriptor } from "rxfy-server";
-import { createInMemoryHub, createServer, createTopicKeyer, touch } from "rxfy-server";
+import { createInMemoryHub, createServer, touch } from "rxfy-server";
 import { describe, expect, it } from "vitest";
 import { commentResource, postResource, resources, userResource } from "../src/blog/resources.js";
 import { posts } from "./db.js";
@@ -39,12 +39,11 @@ describe("vite-blog-framework live server", () => {
   it("create persists and touches the posts channel with a bare stale", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
+    const live = createServer({ db, resources, hub });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("posts")]);
+    hub.subscribe("client", ["c:posts"]);
 
     const row = await live.create(
       postWriteResource,
@@ -52,7 +51,7 @@ describe("vite-blog-framework live server", () => {
       { touch: [touch(postsChannel, {})] },
     );
     expect(row).toMatchObject({ id: "p1", title: "Hi" });
-    expect(received).toEqual([{ v: 1, kind: "stale", channel: "posts" }]);
+    expect(received).toEqual([{ v: 2, kind: "stale", channel: "posts" }]);
     // Generous timeout: each test cold-starts a PGlite (wasm Postgres) instance, which is fast
     // locally (~1s) but several times slower on CI runners.
   }, 30_000);
@@ -60,19 +59,18 @@ describe("vite-blog-framework live server", () => {
   it("update broadcasts a patch on the entity topic", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
+    const live = createServer({ db, resources, hub });
     await live.create(postWriteResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("post:p1")]);
+    hub.subscribe("client", ["e:post:p1"]);
 
     const row = await live.update(postWriteResource, "p1", { title: "New" });
     expect(row).toMatchObject({ title: "New" });
     expect(received).toEqual([
       {
-        v: 1,
+        v: 2,
         kind: "patch",
         name: "post",
         id: "p1",

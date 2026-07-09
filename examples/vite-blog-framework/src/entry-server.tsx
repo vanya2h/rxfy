@@ -1,16 +1,13 @@
 import { PassThrough } from "node:stream";
 import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
-import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
-import { live } from "../server/live.js";
-import { commentResource, postResource, userResource } from "./blog/resources.js";
+import type { Live } from "rxfy-server";
 import { App } from "./App.js";
-import { matchRoute, routeStates } from "./routes.js";
 
-export function render(url: string): Promise<{ html: string; state: string }> {
+export function render(url: string, live: Live): Promise<{ html: string; state: string }> {
   const registry = createModelRegistry();
-  const route = matchRoute(new URL(url, "http://localhost").pathname);
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
@@ -27,11 +24,9 @@ export function render(url: string): Promise<{ html: string; state: string }> {
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
           sink.on("end", () => {
-            const grants = live.grant(registry, {
-              entities: [postResource, userResource, commentResource],
-              states: routeStates(route),
-            });
-            resolve({ html, state: hydrationScript({ ...dehydrate(registry), grants }) });
+            // hydration() mints this render's session and embeds it alongside the dehydrated
+            // registry — the server tracks everything served to the session and pushes updates.
+            resolve({ html, state: live.hydration(registry) });
           });
           pipe(sink);
         },

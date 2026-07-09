@@ -1,9 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import type { Live } from "rxfy-server";
 import type { ViteDevServer } from "vite";
+import { live } from "./live.js";
 
-type RenderFn = (url: string) => Promise<{ html: string; state: string }>;
+type RenderFn = (url: string, live: Live) => Promise<{ html: string; state: string }>;
 
 export async function renderPage(url: string, vite: ViteDevServer | undefined, isProduction: boolean): Promise<string> {
   let template: string;
@@ -17,6 +19,6 @@ export async function renderPage(url: string, vite: ViteDevServer | undefined, i
     const entryUrl = pathToFileURL(path.resolve(process.cwd(), "dist/server/entry-server.js")).href;
     render = ((await import(entryUrl)) as { render: RenderFn }).render;
   }
-  const rendered = await render(url);
+  const rendered = await render(url, live);
   return template.replace("<!--app-html-->", rendered.html).replace("<!--app-state-->", rendered.state);
 }
