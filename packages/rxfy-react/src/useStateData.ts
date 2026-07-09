@@ -20,10 +20,10 @@ import {
   normalizeResult,
   normalizeWritable,
   stableStringify,
+  stateChannel,
   StatusEnum,
 } from "rxfy";
 import { filter, merge, Observable, of, ReplaySubject, share, switchMap, throwError, timer } from "rxjs";
-import { stateChannel } from "./live/channel.js";
 import { useLiveClient } from "./live-context.js";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
@@ -96,6 +96,9 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   const paramsKey = stableStringify(params);
   const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
   const channel = stateChannel(state, params as Record<string, unknown>);
+
+  // During SSR, log the channel so live.hydration can register this session's subscription.
+  if (typeof window === "undefined" && ssr && channel) registry.channels.add(channel);
 
   // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
   // keep a stable identity across renders (directive: as stable as possible) and across a changing
