@@ -29,6 +29,7 @@ The files touched in this guide:
 - src/
   - blog/
     - resources.ts
+    - api-client.tsx
   - db/
     - schema.ts
   - entry-server.tsx
@@ -37,6 +38,8 @@ The files touched in this guide:
   - live.ts
   - ws.ts
   - api.ts
+  - render.ts
+  - render-types.ts
 :::
 
 ::::steps
@@ -202,6 +205,57 @@ automatically; instead it surfaces a badge so the user can refresh when convenie
 membership of a list (create, delete) need `touch` to signal the list is outdated.
 :::
 
+### One API client for both environments
+
+The client never imports server code — the hono endpoints are the single source of truth, and SSR
+and the browser consume them through the same typed RPC client. `createApiClient` builds it in one
+of two modes:
+
+```tsx [src/blog/api-client.tsx (client)]
+import type { Hono } from "hono";
+import { hc } from "hono/client";
+import { sessionHeaders } from "rxfy-client";
+import type { AppType } from "../../server/api.js";
+
+/** The shape of hono's in-process `app.request` — what the server entry injects for SSR. */
+export type ApiFetch = Hono["request"];
+
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch })
+    : hc<AppType>("/api", { headers: sessionHeaders });
+}
+```
+
+- **Browser** — no argument: the client targets `/api` over the network and attaches the live
+  session header with `sessionHeaders`.
+- **SSR** — the server entry passes hono's in-process `app.request`, so requests to the
+  `http://ssr.internal` base are answered by the same routes without ever touching the network —
+  no duplicated queries, no server imports in client code.
+
+The same module exports `ApiProvider` — a plain React context provider for the client — and
+`useApi()`, which returns the typed client from context. There is no wrapper layer: components call
+the endpoints directly, whether as `useStateData`'s `fetchFn` or for writes:
+
+```tsx [src/App.tsx (abbreviated)]
+const api = useApi();
+
+// reads — an inline async arrow as fetchFn
+const fetchPosts = async () => (await api.posts.$get()).json();
+const fetchPostDetail = async ({ postId }: { postId: string }) => {
+  const res = await api.posts[":id"].$get({ param: { id: postId } });
+  if (!res.ok) throw new Error(`Post ${postId} not found`);
+  return res.json();
+};
+
+// writes — call the endpoint directly
+await api.posts[":id"].comments.$post({ param: { id: postId }, json: input });
+```
+
+`useStateData` intentionally ignores `fetchFn` identity, so inline async arrows like these never
+retrigger a fetch — and the result type is inferred from the endpoint (a union for routes that
+declare error variants).
+
 ### SSR with sessions
 
 During server-side rendering the server populates a `ModelRegistry` with the fetched entities, and
@@ -210,16 +264,29 @@ the render mints a session, registers everything the render served under it, and
 hydration script:
 
 ```tsx [src/entry-server.tsx]
-export function render(url: string, live: Live): Promise<{ html: string; state: string }> {
+import { PassThrough } from "node:stream";
+import { StrictMode, Suspense } from "react";
+import { renderToPipeableStream } from "react-dom/server";
+import { createModelRegistry } from "rxfy";
+import { StoreProvider } from "rxfy-react";
+import type { RenderFn } from "../server/render-types.js";
+import { ApiProvider, createApiClient } from "./blog/api-client.js";
+import { App } from "./App.js";
+
+export const render: RenderFn = (url, live, apiFetch) => {
+  // SSR data fetching goes through the server's own endpoints, in-process.
+  const apiClient = createApiClient(apiFetch);
   const registry = createModelRegistry();
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
       <StrictMode>
         <StoreProvider registry={registry} ssr>
-          <Suspense fallback={null}>
-            <App url={url} />
-          </Suspense>
+          <ApiProvider client={apiClient}>
+            <Suspense fallback={null}>
+              <App url={url} />
+            </Suspense>
+          </ApiProvider>
         </StoreProvider>
       </StrictMode>,
       {
@@ -228,19 +295,34 @@ export function render(url: string, live: Live): Promise<{ html: string; state: 
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
           sink.on("end", () => {
+            // hydration() mints this render's session and embeds it alongside the dehydrated
+            // registry — the server tracks everything served to the session and pushes updates.
             resolve({ html, state: live.hydration(registry) });
           });
           pipe(sink);
         },
+        onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
       },
     );
   });
-}
+};
 ```
 
-`render` takes `live` as a parameter rather than importing it — in dev, Vite's SSR module graph is
-separate from the server's, and the hub (which holds subscription state) must stay a single
-instance across both. See [Sessions](/framework/server/sessions) for the full model.
+`render` takes `live` and `apiFetch` as parameters rather than importing them — in dev, Vite's SSR
+module graph is separate from the server's, and the hub (which holds subscription state), the db,
+and the api must stay single instances across both. The contract is the shared `RenderFn` type in
+`server/render-types.ts`; the server side passes hono's in-process `api.request` directly (it is a
+bound class-field arrow, safe to detach), and the entry builds `createApiClient(apiFetch)` from it,
+so SSR fetches hit the same endpoints without a network trip:
+
+```ts [server/render.ts (abbreviated)]
+// SSR data fetching goes through the same hono endpoints as the browser, in-process — the render
+// must use THIS module graph's api (and its db/live), not a Vite-side copy.
+// ...load `render` from Vite in dev or from dist/server in production, then:
+const rendered = await render(url, live, api.request);
+```
+
+See [Sessions](/framework/server/sessions) for the full model.
 
 A plain API read endpoint registers its own response the same way, per request, with `live.serve`:
 
@@ -262,9 +344,11 @@ import { hydrateRoot } from "react-dom/client";
 import { createModelRegistry } from "rxfy";
 import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
+import { ApiProvider, createApiClient } from "./blog/api-client.js";
 import { App } from "./App.js";
 
 const registry = createModelRegistry();
+const apiClient = createApiClient(); // browser client: network trip + live session header
 // The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
@@ -275,7 +359,9 @@ hydrateRoot(
   document.getElementById("root") as HTMLElement,
   <StrictMode>
     <StoreProvider registry={registry} ssr liveClient={liveClient}>
-      <App url={location.pathname} />
+      <ApiProvider client={apiClient}>
+        <App url={location.pathname} />
+      </ApiProvider>
     </StoreProvider>
   </StrictMode>,
 );
@@ -288,8 +374,10 @@ hydrateRoot(
   served.
 - The session defaults to `getSessionId()` (from `rxfy-client`), which adopts the session id
   `live.hydration` embedded in the page; on a client-only load the server assigns one over the
-  WebSocket instead. The API client attaches the same id to every request with `sessionHeaders`:
-  `hc<AppType>("/api", { headers: sessionHeaders })`.
+  WebSocket instead. `createApiClient()` attaches the same id to every request — its browser branch
+  is `hc<AppType>("/api", { headers: sessionHeaders })`.
+- `ApiProvider client={apiClient}` — hands the browser API client to every `useApi` call site,
+  mirroring what the server entry did with the in-process client during SSR.
 - `StoreProvider liveClient={liveClient}` — makes the live client available to all hooks so that
   `useStateData` and `useModelStore` calls can receive stale notifications.
 
@@ -327,6 +415,8 @@ database setup is required.
 - A **WebSocket endpoint** (`rxfy-ws`) bridged to Hono's WS adapter.
 - API routes that distinguish between `patch` (edit) and `stale` (create/delete) live events by
   using `live.update` vs `live.create`/`live.delete` with `touch`.
+- A **single typed API client** (`createApiClient` / `useApi`) over those routes, consumed
+  in-process during SSR (hono's `app.request`) and over the network in the browser.
 - A **session** minted by `live.hydration` and baked into the hydration script, so the server
   knows exactly what to push updates for — no grants, no client subscriptions.
 - A **live client** on the browser that applies patches in place and surfaces stale badges.

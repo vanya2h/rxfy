@@ -18,17 +18,50 @@ by one of two paths:
 
 It is memoized per page load. Any "minted lazily on first call" model is obsolete.
 
-Attach it to every API request; the live client picks it up by default:
+Attach it to every API request; the live client picks it up by default. In the template and blog
+example this lives inside a single `createApiClient` factory (`src/api-client.tsx`) — the browser
+client carries the header, the SSR client goes in-process instead; no client module imports server
+code, the hono endpoints are the single source of truth for reads and writes:
 
-```ts
+```tsx
+import type { Hono } from "hono";
+import { hc } from "hono/client";
 import { sessionHeaders } from "rxfy-client";
+import type { AppType } from "../server/api.js";
+
+/** hono's in-process `app.request` — what the server entry injects for SSR. */
+export type ApiFetch = Hono["request"];
 
 // sessionHeaders() returns { "x-rxfy-session": <id> }, or {} while the id is unknown;
-// hono's hc accepts it as a lazy headers function
-const client = hc<AppType>("/api", { headers: sessionHeaders });
+// hono's hc accepts it as a lazy headers function.
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) // SSR: in-process, no network trip
+    : hc<AppType>("/api", { headers: sessionHeaders }); // browser: network trip + session header
+}
 
 // session defaults to getSessionId() — no need to pass it
 const liveClient = createLiveClient({ registry, transport: createWsClient({ url }) });
+```
+
+Wiring: the SSR contract is the shared `RenderFn` type in `server/render-types.ts`
+(`(url, live, apiFetch: Hono["request"]) => Promise<{ html, state }>`); the entry implements
+`export const render: RenderFn = (url, live, apiFetch) => {...}` (params inferred), and
+`server/render.ts` calls `render(url, live, api.request)` — hono's `request` is a bound class-field
+arrow, safe to detach. entry-server calls `createApiClient(apiFetch)`, entry-client calls
+`createApiClient()`, and both wrap the app in `<ApiProvider client={apiClient}>`. `useApi()` takes
+NO arguments and returns the typed client from context — there is no selector/callback form and no
+per-use-case wrapper layer; components call endpoints directly, for reads and writes alike
+(`useStateData` intentionally ignores `fetchFn` identity, so inline async arrows are fine):
+
+```tsx
+const api = useApi();
+const { data$, updatesAvailable$, applyUpdates } = useStateData({
+  state: todosState,
+  fetchFn: async () => (await api.todos.$get()).json(),
+  params: {},
+});
+void api.todos.$post({ json: { title: next } }).then(() => applyUpdates());
 ```
 
 A headerless request is served normally, just not recorded for live updates. In client-only apps
@@ -69,9 +102,11 @@ onAllReady() {
 }
 ```
 
-`render` should receive `live` as a parameter from the server entry — in dev, Vite's SSR module
-graph is separate from the server's, and the hub (which now holds subscription state) must be a
-single instance.
+The entry's `render` (typed by the shared `RenderFn` in `server/render-types.ts`) receives `live`
+AND `apiFetch` (hono's in-process `app.request`) as parameters — in dev, Vite's SSR module graph is
+separate from the server's, and the db/hub/api (the hub holds subscription state) must be a single
+instance. `server/render.ts` calls `render(url, live, api.request)`, and entry-server passes
+`apiFetch` to `createApiClient` so SSR fetches hit the same endpoints in-process.
 
 ## Lifecycle
 

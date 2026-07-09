@@ -136,7 +136,13 @@ to it.
 import { hc } from "hono/client";
 import { sessionHeaders } from "rxfy-client";
 
-const client = hc<AppType>("/api", { headers: sessionHeaders });
+// The browser branch of the app's createApiClient(); during SSR the server entry passes hono's
+// in-process `app.request` instead, and the header is skipped.
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch })
+    : hc<AppType>("/api", { headers: sessionHeaders });
+}
 ```
 
 Returns `{ "x-rxfy-session": <id> }` — spread it into any HTTP client's default headers. Hono's
@@ -151,8 +157,8 @@ recovers.
 ```ts
 import { withSession } from "rxfy-client";
 
-const apiFetch = withSession(); // wraps the ambient fetch
-const res = await apiFetch("/api/todos");
+const sessionFetch = withSession(); // wraps the ambient fetch
+const res = await sessionFetch("/api/todos");
 ```
 
 Wraps any fetch-compatible function so every request carries the session header once the session

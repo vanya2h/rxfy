@@ -25,8 +25,9 @@ it does:
 - Exposes `stop()` — completes all channel counters (it does not send transport-level unsubscribes; there's nothing to unsubscribe from).
 
 The client never mints a session id: `getSessionId()` is the SSR-adopted id or `undefined` until
-the server assigns one over the WS. The same id reaches the API via `sessionHeaders` /
-`withSession` once known (see `live-sessions.md`).
+the server assigns one over the WS. The same id reaches the API via `sessionHeaders` — wired
+inside the template's `createApiClient` browser branch — or `withSession` for a non-hono fetch
+layer (see `live-sessions.md`).
 
 ## StoreProvider `liveClient` prop
 
@@ -56,9 +57,10 @@ Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `li
 Both come from the `StateHandle` returned by `useStateData`:
 
 ```ts
+const api = useApi(); // the typed client from context, see live-sessions.md
 const { data$, updatesAvailable$, applyUpdates } = useStateData({
   state: postsState,
-  fetchFn: fetchPosts,
+  fetchFn: async () => (await api.posts.$get()).json(),
   params: {},
 });
 ```

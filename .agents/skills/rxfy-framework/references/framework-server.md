@@ -35,9 +35,11 @@ import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
-// The hub holds live session subscriptions, so there must be exactly ONE instance. entry-server
-// receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
-// graph never instantiates a second hub.
+// The hub holds live session subscriptions, so there must be exactly ONE instance. entry-server's
+// render (typed by the shared RenderFn in server/render-types.ts) receives `live` — and `apiFetch`,
+// hono's in-process `app.request`, for SSR data fetching — as parameters instead of importing
+// server modules, so a separate Vite SSR module graph never instantiates a second db/hub/api.
+// server/render.ts calls render(url, live, api.request); `request` is a bound arrow, safe to detach.
 export const hub = createInMemoryHub();
 
 export const live = createServer({ db, resources, hub });

@@ -158,6 +158,38 @@ await live.create(postResource, { id: newId(), title, body }, { touch: [touch(po
 await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
 ```
 
+## Fetch through the same endpoints
+
+The client never imports server code. The scaffold's `src/api-client.tsx` exports
+`createApiClient(serverFetch?)` — the typed `hc<AppType>` RPC client over the hono routes, and
+the single source of truth for reads and writes in both environments:
+
+```ts [src/api-client.tsx (core)]
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) // SSR: hono's in-process app.request
+    : hc<AppType>("/api", { headers: sessionHeaders }); // browser: network trip + live session header
+}
+```
+
+During SSR the server side passes hono's in-process `app.request` into the render —
+`render(url, live, api.request)`, exactly like `live` — so the entry builds
+`createApiClient(apiFetch)` and SSR fetches are answered by the same routes without touching the
+network. The entry wraps the tree in `<ApiProvider client={apiClient}>`, and `useApi()` hands
+components the typed client — they call endpoints directly, for reads and writes alike
+(`useStateData` intentionally ignores `fetchFn` identity, so inline async arrows are fine):
+
+```tsx [src/pages/TodosPage.tsx (abbreviated)]
+const api = useApi();
+const { data$, updatesAvailable$, applyUpdates } = useStateData({
+  state: todosState,
+  fetchFn: async () => (await api.todos.$get()).json(),
+  params: {},
+});
+// writes call the endpoint directly
+void api.todos.$post({ json: { title: next } }).then(() => applyUpdates());
+```
+
 ## Go live on the client
 
 Give `StoreProvider` a live client built from the WebSocket transport. Your components stay
@@ -167,8 +199,10 @@ exactly as they were on the store path:
 import { createModelRegistry } from "rxfy";
 import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
+import { ApiProvider, createApiClient } from "./api-client.js";
 
 const registry = createModelRegistry();
+const apiClient = createApiClient(); // browser client: network trip + live session header
 // The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
@@ -178,7 +212,9 @@ const liveClient = createLiveClient({
 hydrateRoot(
   document.getElementById("root")!,
   <StoreProvider registry={registry} ssr liveClient={liveClient}>
-    <App />
+    <ApiProvider client={apiClient}>
+      <App />
+    </ApiProvider>
   </StoreProvider>,
 );
 ```

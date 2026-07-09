@@ -49,4 +49,4 @@ live.serve(req, state, params, data) / live.hydration(registry) → hub.subscrib
 | `references/framework-protocol.md` | patch/stale/session/hello wire format, codec, `PROTOCOL_VERSION` |
 | `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect |
 | `references/live-client.md` | `createLiveClient` (from `rxfy-client`), `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop |
-| `references/live-sessions.md` | session identity (`getSessionId`, `sessionHeaders`, `withSession`), `live.serve`, `live.hydration`, hub TTL |
+| `references/live-sessions.md` | session identity (`getSessionId`, `sessionHeaders`, `withSession`), API client wiring (`createApiClient`, `ApiProvider`, `useApi()` returning the client, the shared `RenderFn`), `live.serve`, `live.hydration`, hub TTL |

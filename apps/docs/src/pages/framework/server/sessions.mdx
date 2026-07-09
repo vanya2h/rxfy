@@ -20,11 +20,19 @@ paths:
 re-exported by `rxfy-react`). Once the id is known it is memoized — every caller sees the same
 one.
 
-Attach it to every API request; the live client picks it up by default:
+Attach it to every API request; the live client picks it up by default. In the app templates the
+wiring lives in `createApiClient` — the single typed client both environments consume (components
+reach it through `ApiProvider` / `useApi()`); only the browser branch carries the header, since SSR
+calls the routes in-process under the session the render itself mints:
 
-```ts
+```ts [src/api-client.tsx]
 import { sessionHeaders } from "rxfy-client";
-const client = hc<AppType>("/api", { headers: sessionHeaders });
+
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) // SSR: hono's in-process app.request
+    : hc<AppType>("/api", { headers: sessionHeaders }); // browser: network trip + session header
+}
 
 const liveClient = createLiveClient({ registry, transport: createWsClient({ url }) }); // session defaults to getSessionId()
 ```
@@ -63,9 +71,13 @@ onAllReady() {
 }
 ```
 
-`render` should receive `live` as a parameter from the server entry, rather than importing it —
+The entry implements the shared `RenderFn` contract from `server/render-types.ts` — it receives
+`live` and `apiFetch` (hono's in-process `app.request`) as parameters rather than importing them:
 in dev, Vite's SSR module graph is separate from the server's, and the hub (which now holds
-subscription state) must stay a single instance across both.
+subscription state), the db, and the api must stay single instances across both.
+`server/render.ts` calls `render(url, live, api.request)` — `request` is a bound class-field
+arrow, safe to detach — and the entry builds `createApiClient(apiFetch)` from it, so SSR data
+fetching goes through the server's own endpoints in-process.
 
 ## Lifecycle
 
