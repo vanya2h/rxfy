@@ -4,9 +4,11 @@ import { BrowserRouter } from "react-router";
 import { createModelRegistry } from "rxfy";
 import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
+import { ApiProvider, createApiClient } from "./api-client.js";
 import { App } from "./App.js";
 
 const registry = createModelRegistry();
+const apiClient = createApiClient(); // browser client: network trip + live session header
 // The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
@@ -17,9 +19,11 @@ hydrateRoot(
   document.getElementById("root") as HTMLElement,
   <StrictMode>
     <StoreProvider registry={registry} ssr liveClient={liveClient}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <ApiProvider client={apiClient}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ApiProvider>
     </StoreProvider>
   </StrictMode>,
 );

@@ -4,21 +4,26 @@ import { renderToPipeableStream } from "react-dom/server";
 import { StaticRouter } from "react-router";
 import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
-import type { Live } from "rxfy-server";
+import type { RenderFn } from "../server/render-types.js";
+import { ApiProvider, createApiClient } from "./api-client.js";
 import { App } from "./App.js";
 
-export function render(url: string, live: Live): Promise<{ html: string; state: string }> {
+export const render: RenderFn = (url, live, apiFetch) => {
+  // SSR data fetching goes through the server's own endpoints, in-process.
+  const apiClient = createApiClient(apiFetch);
   const registry = createModelRegistry();
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
       <StrictMode>
         <StoreProvider registry={registry} ssr>
-          <Suspense fallback={null}>
-            <StaticRouter location={url}>
-              <App />
-            </StaticRouter>
-          </Suspense>
+          <ApiProvider client={apiClient}>
+            <Suspense fallback={null}>
+              <StaticRouter location={url}>
+                <App />
+              </StaticRouter>
+            </Suspense>
+          </ApiProvider>
         </StoreProvider>
       </StrictMode>,
       {
@@ -37,4 +42,4 @@ export function render(url: string, live: Live): Promise<{ html: string; state: 
       },
     );
   });
-}
+};
