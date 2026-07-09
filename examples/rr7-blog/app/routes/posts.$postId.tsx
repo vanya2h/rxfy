@@ -1,5 +1,6 @@
 import { PostDetail } from "examples-shared";
-import { type PostId } from "examples-shared/data";
+import { postDetailState, type PostId } from "examples-shared/data";
+import { useStateData } from "rxfy-react";
 import { fetchPostDetail } from "../blog/fetchers";
 import type { Route } from "./+types/posts.$postId";
 
@@ -11,5 +12,6 @@ export function loader({ params }: Route.LoaderArgs) {
 }
 
 export default function PostDetailRoute({ loaderData }: Route.ComponentProps) {
-  return <PostDetail postId={loaderData.postId} fetchPostDetail={fetchPostDetail} />;
+  const detail = useStateData({ state: postDetailState, fetchFn: fetchPostDetail, params: { postId: loaderData.postId } });
+  return <PostDetail detail={detail} />;
 }
