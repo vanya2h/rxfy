@@ -238,23 +238,40 @@ The same module exports `ApiProvider` — a plain React context provider for the
 the endpoints directly, whether as `useStateData`'s `fetchFn` or for writes:
 
 ```tsx [src/App.tsx (abbreviated)]
-const api = useApi();
+// Each route component owns its data: useStateData + an inline fetchFn over the typed client.
+// The view components it renders are handle-driven — they know nothing about fetching.
+function HomeRoute() {
+  const api = useApi();
+  const posts = useStateData({
+    state: postsState,
+    fetchFn: async () => (await api.posts.$get()).json(),
+    params: {},
+  });
+  return <PostList posts={posts} />;
+}
 
-// reads — an inline async arrow as fetchFn
-const fetchPosts = async () => (await api.posts.$get()).json();
-const fetchPostDetail = async ({ postId }: { postId: string }) => {
-  const res = await api.posts[":id"].$get({ param: { id: postId } });
-  if (!res.ok) throw new Error(`Post ${postId} not found`);
-  return res.json();
-};
+function PostRoute({ postId }: { postId: PostId }) {
+  const api = useApi();
+  const detail = useStateData({
+    state: postDetailState,
+    fetchFn: async ({ postId }) => {
+      const res = await api.posts[":id"].$get({ param: { id: postId } });
+      if (!res.ok) throw new Error(`Post ${postId} not found`);
+      return res.json();
+    },
+    params: { postId },
+  });
+  return <PostDetail detail={detail} />;
+}
 
-// writes — call the endpoint directly
+// writes — call the endpoint directly from any component with useApi()
 await api.posts[":id"].comments.$post({ param: { id: postId }, json: input });
 ```
 
 `useStateData` intentionally ignores `fetchFn` identity, so inline async arrows like these never
 retrigger a fetch — and the result type is inferred from the endpoint (a union for routes that
-declare error variants).
+declare error variants). Data acquisition stays in the route components; the views receive the
+resulting state handle as a prop and only render it.
 
 ### SSR with sessions
 
