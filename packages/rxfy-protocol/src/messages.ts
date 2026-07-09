@@ -21,16 +21,24 @@ export type StaleMessage = {
   channel: string;
 };
 
-export type ServerMessage = PatchMessage | StaleMessage;
+/** Server-assigned session id, sent in reply to a session-less hello (client-only apps). */
+export type SessionMessage = {
+  v: ProtocolVersion;
+  kind: "session";
+  session: string;
+};
+
+export type ServerMessage = PatchMessage | StaleMessage | SessionMessage;
 
 // --- Client -> server messages ---
 
 /** Announce the session after every (re)connect. The client's ONLY outbound frame: subscriptions
- *  are written server-side by the serve path, so there is nothing else for a client to say. */
+ *  are written server-side by the serve path, so there is nothing else for a client to say.
+ *  Omitting `session` asks the server to mint one (answered with a `session` frame). */
 export type HelloMessage = {
   v: ProtocolVersion;
   kind: "hello";
-  session: string;
+  session?: string;
 };
 
 export type ClientMessage = HelloMessage;
@@ -53,7 +61,10 @@ export const stale = (channel: string): StaleMessage => ({
   channel,
 });
 
-export const hello = (session: string): HelloMessage => ({ v: PROTOCOL_VERSION, kind: "hello", session });
+export const hello = (session?: string): HelloMessage =>
+  session === undefined ? { v: PROTOCOL_VERSION, kind: "hello" } : { v: PROTOCOL_VERSION, kind: "hello", session };
+
+export const session = (session: string): SessionMessage => ({ v: PROTOCOL_VERSION, kind: "session", session });
 
 /** HTTP header carrying the live session id, matched to the WebSocket `hello`. */
 export const RXFY_SESSION_HEADER = "x-rxfy-session";

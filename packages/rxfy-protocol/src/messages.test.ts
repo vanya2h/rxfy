@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hello, patch, PROTOCOL_VERSION, stale } from "./messages.js";
+import { hello, patch, PROTOCOL_VERSION, session, stale } from "./messages.js";
 
 describe("PROTOCOL_VERSION", () => {
   it("is the literal 2", () => {
@@ -28,5 +28,13 @@ describe("message constructors", () => {
 
   it("hello carries the session id", () => {
     expect(hello("sess-1")).toEqual({ v: 2, kind: "hello", session: "sess-1" });
+  });
+
+  it("hello without a session omits the field — asks the server to assign one", () => {
+    expect(hello()).toEqual({ v: 2, kind: "hello" });
+  });
+
+  it("session carries the server-assigned id", () => {
+    expect(session("sess-1")).toEqual({ v: 2, kind: "session", session: "sess-1" });
   });
 });

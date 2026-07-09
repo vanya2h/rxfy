@@ -1,7 +1,7 @@
 import superjson from "superjson";
 import { describe, expect, it } from "vitest";
 import { parseClientMessage, parseServerMessage, ProtocolError, serialize } from "./codec.js";
-import { hello, patch, stale } from "./messages.js";
+import { hello, patch, session, stale } from "./messages.js";
 
 describe("serialize + parseServerMessage round-trip", () => {
   it("round-trips a patch message", () => {
@@ -11,6 +11,11 @@ describe("serialize + parseServerMessage round-trip", () => {
 
   it("round-trips a stale message", () => {
     const msg = stale("posts:orgId=A");
+    expect(parseServerMessage(serialize(msg))).toEqual(msg);
+  });
+
+  it("round-trips a session assignment", () => {
+    const msg = session("sess-1");
     expect(parseServerMessage(serialize(msg))).toEqual(msg);
   });
 
@@ -53,6 +58,10 @@ describe("parseServerMessage rejects invalid input", () => {
     expect(() => parseServerMessage(superjson.stringify({ v: 2, kind: "stale", channel: 5 }))).toThrow(ProtocolError);
   });
 
+  it("rejects a session assignment with a non-string session", () => {
+    expect(() => parseServerMessage(superjson.stringify({ v: 2, kind: "session", session: 5 }))).toThrow(ProtocolError);
+  });
+
   it("rejects a client frame (hello) as a server message", () => {
     expect(() => parseServerMessage(serialize(hello("sess-1")))).toThrow(/unknown server message kind/);
   });
@@ -67,7 +76,11 @@ describe("serialize + parseClientMessage round-trip", () => {
     expect(parseClientMessage(serialize(hello("sess-1")))).toEqual({ v: 2, kind: "hello", session: "sess-1" });
   });
 
-  it("rejects a hello without a string session", () => {
+  it("round-trips a session-less hello — the ask-to-assign form", () => {
+    expect(parseClientMessage(serialize(hello()))).toEqual({ v: 2, kind: "hello" });
+  });
+
+  it("rejects a hello with a non-string session", () => {
     expect(() => parseClientMessage(serialize({ v: 2, kind: "hello", session: 5 } as never))).toThrow(ProtocolError);
   });
 });

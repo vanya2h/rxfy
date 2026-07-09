@@ -52,6 +52,11 @@ export function parseServerMessage(raw: string): ServerMessage {
         throw new ProtocolError("stale requires a string `channel`");
       }
       return { v: PROTOCOL_VERSION, kind: "stale", channel: msg.channel };
+    case "session":
+      if (typeof msg.session !== "string") {
+        throw new ProtocolError("session requires a string `session`");
+      }
+      return { v: PROTOCOL_VERSION, kind: "session", session: msg.session };
     default:
       throw new ProtocolError(`unknown server message kind: ${clip(msg.kind)}`);
   }
@@ -61,8 +66,11 @@ export function parseClientMessage(raw: string): ClientMessage {
   const msg = decode(raw);
   switch (msg.kind) {
     case "hello":
+      if (msg.session === undefined) {
+        return { v: PROTOCOL_VERSION, kind: "hello" };
+      }
       if (typeof msg.session !== "string") {
-        throw new ProtocolError("hello requires a string `session`");
+        throw new ProtocolError("hello `session`, when present, must be a string");
       }
       return { v: PROTOCOL_VERSION, kind: "hello", session: msg.session };
     default:
