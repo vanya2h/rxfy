@@ -1,46 +1,35 @@
-import type { PostDetailData, PostId, PostsData } from "examples-shared";
+import type { Hono } from "hono";
 import { hc } from "hono/client";
+import { createContext, type ReactNode, useContext } from "react";
 import { sessionHeaders } from "rxfy-client";
 import type { AppType } from "../../server/api.js";
 
-const isServer = typeof window === "undefined";
-const client = hc<AppType>("/api", { headers: sessionHeaders });
+/** The shape of hono's in-process `app.request` — what the server entry injects for SSR. */
+export type ApiFetch = Hono["request"];
 
-export async function fetchPosts(): Promise<PostsData> {
-  if (isServer) {
-    const { db, posts, users } = await import("../../server/db.js");
-    const rows = await db.select().from(posts);
-    const authors = await db.select().from(users);
-    return {
-      posts: rows,
-      authors,
-      meta: { total: rows.length, generatedAt: new Date().toISOString() },
-    } as unknown as PostsData;
-  }
-  const res = await client.posts.$get();
-  return (await res.json()) as unknown as PostsData;
+export type ApiClient = ReturnType<typeof createApiClient>;
+
+/**
+ * The typed RPC client over the hono endpoints — the single source of truth for reads and writes.
+ * In the browser it makes a real network trip and carries the live session header; during SSR the
+ * server entry passes its in-process api (hono's `app.request`), so the same routes serve both
+ * environments — no server imports in this module, no duplicated queries.
+ */
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch })
+    : hc<AppType>("/api", { headers: sessionHeaders });
 }
 
-export async function fetchPostDetail({ postId }: { postId: PostId }): Promise<PostDetailData> {
-  if (isServer) {
-    const { db, posts, users, comments } = await import("../../server/db.js");
-    const { eq } = await import("drizzle-orm");
-    const [post] = await db.select().from(posts).where(eq(posts.id, postId));
-    if (!post) throw new Error(`Post ${postId} not found`);
-    const [author] = await db.select().from(users).where(eq(users.id, post.userId));
-    const postComments = await db.select().from(comments).where(eq(comments.postId, postId));
-    return { post, author, comments: postComments } as unknown as PostDetailData;
-  }
-  const res = await client.posts[":id"].$get({ param: { id: postId } });
-  if (!res.ok) throw new Error(`Post ${postId} not found`);
-  return (await res.json()) as unknown as PostDetailData;
+const ApiContext = createContext<ApiClient | null>(null);
+
+export function ApiProvider({ client, children }: { client: ApiClient; children: ReactNode }) {
+  return <ApiContext.Provider value={client}>{children}</ApiContext.Provider>;
 }
 
-export const createPost = (p: { userId: string; title: string; body: string }) => client.posts.$post({ json: p });
-export const editPost = (id: string, p: { title?: string; body?: string }) =>
-  client.posts[":id"].$patch({ param: { id }, json: p });
-export const deletePost = (id: string) => client.posts[":id"].$delete({ param: { id } });
-export const addComment = (postId: string, p: { name: string; body: string }) =>
-  client.posts[":id"].comments.$post({ param: { id: postId }, json: p });
-export const deleteComment = (postId: string, id: string) =>
-  client.posts[":postId"].comments[":id"].$delete({ param: { postId, id } });
+/** The typed RPC client from context — call endpoints directly: `api.todos.$get()`. */
+export function useApi(): ApiClient {
+  const client = useContext(ApiContext);
+  if (!client) throw new Error("ApiProvider not found");
+  return client;
+}

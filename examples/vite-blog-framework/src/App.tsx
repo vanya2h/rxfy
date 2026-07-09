@@ -1,7 +1,15 @@
-import { BlogProvider, PostDetail, PostList } from "examples-shared";
+import {
+  BlogProvider,
+  PostDetail,
+  type PostDetailData,
+  type PostDetailFetcher,
+  PostList,
+  type PostsData,
+  type PostsFetcher,
+} from "examples-shared";
 import { type PostId } from "examples-shared/data";
-import { useEffect, useState } from "react";
-import { addComment, fetchPostDetail, fetchPosts } from "./blog/api-client.js";
+import { useEffect, useMemo, useState } from "react";
+import { useApi } from "./blog/api-client.js";
 import { CommentActions } from "./components/CommentActions.js";
 import { NewPostForm } from "./components/NewPostForm.js";
 import { PostActions } from "./components/PostActions.js";
@@ -9,14 +17,27 @@ import { ThemeToggle } from "./components/ThemeToggle.js";
 import { bindNavigation, navigate } from "./navigation.js";
 import { matchRoute } from "./routes.js";
 
-const blog = {
-  navigate,
-  onAddComment: async (postId: string, input: { name: string; body: string }) => {
-    await addComment(postId, input);
-  },
-};
-
 export function App({ url }: { url: string }) {
+  const api = useApi();
+  // The wire shapes are structurally identical to the branded state shapes; re-view via the fetcher types.
+  const fetchPosts: PostsFetcher = async () => {
+    const res = await api.posts.$get();
+    return (await res.json()) as unknown as PostsData;
+  };
+  const fetchPostDetail: PostDetailFetcher = async ({ postId }) => {
+    const res = await api.posts[":id"].$get({ param: { id: postId } });
+    if (!res.ok) throw new Error(`Post ${postId} not found`);
+    return (await res.json()) as unknown as PostDetailData;
+  };
+  const blog = useMemo(
+    () => ({
+      navigate,
+      onAddComment: async (postId: string, input: { name: string; body: string }) => {
+        await api.posts[":id"].comments.$post({ param: { id: postId }, json: input });
+      },
+    }),
+    [api],
+  );
   const [path, setPath] = useState(() => new URL(url, "http://localhost").pathname);
 
   useEffect(() => {

@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Textarea } from "examples-shared/ui/textarea";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { createPost } from "../blog/api-client.js";
+import { useApi } from "../blog/api-client.js";
 
 const AUTHORS = [
   { id: "u1", name: "Alice Doe" },
@@ -14,6 +14,7 @@ const AUTHORS = [
 ];
 
 export function NewPostForm({ onCreated }: { onCreated?: () => void }) {
+  const api = useApi();
   const [userId, setUserId] = useState("u1");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -21,7 +22,7 @@ export function NewPostForm({ onCreated }: { onCreated?: () => void }) {
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    await createPost({ userId, title: title.trim(), body: body.trim() });
+    await api.posts.$post({ json: { userId, title: title.trim(), body: body.trim() } });
     onCreated?.();
     setTitle("");
     setBody("");
