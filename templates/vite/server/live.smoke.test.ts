@@ -1,8 +1,8 @@
 import type { PublishSink, Resource } from "rxfy-server";
-import { createInMemoryHub, createServer, createTopicKeyer, touch } from "rxfy-server";
+import { createInMemoryHub, createServer, touch } from "rxfy-server";
 import { describe, expect, it } from "vitest";
 import { resources, todoResource } from "../src/resources.js";
-import { todosChannel } from "../src/routes.js";
+import { todosChannel } from "./api.js";
 import type { todos } from "./db.js";
 
 // live.create/update accept Resource<TTable> with the table's raw row shape; the model omits
@@ -33,12 +33,11 @@ describe("live server", () => {
   it("create persists and touches the todos channel with a bare stale", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
+    const live = createServer({ db, resources, hub });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("todos")]);
+    hub.subscribe("client", ["c:todos"]);
 
     const row = await live.create(
       todoWriteResource,
@@ -46,25 +45,24 @@ describe("live server", () => {
       { touch: [touch(todosChannel, {})] },
     );
     expect(row).toMatchObject({ id: "t1", title: "Hi" });
-    expect(received).toEqual([{ v: 1, kind: "stale", channel: "todos" }]);
+    expect(received).toEqual([{ v: 2, kind: "stale", channel: "todos" }]);
   }, 30_000);
 
   it("update broadcasts a patch on the entity topic", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
+    const live = createServer({ db, resources, hub });
     await live.create(todoWriteResource, { id: "t1", title: "Hi", done: false });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("todo:t1")]);
+    hub.subscribe("client", ["e:todo:t1"]);
 
     const row = await live.update(todoWriteResource, "t1", { done: true });
     expect(row).toMatchObject({ id: "t1", done: true });
     expect(received).toEqual([
       {
-        v: 1,
+        v: 2,
         kind: "patch",
         name: "todo",
         id: "t1",

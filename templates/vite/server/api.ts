@@ -1,13 +1,15 @@
 import { asc } from "drizzle-orm";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
-import { createModelRegistry, normalizeResult } from "rxfy";
-import { type Resource, touch } from "rxfy-server";
+import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
 import { todoResource } from "../src/resources.js";
-import { todosChannel } from "../src/routes.js";
 import { todosState } from "../src/todos.js";
 import { db, todos } from "./db.js";
 import { live } from "./live.js";
+
+// StateDescriptor.key is `string | undefined` in rxfy but StateChannelDescriptor requires `string`;
+// todosState supplies a key, so the cast is safe.
+export const todosChannel = todosState as unknown as StateChannelDescriptor;
 
 // live.create/update accept Resource<TTable> with the table's raw row shape; the model omits
 // `createdAt`, so re-view the resource as its raw-row writer resource.
@@ -18,14 +20,8 @@ const newId = () => crypto.randomUUID();
 export const api = new Hono()
   .get("/todos", async (c) => {
     const rows = await db.select().from(todos).orderBy(asc(todos.createdAt), asc(todos.id));
-    const data = { todos: rows };
-    const registry = createModelRegistry();
-    normalizeResult(registry, todosState.fields, data);
-    const grants = live.grant(registry, {
-      entities: [todoResource],
-      states: [{ state: todosChannel, params: {} }],
-    });
-    return c.json({ data, grants });
+    // serve() is a pass-through: registers this session's live subscriptions, returns the data as-is.
+    return c.json(live.serve(c.req.raw, todosState, {}, { todos: rows }));
   })
   .post(
     "/todos",

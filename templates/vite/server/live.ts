@@ -1,15 +1,10 @@
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/resources.js";
 import { db } from "./db.js";
 
+// The hub holds live session subscriptions, so there must be exactly ONE instance — the tsx-graph
+// one. entry-server receives `live` as a parameter instead of importing this module, so the Vite
+// SSR graph never instantiates a second hub.
 export const hub = createInMemoryHub();
 
-// In dev this module is instantiated twice (tsx graph + Vite SSR graph), so there are two hubs.
-// That's fine: grants minted by either instance validate against both, because the keyer is
-// deterministic from the shared secret + clock and the hub state lives with the tsx instance.
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+export const live = createServer({ db, resources, hub });

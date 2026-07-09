@@ -2,16 +2,13 @@ import { PassThrough } from "node:stream";
 import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import { StaticRouter } from "react-router";
-import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
-import { live } from "../server/live.js";
+import type { Live } from "rxfy-server";
 import { App } from "./App.js";
-import { todoResource } from "./resources.js";
-import { routeStates } from "./routes.js";
 
-export function render(url: string): Promise<{ html: string; state: string }> {
+export function render(url: string, live: Live): Promise<{ html: string; state: string }> {
   const registry = createModelRegistry();
-  const pathname = new URL(url, "http://localhost").pathname;
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
@@ -30,13 +27,9 @@ export function render(url: string): Promise<{ html: string; state: string }> {
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
           sink.on("end", () => {
-            // Grants must be minted AFTER the render: only entities/channels actually
-            // fetched into the registry are grantable.
-            const grants = live.grant(registry, {
-              entities: [todoResource],
-              states: routeStates(pathname),
-            });
-            resolve({ html, state: hydrationScript({ ...dehydrate(registry), grants }) });
+            // hydration() mints this render's session and embeds it alongside the dehydrated
+            // registry — the server tracks everything served to the session and pushes updates.
+            resolve({ html, state: live.hydration(registry) });
           });
           pipe(sink);
         },

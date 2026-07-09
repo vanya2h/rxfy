@@ -1,10 +1,10 @@
 import { hc } from "hono/client";
-import type { Grants } from "rxfy-react";
+import { RXFY_SESSION_HEADER } from "rxfy-react";
 import type { AppType } from "../server/api.js";
-import { getLiveClient } from "./live-singleton.js";
+import { sessionId } from "./session.js";
 import type { Todo } from "./todos.js";
 
-const client = hc<AppType>("/api");
+const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
 
 export async function fetchTodos(): Promise<{ todos: Todo[] }> {
   // Build-time constant: the server-only branch and its PGlite import are eliminated
@@ -16,9 +16,7 @@ export async function fetchTodos(): Promise<{ todos: Todo[] }> {
     return { todos: rows };
   }
   const res = await client.todos.$get();
-  const body = (await res.json()) as unknown as { data: { todos: Todo[] }; grants: Grants };
-  getLiveClient()?.addGrants(body.grants);
-  return body.data;
+  return (await res.json()) as { todos: Todo[] };
 }
 
 export const createTodo = (title: string) => client.todos.$post({ json: { title } });
