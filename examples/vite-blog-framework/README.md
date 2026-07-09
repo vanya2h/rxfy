@@ -8,7 +8,7 @@ A live blog example that demonstrates the rxfy live framework (`rxfy-server` + `
 - **Hono** + **`@hono/node-ws`** — HTTP API + WebSocket transport for live messages
 - **PGlite** — in-memory Postgres (no external DB needed; resets on restart)
 - **Drizzle ORM** — type-safe schema + queries
-- **rxfy-server** — `defineResource` / `createServer` / `createTopicKeyer` / `touch`
+- **rxfy-server** — `defineResource` / `createServer` / `live.serve` / `live.hydration` / `touch`
 - **rxfy-ws** — WebSocket protocol layer (server-side `createWsServer`)
 - **rxfy-react** — `useStateData`, live client, `StoreProvider`
 - **shadcn/ui** (Tailwind v4) — `Card`/`Button`/`Input`/`Textarea`/`Select` components, semantic theme
