@@ -11,26 +11,33 @@ session was served (via `live.serve` / `live.hydration`) and pushes updates for 
 ## `createLiveClient`
 
 ```ts
-import { createLiveClient } from "rxfy-react";
+import { createLiveClient } from "rxfy-client";
 
 const liveClient = createLiveClient({
   registry,   // IModelRegistry — the same one passed to StoreProvider
   transport,  // LiveTransport — e.g. createWsClient() from rxfy-ws/client
-  session,    // this page load's session id — see readSsrSession below
+  session,    // optional override; defaults to getSessionId() — see below
 });
 ```
 
-`session` typically comes from `readSsrSession() ?? crypto.randomUUID()` — adopt the
-server-minted id from SSR hydration, or mint a fresh one for a CSR-only load (see
-[Sessions](/framework/server/sessions)).
+`createLiveClient` and the session helpers below live in `rxfy-client`, the framework-agnostic
+browser live runtime — nothing in them is React-specific, so they work from vanilla JS, Vue, or
+Svelte too. `rxfy-react` re-exports all of them for convenience, so either import path works.
+
+`session` defaults to `getSessionId()` — the server-minted id adopted from SSR hydration. On a
+CSR-only load that is `undefined`, so the client sends a session-less `hello` and the server
+answers with a `session` frame carrying a freshly minted id, which the live client adopts (see
+[Sessions](/framework/server/sessions)). You never mint an id yourself.
 
 **What `createLiveClient` does:**
 
-- Calls `transport.hello(session)` once at construction — the client's entire outbound
-  protocol.
+- Calls `transport.hello(session ?? getSessionId())` once at construction — the client's
+  entire outbound protocol. A session-less hello asks the server to assign one.
 - Calls `transport.onMessage` once. Incoming `"patch"` messages are applied directly to
   the named model store (`registry.namedStores().get(name)?.set(id, data)`); incoming
-  `"stale"` messages increment the matching channel counter.
+  `"stale"` messages increment the matching channel counter; an incoming `"session"`
+  message installs the server-assigned id (so `getSessionId()` starts returning it) and
+  re-hellos so the transport replays that id on reconnect.
 - Exposes `channel(name)` — returns a `ChannelCounter` (`{ available$: Observable<number>,
   reset: () => void }`) that `useStateData` calls internally for each keyed state.
 - Exposes `stop()` — completes all channel counters. It does not send transport-level
@@ -105,30 +112,75 @@ return <button onClick={onApply}>{n} new {noun}{n === 1 ? "" : "s"} · refresh</
 `applyUpdates` is also used as the `onCreated` / `onDeleted` callback in mutation forms so
 that local writes reset the counter and re-fetch in one step.
 
+## `getSessionId`
+
+```ts
+import { getSessionId } from "rxfy-client";
+
+const sessionId = getSessionId(); // string | undefined
+```
+
+This page load's session id: adopted from the SSR hydration payload (where
+`live.hydration(registry)` minted and embedded it), or `undefined` on a CSR-only load until the
+server assigns one over the WebSocket (a session-less `hello` answered with a `session` frame).
+Minting is always the server's job — the client never invents an id. Once known, the id is
+memoized, so every caller sees the same one.
+
+Attach it to every API request via the session header — that's what `sessionHeaders` and
+`withSession` are for. You rarely pass it anywhere yourself: `createLiveClient` already defaults
+to it.
+
+## `sessionHeaders`
+
+```ts
+import { hc } from "hono/client";
+import { sessionHeaders } from "rxfy-client";
+
+const client = hc<AppType>("/api", { headers: sessionHeaders });
+```
+
+Returns `{ "x-rxfy-session": <id> }` — spread it into any HTTP client's default headers. Hono's
+`hc` also accepts it directly as a lazy headers function, as above, so the id isn't read until
+the first request. While the session is still unknown it returns `{}`: a headerless request is
+served normally, just not recorded for live updates. In a client-only app that means fetches
+that fire before the WebSocket assignment arrives aren't recorded — the refresh / refetch path
+recovers.
+
+## `withSession`
+
+```ts
+import { withSession } from "rxfy-client";
+
+const apiFetch = withSession(); // wraps the ambient fetch
+const res = await apiFetch("/api/todos");
+```
+
+Wraps any fetch-compatible function so every request carries the session header once the session
+is known — before that, requests pass through untouched. Called with no argument it wraps the
+ambient `fetch`; an app with its own fetch layer wraps that instead — `withSession(myFancyFetch)`
+— and keeps calling the result exactly like the original.
+
 ## `readSsrSession`
 
 ```ts
-import { readSsrSession } from "rxfy-react";
+import { readSsrSession } from "rxfy-client";
 
-const sessionId = readSsrSession() ?? crypto.randomUUID();
+const ssrSessionId = readSsrSession(); // string | undefined
 ```
 
-Reads the session id minted server-side by `live.hydration(registry)` and embedded in the
-hydration payload. Returns `undefined` on a CSR-only load (no SSR chunk to read from), so the
-common pattern is to fall back to a freshly minted id.
+The lower-level read behind `getSessionId`: returns the session id minted server-side by
+`live.hydration(registry)` and embedded in the hydration payload, or `undefined` on a CSR-only
+load (no SSR chunk to read from). Reach for it only when you specifically need the SSR-embedded
+id and nothing else — otherwise use `getSessionId`, which also picks up an id the server assigned
+over the WebSocket.
 
-Attach the same id to every API request via the session header, and pass it to
-`createLiveClient`:
+Putting it together in the client entry:
 
 ```ts
-import { RXFY_SESSION_HEADER } from "rxfy-react";
-
-const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
-
+// The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
-  transport: createWsClient({ url: `ws://${location.host}/live` }),
-  session: sessionId,
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
 });
 ```
 

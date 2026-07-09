@@ -19,7 +19,7 @@ A server-rendered blog with three entity types — users, posts, comments — an
 - **Stale** — creating or deleting a post or comment marks the affected view as stale; a
   "click to refresh" badge appears rather than reordering or removing items from under the reader.
 
-**Stack:** Vite SSR · Hono · `@hono/node-ws` · PGlite · Drizzle ORM · `rxfy-server` · `rxfy-ws`
+**Stack:** Vite SSR · Hono · `@hono/node-ws` · PGlite · Drizzle ORM · `rxfy-server` · `rxfy-ws` · `rxfy-client`
 
 ## File layout
 
@@ -253,22 +253,22 @@ A plain API read endpoint registers its own response the same way, per request, 
 
 ### Hydrate and go live
 
-On the client, create the WebSocket transport and live client, adopt the SSR-minted session, then
-pass the live client to `StoreProvider`:
+On the client, create the WebSocket transport and live client — the SSR-minted session is picked
+up automatically — then pass the live client to `StoreProvider`:
 
 ```tsx [src/entry-client.tsx]
+import { StrictMode } from "react";
+import { hydrateRoot } from "react-dom/client";
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, readSsrSession, StoreProvider } from "rxfy-react";
+import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 import { App } from "./App.js";
 
 const registry = createModelRegistry();
+// The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
-  transport: createWsClient({
-    url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`,
-  }),
-  session: readSsrSession() ?? crypto.randomUUID(),
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
 });
 
 hydrateRoot(
@@ -283,11 +283,13 @@ hydrateRoot(
 
 - `createWsClient` — builds the WebSocket transport. The URL switches between `ws://` and `wss://`
   based on the page protocol.
-- `createLiveClient` — sends one `hello(session)` frame and wires incoming `patch` / `stale`
-  events to the shared registry. There is nothing to subscribe: the server already knows what this
-  session was served.
-- `readSsrSession()` — reads the session id `live.hydration` embedded in the page; falls back to a
-  freshly minted id on a CSR-only load.
+- `createLiveClient` — sends one `hello` frame and wires incoming `patch` / `stale` events to the
+  shared registry. There is nothing to subscribe: the server already knows what this session was
+  served.
+- The session defaults to `getSessionId()` (from `rxfy-client`), which adopts the session id
+  `live.hydration` embedded in the page; on a client-only load the server assigns one over the
+  WebSocket instead. The API client attaches the same id to every request with `sessionHeaders`:
+  `hc<AppType>("/api", { headers: sessionHeaders })`.
 - `StoreProvider liveClient={liveClient}` — makes the live client available to all hooks so that
   `useStateData` and `useModelStore` calls can receive stale notifications.
 
@@ -334,5 +336,5 @@ database setup is required.
 - [rxfy-server](/framework/server) — full API for `createServer`, `defineResource`, `createInMemoryHub`.
 - [rxfy-ws](/framework/ws) — WebSocket transport reference.
 - [Sessions](/framework/server/sessions) — how the server tracks what each session was served.
-- [Live client](/react/live-client) — `createLiveClient`, `readSsrSession`, and stale handling in React.
+- [Live client](/react/live-client) — `createLiveClient`, the session helpers, and stale handling in React.
 - [Server-Side Rendering](/core-concepts/ssr) — `dehydrate`, `hydrate`, and `hydrationScript` for non-live SSR.

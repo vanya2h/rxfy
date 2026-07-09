@@ -1,7 +1,7 @@
 # createWsClient [The browser transport with reconnect and replay]
 
 `createWsClient` opens a WebSocket to `url` and returns a `ClientTransport` that
-`createLiveClient` (from `rxfy-react`) consumes.
+`createLiveClient` (from `rxfy-client`, re-exported by `rxfy-react`) consumes.
 
 ```ts
 import { createWsClient } from "rxfy-ws/client";
@@ -17,24 +17,24 @@ type WsClientOptions = {
 function createWsClient(options: WsClientOptions): ClientTransport;
 ```
 
-**Auto-reconnect and hello replay.** The client remembers the last `hello`ed session. On
-`"close"` it schedules a reconnect after `reconnectDelayMs`; on `"open"` it immediately re-sends
-the `hello` frame for that session — no caller-side re-announce needed. A `hello()` call made
-before the socket is `OPEN` is silently dropped for that connection attempt (nothing is
-buffered), but is remembered and sent on the next `"open"`.
+**Auto-reconnect and hello replay.** The client remembers the last `hello`ed session — which may
+be session-less: omitting the session asks the server to assign one, and once `createLiveClient`
+re-hellos with the assigned id, that id is what replays. On `"close"` it schedules a reconnect
+after `reconnectDelayMs`; on `"open"` it immediately re-sends the `hello` frame for that session —
+no caller-side re-announce needed. A `hello()` call made before the socket is `OPEN` is silently
+dropped for that connection attempt (nothing is buffered), but is remembered and sent on the next
+`"open"`.
 
 ```tsx [src/entry-client.tsx]
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, readSsrSession, StoreProvider } from "rxfy-react";
+import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 
 const registry = createModelRegistry();
+// The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
-  transport: createWsClient({
-    url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`,
-  }),
-  session: readSsrSession() ?? crypto.randomUUID(),
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
 });
 
 hydrateRoot(

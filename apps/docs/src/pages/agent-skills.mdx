@@ -11,7 +11,7 @@ The two skills mirror the two [getting-started paths](/getting-started). Each is
 | Your setup | Install |
 |---|---|
 | Client-only store — `rxfy` + `rxfy-react`, with or without SSR | `rxfy` |
-| Live app — the framework packages (`rxfy-server`, `rxfy-ws`) on top | `rxfy-framework` |
+| Live app — the framework packages (`rxfy-server`, `rxfy-ws`, `rxfy-client`) on top | `rxfy-framework` |
 
 `rxfy-framework` already contains everything in `rxfy`, so installing both only duplicates context and confuses skill routing.
 
@@ -43,4 +43,4 @@ npx skills add vanya2h/rxfy --skill rxfy-framework
 - `patch` vs `stale`: which writes publish what, and why lists refresh instead of mutating in place
 - The wire protocol and the `rxfy-ws` transports (`createWsServer`, `createWsClient`)
 - `createLiveClient`, the `StoreProvider` `liveClient` prop, and `updatesAvailable$` / `applyUpdates`
-- Sessions and live hydration: `live.serve`, `live.hydration`, `readSsrSession`, and state channels
+- Sessions and live hydration: `live.serve`, `live.hydration`, the `rxfy-client` session helpers (`getSessionId`, `sessionHeaders`, `withSession`), and state channels

@@ -18,6 +18,11 @@ function createWsServer(hub: Hub): { handleConnection: (socket: ServerSocket) =>
 directly. Frameworks that wrap the underlying socket (Hono, Bun, etc.) need a thin
 adapter.
 
+When a `hello` frame arrives, the server binds the socket as that session's delivery target.
+A session-less `hello` (a client-only app, no SSR-minted id) makes it mint a fresh id and
+reply with a [`session` frame](/framework/server/messages) before binding — see
+[Sessions](/framework/server/sessions).
+
 ## Adapter pattern (Hono)
 
 The Hono bridge from `examples/vite-blog-framework` shows the pattern: create an

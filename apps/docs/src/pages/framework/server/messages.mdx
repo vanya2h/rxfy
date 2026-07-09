@@ -13,16 +13,18 @@ All messages carry a `v` field (protocol version) and a `kind` discriminant.
 |---|---|---|---|
 | `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Live entity update. Holders of `name:id` apply it in place. `data` is validated against the model schema on the client. |
 | `StaleMessage` | `"stale"` | `v`, `kind`, `channel` | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch. |
+| `SessionMessage` | `"session"` | `v`, `kind`, `session` | Server-assigned session id, sent in reply to a session-less `hello` (client-only apps). The live client adopts it. |
 
 `live.update` publishes a `patch` on the entity topic; `live.create` / `live.delete` /
 `live.touch` publish `stale` on the touched channels — see
-[Writes](/framework/server/writes) for the full behaviour.
+[Writes](/framework/server/writes) for the full behaviour. The WebSocket server sends `session`
+itself when a `hello` arrives without one — see [Sessions](/framework/server/sessions).
 
 ## Client → server
 
 | Type | `kind` | Fields | Description |
 |---|---|---|---|
-| `HelloMessage` | `"hello"` | `v`, `kind`, `session` | Announce the session after every (re)connect. |
+| `HelloMessage` | `"hello"` | `v`, `kind`, `session?` | Announce the session after every (re)connect. Omitting `session` asks the server to mint one (answered with a `session` frame). |
 
 `hello` is the client's **only** outbound frame — there is no subscribe/unsubscribe message.
 Subscriptions are written server-side by the serve path
@@ -44,7 +46,8 @@ upgrade of the server and all clients before traffic resumes.
 
 :::info[The `rxfy-protocol` package]
 The message types and codec live in [`rxfy-protocol`](https://www.npmjs.com/package/rxfy-protocol),
-a dependency of `rxfy-server`, `rxfy-ws`, and `rxfy-react` that installs automatically with them.
+a dependency of `rxfy-server`, `rxfy-ws`, `rxfy-client`, and `rxfy-react` that installs
+automatically with them.
 You rarely import it directly — its main direct use is building a
 [custom transport](/framework/ws/custom-transport) or a non-JS client against the wire contract.
 :::

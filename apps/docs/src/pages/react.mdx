@@ -17,7 +17,9 @@
 - [`useObservable`](/react/use-observable) — bind a raw `Observable<T>` to React.
 - [`createLiveClient` / live client](/react/live-client) — connect a WebSocket transport so
   server pushes land in the store; exposes `updatesAvailable$` for refresh affordances. Used
-  by the [live-update framework](/framework/server).
+  by the [live-update framework](/framework/server). Lives in `rxfy-client` (the
+  framework-agnostic browser live runtime) and is re-exported here alongside its session
+  helpers.
 
 `data$` from `useStateData` (and `useStatePagedData`) emits the **normalized query shape:
 entity ids, not entities**. Render lists by id and read entity data through

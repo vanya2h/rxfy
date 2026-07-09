@@ -192,7 +192,7 @@ In the common path you never call `hydrate` directly — the embedded script pop
 
 Live apps use a different entry point for the same idea: [`live.hydration(registry)`](/framework/server/sessions)
 mints a session, registers everything the render served, and returns the hydration script in one
-call — the client adopts the session with [`readSsrSession`](/react/live-client#readssrsession)
+call — the client adopts the session with [`getSessionId`](/react/live-client#getsessionid)
 instead of calling `dehydrate` / `hydrationScript` directly.
 
 ## Error handling

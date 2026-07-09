@@ -55,7 +55,8 @@ the framework to an existing app by hand.
 ## Install
 
 Everything from the store path plus the live stack: `rxfy-server` (writes and
-publishing) and `rxfy-ws` (the WebSocket transport), with
+publishing), `rxfy-ws` (the WebSocket transport), and `rxfy-client` (the framework-agnostic
+browser live runtime — session identity and the live update sink), with
 [Drizzle](https://orm.drizzle.team) and `ws` as their peers.
 The wire contract between them (see [Live messages](/framework/server/messages)) comes
 along as an internal dependency.
@@ -63,22 +64,22 @@ along as an internal dependency.
 :::code-group
 
 ```bash [npm]
-npm install rxfy rxfy-react rxfy-server rxfy-ws
+npm install rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
 npm install rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [pnpm]
-pnpm add rxfy rxfy-react rxfy-server rxfy-ws
+pnpm add rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
 pnpm add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [yarn]
-yarn add rxfy rxfy-react rxfy-server rxfy-ws
+yarn add rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
 yarn add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [bun]
-bun add rxfy rxfy-react rxfy-server rxfy-ws
+bun add rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
 bun add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
@@ -159,19 +160,19 @@ await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
 
 ## Go live on the client
 
-Give `StoreProvider` a live client built from the WebSocket transport and the session the
-server minted during SSR. Your components stay exactly as they were on the store path:
+Give `StoreProvider` a live client built from the WebSocket transport. Your components stay
+exactly as they were on the store path:
 
 ```tsx [src/entry-client.tsx]
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, readSsrSession, StoreProvider } from "rxfy-react";
+import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 
 const registry = createModelRegistry();
+// The session defaults to the SSR-adopted id; client-only loads get one assigned by the server.
 const liveClient = createLiveClient({
   registry,
-  transport: createWsClient({ url: `ws://${location.host}/live` }),
-  session: readSsrSession() ?? crypto.randomUUID(),
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
 });
 
 hydrateRoot(
@@ -182,10 +183,10 @@ hydrateRoot(
 );
 ```
 
-There is no allow-list to read: the server already knows what this session was served — the
-SSR render minted the session with `live.hydration(registry)` and embedded it in the page;
-`readSsrSession()` adopts it, or the client mints its own id on a CSR-only load. See
-[Sessions](/framework/server/sessions).
+There is no allow-list to read and no session to pass: the server already knows what this
+session was served — the SSR render minted the session with `live.hydration(registry)` and
+embedded it in the page, and the live client adopts it by default. On a client-only load the
+server assigns one over the WebSocket instead. See [Sessions](/framework/server/sessions).
 
 ## Open two tabs
 

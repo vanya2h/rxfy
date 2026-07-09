@@ -30,7 +30,7 @@ npm install rxfy rxfy-react
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started) — `StoreProvider` setup
 - [React Bindings](https://rxfy.vanya2h.me/react) — `useStateData` (remote fetch or local `initial`), `useStatePagedData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
-- [Live client](https://rxfy.vanya2h.me/react/live-client) — `createLiveClient`, `StoreProvider`'s `liveClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`, `readSsrSession`
+- [Live client](https://rxfy.vanya2h.me/react/live-client) — `createLiveClient`, `StoreProvider`'s `liveClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`; `createLiveClient`, `readSsrSession`, and the session helpers `getSessionId` / `sessionHeaders` / `withSession` are re-exported from their framework-agnostic home, [`rxfy-client`](../rxfy-client/README.md)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — buffered, streaming (Next.js App Router), two-pass
 - [rxfy](../rxfy/README.md) — core library
 

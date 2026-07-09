@@ -74,7 +74,7 @@ pnpm --filter rxfy-example-waku-blog dev
 
 **[examples/vite-blog-framework](https://github.com/vanya2h/rxfy/tree/main/examples/vite-blog-framework)**
 
-A live blog: server-rendered first paint, then real-time updates over WebSockets. Edits apply instantly across tabs (a `patch` on the entity topic); new posts/comments and deletes surface a "click to refresh" badge (a `stale` on the state channel). Built with Vite SSR · Hono · Hono WebSocket · PGlite (in-memory Postgres) · Drizzle · `rxfy-server` · `rxfy-ws`. SSR mints a **session** so the server can push updates for exactly what a client's page rendered — no grants, no client subscriptions.
+A live blog: server-rendered first paint, then real-time updates over WebSockets. Edits apply instantly across tabs (a `patch` on the entity topic); new posts/comments and deletes surface a "click to refresh" badge (a `stale` on the state channel). Built with Vite SSR · Hono · Hono WebSocket · PGlite (in-memory Postgres) · Drizzle · `rxfy-server` · `rxfy-ws` · `rxfy-client`. SSR mints a **session** so the server can push updates for exactly what a client's page rendered — no grants, no client subscriptions.
 
 ```bash
 pnpm --filter vite-blog-framework dev

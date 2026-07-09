@@ -15,7 +15,7 @@ refetch. A `defineState` declaration bundles fetching, normalization, and SSR in
 reactive state.
 
 On top of that, rxfy offers a first-party
-[live-update framework](/framework/server) (`rxfy-server` / `rxfy-ws`) that pushes entity changes into the same
+[live-update framework](/framework/server) (`rxfy-server` / `rxfy-ws` / `rxfy-client`) that pushes entity changes into the same
 normalized stores — real-time is built in, not bolted on.
 
 ## At a glance
@@ -35,8 +35,8 @@ normalized stores — real-time is built in, not bolted on.
 | **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          | `@tanstack/react-query`     |
 
 **Core deps** lists the store path. The real-time ✅ is the opt-in
-[framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` packages (peers:
-`drizzle-orm`, `ws`) that add nothing to a client-only app.
+[framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` / `rxfy-client` packages
+(peers: `drizzle-orm`, `ws`) that add nothing to a client-only app.
 
 ## vs Redux Toolkit
 

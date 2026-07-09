@@ -1,28 +1,47 @@
 # Live sessions
 
 There are no grants and no client subscriptions. The server tracks what each browser session was
-served and pushes updates for exactly that. The client's entire outbound protocol is one
-`hello { session }` frame.
+served and pushes updates for exactly that. The client's entire outbound protocol is one `hello`
+frame — carrying the session id when known, or session-less to ask the server to assign one.
 
 ## Session identity
 
+`getSessionId(): string | undefined` from `rxfy-client` (re-exported by `rxfy-react`) is the one
+source of truth. The client NEVER mints a session id — minting is always the server's job, reached
+by one of two paths:
+
 - SSR loads: `live.hydration(registry)` mints the session server-side and embeds it in the
-  hydration payload; the client adopts it with `readSsrSession()`.
-- CSR-only loads: the client mints its own id.
+  hydration payload; `getSessionId()` adopts it on the client.
+- Client-only loads: the live client sends a session-less `hello`; the server mints an id and
+  answers with a `session` frame; the live client adopts it and re-hellos so the transport replays
+  the assigned id on reconnect. Until that frame arrives, `getSessionId()` returns `undefined`.
+
+It is memoized per page load. Any "minted lazily on first call" model is obsolete.
+
+Attach it to every API request; the live client picks it up by default:
 
 ```ts
-// src/session.ts
-import { readSsrSession } from "rxfy-react";
-export const sessionId = readSsrSession() ?? crypto.randomUUID();
+import { sessionHeaders } from "rxfy-client";
+
+// sessionHeaders() returns { "x-rxfy-session": <id> }, or {} while the id is unknown;
+// hono's hc accepts it as a lazy headers function
+const client = hc<AppType>("/api", { headers: sessionHeaders });
+
+// session defaults to getSessionId() — no need to pass it
+const liveClient = createLiveClient({ registry, transport: createWsClient({ url }) });
 ```
 
-Attach it to every API request and to the live client:
+A headerless request is served normally, just not recorded for live updates. In client-only apps
+this means fetches racing ahead of the WS session assignment go unrecorded — refresh/refetch
+recovers, because the re-served read registers under the assigned session.
+
+For a non-hono fetch layer, `withSession(fetchFn?)` wraps any fetch-compatible function so every
+request carries the header once the session is known (pure pass-through before that) — defaults to
+the ambient `fetch`:
 
 ```ts
-import { RXFY_SESSION_HEADER } from "rxfy-react";
-const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
-
-const liveClient = createLiveClient({ registry, transport: createWsClient({ url }), session: sessionId });
+import { withSession } from "rxfy-client";
+const apiFetch = withSession(); // or withSession(myFetch)
 ```
 
 ## Serving = subscribing

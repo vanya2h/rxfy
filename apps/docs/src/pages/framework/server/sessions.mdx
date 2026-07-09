@@ -2,27 +2,40 @@
 
 There are no grants and no client subscriptions. The server tracks what each browser session was
 served and pushes updates for exactly that. The client's entire outbound protocol is one
-`hello { session }` frame — there is nothing else for it to say.
+`hello { session? }` frame — there is nothing else for it to say.
 
 ## Session identity
 
+Minting is always the server's job — the client never invents an id. It happens on one of two
+paths:
+
 - **SSR loads** — [`live.hydration(registry)`](/framework/server/create-server) mints the session
-  server-side and embeds it in the hydration payload; the client adopts it with `readSsrSession()`.
-- **CSR-only loads** — the client mints its own id.
+  server-side and embeds it in the hydration payload; the client adopts it with `getSessionId()`.
+- **Client-only loads** — the live client sends a session-less `hello` over the WebSocket; the
+  server mints an id, answers with a `session` frame carrying it, and binds the socket. The live
+  client adopts the id (and re-hellos so reconnects replay it). Until that assignment arrives,
+  `getSessionId()` returns `undefined`.
 
-```ts [src/session.ts]
-import { readSsrSession } from "rxfy-react";
-export const sessionId = readSsrSession() ?? crypto.randomUUID();
-```
+`getSessionId` comes from `rxfy-client` (the framework-agnostic browser live runtime,
+re-exported by `rxfy-react`). Once the id is known it is memoized — every caller sees the same
+one.
 
-Attach it to every API request and to the live client:
+Attach it to every API request; the live client picks it up by default:
 
 ```ts
-import { RXFY_SESSION_HEADER } from "rxfy-react";
-const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
+import { sessionHeaders } from "rxfy-client";
+const client = hc<AppType>("/api", { headers: sessionHeaders });
 
-const liveClient = createLiveClient({ registry, transport: createWsClient({ url }), session: sessionId });
+const liveClient = createLiveClient({ registry, transport: createWsClient({ url }) }); // session defaults to getSessionId()
 ```
+
+`sessionHeaders()` returns `{ "x-rxfy-session": <id> }` for spreading into any HTTP client's
+default headers; hono's `hc` also accepts it directly as a lazy headers function, as above. An
+app with its own fetch layer wraps it instead: `withSession(myFetch)` (or `withSession()` for
+the ambient `fetch`) returns a fetch that carries the session header once the session is known.
+While it is unknown both return nothing extra — a headerless request is served normally, just
+not recorded for live updates. In a client-only app, fetches that fire before the WebSocket
+assignment arrives are therefore not recorded; the refresh / refetch path recovers.
 
 ## Serving = subscribing
 
@@ -72,5 +85,5 @@ subscription state) must stay a single instance across both.
 
 See [`createServer`](/framework/server/create-server) for `live.serve` / `live.hydration` in the
 full `Live` object, [`createInMemoryHub`](/framework/server/hub) for how the hub tracks sessions,
-and [Live client](/react/live-client) for `createLiveClient` and `readSsrSession` on the browser
-side.
+and [Live client](/react/live-client) for `createLiveClient` and the session helpers on the
+browser side.

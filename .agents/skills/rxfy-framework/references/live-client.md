@@ -1,17 +1,17 @@
-# Live client (rxfy-react)
+# Live client (rxfy-client)
 
-Connects a WebSocket transport to a `ModelRegistry` so server pushes land in the normalized stores and per-state update counters tick up. Pass the result to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces `updatesAvailable$` / `applyUpdates` on every handle.
+Connects a WebSocket transport to a `ModelRegistry` so server pushes land in the normalized stores and per-state update counters tick up. Lives in `rxfy-client`, the framework-agnostic browser runtime (`rxfy-react` re-exports everything for back-compat — either import works). Pass the result to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces `updatesAvailable$` / `applyUpdates` on every handle.
 
 ## createLiveClient
 
 ```ts
-import { createLiveClient, readSsrSession } from "rxfy-react";
+import { createLiveClient } from "rxfy-client";
 import { createWsClient } from "rxfy-ws/client";
 
 const liveClient = createLiveClient({
   registry,   // IModelRegistry — the same one passed to StoreProvider
   transport,  // LiveTransport — e.g. createWsClient() from rxfy-ws/client
-  session,    // this page load's session id — see live-sessions.md
+  // session?: string — override; defaults to getSessionId(), see live-sessions.md
 });
 ```
 
@@ -19,13 +19,14 @@ It is a pure sink: there is nothing to subscribe, because the server already kno
 session was served (via `live.serve` / `live.hydration`) and pushes updates for exactly that. What
 it does:
 
-- Calls `transport.hello(session)` once at construction — the client's entire outbound protocol.
-- Calls `transport.onMessage` once. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); `"stale"` messages increment the matching channel counter.
+- Calls `transport.hello(session ?? getSessionId())` once at construction — for an SSR load that carries the adopted id; for a client-only load it is a session-less hello asking the server to assign one.
+- Calls `transport.onMessage` once. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); `"stale"` messages increment the matching channel counter; a `"session"` message installs the server-assigned id (`adoptSessionId`) and re-hellos with it so the transport replays it on reconnect.
 - Exposes `channel(name)` → `ChannelCounter` (`{ available$: Observable<number>, reset: () => void }`); `useStateData` calls it internally for each keyed state.
 - Exposes `stop()` — completes all channel counters (it does not send transport-level unsubscribes; there's nothing to unsubscribe from).
 
-`session` typically comes from `readSsrSession() ?? crypto.randomUUID()` — adopt the server-minted
-id from SSR hydration, or mint a fresh one for a CSR-only load (see `live-sessions.md`).
+The client never mints a session id: `getSessionId()` is the SSR-adopted id or `undefined` until
+the server assigns one over the WS. The same id reaches the API via `sessionHeaders` /
+`withSession` once known (see `live-sessions.md`).
 
 ## StoreProvider `liveClient` prop
 
