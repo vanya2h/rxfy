@@ -25,7 +25,7 @@ function stubLive() {
   const counter = new BehaviorSubject(0);
   const reset = vi.fn(() => counter.next(0));
   const channel = vi.fn(() => ({ available$: counter.asObservable(), reset }));
-  const client: LiveClient = { channel, addGrants: vi.fn(), stop: vi.fn() };
+  const client: LiveClient = { channel, stop: vi.fn() };
   return { client, counter, reset, channel };
 }
 

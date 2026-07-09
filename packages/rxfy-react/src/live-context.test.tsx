@@ -7,7 +7,6 @@ import { StoreProvider } from "./StoreProvider.js";
 
 const stubClient: LiveClient = {
   channel: () => ({ available$: of(0), reset: () => {} }),
-  addGrants: () => {},
   stop: () => {},
 };
 

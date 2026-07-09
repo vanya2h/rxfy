@@ -1,17 +1,10 @@
 import type { IModelRegistry } from "rxfy";
 import type { ServerMessage } from "rxfy-protocol";
-import { BehaviorSubject, type Observable, type Subscription } from "rxjs";
-
-/** topic→id / channel→id lookup table the client uses to subscribe. */
-export type Grants = {
-  entities: Record<string, string>;
-  channels: Record<string, string>;
-};
+import { BehaviorSubject, type Observable } from "rxjs";
 
 /** Structural transport (satisfied by rxfy-ws/client's ClientTransport). */
 export type LiveTransport = {
-  subscribe: (ids: string[]) => void;
-  unsubscribe: (ids: string[]) => void;
+  hello: (session: string) => void;
   onMessage: (handler: (message: ServerMessage) => void) => void;
 };
 
@@ -22,37 +15,23 @@ export type ChannelCounter = {
 
 export type LiveClient = {
   channel: (channel: string) => ChannelCounter;
-  addGrants: (grants: Grants) => void;
   stop: () => void;
 };
 
 export type LiveClientConfig = {
   registry: IModelRegistry;
   transport: LiveTransport;
-  grants?: Grants;
+  /** This page load's session id — the server pushes updates for everything it serves this session. */
+  session: string;
 };
 
-export function createLiveClient({ registry, transport, grants }: LiveClientConfig): LiveClient {
-  const entityIds: Record<string, string> = { ...(grants?.entities ?? {}) };
-  const channelIds: Record<string, string> = { ...(grants?.channels ?? {}) };
+/**
+ * A pure sink: the server tracks what this session was served and pushes updates for it. Patches
+ * land in the model stores in place; stales bump the matching channel counter. The client never
+ * subscribes to anything — its entire outbound protocol is the hello.
+ */
+export function createLiveClient({ registry, transport, session }: LiveClientConfig): LiveClient {
   const counters = new Map<string, BehaviorSubject<number>>();
-  const subscribedTopics = new Set<string>();
-  const subscribedChannels = new Set<string>();
-
-  const subscribeTopic = (topic: string): void => {
-    const id = entityIds[topic];
-    if (id && !subscribedTopics.has(topic)) {
-      subscribedTopics.add(topic);
-      transport.subscribe([id]);
-    }
-  };
-  const subscribeChannel = (channel: string): void => {
-    const id = channelIds[channel];
-    if (id && !subscribedChannels.has(channel)) {
-      subscribedChannels.add(channel);
-      transport.subscribe([id]);
-    }
-  };
 
   transport.onMessage((message) => {
     if (message.kind === "patch") {
@@ -66,9 +45,7 @@ export function createLiveClient({ registry, transport, grants }: LiveClientConf
     }
   });
 
-  const addedSub: Subscription = registry.added$.subscribe(({ name, key }) => {
-    subscribeTopic(`${name}:${key}`);
-  });
+  transport.hello(session);
 
   return {
     channel(channel) {
@@ -77,21 +54,12 @@ export function createLiveClient({ registry, transport, grants }: LiveClientConf
         counter = new BehaviorSubject(0);
         counters.set(channel, counter);
       }
-      subscribeChannel(channel);
       const subject = counter;
       return { available$: subject.asObservable(), reset: () => subject.next(0) };
     },
-    addGrants(next) {
-      Object.assign(entityIds, next.entities);
-      Object.assign(channelIds, next.channels);
-      for (const channel of counters.keys()) subscribeChannel(channel);
-    },
     stop() {
-      addedSub.unsubscribe();
       for (const counter of counters.values()) counter.complete();
       counters.clear();
-      subscribedTopics.clear();
-      subscribedChannels.clear();
     },
   };
 }
