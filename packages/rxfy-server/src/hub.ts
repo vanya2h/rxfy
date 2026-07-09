@@ -1,62 +1,108 @@
 import type { ServerMessage } from "rxfy-protocol";
 
-/** Opaque connection identifier owned by the transport adapter. */
-export type ConnId = number | string;
+/** A browser session id — minted by the server for SSR loads, or by the client for CSR-only loads. */
+export type SessionId = string;
 
-/** Delivers a message to one connection (registered by the transport). */
-export type PublishSink = (conn: ConnId, message: ServerMessage) => void;
+/** Delivers a message to one session's socket (registered by the transport). */
+export type PublishSink = (session: SessionId, message: ServerMessage) => void;
+
+export type HubOptions = {
+  /** How long an unbound session's subscriptions survive (never-connected SSR sessions, closed tabs). */
+  ttlMs?: number;
+  /** Injectable clock (defaults to Date.now); used for deterministic tests. */
+  now?: () => number;
+};
 
 /**
- * Pure pub/sub over opaque routing ids (the hashed topic keys from the keyer).
- * Holds NO counters — the "updates available" tally is purely client-side.
+ * Pub/sub over subscription ids, keyed by session. Subscriptions are written by the SERVE path
+ * (rxfy-server's serve/hydration), never by client frames; the WS layer only binds/releases
+ * sockets. Holds NO counters — the "updates available" tally is purely client-side.
  */
 export type Hub = {
   publish: (id: string, message: ServerMessage) => void;
-  subscribe: (conn: ConnId, ids: string[]) => void;
-  unsubscribe: (conn: ConnId, ids: string[]) => void;
-  drop: (conn: ConnId) => void;
+  subscribe: (session: SessionId, ids: string[]) => void;
+  unsubscribe: (session: SessionId, ids: string[]) => void;
+  /** Socket liveness from the transport. Bound sessions never expire; release starts the TTL clock. */
+  bind: (session: SessionId) => void;
+  release: (session: SessionId) => void;
+  drop: (session: SessionId) => void;
   onPublish: (sink: PublishSink) => void;
 };
 
-export function createInMemoryHub(): Hub {
-  const subscribers = new Map<string, Set<ConnId>>(); // id -> conns
-  const connIds = new Map<ConnId, Set<string>>(); // conn -> ids (for drop)
+const DEFAULT_TTL_MS = 5 * 60_000;
+
+export function createInMemoryHub(options: HubOptions = {}): Hub {
+  const { ttlMs = DEFAULT_TTL_MS, now = Date.now } = options;
+  type Session = { ids: Set<string>; bound: boolean; expiresAt: number };
+  const subscribers = new Map<string, Set<SessionId>>(); // id -> sessions
+  const sessions = new Map<SessionId, Session>();
   let sink: PublishSink | undefined;
 
-  const forget = (conn: ConnId, id: string): void => {
-    const conns = subscribers.get(id);
-    if (!conns) return;
-    conns.delete(conn);
-    if (conns.size === 0) subscribers.delete(id);
+  const forget = (session: SessionId, id: string): void => {
+    const holders = subscribers.get(id);
+    if (!holders) return;
+    holders.delete(session);
+    if (holders.size === 0) subscribers.delete(id);
+  };
+
+  const drop = (session: SessionId): void => {
+    const entry = sessions.get(session);
+    if (entry) for (const id of entry.ids) forget(session, id);
+    sessions.delete(session);
+  };
+
+  /** Evict unbound sessions whose TTL elapsed — called lazily from publish/subscribe/bind. */
+  const sweep = (): void => {
+    const t = now();
+    for (const [session, entry] of sessions) {
+      if (!entry.bound && entry.expiresAt <= t) drop(session);
+    }
+  };
+
+  const ensure = (session: SessionId): Session => {
+    let entry = sessions.get(session);
+    if (!entry) sessions.set(session, (entry = { ids: new Set(), bound: false, expiresAt: now() + ttlMs }));
+    return entry;
   };
 
   return {
     publish(id, message) {
-      const conns = subscribers.get(id);
-      if (!conns || !sink) return;
-      for (const conn of conns) sink(conn, message);
+      sweep();
+      const holders = subscribers.get(id);
+      if (!holders || !sink) return;
+      for (const session of holders) sink(session, message);
     },
-    subscribe(conn, ids) {
+    subscribe(session, ids) {
+      sweep();
+      const entry = ensure(session);
+      if (!entry.bound) entry.expiresAt = now() + ttlMs; // fresh activity restarts the clock
       for (const id of ids) {
-        let conns = subscribers.get(id);
-        if (!conns) subscribers.set(id, (conns = new Set()));
-        conns.add(conn);
-        let owned = connIds.get(conn);
-        if (!owned) connIds.set(conn, (owned = new Set()));
-        owned.add(id);
+        let holders = subscribers.get(id);
+        if (!holders) subscribers.set(id, (holders = new Set()));
+        holders.add(session);
+        entry.ids.add(id);
       }
     },
-    unsubscribe(conn, ids) {
+    unsubscribe(session, ids) {
+      const entry = sessions.get(session);
+      if (!entry) return;
       for (const id of ids) {
-        forget(conn, id);
-        connIds.get(conn)?.delete(id);
+        forget(session, id);
+        entry.ids.delete(id);
       }
     },
-    drop(conn) {
-      const owned = connIds.get(conn);
-      if (owned) for (const id of owned) forget(conn, id);
-      connIds.delete(conn);
+    bind(session) {
+      sweep();
+      const entry = ensure(session);
+      entry.bound = true;
     },
+    release(session) {
+      const entry = sessions.get(session);
+      if (!entry) return;
+      entry.bound = false;
+      entry.expiresAt = now() + ttlMs;
+    },
+    drop,
     onPublish(next) {
       sink = next;
     },
