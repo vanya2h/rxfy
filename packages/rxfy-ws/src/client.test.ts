@@ -72,6 +72,46 @@ describe("createWsClient", () => {
     transport.close();
   });
 
+  it("buffers a session-less hello until the socket opens — the ask-to-assign form", () => {
+    const sockets: ReturnType<typeof fakeWebSocket>[] = [];
+    const transport = createWsClient({
+      url: "ws://x",
+      WebSocketImpl: () => {
+        const s = fakeWebSocket();
+        sockets.push(s);
+        return s.ws;
+      },
+    });
+    transport.hello(); // client-only app: ask the server to assign a session
+    expect(sockets[0]!.sent).toEqual([]);
+    sockets[0]!.ws.open();
+    expect(sockets[0]!.sent.map((m) => parseClientMessage(m))).toEqual([hello()]);
+    transport.close();
+  });
+
+  it("replays the adopted session on reconnect after a session-less start", () => {
+    vi.useFakeTimers();
+    const sockets: ReturnType<typeof fakeWebSocket>[] = [];
+    const transport = createWsClient({
+      url: "ws://x",
+      WebSocketImpl: () => {
+        const s = fakeWebSocket();
+        sockets.push(s);
+        return s.ws;
+      },
+      reconnectDelayMs: 10,
+    });
+    sockets[0]!.ws.open();
+    transport.hello();
+    transport.hello("assigned-1"); // the live client re-hellos once the server assigns
+    sockets[0]!.ws.emitClose();
+    vi.advanceTimersByTime(10);
+    sockets[1]!.ws.open();
+    expect(sockets[1]!.sent.map((m) => parseClientMessage(m))).toEqual([hello("assigned-1")]);
+    transport.close();
+    vi.useRealTimers();
+  });
+
   it("delivers parsed server messages to the handler", () => {
     const sockets: ReturnType<typeof fakeWebSocket>[] = [];
     const transport = createWsClient({

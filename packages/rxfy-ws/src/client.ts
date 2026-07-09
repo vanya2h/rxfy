@@ -12,8 +12,8 @@ export type WebSocketLike = {
 export type WebSocketFactory = (url: string) => WebSocketLike;
 
 export type ClientTransport = {
-  /** Announce the session; automatically re-sent on every reconnect. */
-  hello: (session: string) => void;
+  /** Announce the session (omit to ask the server to assign one); automatically re-sent on every reconnect. */
+  hello: (session?: string) => void;
   /** Register the inbound-message handler. Single slot — a later call replaces the previous handler. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
   close: () => void;
@@ -35,6 +35,7 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
     ((u) => new (globalThis as unknown as { WebSocket: new (u: string) => WebSocketLike }).WebSocket(u));
 
   let session: string | undefined;
+  let announced = false; // a session-less hello must still replay on (re)connect
   let handler: ((message: ServerMessage) => void) | undefined;
   let socket: WebSocketLike | undefined;
   let closed = false;
@@ -47,7 +48,7 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
   const connect = (): void => {
     socket = create(url);
     socket.addEventListener("open", () => {
-      if (session) send(serialize(helloFrame(session)));
+      if (announced) send(serialize(helloFrame(session)));
     });
     socket.addEventListener("message", (event: unknown) => {
       const ev = event as { data: unknown };
@@ -71,6 +72,7 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
   return {
     hello(next) {
       session = next;
+      announced = true;
       send(serialize(helloFrame(next)));
     },
     onMessage(next) {

@@ -67,6 +67,40 @@ describe("createWsServer", () => {
     expect(b.sent).toHaveLength(1);
   });
 
+  it("a session-less hello mints a session and replies with a session frame", () => {
+    const hub = createInMemoryHub();
+    const ws = createWsServer(hub);
+    const { socket, sent, emit } = fakeSocket();
+    ws.handleConnection(socket);
+
+    emit("message", serialize(hello()));
+
+    expect(sent).toHaveLength(1);
+    const msg = parseServerMessage(sent[0]!);
+    expect(msg.kind).toBe("session");
+    const assigned = (msg as { session: string }).session;
+    expect(assigned).toMatch(/^[0-9a-f-]{36}$/);
+
+    // the assigned session is bound: pushes recorded under it reach this socket
+    hub.subscribe(assigned, ["c:todos"]);
+    hub.publish("c:todos", stale("todos"));
+    expect(sent).toHaveLength(2);
+    expect(parseServerMessage(sent[1]!)).toEqual({ v: 2, kind: "stale", channel: "todos" });
+  });
+
+  it("distinct session-less hellos get distinct sessions", () => {
+    const hub = createInMemoryHub();
+    const ws = createWsServer(hub);
+    const a = fakeSocket();
+    const b = fakeSocket();
+    ws.handleConnection(a.socket);
+    ws.handleConnection(b.socket);
+    a.emit("message", serialize(hello()));
+    b.emit("message", serialize(hello()));
+    const idOf = (raw: string) => (parseServerMessage(raw) as { session: string }).session;
+    expect(idOf(a.sent[0]!)).not.toBe(idOf(b.sent[0]!));
+  });
+
   it("ignores malformed frames", () => {
     const hub = createInMemoryHub();
     const ws = createWsServer(hub);

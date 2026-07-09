@@ -1,4 +1,5 @@
-import { parseClientMessage, serialize } from "rxfy-protocol";
+import { randomUUID } from "node:crypto";
+import { parseClientMessage, serialize, session as sessionFrame } from "rxfy-protocol";
 import type { Hub, SessionId } from "rxfy-server";
 
 /** The minimal socket shape the adapter needs (satisfied structurally by a `ws` WebSocket). */
@@ -30,9 +31,12 @@ export function createWsServer(hub: Hub): { handleConnection: (socket: ServerSoc
           return;
         }
         // hello is the only client frame: bind this socket as the session's delivery target.
-        session = frame.session;
+        // A session-less hello is a client-only app asking the server to mint one.
+        const assigned = frame.session === undefined;
+        session = frame.session ?? randomUUID();
         sockets.set(session, socket);
         hub.bind(session);
+        if (assigned) socket.send(serialize(sessionFrame(session)));
       });
 
       socket.on("close", () => {
