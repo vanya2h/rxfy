@@ -1,10 +1,4 @@
-import {
-  parseServerMessage,
-  serialize,
-  type ServerMessage,
-  subscribe as subscribeFrame,
-  unsubscribe as unsubscribeFrame,
-} from "rxfy-protocol";
+import { hello as helloFrame, parseServerMessage, serialize, type ServerMessage } from "rxfy-protocol";
 
 /** The subset of the WHATWG WebSocket API the client uses (browser `WebSocket` and `ws` both satisfy it). */
 export type WebSocketLike = {
@@ -18,8 +12,8 @@ export type WebSocketLike = {
 export type WebSocketFactory = (url: string) => WebSocketLike;
 
 export type ClientTransport = {
-  subscribe: (ids: string[]) => void;
-  unsubscribe: (ids: string[]) => void;
+  /** Announce the session; automatically re-sent on every reconnect. */
+  hello: (session: string) => void;
   /** Register the inbound-message handler. Single slot — a later call replaces the previous handler. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
   close: () => void;
@@ -40,7 +34,7 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
     options.WebSocketImpl ??
     ((u) => new (globalThis as unknown as { WebSocket: new (u: string) => WebSocketLike }).WebSocket(u));
 
-  const active = new Set<string>();
+  let session: string | undefined;
   let handler: ((message: ServerMessage) => void) | undefined;
   let socket: WebSocketLike | undefined;
   let closed = false;
@@ -53,7 +47,7 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
   const connect = (): void => {
     socket = create(url);
     socket.addEventListener("open", () => {
-      if (active.size > 0) send(serialize(subscribeFrame([...active])));
+      if (session) send(serialize(helloFrame(session)));
     });
     socket.addEventListener("message", (event: unknown) => {
       const ev = event as { data: unknown };
@@ -75,13 +69,9 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
   connect();
 
   return {
-    subscribe(ids) {
-      for (const id of ids) active.add(id);
-      send(serialize(subscribeFrame(ids)));
-    },
-    unsubscribe(ids) {
-      for (const id of ids) active.delete(id);
-      send(serialize(unsubscribeFrame(ids)));
+    hello(next) {
+      session = next;
+      send(serialize(helloFrame(next)));
     },
     onMessage(next) {
       handler = next;

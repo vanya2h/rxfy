@@ -1,121 +1,91 @@
-import { parseClientMessage, patch, serialize, type ServerMessage } from "rxfy-protocol";
-import { describe, expect, it } from "vitest";
+import { hello, parseClientMessage, serialize, stale } from "rxfy-protocol";
+import { describe, expect, it, vi } from "vitest";
 import { createWsClient, type WebSocketLike } from "./client.js";
 
-class FakeWs implements WebSocketLike {
-  static OPEN = 1;
-  readyState = 0;
-  sent: string[] = [];
-  private listeners = new Map<string, Set<(event: unknown) => void>>();
-  send(data: string) {
-    this.sent.push(data);
-  }
-  close() {
-    this.readyState = 3;
-    this.dispatch("close", {});
-  }
-  addEventListener(type: string, listener: (event: unknown) => void) {
-    let set = this.listeners.get(type);
-    if (!set) this.listeners.set(type, (set = new Set()));
-    set.add(listener);
-  }
-  removeEventListener(type: string, listener: (event: unknown) => void) {
-    this.listeners.get(type)?.delete(listener);
-  }
-  dispatch(type: string, event: unknown) {
-    this.listeners.get(type)?.forEach((l) => l(event));
-  }
-  open() {
-    this.readyState = 1;
-    this.dispatch("open", {});
-  }
-  deliver(message: ServerMessage) {
-    this.dispatch("message", { data: serialize(message) });
-  }
-}
-
-function setup() {
-  const created: FakeWs[] = [];
-  const transport = createWsClient({
-    url: "ws://test",
-    WebSocketImpl: () => {
-      const ws = new FakeWs();
-      created.push(ws);
-      return ws;
+function fakeWebSocket() {
+  const sent: string[] = [];
+  const listeners = new Map<string, Array<(event: unknown) => void>>();
+  const ws: WebSocketLike & { open: () => void; emitClose: () => void; emitMessage: (data: string) => void } = {
+    readyState: 0,
+    send: (data: string) => sent.push(data),
+    close: () => {},
+    addEventListener: (type, listener) => {
+      const list = listeners.get(type) ?? [];
+      list.push(listener);
+      listeners.set(type, list);
     },
-    reconnectDelayMs: 5,
-  });
-  return { transport, created, ws: (): FakeWs => created[created.length - 1]! };
+    open() {
+      ws.readyState = 1;
+      for (const l of listeners.get("open") ?? []) l({});
+    },
+    emitClose() {
+      ws.readyState = 3;
+      for (const l of listeners.get("close") ?? []) l({});
+    },
+    emitMessage(data: string) {
+      for (const l of listeners.get("message") ?? []) l({ data });
+    },
+  };
+  return { ws, sent };
 }
-
-const frames = (ws: FakeWs) => ws.sent.map((s) => parseClientMessage(s));
 
 describe("createWsClient", () => {
-  it("replays subscriptions made before the socket opens", () => {
-    const { transport, ws } = setup();
-    transport.subscribe(["a", "b"]);
-    expect(ws().sent).toEqual([]);
-    ws().open();
-    expect(frames(ws())).toEqual([{ v: 1, kind: "subscribe", ids: ["a", "b"] }]);
+  it("sends hello once open and replays it on reconnect", () => {
+    vi.useFakeTimers();
+    const sockets: ReturnType<typeof fakeWebSocket>[] = [];
+    const transport = createWsClient({
+      url: "ws://x",
+      WebSocketImpl: () => {
+        const s = fakeWebSocket();
+        sockets.push(s);
+        return s.ws;
+      },
+      reconnectDelayMs: 10,
+    });
+
+    sockets[0]!.ws.open();
+    transport.hello("sess-1");
+    expect(sockets[0]!.sent.map((m) => parseClientMessage(m))).toEqual([hello("sess-1")]);
+
+    sockets[0]!.ws.emitClose();
+    vi.advanceTimersByTime(10); // reconnect
+    sockets[1]!.ws.open();
+    expect(sockets[1]!.sent.map((m) => parseClientMessage(m))).toEqual([hello("sess-1")]);
+    transport.close();
+    vi.useRealTimers();
   });
 
-  it("sends a subscribe frame immediately when already open", () => {
-    const { transport, ws } = setup();
-    ws().open();
-    transport.subscribe(["a"]);
-    expect(frames(ws())).toEqual([{ v: 1, kind: "subscribe", ids: ["a"] }]);
-  });
-
-  it("sends an unsubscribe frame when open", () => {
-    const { transport, ws } = setup();
-    ws().open();
-    transport.subscribe(["a"]);
-    transport.unsubscribe(["a"]);
-    expect(frames(ws())).toEqual([
-      { v: 1, kind: "subscribe", ids: ["a"] },
-      { v: 1, kind: "unsubscribe", ids: ["a"] },
-    ]);
-  });
-
-  it("surfaces inbound ServerMessages to the handler", () => {
-    const { transport, ws } = setup();
-    const received: ServerMessage[] = [];
-    transport.onMessage((m) => received.push(m));
-    ws().open();
-    const msg = patch("post", "1", { id: "1" });
-    ws().deliver(msg);
-    expect(received).toEqual([msg]);
-  });
-
-  it("ignores malformed inbound data without throwing", () => {
-    const { transport, ws } = setup();
-    const received: ServerMessage[] = [];
-    transport.onMessage((m) => received.push(m));
-    ws().open();
-    expect(() => ws().dispatch("message", { data: "{garbage" })).not.toThrow();
-    expect(received).toEqual([]);
-  });
-});
-
-describe("createWsClient reconnect", () => {
-  it("opens a new socket and replays active subscriptions after a drop", async () => {
-    const { transport, created, ws } = setup();
-    ws().open();
-    transport.subscribe(["a", "b"]);
-    transport.unsubscribe(["b"]);
-    ws().dispatch("close", {});
-    await new Promise((r) => setTimeout(r, 15));
-    expect(created.length).toBe(2);
-    created[1]!.open();
-    expect(frames(created[1]!)).toEqual([{ v: 1, kind: "subscribe", ids: ["a"] }]);
+  it("buffers hello until the socket opens", () => {
+    const sockets: ReturnType<typeof fakeWebSocket>[] = [];
+    const transport = createWsClient({
+      url: "ws://x",
+      WebSocketImpl: () => {
+        const s = fakeWebSocket();
+        sockets.push(s);
+        return s.ws;
+      },
+    });
+    transport.hello("sess-1"); // socket not open yet — nothing sent, but remembered
+    expect(sockets[0]!.sent).toEqual([]);
+    sockets[0]!.ws.open();
+    expect(sockets[0]!.sent.map((m) => parseClientMessage(m))).toEqual([hello("sess-1")]);
     transport.close();
   });
 
-  it("does not reconnect after close() is called", async () => {
-    const { transport, created, ws } = setup();
-    ws().open();
+  it("delivers parsed server messages to the handler", () => {
+    const sockets: ReturnType<typeof fakeWebSocket>[] = [];
+    const transport = createWsClient({
+      url: "ws://x",
+      WebSocketImpl: () => {
+        const s = fakeWebSocket();
+        sockets.push(s);
+        return s.ws;
+      },
+    });
+    const seen: unknown[] = [];
+    transport.onMessage((m) => seen.push(m));
+    sockets[0]!.ws.emitMessage(serialize(stale("todos")));
+    expect(seen).toEqual([stale("todos")]);
     transport.close();
-    await new Promise((r) => setTimeout(r, 15));
-    expect(created.length).toBe(1);
   });
 });

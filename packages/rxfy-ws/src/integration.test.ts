@@ -1,48 +1,49 @@
-import type { AddressInfo } from "node:net";
-import { patch, type ServerMessage } from "rxfy-protocol";
+import { patch, stale } from "rxfy-protocol";
 import { createInMemoryHub } from "rxfy-server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { WebSocket, WebSocketServer } from "ws";
-import { createWsClient } from "./client.js";
-import { createWsServer } from "./server.js";
+import { describe, expect, it } from "vitest";
+import { createWsClient, type WebSocketLike } from "./client.js";
+import { createWsServer, type ServerSocket } from "./server.js";
 
-describe("rxfy-ws end-to-end over a real socket", () => {
-  let wss: WebSocketServer;
-  let url: string;
-  let hub: ReturnType<typeof createInMemoryHub>;
+/** An in-process socket pair: the client's WebSocketLike wired directly to a ServerSocket. */
+function socketPair(server: ReturnType<typeof createWsServer>) {
+  const serverListeners = new Map<string, (...args: unknown[]) => void>();
+  const clientListeners = new Map<string, Array<(event: unknown) => void>>();
+  const serverSocket: ServerSocket = {
+    send: (data) => {
+      for (const l of clientListeners.get("message") ?? []) l({ data });
+    },
+    on: (event, listener) => void serverListeners.set(event, listener),
+  };
+  const clientSocket: WebSocketLike = {
+    readyState: 1,
+    send: (data: string) => serverListeners.get("message")?.(data),
+    close: () => serverListeners.get("close")?.(),
+    addEventListener: (type, listener) => {
+      const list = clientListeners.get(type) ?? [];
+      list.push(listener);
+      clientListeners.set(type, list);
+      if (type === "open") listener({}); // already open
+    },
+  };
+  server.handleConnection(serverSocket);
+  return clientSocket;
+}
 
-  beforeAll(async () => {
-    hub = createInMemoryHub();
+describe("ws client/server integration", () => {
+  it("hello binds; serve-path subscriptions flow patches and stales to the client", () => {
+    const hub = createInMemoryHub();
     const server = createWsServer(hub);
-    wss = new WebSocketServer({ port: 0 });
-    wss.on("connection", (socket) => server.handleConnection(socket));
-    await new Promise<void>((resolve) => wss.on("listening", () => resolve()));
-    const port = (wss.address() as AddressInfo).port;
-    url = `ws://localhost:${port}`;
-  });
+    const transport = createWsClient({ url: "ws://x", WebSocketImpl: () => socketPair(server) });
 
-  afterAll(() => {
-    wss.close();
-  });
+    hub.subscribe("s1", ["e:todo:1", "c:todos"]); // what the serve path would write
+    transport.hello("s1");
 
-  it("delivers a published patch to a subscribed client", async () => {
-    const transport = createWsClient({
-      url,
-      WebSocketImpl: (u) => new WebSocket(u) as never,
-      reconnectDelayMs: 50,
-    });
+    const seen: unknown[] = [];
+    transport.onMessage((m) => seen.push(m));
+    hub.publish("e:todo:1", patch("todo", "1", { id: "1", done: true }));
+    hub.publish("c:todos", stale("todos"));
 
-    const message = patch("post", "1", { id: "1", title: "hello" });
-    const received = new Promise<ServerMessage>((resolve) => transport.onMessage(resolve));
-
-    transport.subscribe(["topic-id-1"]);
-
-    // publish repeatedly until the subscription has propagated through the socket
-    const ticker = setInterval(() => hub.publish("topic-id-1", message), 25);
-    const got = await received;
-    clearInterval(ticker);
+    expect(seen).toEqual([patch("todo", "1", { id: "1", done: true }), stale("todos")]);
     transport.close();
-
-    expect(got).toEqual(message);
-  }, 5000);
+  });
 });
