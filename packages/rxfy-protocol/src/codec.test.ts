@@ -1,7 +1,7 @@
 import superjson from "superjson";
 import { describe, expect, it } from "vitest";
 import { parseClientMessage, parseServerMessage, ProtocolError, serialize } from "./codec.js";
-import { patch, stale, subscribe, unsubscribe } from "./messages.js";
+import { hello, patch, stale } from "./messages.js";
 
 describe("serialize + parseServerMessage round-trip", () => {
   it("round-trips a patch message", () => {
@@ -34,27 +34,27 @@ describe("parseServerMessage rejects invalid input", () => {
   });
 
   it("rejects an unsupported version", () => {
-    expect(() => parseServerMessage(superjson.stringify({ v: 2, kind: "stale", channel: "c" }))).toThrow(
+    expect(() => parseServerMessage(superjson.stringify({ v: 1, kind: "stale", channel: "c" }))).toThrow(
       /unsupported protocol version/,
     );
   });
 
   it("rejects an unknown kind", () => {
-    expect(() => parseServerMessage(superjson.stringify({ v: 1, kind: "nope" }))).toThrow(
+    expect(() => parseServerMessage(superjson.stringify({ v: 2, kind: "nope" }))).toThrow(
       /unknown server message kind/,
     );
   });
 
   it("rejects a patch with missing fields", () => {
-    expect(() => parseServerMessage(superjson.stringify({ v: 1, kind: "patch", name: "post" }))).toThrow(ProtocolError);
+    expect(() => parseServerMessage(superjson.stringify({ v: 2, kind: "patch", name: "post" }))).toThrow(ProtocolError);
   });
 
   it("rejects a stale with a non-string channel", () => {
-    expect(() => parseServerMessage(superjson.stringify({ v: 1, kind: "stale", channel: 5 }))).toThrow(ProtocolError);
+    expect(() => parseServerMessage(superjson.stringify({ v: 2, kind: "stale", channel: 5 }))).toThrow(ProtocolError);
   });
 
-  it("rejects a client frame (subscribe) as a server message", () => {
-    expect(() => parseServerMessage(serialize(subscribe(["a"])))).toThrow(/unknown server message kind/);
+  it("rejects a client frame (hello) as a server message", () => {
+    expect(() => parseServerMessage(serialize(hello("sess-1")))).toThrow(/unknown server message kind/);
   });
 
   it("rejects a top-level array with the object error", () => {
@@ -63,30 +63,16 @@ describe("parseServerMessage rejects invalid input", () => {
 });
 
 describe("serialize + parseClientMessage round-trip", () => {
-  it("round-trips a subscribe message", () => {
-    const msg = subscribe(["k7", "9x"]);
-    expect(parseClientMessage(serialize(msg))).toEqual(msg);
+  it("round-trips a hello frame", () => {
+    expect(parseClientMessage(serialize(hello("sess-1")))).toEqual({ v: 2, kind: "hello", session: "sess-1" });
   });
 
-  it("round-trips an unsubscribe message", () => {
-    const msg = unsubscribe(["k7"]);
-    expect(parseClientMessage(serialize(msg))).toEqual(msg);
+  it("rejects a hello without a string session", () => {
+    expect(() => parseClientMessage(serialize({ v: 2, kind: "hello", session: 5 } as never))).toThrow(ProtocolError);
   });
 });
 
 describe("parseClientMessage rejects invalid input", () => {
-  it("rejects subscribe with non-string ids", () => {
-    expect(() => parseClientMessage(superjson.stringify({ v: 1, kind: "subscribe", ids: [1, 2] }))).toThrow(
-      ProtocolError,
-    );
-  });
-
-  it("rejects subscribe with a non-array ids", () => {
-    expect(() => parseClientMessage(superjson.stringify({ v: 1, kind: "subscribe", ids: "nope" }))).toThrow(
-      ProtocolError,
-    );
-  });
-
   it("rejects a server frame (stale) as a client message", () => {
     expect(() => parseClientMessage(serialize(stale("c")))).toThrow(/unknown client message kind/);
   });

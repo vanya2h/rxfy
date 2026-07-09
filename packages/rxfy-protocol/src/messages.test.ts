@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { patch, PROTOCOL_VERSION, stale, subscribe, unsubscribe } from "./messages.js";
+import { hello, patch, PROTOCOL_VERSION, stale } from "./messages.js";
 
 describe("PROTOCOL_VERSION", () => {
-  it("is the literal 1", () => {
-    expect(PROTOCOL_VERSION).toBe(1);
+  it("is the literal 2", () => {
+    expect(PROTOCOL_VERSION).toBe(2);
   });
 });
 
@@ -26,19 +26,7 @@ describe("message constructors", () => {
     });
   });
 
-  it("subscribe carries ids", () => {
-    expect(subscribe(["a", "b"])).toEqual({
-      v: PROTOCOL_VERSION,
-      kind: "subscribe",
-      ids: ["a", "b"],
-    });
-  });
-
-  it("unsubscribe carries ids", () => {
-    expect(unsubscribe(["a"])).toEqual({
-      v: PROTOCOL_VERSION,
-      kind: "unsubscribe",
-      ids: ["a"],
-    });
+  it("hello carries the session id", () => {
+    expect(hello("sess-1")).toEqual({ v: 2, kind: "hello", session: "sess-1" });
   });
 });

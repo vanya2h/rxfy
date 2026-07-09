@@ -16,9 +16,6 @@ export function serialize(message: ProtocolMessage): string {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
-
 /** Bound untrusted values before putting them in error messages (avoid log flooding). */
 const clip = (value: unknown): string => String(value).slice(0, 64);
 
@@ -63,16 +60,11 @@ export function parseServerMessage(raw: string): ServerMessage {
 export function parseClientMessage(raw: string): ClientMessage {
   const msg = decode(raw);
   switch (msg.kind) {
-    case "subscribe":
-      if (!isStringArray(msg.ids)) {
-        throw new ProtocolError("subscribe requires a string[] `ids`");
+    case "hello":
+      if (typeof msg.session !== "string") {
+        throw new ProtocolError("hello requires a string `session`");
       }
-      return { v: PROTOCOL_VERSION, kind: "subscribe", ids: msg.ids };
-    case "unsubscribe":
-      if (!isStringArray(msg.ids)) {
-        throw new ProtocolError("unsubscribe requires a string[] `ids`");
-      }
-      return { v: PROTOCOL_VERSION, kind: "unsubscribe", ids: msg.ids };
+      return { v: PROTOCOL_VERSION, kind: "hello", session: msg.session };
     default:
       throw new ProtocolError(`unknown client message kind: ${clip(msg.kind)}`);
   }

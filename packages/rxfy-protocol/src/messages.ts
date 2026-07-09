@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 2 as const;
 export type ProtocolVersion = typeof PROTOCOL_VERSION;
 
 // @todo I'm thinking whether it is possible to add T extends generic for values like "name" and "channel" so then we could derive union type anywhere we combine them
@@ -25,19 +25,15 @@ export type ServerMessage = PatchMessage | StaleMessage;
 
 // --- Client -> server messages ---
 
-export type SubscribeMessage = {
+/** Announce the session after every (re)connect. The client's ONLY outbound frame: subscriptions
+ *  are written server-side by the serve path, so there is nothing else for a client to say. */
+export type HelloMessage = {
   v: ProtocolVersion;
-  kind: "subscribe";
-  ids: string[];
+  kind: "hello";
+  session: string;
 };
 
-export type UnsubscribeMessage = {
-  v: ProtocolVersion;
-  kind: "unsubscribe";
-  ids: string[];
-};
-
-export type ClientMessage = SubscribeMessage | UnsubscribeMessage;
+export type ClientMessage = HelloMessage;
 
 export type ProtocolMessage = ServerMessage | ClientMessage;
 
@@ -57,14 +53,7 @@ export const stale = (channel: string): StaleMessage => ({
   channel,
 });
 
-export const subscribe = (ids: string[]): SubscribeMessage => ({
-  v: PROTOCOL_VERSION,
-  kind: "subscribe",
-  ids,
-});
+export const hello = (session: string): HelloMessage => ({ v: PROTOCOL_VERSION, kind: "hello", session });
 
-export const unsubscribe = (ids: string[]): UnsubscribeMessage => ({
-  v: PROTOCOL_VERSION,
-  kind: "unsubscribe",
-  ids,
-});
+/** HTTP header carrying the live session id, matched to the WebSocket `hello`. */
+export const RXFY_SESSION_HEADER = "x-rxfy-session";
