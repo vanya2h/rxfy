@@ -1,5 +1,5 @@
 import { parseClientMessage, serialize } from "rxfy-protocol";
-import type { ConnId, Hub } from "rxfy-server";
+import type { Hub, SessionId } from "rxfy-server";
 
 /** The minimal socket shape the adapter needs (satisfied structurally by a `ws` WebSocket). */
 export type ServerSocket = {
@@ -7,18 +7,19 @@ export type ServerSocket = {
   on: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
-/** Bridges a `Hub` to WebSocket connections. Register the sink once; call `handleConnection` per socket. */
+/**
+ * Bridges a Hub to WebSocket connections. Clients identify with a `hello` frame; the hub routes
+ * pushes by session. Subscriptions are written server-side by the serve path — no subscribe frames.
+ */
 export function createWsServer(hub: Hub): { handleConnection: (socket: ServerSocket) => void } {
-  const sockets = new Map<ConnId, ServerSocket>();
-  hub.onPublish((conn, message) => {
-    sockets.get(conn)?.send(serialize(message));
+  const sockets = new Map<SessionId, ServerSocket>();
+  hub.onPublish((session, message) => {
+    sockets.get(session)?.send(serialize(message));
   });
 
-  let nextConnId = 0;
   return {
     handleConnection(socket) {
-      const connId: ConnId = nextConnId++;
-      sockets.set(connId, socket);
+      let session: SessionId | undefined;
 
       socket.on("message", (data: unknown) => {
         const text = typeof data === "string" ? data : (data as { toString(): string }).toString();
@@ -28,13 +29,19 @@ export function createWsServer(hub: Hub): { handleConnection: (socket: ServerSoc
         } catch {
           return;
         }
-        if (frame.kind === "subscribe") hub.subscribe(connId, frame.ids);
-        else hub.unsubscribe(connId, frame.ids);
+        // hello is the only client frame: bind this socket as the session's delivery target.
+        session = frame.session;
+        sockets.set(session, socket);
+        hub.bind(session);
       });
 
       socket.on("close", () => {
-        hub.drop(connId);
-        sockets.delete(connId);
+        if (!session) return;
+        // A reconnect may already have replaced this socket; only the current holder releases.
+        if (sockets.get(session) === socket) {
+          sockets.delete(session);
+          hub.release(session);
+        }
       });
     },
   };
