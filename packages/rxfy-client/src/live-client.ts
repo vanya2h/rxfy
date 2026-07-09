@@ -1,10 +1,11 @@
 import type { IModelRegistry } from "rxfy";
 import type { ServerMessage } from "rxfy-protocol";
 import { BehaviorSubject, type Observable } from "rxjs";
+import { adoptSessionId, getSessionId } from "./session.js";
 
 /** Structural transport (satisfied by rxfy-ws/client's ClientTransport). */
 export type LiveTransport = {
-  hello: (session: string) => void;
+  hello: (session?: string) => void;
   onMessage: (handler: (message: ServerMessage) => void) => void;
 };
 
@@ -21,8 +22,9 @@ export type LiveClient = {
 export type LiveClientConfig = {
   registry: IModelRegistry;
   transport: LiveTransport;
-  /** This page load's session id — the server pushes updates for everything it serves this session. */
-  session: string;
+  /** Session override; defaults to `getSessionId()` (the SSR-adopted id), or undefined for
+   *  client-only apps — the server then assigns one and answers with a `session` frame. */
+  session?: string;
 };
 
 /**
@@ -34,18 +36,27 @@ export function createLiveClient({ registry, transport, session }: LiveClientCon
   const counters = new Map<string, BehaviorSubject<number>>();
 
   transport.onMessage((message) => {
-    if (message.kind === "patch") {
-      registry
-        .namedStores()
-        .get(message.name)
-        ?.set(message.id, message.data as unknown);
-    } else {
-      const counter = counters.get(message.channel);
-      if (counter) counter.next(counter.value + 1);
+    switch (message.kind) {
+      case "patch":
+        registry
+          .namedStores()
+          .get(message.name)
+          ?.set(message.id, message.data as unknown);
+        break;
+      case "stale": {
+        const counter = counters.get(message.channel);
+        if (counter) counter.next(counter.value + 1);
+        break;
+      }
+      case "session":
+        adoptSessionId(message.session);
+        // re-hello so the transport replays the assigned session on reconnect
+        transport.hello(message.session);
+        break;
     }
   });
 
-  transport.hello(session);
+  transport.hello(session ?? getSessionId());
 
   return {
     channel(channel) {

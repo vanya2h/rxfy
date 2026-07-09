@@ -1,9 +1,9 @@
 import { renderHook } from "@testing-library/react";
 import { array, createModel, defineState } from "rxfy";
+import type { LiveClient } from "rxfy-client";
 import { BehaviorSubject, firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import type { LiveClient } from "./live/live-client.js";
 import { StoreProvider } from "./StoreProvider.js";
 import { useStateData } from "./useStateData.js";
 

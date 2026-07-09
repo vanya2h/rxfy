@@ -1,22 +1,17 @@
 {
-  "name": "rxfy-react",
+  "name": "rxfy-client",
   "version": "2.0.0",
-  "description": "rxfy bindings for react",
+  "description": "framework-agnostic browser live runtime for rxfy — session identity and the live update sink",
   "keywords": [
     "rxfy",
-    "react",
     "rxjs",
     "reactive",
     "observable",
-    "hooks",
-    "state-management",
-    "store",
-    "normalization",
-    "normalized-state",
+    "live",
+    "realtime",
+    "session",
+    "websocket",
     "ssr",
-    "suspense",
-    "streaming-ssr",
-    "next",
     "typescript"
   ],
   "homepage": "https://rxfy.vanya2h.me",
@@ -26,7 +21,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vanya2h/rxfy.git",
-    "directory": "packages/rxfy-react"
+    "directory": "packages/rxfy-client"
   },
   "license": "MIT",
   "author": "hi@vanya2h.me",
@@ -34,14 +29,14 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.cjs"
-    },
-    "./next": {
-      "import": "./dist/next.js",
-      "types": "./dist/next.d.ts",
-      "default": "./dist/next.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "main": "./dist/index.js",
@@ -62,45 +57,26 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "rxfy-client": "workspace:*",
     "rxfy-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@types/lodash": "^4.17.17",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "eslint": "^9.27.0",
-    "jiti": "^2.4.2",
-    "jsdom": "^26.1.0",
-    "lodash": "^4.17.21",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "rimraf": "^6.0.1",
-    "rxfy": "workspace:*",
-    "rxfy-protocol": "workspace:*",
     "@vanya2h/eslint-config": "^0.4.0",
     "@vanya2h/typescript-config": "^0.4.0",
+    "eslint": "^9.27.0",
+    "jiti": "^2.4.2",
+    "rimraf": "^6.0.1",
+    "rxfy": "workspace:*",
     "rxjs": "^7.8.2",
     "tsup": "^8.5.0",
     "vitest": "^3.1.4",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@types/react": "^18.0.0 || ^19.0.0",
-    "lodash": "^4.0.0",
-    "react": "^18.0.0 || ^19.0.0",
-    "react-dom": "^18.0.0 || ^19.0.0",
-    "next": ">=14"
+    "rxfy": "^2.0.0",
+    "rxjs": "^7.0.0"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org"
-  },
-  "peerDependenciesMeta": {
-    "next": {
-      "optional": true
-    }
   }
 }
