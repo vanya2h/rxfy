@@ -1,11 +1,10 @@
 import type { PostDetailData, PostId, PostsData } from "examples-shared";
 import { hc } from "hono/client";
-import { RXFY_SESSION_HEADER } from "rxfy-react";
+import { sessionHeaders } from "rxfy-client";
 import type { AppType } from "../../server/api.js";
-import { sessionId } from "../session.js";
 
 const isServer = typeof window === "undefined";
-const client = hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } });
+const client = hc<AppType>("/api", { headers: sessionHeaders });
 
 export async function fetchPosts(): Promise<PostsData> {
   if (isServer) {
