@@ -123,20 +123,4 @@ describe("useStateData server suspend (ssr mode)", () => {
 
     expect(registry.channels.all()).toContain("todos");
   });
-
-  it("keyless state in ssr mode warns and does not suspend", () => {
-    const keyless = defineState({ params: z.object({}), model: { todos: array(todoModel) } });
-    function Widget() {
-      const { data$ } = useStateData({ state: keyless, fetchFn: () => new Promise(() => {}), params: {} });
-      return <Pending value$={data$}>{() => null}</Pending>;
-    }
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    renderToString(
-      <StoreProvider registry={createModelRegistry()} ssr>
-        <Widget />
-      </StoreProvider>,
-    );
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('without "key"'));
-    warn.mockRestore();
-  });
 });

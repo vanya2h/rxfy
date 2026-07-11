@@ -47,8 +47,10 @@ assignment arrives are therefore not recorded; the refresh / refetch path recove
 
 ## Serving = subscribing
 
-A read endpoint wraps its result in `live.serve` — a pass-through that returns the data unchanged
-and registers the served entities plus the state channel under the requester's session:
+A read endpoint wraps its result in `live.serve` — it parses the raw payload (the state's *input*
+shape, e.g. DB rows with unbranded ids and extra columns) through the state's schemas and registers
+the served entities plus the state channel under the requester's session. The returned data is the
+parsed shape: ids branded, unknown keys stripped — raw Drizzle rows go in with no casts:
 
 ```ts [server/api.ts]
 .get("/todos", async (c) => {

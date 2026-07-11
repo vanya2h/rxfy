@@ -79,8 +79,10 @@ const apiFetch = withSession(); // or withSession(myFetch)
 
 ## Serving = subscribing
 
-A read endpoint wraps its result in `live.serve` — a pass-through that returns the data unchanged
-and registers the served entities + state channel under the requester's session:
+A read endpoint wraps its result in `live.serve` — it parses the raw payload (the state's *input*
+shape: raw DB rows, unbranded ids, extra columns allowed) through the state's schemas, registers the
+served entities + state channel under the requester's session, and returns the parsed shape (ids
+branded, unknown keys stripped). Raw Drizzle rows go in directly, no casts:
 
 ```ts
 .get("/todos", async (c) => {

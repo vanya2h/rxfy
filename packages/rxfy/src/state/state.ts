@@ -22,6 +22,15 @@ export type QueryShapeFromFields<T extends FieldsMap> = {
       : never;
 };
 
+/**
+ * The denormalized *input* shape: what a raw fetch/serve payload looks like before schema parsing.
+ * Entity fields accept their model schema's Input (e.g. unbranded ids, extra DB columns allowed by
+ * width subtyping); plain zod fields accept their schema's Input.
+ */
+export type InputShapeFromFields<T extends FieldsMap> = {
+  [K in keyof T]: T[K] extends FieldDescriptor<any, infer I> ? I : T[K] extends z.ZodType<any, infer I> ? I : never;
+};
+
 /** Writable counterpart: entity slots accept id|entity (array: a mix); plain zod field -> its value. */
 export type WritableQueryShapeFromFields<T extends FieldsMap> = {
   [K in keyof T]: T[K] extends FieldDescriptor<infer S>
@@ -58,26 +67,32 @@ export type StateDescriptor<
   TMutations extends MutationDefs<TShape> = Record<never, never>,
   TQuery = QueryShapeOf<TShape>,
   TWritable = WritableQueryShapeOf<TShape>,
+  TShapeInput = TShape,
 > = {
-  /** Stable string identity for the SSR query cache. States without a key opt out of SSR caching. */
-  readonly key?: string;
+  /** Stable string identity for the SSR query cache and the live invalidation channel. */
+  readonly key: string;
   /** Param names that slice *within* a dataset (page, cursor, sort) — excluded from the live invalidation channel. */
-  readonly window?: readonly string[];
+  readonly window?: readonly (keyof TParams & string)[];
   // Input is `any` so schemas whose Input differs from Output (e.g. branded ids) stay assignable.
   readonly paramsSchema: z.ZodType<TParams, any>;
   // Deliberately erased to FieldsMap (not a per-key mapped type): the runtime discriminates each
   // entry with isFieldDescriptor, and per-field type fidelity is recovered through TQuery/TWritable.
   readonly fields: FieldsMap;
   readonly mutations: TMutations;
-  /** Phantom carriers — never set at runtime — so TQuery/TWritable are inferable from a descriptor value. */
+  /** Phantom carriers — never set at runtime — so TShape/TQuery/TWritable are inferable from a descriptor value. */
+  readonly _shape?: TShape;
   readonly _query?: TQuery;
   readonly _writable?: TWritable;
+  /** Phantom input-shape carrier — function-typed to keep TShapeInput contravariant, as an input should be. */
+  readonly _shapeInput?: (input: TShapeInput) => void;
 };
 
 // Overload: no mutations provided
 export function defineState<TParams, TFields extends FieldsMap>(def: {
-  key?: string;
-  window?: readonly string[];
+  key: string;
+  // Window entries must name actual params — TParams is inferred from `params` alone (keyof
+  // positions contribute no inference candidates), then each entry is checked against it.
+  window?: readonly (keyof TParams & string)[];
   // TParams is inferred from the Output position only — z.ZodType<TParams> would also place it
   // in the Input position and widen branded types away.
   params: z.ZodType<TParams, any>;
@@ -88,7 +103,8 @@ export function defineState<TParams, TFields extends FieldsMap>(def: {
   ShapeFromFields<TFields>,
   Record<never, never>,
   QueryShapeFromFields<TFields>,
-  WritableQueryShapeFromFields<TFields>
+  WritableQueryShapeFromFields<TFields>,
+  InputShapeFromFields<TFields>
 >;
 
 // Overload: mutations provided
@@ -97,8 +113,8 @@ export function defineState<
   TFields extends FieldsMap,
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
-  key?: string;
-  window?: readonly string[];
+  key: string;
+  window?: readonly (keyof TParams & string)[];
   params: z.ZodType<TParams, any>;
   model: TFields;
   mutations: TMutations;
@@ -107,17 +123,17 @@ export function defineState<
   ShapeFromFields<TFields>,
   TMutations,
   QueryShapeFromFields<TFields>,
-  WritableQueryShapeFromFields<TFields>
+  WritableQueryShapeFromFields<TFields>,
+  InputShapeFromFields<TFields>
 >;
 
-// Implementation
 export function defineState<
   TParams,
   TFields extends FieldsMap,
   TMutations extends MutationDefs<ShapeFromFields<TFields>>,
 >(def: {
-  key?: string;
-  window?: readonly string[];
+  key: string;
+  window?: readonly (keyof TParams & string)[];
   params: z.ZodType<TParams, any>;
   model: TFields;
   mutations?: TMutations;
@@ -126,13 +142,14 @@ export function defineState<
   ShapeFromFields<TFields>,
   TMutations | Record<never, never>,
   QueryShapeFromFields<TFields>,
-  WritableQueryShapeFromFields<TFields>
+  WritableQueryShapeFromFields<TFields>,
+  InputShapeFromFields<TFields>
 > {
   return {
     key: def.key,
     window: def.window,
     paramsSchema: def.params,
-    fields: def.model as any,
-    mutations: (def.mutations ?? {}) as any,
+    fields: def.model,
+    mutations: def.mutations ?? {},
   };
 }

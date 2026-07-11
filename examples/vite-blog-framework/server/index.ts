@@ -11,7 +11,7 @@ import { renderPage } from "./render.js";
 import { liveRoute } from "./ws.js";
 
 const isProduction = process.env.NODE_ENV === "production";
-const port = 5176;
+const port = Number(process.env.PORT) || 5176;
 
 await initDb();
 

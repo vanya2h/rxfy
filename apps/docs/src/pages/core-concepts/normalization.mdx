@@ -76,7 +76,7 @@ page, say from a button handler, and the write goes straight to the shared store
 function RenameButton({ id }: { id: string }) {
   const store = useModelStore(UserModel);
   return (
-    <button onClick={() => store.entity(id).modify((user) => ({ ...user, name: "John Doe" }))}>
+    <button onClick={() => store.get(id).modify((user) => ({ ...user, name: "John Doe" }))}>
       Rename
     </button>
   );

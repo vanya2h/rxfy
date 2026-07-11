@@ -10,7 +10,6 @@ import type {
 } from "rxfy";
 import {
   attachReload,
-  createAtom,
   createFulfilled,
   createIdle,
   createPending,
@@ -90,11 +89,11 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   // FULFILLED → reload in particular — updates the shared atom in place and keeps data$ stable.
   const [reloadEpoch, setReloadEpoch] = useState(0);
 
-  // Value-based key — params with the same shape resolve to the same query (and, when keyed, the
-  // same shared atom). The memo keys off this string rather than `params`'s identity, so an
+  // Value-based key — params with the same shape resolve to the same query (and the same shared
+  // atom). The memo keys off this string rather than `params`'s identity, so an
   // identity-unstable-but-value-stable params object does not churn data$.
   const paramsKey = stableStringify(params);
-  const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
+  const cacheKey = `${state.key}:${paramsKey}`;
   const channel = stateChannel(state, params as Record<string, unknown>);
 
   // During SSR, log the channel so live.hydration can register this session's subscription.
@@ -110,10 +109,9 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     const fields = state.fields as FieldsMap;
     const isServer = typeof window === "undefined";
 
-    // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
-    const atom$: Atom<IWrapped<TQuery>> = cacheKey
-      ? registry.queries.getQuery<TQuery>(cacheKey)
-      : createAtom<IWrapped<TQuery>>(createIdle());
+    // The query's status Atom, shared via the registry — every state with this key+params pair
+    // reads and writes the same query.
+    const atom$: Atom<IWrapped<TQuery>> = registry.queries.getQuery<TQuery>(cacheKey);
 
     // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
     // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
@@ -158,16 +156,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
     if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
-      if (!cacheKey) {
-        console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
-      } else {
-        // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
-        // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
-        throw registry.queries.getOrStart(cacheKey, () => {
-          atom$.set(createPending());
-          return settle(fetchFn(params, new AbortController().signal));
-        });
-      }
+      // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
+      // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
+      throw registry.queries.getOrStart(cacheKey, () => {
+        atom$.set(createPending());
+        return settle(fetchFn(params, new AbortController().signal));
+      });
     }
 
     const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));

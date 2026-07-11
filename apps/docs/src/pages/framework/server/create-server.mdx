@@ -50,9 +50,10 @@ The returned `Live` object exposes:
 
 - [`live.create` / `live.update` / `live.delete` / `live.touch`](/framework/server/writes) —
   typed writes that publish live messages.
-- [`live.serve(req, state, params, data)`](/framework/server/sessions) — pass-through for a read
-  endpoint; registers `data`'s entities plus the state's channel under the requesting session, and
-  returns `data` unchanged.
+- [`live.serve(req, state, params, data)`](/framework/server/sessions) — read-endpoint wrapper;
+  parses `data` (the state's input shape — raw DB rows work as-is) through the state's schemas,
+  registers its entities plus the state's channel under the requesting session, and returns the
+  parsed shape.
 - [`live.hydration(registry)`](/framework/server/sessions) — one-call SSR payload: mints a
   session, registers everything the render's registry holds, and returns the `hydrationScript`
   string.

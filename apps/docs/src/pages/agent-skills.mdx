@@ -35,7 +35,7 @@ npx skills add vanya2h/rxfy --skill rxfy-framework
 - Mutations, `set` vs `setRaw`, pagination with `useStatePagedData`
 - Lens composition with `createLens` / `keyLens`
 - SSR: `name`/`key` requirements, buffered (`onAllReady`), streaming (`<HydrationStream />`), and two-pass (`collectStateData`) modes
-- Common mistakes: inline observable creation, `store.entity()` guards, atom stability, missing-data-after-SSR
+- Common mistakes: inline observable creation, `store.get()` on unloaded ids, atom stability, missing-data-after-SSR
 
 **`rxfy-framework`** — everything above, plus the real-time layer:
 

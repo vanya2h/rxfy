@@ -82,7 +82,7 @@ immutable snapshots serialize and rehydrate as-is, which is central to rxfy's SS
 mutable proxy graphs are harder to capture; MobX gives you no built-in normalization or
 query/SSR layer anyway. Two-way binding shows the difference: MobX mutates the observable, while rxfy
 composes a [`Lens`](/rxfy/create-lens) over a
-[`store.entity(id)`](/rxfy/create-model#modelstore-entity) and drives it with
+[`store.get(id)`](/rxfy/create-model#modelstore-get) and drives it with
 [`useAtom`](/react/use-atom), so the write flows back into the normalized
 store and reaches every subscriber.
 

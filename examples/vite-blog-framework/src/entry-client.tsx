@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router";
 import { createModelRegistry } from "rxfy";
 import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
@@ -19,7 +20,9 @@ hydrateRoot(
   <StrictMode>
     <StoreProvider registry={registry} ssr liveClient={liveClient}>
       <ApiProvider client={apiClient}>
-        <App url={location.pathname} />
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
       </ApiProvider>
     </StoreProvider>
   </StrictMode>,

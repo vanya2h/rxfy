@@ -16,10 +16,10 @@ const { data$, mutations, set, setRaw, reload } = useStateData({ state: myState,
   {({ todos }) => todos.map((id) => <TodoItem key={id} id={id} />)}
 </Pending>
 
-// 4. Subscribe to an entity by id
+// 4. Read an entity by id — sync writable handle; the id must come from a fulfilled query
 const store = useModelStore(TodoModel);
-const todo$ = useMemo(() => store.get(id), [store, id]);
-<Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>
+const [todo] = useAtom(store.get(id)); // the cell itself — stable identity, no useMemo needed
+<li>{todo.title}</li>
 
 // 5. Bind an IAtom (Lens / field handle)
 const [value, setValue] = useAtom(atom$); // atom$ must be stable across renders
@@ -33,6 +33,6 @@ const [value, setValue] = useAtom(atom$); // atom$ must be stable across renders
 | `useStatePagedData({ model, key, params, fetchPage, getCursor, select })` | `PagedListHandle` | Infinite list — see **Pagination** in mutations-writes.md |
 | `useModelStore(descriptor)` | `ModelStore<T>` | Same descriptor → same store in the registry; for pushing external data in, see **External writes** in mutations-writes.md |
 | `useModelRegistry()` | `IModelRegistry` | The active registry — for `added$` subscriptions / manual store access |
-| `useAtom(atom$)` | `[T, set]` | Memoize atom$ — new identity resets |
+| `useAtom(atom$)` | `[T, set]` | `store.get(id)` is already stable; memoize derived atoms (`Lens`, drafts) — new identity resets |
 | `usePending(source$)` | `IWrapped<T>` | Low-level; prefer `<Pending>` for rendering |
 | `useObservable(obs$, initial)` | `T` | Raw subscription to any observable |

@@ -39,4 +39,23 @@ type Hub = {
   (default 5 minutes) before `drop` — this covers an SSR render whose client hasn't opened the
   WebSocket yet, and a closed tab that might reconnect.
 
+## hubHydration [SSR payload without createServer]
+
+Apps that use the bare hub — an in-memory store publishing `stale` on writes, no Drizzle, no
+[`createServer`](/framework/server/create-server) — still need the SSR render registered as a live
+session. `hubHydration(hub, registry)` is that one call: it mints the render's session, subscribes
+it to every channel the render logged into the registry, and returns the hydration script
+(dehydrated state + session) to inject into the HTML.
+
+```tsx [entry.server.tsx]
+import { hubHydration } from "rxfy-server/hub";
+
+// after the render settles (onAllReady):
+const script = hubHydration(hub, registry);
+const html = rendered.replace("</body>", `${script}</body>`);
+```
+
+[`live.hydration(registry)`](/framework/server/sessions) wraps this same helper, adding entity
+subscriptions for resource-backed models — with `createServer`, call that instead.
+
 For WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).

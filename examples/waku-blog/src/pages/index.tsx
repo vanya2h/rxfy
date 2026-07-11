@@ -1,19 +1,23 @@
-import { postsState } from "examples-shared/data";
-import { fetchPosts } from "../blog/fetchers";
+import { randomUUID } from "node:crypto";
+import { parseResponse } from "hono/client";
+import { serverApi } from "../blog/api-server";
+import { LiveSession } from "../blog/LiveSession";
 import { HomeView } from "../components/HomeView";
-import { HydrateSnapshot } from "../components/HydrateSnapshot";
-import { prefetch } from "../ssr";
 
 export default async function HomePage() {
-  const snapshot = await prefetch(postsState, fetchPosts, {});
+  // Mint this render's live session; the in-process fetch registers what it serves under it,
+  // and <LiveSession> hands it to the browser's live socket.
+  const session = randomUUID();
+  const posts = await parseResponse(serverApi(session).posts.$get());
   return (
     <>
-      <HydrateSnapshot snapshot={snapshot} />
-      <HomeView />
+      <LiveSession session={session} />
+      <HomeView defaultData={posts} />
     </>
   );
 }
 
 export const getConfig = async () => {
-  return { render: "static" } as const;
+  // Live rendering is per-visitor: each request mints its own session, so no static prerender.
+  return { render: "dynamic" } as const;
 };

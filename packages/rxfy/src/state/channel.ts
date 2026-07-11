@@ -9,7 +9,8 @@ const encode = (value: unknown): string =>
     : stableStringify(value);
 
 /**
- * Window-independent invalidation channel for a state instance; `undefined` for keyless states.
+ * Window-independent invalidation channel for a state instance; `undefined` when the descriptor
+ * carries no key (state descriptors always do — the loose input type also admits partial shapes).
  * Window dims (page, sort, cursor…) are dropped so every window of one partition shares a channel.
  * The single canonical implementation — client subscriptions and server publishes both use it.
  */

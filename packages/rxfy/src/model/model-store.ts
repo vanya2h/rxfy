@@ -1,23 +1,21 @@
-import { filter, Observable, Subject } from "rxjs";
+import { Observable, Subject } from "rxjs";
 import { Atom, createAtom, type IAtom } from "../atom/atom.js";
-import { createLens } from "../lens/lens.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
-import { markSync } from "../ssr/sync-marker.js";
 import { type ChannelLog, createChannelLog } from "../state/channel-log.js";
 import type { EntityKey, ModelDescriptor } from "./model.js";
 
-export type ModelStore<T> = {
-  get: (key: EntityKey<T>) => Observable<T>;
-  set: (key: string, val: T) => void;
-  setMany: (items: T[]) => void;
-  /** Synchronous read of the latest value — used by denormalization and dehydration. */
-  getValue: (key: string) => T | undefined;
-  valueEntries: () => [string, T][];
+export type ModelStore<TEntity> = {
   /**
-   * Writable handle over a single entity's cell — for field Lenses and form binding.
-   * Assumes the entity is already loaded; returns `undefined` typed as `T` if the key has not been set.
+   * Writable handle over a single entity's cell — synchronous reads, field Lenses, form binding.
+   * Assumes the entity is already loaded (ids come from fulfilled states); accessing an unloaded
+   * key throws. Use `getValue` for a non-throwing probe.
    */
-  entity: (key: EntityKey<T>) => IAtom<T>;
+  get: (key: EntityKey<TEntity>) => IAtom<TEntity>;
+  set: (key: string, val: TEntity) => void;
+  setMany: (items: TEntity[]) => void;
+  /** Synchronous read of the latest value — used by denormalization and dehydration. */
+  getValue: (key: string) => TEntity | undefined;
+  valueEntries: () => [string, TEntity][];
   /**
    * Emits a key the first time its entity becomes present (the first `set`); updates to an existing
    * entity do not re-emit. New subscribers replay the keys already present, so a late subscriber
@@ -27,120 +25,140 @@ export type ModelStore<T> = {
   added$: Observable<string>;
 };
 
-export type IModelRegistry = {
-  model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
+export type AnyModelDescriptor = ModelDescriptor<any, any, any, any>;
+/** Name-keyed record of registered descriptors — the shape accumulated by `createModelRegistry(seed).add(...)`. */
+export type ModelsShape = Record<string, AnyModelDescriptor>;
+type EntityOf<TDescriptor> = TDescriptor extends ModelDescriptor<infer TEntity, any, any, any> ? TEntity : never;
+
+/**
+ * `TModels` defaults to `any` so bare `IModelRegistry` stays the open registry: it accepts any
+ * descriptor (today's lazy behavior) and every typed registry is assignable to it. Registries
+ * built as `createModelRegistry(post).add(comment)` accumulate a name → descriptor record,
+ * closing `model`/`store`/`stashHydration` over the registered set — a compile-time guard only;
+ * runtime behavior is identical either way.
+ */
+export type IModelRegistry<TModels extends ModelsShape = any> = {
+  /** Register a model into the type-level set and materialize its store; returns the same registry. */
+  add: <TDescriptor extends AnyModelDescriptor>(
+    descriptor: TDescriptor,
+  ) => IModelRegistry<TModels & Record<TDescriptor["name"], TDescriptor>>;
+  model: <TDescriptor extends TModels[keyof TModels]>(descriptor: TDescriptor) => ModelStore<EntityOf<TDescriptor>>;
+  /** Typed store lookup by model name. Throws if the model was never materialized. */
+  store: <TName extends keyof TModels & string>(name: TName) => ModelStore<EntityOf<TModels[TName]>>;
   /** SSR query cache — fulfilled/rejected entries keyed by state key + params. */
   queries: QueryCache;
   /** State channels materialized this request — read by live-session registration during SSR. */
   channels: ChannelLog;
-  namedStores: () => ReadonlyMap<string, ModelStore<any>>;
-  stores: () => { descriptor: ModelDescriptor<any>; store: ModelStore<any> }[];
+  /** Keys are the registered model names; values the union of their stores (a Map cannot correlate value to key — use `store(name)` for a per-name type). */
+  namedStores: () => ReadonlyMap<
+    keyof TModels & string,
+    { [K in keyof TModels]: ModelStore<EntityOf<TModels[K]>> }[keyof TModels]
+  >;
+  stores: () => { descriptor: AnyModelDescriptor; store: ModelStore<any> }[];
   /** Queue entities for a named model; seeds the store now if it exists, or on first creation otherwise. */
-  stashHydration: (name: string, entities: Record<string, unknown>) => void;
+  stashHydration: <TName extends keyof TModels & string>(
+    name: TName,
+    entities: Record<string, EntityOf<TModels[TName]>>,
+  ) => void;
   /**
-   * Every entity added to any *named* store, tagged with that store's `name` (the half of a
-   * `name:key` topic). Unnamed stores are skipped — there's no name to address them by. Replays
-   * what's already in the registry to new subscribers, and follows stores created after subscribe.
-   * Useful for driving side effects off entity arrivals; live updates no longer subscribe
-   * per-entity (the server tracks served sessions).
+   * Every entity added to any store, tagged with the model's `name` (the half of a `name:key`
+   * topic). Replays what's already in the registry to new subscribers, and follows stores
+   * created after subscribe. Useful for driving side effects off entity arrivals; live updates
+   * no longer subscribe per-entity (the server tracks served sessions).
    */
   added$: Observable<{ name: string; key: string }>;
 };
 
-export function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T> {
-  const cells = new Map<string, Atom<T | undefined>>();
-  // Keys with a present value, in insertion order — the snapshot replayed to new added$ subscribers.
-  const present = new Set<string>();
+export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>): ModelStore<TEntity> {
+  // A cell exists iff its entity has been set, so the map (in insertion order) is also the
+  // presence record replayed to new added$ subscribers.
+  const cells = new Map<string, Atom<TEntity>>();
   const added = new Subject<string>();
 
-  const getCell = (key: string): Atom<T | undefined> => {
-    let cell = cells.get(key);
-    if (!cell) {
-      cell = createAtom<T | undefined>(undefined);
-      cells.set(key, cell);
-    }
-    return cell;
-  };
-
-  const set = (key: string, val: T): void => {
-    getCell(key).set(val);
-    // First appearance only: record it and announce. Re-sets to an existing key are updates, not adds.
-    if (val !== undefined && !present.has(key)) {
-      present.add(key);
+  const set = (key: string, val: TEntity): void => {
+    const cell = cells.get(key);
+    if (cell) {
+      cell.set(val); // re-set to an existing key is an update, not an add
+    } else {
+      cells.set(key, createAtom(val));
       added.next(key);
     }
   };
 
   return {
-    get: (key) => markSync(getCell(key).pipe(filter((v): v is T => v !== undefined))),
+    get: (key) => {
+      const cell = cells.get(key as string);
+      if (!cell) {
+        throw new Error(
+          `rxfy: entity "${key}" for model "${descriptor.name}" is not loaded — ` +
+            `read its id from a fulfilled state, or seed the store first`,
+        );
+      }
+      return cell;
+    },
     set,
     // Subscribe to future adds first, then replay the current snapshot — single-threaded, so a key
     // is delivered by exactly one path (no gap, no duplicate).
     added$: new Observable<string>((subscriber) => {
       const sub = added.subscribe(subscriber);
-      for (const key of present) subscriber.next(key);
+      for (const key of cells.keys()) subscriber.next(key);
       return sub;
     }),
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
     getValue: (key) => cells.get(key)?.get(),
-    entity: (key) =>
-      createLens<T | undefined, T>(getCell(key as string), {
-        get: (source) => {
-          if (source === undefined) {
-            throw new Error(
-              `rxfy: entity "${key}" for model "${descriptor.name ?? "<unnamed>"}" is not loaded — ` +
-                `guard with <Pending>/useEntity or seed it first`,
-            );
-          }
-          return source;
-        },
-        set: (current) => current,
-      }),
-    valueEntries: () => {
-      const result: [string, T][] = [];
-      for (const [key, cell] of cells) {
-        const value = cell.get();
-        if (value !== undefined) result.push([key, value]);
-      }
-      return result;
-    },
+    valueEntries: () => [...cells].map(([key, cell]) => [key, cell.get()] as [string, TEntity]),
   };
 }
 
-export function createModelRegistry(): IModelRegistry {
+// The seed argument starts typed accumulation (`createModelRegistry(post).add(comment)`); starting
+// closed from an empty record would make the no-arg registry's `model()` reject everything.
+export function createModelRegistry(): IModelRegistry;
+export function createModelRegistry<TDescriptor extends AnyModelDescriptor>(
+  seed: TDescriptor,
+): IModelRegistry<Record<TDescriptor["name"], TDescriptor>>;
+export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
   const stores = new Map<symbol, ModelStore<any>>();
   const descriptors = new Map<symbol, ModelDescriptor<any>>();
   const named = new Map<string, ModelStore<any>>();
   const stash = new Map<string, Record<string, unknown>>();
   const queries = createQueryCache();
   const channels = createChannelLog();
-  // Fires once per named store as it's created, so added$ subscribers can hook stores born later.
+  // Fires once per store as it's created, so added$ subscribers can hook stores born later.
   const namedCreated = new Subject<{ name: string; store: ModelStore<any> }>();
 
-  return {
+  const registry: IModelRegistry = {
     queries,
     channels,
-    model: <T>(descriptor: ModelDescriptor<T>): ModelStore<T> => {
+    add: (descriptor) => {
+      registry.model(descriptor);
+      return registry;
+    },
+    store: (name) => {
+      const store = named.get(name);
+      if (!store) {
+        throw new Error(`rxfy: no store named "${name}" — register the model with createModelRegistry(model)/.add()`);
+      }
+      return store;
+    },
+    model: <TEntity>(descriptor: ModelDescriptor<TEntity>): ModelStore<TEntity> => {
       if (!stores.has(descriptor._key)) {
         const store = createModelStore(descriptor);
         stores.set(descriptor._key, store);
         descriptors.set(descriptor._key, descriptor);
-        if (descriptor.name) {
-          if (named.has(descriptor.name)) {
-            console.warn(`rxfy: duplicate model name "${descriptor.name}" — SSR dehydration would mix their entities`);
-          }
-          named.set(descriptor.name, store);
-          const pending = stash.get(descriptor.name);
-          if (pending) {
-            stash.delete(descriptor.name);
-            for (const [key, value] of Object.entries(pending)) store.set(key, value as T);
-          }
-          // Announce after seeding: an already-subscribed added$ hooks the store now and replays
-          // the just-stashed keys (the store buffered them in `present`).
-          namedCreated.next({ name: descriptor.name, store });
+        if (named.has(descriptor.name)) {
+          console.warn(`rxfy: duplicate model name "${descriptor.name}" — SSR dehydration would mix their entities`);
         }
+        named.set(descriptor.name, store);
+        const pending = stash.get(descriptor.name);
+        if (pending) {
+          stash.delete(descriptor.name);
+          for (const [key, value] of Object.entries(pending)) store.set(key, value as TEntity);
+        }
+        // Announce after seeding: an already-subscribed added$ hooks the store now and replays
+        // the just-stashed keys (the store buffered them as cells).
+        namedCreated.next({ name: descriptor.name, store });
       }
-      return stores.get(descriptor._key) as ModelStore<T>;
+      return stores.get(descriptor._key) as ModelStore<TEntity>;
     },
     namedStores: () => named,
     stores: () => [...stores.keys()].map((key) => ({ descriptor: descriptors.get(key)!, store: stores.get(key)! })),
@@ -163,4 +181,7 @@ export function createModelRegistry(): IModelRegistry {
       return () => subs.forEach((s) => s.unsubscribe());
     }),
   };
+
+  if (seed) registry.model(seed);
+  return registry;
 }

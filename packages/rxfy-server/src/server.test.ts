@@ -7,7 +7,8 @@ import { z } from "zod";
 import { createInMemoryHub, type SessionId } from "./hub.js";
 import { defineResource } from "./resource.js";
 import { createResourceRegistry } from "./resource-registry.js";
-import { createServer, touch } from "./server.js";
+import { createServer } from "./server.js";
+import { touch } from "./state-channel.js";
 import { createTestDb } from "./test-db.js";
 
 const postsTable = pgTable("posts", {
@@ -124,7 +125,7 @@ describe("createServer.touch", () => {
 });
 
 describe("createServer.serve", () => {
-  it("returns data unchanged and registers the session's entity + channel subscriptions", async () => {
+  it("returns the parsed data and registers the session's entity + channel subscriptions", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { hub, live } = harness(db);
     const seen: string[] = [];
@@ -133,7 +134,7 @@ describe("createServer.serve", () => {
     const state = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
     const data = { posts: [{ id: "1", orgId: "A", title: "a" }] };
     const result = live.serve("sess-1", state, {}, data);
-    expect(result).toBe(data); // pass-through, same reference
+    expect(result).toEqual(data); // parsed through the field schemas, not the same reference
 
     hub.publish("e:post:1", patch("post", "1", { id: "1", title: "b" }));
     hub.publish("c:posts", stale("posts"));
@@ -158,7 +159,15 @@ describe("createServer.serve", () => {
     const req = new Request("http://x/");
     const state = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
     const data = { posts: [] as Array<{ id: string; orgId: string; title: string }> };
-    expect(live.serve(req, state, {}, data)).toBe(data);
+    expect(live.serve(req, state, {}, data)).toEqual(data);
+  });
+
+  it("parses the input shape: unknown keys are stripped from entities", async () => {
+    const { db } = await createTestDb(CREATE_POSTS);
+    const { live } = harness(db);
+    const state = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
+    const raw = { posts: [{ id: "1", orgId: "A", title: "a", createdAt: new Date() }] };
+    expect(live.serve("sess-1", state, {}, raw)).toEqual({ posts: [{ id: "1", orgId: "A", title: "a" }] });
   });
 });
 

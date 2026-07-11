@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
+import { StaticRouter } from "react-router";
 import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import type { RenderFn } from "../server/render-types.js";
@@ -18,7 +19,9 @@ export const render: RenderFn = (url, live, apiFetch) => {
         <StoreProvider registry={registry} ssr>
           <ApiProvider client={apiClient}>
             <Suspense fallback={null}>
-              <App url={url} />
+              <StaticRouter location={url}>
+                <App />
+              </StaticRouter>
             </Suspense>
           </ApiProvider>
         </StoreProvider>

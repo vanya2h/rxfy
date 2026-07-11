@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createModel } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
@@ -32,17 +32,6 @@ describe("dehydrate", () => {
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
   });
 
-  it("warns once for an unnamed store holding data and skips it", () => {
-    const unnamed = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
-    const registry = createModelRegistry();
-    registry.model(unnamed).set("1", { id: "1" });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const state = dehydrate(registry);
-    expect(state.models).toEqual({});
-    expect(warn).toHaveBeenCalledOnce();
-    warn.mockRestore();
-  });
-
   it("dehydrate emits only terminal queries in SerializedWrapped form", () => {
     const registry = createModelRegistry();
     registry.queries.getQuery("posts:{}").set({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
@@ -72,7 +61,10 @@ describe("hydrate", () => {
       queries: { "posts:{}": { type: StatusEnum.FULFILLED, value: { posts: ["1"] } } },
       models: {},
     });
-    expect(registry.queries.getQuery("posts:{}").get()).toEqual({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
+    expect(registry.queries.getQuery("posts:{}").get()).toEqual({
+      type: StatusEnum.FULFILLED,
+      value: { posts: ["1"] },
+    });
   });
 });
 

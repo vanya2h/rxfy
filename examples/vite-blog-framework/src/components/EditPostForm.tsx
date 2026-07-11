@@ -1,6 +1,7 @@
 import { Button } from "examples-shared/ui/button";
 import { Input } from "examples-shared/ui/input";
 import { Textarea } from "examples-shared/ui/textarea";
+import { parseResponse } from "hono/client";
 import { useState } from "react";
 import { useApi } from "../blog/api-client.js";
 
@@ -21,7 +22,7 @@ export function EditPostForm({
 
   const submit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await api.posts[":id"].$patch({ param: { id }, json: { title: title.trim(), body: body.trim() } });
+    await parseResponse(api.posts[":id"].$patch({ param: { id }, json: { title: title.trim(), body: body.trim() } }));
     onDone();
   };
 

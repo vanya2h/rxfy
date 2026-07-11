@@ -143,48 +143,42 @@ database **and** broadcasts the appropriate live event to subscribed clients.
 :::code-group
 
 ```ts [server/api.ts (setup)]
-import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
+import { touch } from "rxfy-server";
 import { commentResource, postResource } from "../src/blog/resources.js";
 import { postDetailState, postsState } from "../src/blog/states.js";
-import { comments, posts } from "./db.js";
 import { live } from "./live.js";
 
-// A state doubles as its channel descriptor; a resource needs a raw-row cast for writes.
-// See Writes (/framework/server/writes) for why each cast is required.
-const postsChannel = postsState as unknown as StateChannelDescriptor;
-const postDetailChannel = postDetailState as unknown as StateChannelDescriptor;
-const postWriteResource = postResource as unknown as Resource<typeof posts>;
-const commentWriteResource = commentResource as unknown as Resource<typeof comments>;
+// A state doubles as its channel descriptor: touch(postsState, params) marks it stale.
 ```
 
 ```ts [server/api.ts (posts)]
 // POST /posts — create a post, mark the posts list as stale
 const row = await live.create(
-  postWriteResource,
+  postResource,
   { id: newId(), userId, title, body },
-  { touch: [touch(postsChannel, {})] },
+  { touch: [touch(postsState, {})] },
 );
 
 // PATCH /posts/:id — update fields, push a live patch to every reader
-const row = await live.update(postWriteResource, c.req.param("id"), patch);
+const row = await live.update(postResource, c.req.param("id"), patch);
 
 // DELETE /posts/:id — delete the row, mark the posts list as stale
-await live.delete(postResource, c.req.param("id"), { touch: [touch(postsChannel, {})] });
+await live.delete(postResource, c.req.param("id"), { touch: [touch(postsState, {})] });
 ```
 
 ```ts [server/api.ts (comments)]
 // POST /posts/:id/comments — create a comment, stale the post detail view
 const row = await live.create(
-  commentWriteResource,
+  commentResource,
   { id: newId(), postId, name, body },
-  { touch: [touch(postDetailChannel, { postId })] },
+  { touch: [touch(postDetailState, { postId })] },
 );
 
 // PATCH /comments/:id — update the comment body, push a patch
-const row = await live.update(commentWriteResource, c.req.param("id"), patch);
+const row = await live.update(commentResource, c.req.param("id"), patch);
 
 // DELETE /posts/:postId/comments/:id — delete, stale the post detail view
-await live.delete(commentResource, c.req.param("id"), { touch: [touch(postDetailChannel, { postId })] });
+await live.delete(commentResource, c.req.param("id"), { touch: [touch(postDetailState, { postId })] });
 ```
 
 :::
@@ -193,12 +187,12 @@ await live.delete(commentResource, c.req.param("id"), { touch: [touch(postDetail
 connected client immediately, with no round-trip. The UI re-renders in place.
 
 **`create` and `delete` with `touch` emit a `stale`** — the named state channel (e.g.
-`postsChannel`) is flagged as stale on every client that holds it. The client does not re-fetch
+`postsState`'s) is flagged as stale on every client that holds it. The client does not re-fetch
 automatically; instead it surfaces a badge so the user can refresh when convenient.
 
-`touch(channel, params)` identifies the exact query to stale. For the posts list that is
-`touch(postsChannel, {})` (no params); for a post detail it is
-`touch(postDetailChannel, { postId })` so only readers of that specific post see the badge.
+`touch(state, params)` identifies the exact query to stale. For the posts list that is
+`touch(postsState, {})` (no params); for a post detail it is
+`touch(postDetailState, { postId })` so only readers of that specific post see the badge.
 
 :::note
 `live.update` with no `touch` option produces only a `patch`. Only mutations that change the
@@ -408,7 +402,7 @@ See [Live client](/react/live-client) for the full client API.
 2. **Edit a post body in tab A.** Tab B silently updates — no spinner, no reload. The body field
    was sent as a `patch` by `live.update` and merged directly into the normalized store.
 3. **Create a new post in tab A.** Tab B shows a refresh badge on the posts list. The server called
-   `touch(postsChannel, {})`, which emitted a `stale` event. The existing list is not disrupted;
+   `touch(postsState, {})`, which emitted a `stale` event. The existing list is not disrupted;
    the reader chooses when to reload.
 4. **Delete the post in tab A.** The same refresh badge appears in tab B for the same reason.
 

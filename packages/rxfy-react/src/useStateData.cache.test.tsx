@@ -184,19 +184,6 @@ describe("useStateData cache integration", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it("states without a key never touch the cache", async () => {
-    const keylessState = defineState({ params: z.object({}), model: { todos: array(todoModel) } });
-    const registry = createModelRegistry();
-    const fetchFn = vi.fn().mockResolvedValue({ todos: [] });
-
-    const { result } = renderHook(() => useStateData({ state: keylessState, fetchFn, params: {} }), {
-      wrapper: makeWrapper(registry),
-    });
-    await firstValueFrom(result.current.data$);
-
-    expect(registry.queries.entries()).toEqual([]);
-  });
-
   it("client dedup: two components sharing the same keyed state + params trigger fetchFn exactly once", async () => {
     const registry = createModelRegistry();
     const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "42", title: "Shared" }] });

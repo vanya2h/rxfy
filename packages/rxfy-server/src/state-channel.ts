@@ -16,3 +16,11 @@ export type StateChannelDescriptor = {
 export function invalidationChannel(state: StateChannelDescriptor, params: Record<string, unknown>): string {
   return stateChannel(state, params) as string;
 }
+
+/** A target state channel to mark stale (no data — clients refetch on demand). */
+export type TouchTarget = { channel: string };
+
+/** Build a touch target from a state descriptor + params (window dims dropped). */
+export function touch(state: StateChannelDescriptor, params: Record<string, unknown>): TouchTarget {
+  return { channel: invalidationChannel(state, params) };
+}

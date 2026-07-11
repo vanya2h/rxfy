@@ -1,13 +1,8 @@
-import type { PublishSink, Resource } from "rxfy-server";
+import type { PublishSink } from "rxfy-server";
 import { createInMemoryHub, createServer, touch } from "rxfy-server";
 import { describe, expect, it } from "vitest";
 import { resources, todoResource } from "../src/resources.js";
-import { todosChannel } from "./api.js";
-import type { todos } from "./db.js";
-
-// live.create/update accept Resource<TTable> with the table's raw row shape; the model omits
-// `createdAt`, so re-view the resource as its raw-row writer resource.
-const todoWriteResource = todoResource as unknown as Resource<typeof todos>;
+import { todosState } from "../src/todos.js";
 
 /** Derive ServerMessage from the PublishSink type exported by rxfy-server. */
 type ServerMessage = Parameters<PublishSink>[1];
@@ -40,9 +35,9 @@ describe("live server", () => {
     hub.subscribe("client", ["c:todos"]);
 
     const row = await live.create(
-      todoWriteResource,
+      todoResource,
       { id: "t1", title: "Hi", done: false },
-      { touch: [touch(todosChannel, {})] },
+      { touch: [touch(todosState, {})] },
     );
     expect(row).toMatchObject({ id: "t1", title: "Hi" });
     expect(received).toEqual([{ v: 2, kind: "stale", channel: "todos" }]);
@@ -52,13 +47,13 @@ describe("live server", () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
     const live = createServer({ db, resources, hub });
-    await live.create(todoWriteResource, { id: "t1", title: "Hi", done: false });
+    await live.create(todoResource, { id: "t1", title: "Hi", done: false });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
     hub.subscribe("client", ["e:todo:t1"]);
 
-    const row = await live.update(todoWriteResource, "t1", { done: true });
+    const row = await live.update(todoResource, "t1", { done: true });
     expect(row).toMatchObject({ id: "t1", done: true });
     expect(received).toEqual([
       {

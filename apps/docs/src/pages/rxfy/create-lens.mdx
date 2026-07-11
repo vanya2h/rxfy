@@ -53,6 +53,6 @@ type Lens<S, T> = IAtom<T>; // get(): T; set(val: T): void; modify(fn: (val: T) 
 ```
 
 To bind a form input to one field of a stored entity, compose a `keyLens` over a
-[`ModelStore.entity(id)`](/rxfy/create-model#modelstore-entity) handle and drive it with
+[`ModelStore.get(id)`](/rxfy/create-model#modelstore-get) handle and drive it with
 [`useAtom`](/react/use-atom). Edits flow back into the model store and reach every subscriber
 of that entity.

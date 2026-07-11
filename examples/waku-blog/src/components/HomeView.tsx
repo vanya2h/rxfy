@@ -1,10 +1,16 @@
 "use client";
-import { PostList } from "examples-shared";
+import { PostList, type PostsData } from "examples-shared";
 import { postsState } from "examples-shared/data";
+import { parseResponse } from "hono/client";
 import { useStateData } from "rxfy-react";
-import { fetchPosts } from "../blog/fetchers";
+import { api } from "../blog/api-client";
 
-export function HomeView() {
-  const posts = useStateData({ state: postsState, fetchFn: fetchPosts, params: {} });
+export function HomeView({ defaultData }: { defaultData: PostsData }) {
+  const posts = useStateData({
+    state: postsState,
+    fetchFn: () => parseResponse(api.posts.$get()),
+    params: {},
+    defaultData,
+  });
   return <PostList posts={posts} />;
 }

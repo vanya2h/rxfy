@@ -14,6 +14,6 @@
     "verbatimModuleSyntax": true,
     "types": ["react", "react-dom", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "ssr.smoke.test.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist", ".waku"]
 }

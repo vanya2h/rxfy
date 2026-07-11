@@ -8,10 +8,7 @@ export type DehydratedState = {
   session?: string;
 };
 
-// Streaming SSR calls dehydrate once per flush — warn once per descriptor, not per call.
-const warnedUnnamed = new WeakSet<object>();
-
-/** Serializes the registry's query cache (ids) and named model stores (entities) to a JSON-safe snapshot. */
+/** Serializes the registry's query cache (ids) and model stores (entities) to a JSON-safe snapshot. */
 export function dehydrate(registry: IModelRegistry): DehydratedState {
   const queries: DehydratedState["queries"] = {};
   for (const [key, wrapped] of registry.queries.entries()) {
@@ -21,12 +18,7 @@ export function dehydrate(registry: IModelRegistry): DehydratedState {
 
   const models: DehydratedState["models"] = {};
   for (const { descriptor, store } of registry.stores()) {
-    if (descriptor.name) {
-      models[descriptor.name] = Object.fromEntries(store.valueEntries());
-    } else if (store.valueEntries().length > 0 && !warnedUnnamed.has(descriptor)) {
-      warnedUnnamed.add(descriptor);
-      console.warn("rxfy: model store holds data but has no name — it will not be dehydrated for SSR");
-    }
+    models[descriptor.name] = Object.fromEntries(store.valueEntries());
   }
 
   return { queries, models };

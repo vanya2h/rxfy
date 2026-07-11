@@ -3,6 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "examples-s
 import { Input } from "examples-shared/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "examples-shared/ui/select";
 import { Textarea } from "examples-shared/ui/textarea";
+import { parseResponse } from "hono/client";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useApi } from "../blog/api-client.js";
@@ -22,7 +23,7 @@ export function NewPostForm({ onCreated }: { onCreated?: () => void }) {
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    await api.posts.$post({ json: { userId, title: title.trim(), body: body.trim() } });
+    await parseResponse(api.posts.$post({ json: { userId, title: title.trim(), body: body.trim() } }));
     onCreated?.();
     setTitle("");
     setBody("");

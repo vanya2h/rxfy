@@ -1,8 +1,7 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
-import { Pending, useModelStore } from "rxfy-react";
-import { combineLatest } from "rxjs";
+import { Pending, useAtom, useModelStore } from "rxfy-react";
 import {
   type Comment,
   type CommentId,
@@ -77,33 +76,27 @@ function Article({
 }) {
   const postStore = useModelStore(postModel);
   const userStore = useModelStore(userModel);
-  const both$ = useMemo(
-    () => combineLatest({ post: postStore.get(ids.post), author: userStore.get(ids.author) }),
-    [postStore, userStore, ids.post, ids.author],
-  );
+  const [post] = useAtom(postStore.get(ids.post));
+  const [author] = useAtom(userStore.get(ids.author));
   return (
-    <Pending value$={both$}>
-      {({ post, author }) => (
-        <Card>
-          <CardHeader>
-            <CardTitle>{post.title}</CardTitle>
-            <CardDescription>by {author.name}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {actions}
-            <p>{post.body}</p>
-            <Separator />
-            <h3 className="font-medium">Comments ({ids.comments.length})</h3>
-            <div className="flex flex-col gap-2">
-              {/* Newest first: sources return comments in insertion order (oldest→newest). */}
-              {[...ids.comments].reverse().map((cid) => (
-                <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid, controls)} />
-              ))}
-            </div>
-            <AddCommentForm postId={post.id} onSubmitted={controls.applyUpdates} />
-          </CardContent>
-        </Card>
-      )}
-    </Pending>
+    <Card>
+      <CardHeader>
+        <CardTitle>{post.title}</CardTitle>
+        <CardDescription>by {author.name}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {actions}
+        <p>{post.body}</p>
+        <Separator />
+        <h3 className="font-medium">Comments ({ids.comments.length})</h3>
+        <div className="flex flex-col gap-2">
+          {/* Newest first: sources return comments in insertion order (oldest→newest). */}
+          {[...ids.comments].reverse().map((cid) => (
+            <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid, controls)} />
+          ))}
+        </div>
+        <AddCommentForm postId={post.id} onSubmitted={controls.applyUpdates} />
+      </CardContent>
+    </Card>
   );
 }

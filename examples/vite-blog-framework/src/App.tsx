@@ -1,24 +1,20 @@
-import { BlogProvider, PostDetail, type PostDetailData, PostList, type PostsData } from "examples-shared";
+import { BlogProvider, PostDetail, PostList } from "examples-shared";
 import { postDetailState, type PostId, postsState } from "examples-shared/data";
-import { useEffect, useMemo, useState } from "react";
+import { parseResponse } from "hono/client";
+import { useMemo } from "react";
+import { Link, Route, Routes, useNavigate, useParams } from "react-router";
 import { useStateData } from "rxfy-react";
 import { useApi } from "./blog/api-client.js";
 import { CommentActions } from "./components/CommentActions.js";
 import { NewPostForm } from "./components/NewPostForm.js";
 import { PostActions } from "./components/PostActions.js";
 import { ThemeToggle } from "./components/ThemeToggle.js";
-import { bindNavigation, navigate } from "./navigation.js";
-import { matchRoute } from "./routes.js";
 
 function HomeRoute() {
   const api = useApi();
   const posts = useStateData({
     state: postsState,
-    // The wire shape is structurally identical to the branded state shape; re-view it.
-    fetchFn: async () => {
-      const res = await api.posts.$get();
-      return (await res.json()) as unknown as PostsData;
-    },
+    fetchFn: () => parseResponse(api.posts.$get()),
     params: {},
   });
   return (
@@ -30,15 +26,12 @@ function HomeRoute() {
   );
 }
 
-function PostRoute({ postId }: { postId: PostId }) {
+function PostRoute() {
+  const { postId } = useParams<{ postId: string }>() as { postId: PostId };
   const api = useApi();
   const detail = useStateData({
     state: postDetailState,
-    fetchFn: async ({ postId }) => {
-      const res = await api.posts[":id"].$get({ param: { id: postId } });
-      if (!res.ok) throw new Error(`Post ${postId} not found`);
-      return (await res.json()) as unknown as PostDetailData;
-    },
+    fetchFn: ({ postId }) => parseResponse(api.posts[":id"].$get({ param: { id: postId } })),
     params: { postId },
   });
   return (
@@ -49,49 +42,33 @@ function PostRoute({ postId }: { postId: PostId }) {
   );
 }
 
-export function App({ url }: { url: string }) {
+export function App() {
   const api = useApi();
+  const navigate = useNavigate();
   const blog = useMemo(
     () => ({
-      navigate,
+      navigate: (path: string) => void navigate(path),
       onAddComment: async (postId: string, input: { name: string; body: string }) => {
-        await api.posts[":id"].comments.$post({ param: { id: postId }, json: input });
+        await parseResponse(api.posts[":id"].comments.$post({ param: { id: postId }, json: input }));
       },
     }),
-    [api],
+    [api, navigate],
   );
-  const [path, setPath] = useState(() => new URL(url, "http://localhost").pathname);
 
-  useEffect(() => {
-    const unbind = bindNavigation(setPath);
-    const onPop = () => setPath(location.pathname);
-    window.addEventListener("popstate", onPop);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      unbind();
-    };
-  }, []);
-
-  const route = matchRoute(path);
   return (
     <BlogProvider value={blog}>
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
         <header className="flex items-center justify-between">
-          <a
-            href="/"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/");
-            }}
-            className="text-xl font-semibold"
-          >
+          <Link to="/" className="text-xl font-semibold">
             rxfy live blog
-          </a>
+          </Link>
           <ThemeToggle />
         </header>
-        {route.name === "home" && <HomeRoute />}
-        {route.name === "post" && <PostRoute postId={route.postId as PostId} />}
-        {route.name === "not-found" && <p className="text-muted-foreground">Not found.</p>}
+        <Routes>
+          <Route path="/" element={<HomeRoute />} />
+          <Route path="/posts/:postId" element={<PostRoute />} />
+          <Route path="*" element={<p className="text-muted-foreground">Not found.</p>} />
+        </Routes>
       </main>
     </BlogProvider>
   );

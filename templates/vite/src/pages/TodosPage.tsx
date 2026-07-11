@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { Pending, useModelStore, useStateData } from "rxfy-react";
+import { parseResponse } from "hono/client";
+import { useState } from "react";
+import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 import { useApi } from "../api-client.js";
 import { todoModel, todosState } from "../todos.js";
 
@@ -7,28 +8,26 @@ function TodoItem({ id }: { id: string }) {
   const api = useApi();
 
   const store = useModelStore(todoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const [todo] = useAtom(store.get(id));
 
   return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <label>
-            <input
-              type="checkbox"
-              checked={todo.done}
-              onChange={() =>
-                void api.todos[":id"].$patch({
-                  param: { id: todo.id },
-                  json: { done: !todo.done },
-                })
-              }
-            />
-            <span className={todo.done ? "done" : ""}>{todo.title}</span>
-          </label>
-        </li>
-      )}
-    </Pending>
+    <li>
+      <label>
+        <input
+          type="checkbox"
+          checked={todo.done}
+          onChange={() =>
+            void parseResponse(
+              api.todos[":id"].$patch({
+                param: { id: todo.id },
+                json: { done: !todo.done },
+              }),
+            )
+          }
+        />
+        <span className={todo.done ? "done" : ""}>{todo.title}</span>
+      </label>
+    </li>
   );
 }
 
@@ -38,7 +37,7 @@ export function TodosPage() {
   const api = useApi();
   const { data$, updatesAvailable$, applyUpdates } = useStateData({
     state: todosState,
-    fetchFn: async () => (await api.todos.$get()).json(),
+    fetchFn: () => parseResponse(api.todos.$get()),
     params: {},
   });
 
@@ -50,8 +49,7 @@ export function TodosPage() {
           const next = title.trim();
           if (!next) return;
           setTitle("");
-          void api.todos
-            .$post({ json: { title: next } })
+          void parseResponse(api.todos.$post({ json: { title: next } }))
             .then(() => applyUpdates())
             .catch(() => setTitle(next)); // restore the input so a failed create isn't lost
         }}

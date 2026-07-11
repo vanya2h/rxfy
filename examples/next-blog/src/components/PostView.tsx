@@ -1,10 +1,16 @@
 "use client";
-import { PostDetail } from "examples-shared";
+import { PostDetail, type PostDetailData } from "examples-shared";
 import { postDetailState, type PostId } from "examples-shared/data";
+import { parseResponse } from "hono/client";
 import { useStateData } from "rxfy-react";
-import { fetchPostDetail } from "../blog/fetchers";
+import { api } from "../blog/api-client";
 
-export function PostView({ postId }: { postId: PostId }) {
-  const detail = useStateData({ state: postDetailState, fetchFn: fetchPostDetail, params: { postId } });
+export function PostView({ postId, defaultData }: { postId: PostId; defaultData: PostDetailData }) {
+  const detail = useStateData({
+    state: postDetailState,
+    fetchFn: ({ postId: id }) => parseResponse(api.posts[":id"].$get({ param: { id } })),
+    params: { postId },
+    defaultData,
+  });
   return <PostDetail detail={detail} />;
 }

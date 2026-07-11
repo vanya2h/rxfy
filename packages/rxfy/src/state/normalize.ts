@@ -13,6 +13,27 @@ function devParse(schema: z.ZodType<any, any>, value: unknown, fieldName: string
   return parsed.data;
 }
 
+/**
+ * Parse a raw (input-typed) payload into the state's shape via the field schemas: entity fields
+ * parse each element with their model schema, plain fields with their own schema. Brands are
+ * applied and unknown keys stripped, so e.g. raw DB rows become valid state data with no casts.
+ */
+export function parseShape<TShape>(fields: FieldsMap, input: unknown): TShape {
+  const value: Record<string, unknown> = {};
+  for (const [fieldName, entry] of Object.entries(fields)) {
+    const fieldValue = (input as Record<string, unknown>)[fieldName];
+    if (!isFieldDescriptor(entry)) {
+      value[fieldName] = entry.parse(fieldValue);
+      continue;
+    }
+    value[fieldName] =
+      entry.kind === "array"
+        ? (fieldValue as unknown[]).map((el) => entry.model.schema.parse(el))
+        : entry.model.schema.parse(fieldValue);
+  }
+  return value as TShape;
+}
+
 /** Splits a denormalized fetch result: entities → model stores, ids → returned query shape. Plain values pass through. */
 export function normalizeResult<TShape>(
   registry: IModelRegistry,
@@ -58,7 +79,7 @@ export function denormalizeValue<TShape>(
       const entity = store.getValue(key);
       if (entity === undefined) {
         throw new Error(
-          `rxfy: entity "${key}" for model "${entry.model.name ?? "<unnamed>"}" is missing from the store during denormalization`,
+          `rxfy: entity "${key}" for model "${entry.model.name}" is missing from the store during denormalization`,
         );
       }
       return entity;
@@ -74,9 +95,7 @@ function toEntityId(store: ModelStore<any>, model: ModelDescriptor<any, any>, el
   if (process.env.NODE_ENV !== "production") {
     const parsed = model.schema.safeParse(el);
     if (!parsed.success) {
-      throw new Error(
-        `rxfy: invalid entity passed to setRaw for model "${model.name ?? "<unnamed>"}": ${parsed.error.message}`,
-      );
+      throw new Error(`rxfy: invalid entity passed to setRaw for model "${model.name}": ${parsed.error.message}`);
     }
   }
   const key = model.getKey(el);

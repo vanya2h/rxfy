@@ -1,20 +1,11 @@
 import { postsState } from "examples-shared/data";
-import type { PublishSink, Resource, StateChannelDescriptor } from "rxfy-server";
+import type { PublishSink } from "rxfy-server";
 import { createInMemoryHub, createServer, touch } from "rxfy-server";
 import { describe, expect, it } from "vitest";
 import { commentResource, postResource, resources, userResource } from "../src/blog/resources.js";
-import { posts } from "./db.js";
-
-// `live.create`/`live.update` accept `Resource<TTable>` with the table's raw `InferSelectModel` row;
-// the injected shared model brands ids and omits `createdAt`, so cast to the table's writer resource.
-const postWriteResource = postResource as unknown as Resource<typeof posts>;
 
 /** Derive ServerMessage from the PublishSink type exported by rxfy-server. */
 type ServerMessage = Parameters<PublishSink>[1];
-
-// StateDescriptor.key is `string | undefined` in rxfy but StateChannelDescriptor requires `string`.
-// Both states have a key supplied at definition time; cast to satisfy rxfy-server's narrower type.
-const postsChannel = postsState as unknown as StateChannelDescriptor;
 
 async function freshDb() {
   const { PGlite } = await import("@electric-sql/pglite");
@@ -46,9 +37,9 @@ describe("vite-blog-framework live server", () => {
     hub.subscribe("client", ["c:posts"]);
 
     const row = await live.create(
-      postWriteResource,
+      postResource,
       { id: "p1", userId: "u1", title: "Hi", body: "B" },
-      { touch: [touch(postsChannel, {})] },
+      { touch: [touch(postsState, {})] },
     );
     expect(row).toMatchObject({ id: "p1", title: "Hi" });
     expect(received).toEqual([{ v: 2, kind: "stale", channel: "posts" }]);
@@ -60,13 +51,13 @@ describe("vite-blog-framework live server", () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
     const live = createServer({ db, resources, hub });
-    await live.create(postWriteResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
+    await live.create(postResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
     hub.subscribe("client", ["e:post:p1"]);
 
-    const row = await live.update(postWriteResource, "p1", { title: "New" });
+    const row = await live.update(postResource, "p1", { title: "New" });
     expect(row).toMatchObject({ title: "New" });
     expect(received).toEqual([
       {

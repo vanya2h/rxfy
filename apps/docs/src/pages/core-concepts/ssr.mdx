@@ -7,9 +7,9 @@ registry, serialized into the HTML, and ingested on the client so the first pain
 already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
 
 :::info[Requirements]
-give models a `name` and states a `key` (stable string identities), and
-write `fetchFn` to work in both environments (it runs on the server during SSR and on the
-client for reloads).
+models carry a `name` and states a `key` (stable string identities — both required by
+their types), and `fetchFn` must work in both environments (it runs on the server during
+SSR and on the client for reloads).
 
 [Plain value fields](/rxfy/define-state#plain-value-fields) (bare Zod schemas in `model`) don't need a model `name` — they travel inside the keyed state's dehydrated value. Keep them JSON-serializable.
 :::
@@ -177,7 +177,7 @@ type DehydratedState = {
   models: Record<string, Record<string, unknown>>; // entities, by model name then id
 };
 
-// Snapshot a request's registry; only named models and keyed queries are included.
+// Snapshot a request's registry: every model store (by name) plus all settled queries.
 function dehydrate(registry: IModelRegistry): DehydratedState;
 
 // Serialize a snapshot into a ready-to-inject <script> tag (HTML-safe).

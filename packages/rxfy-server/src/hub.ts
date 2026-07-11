@@ -6,6 +6,11 @@ export type SessionId = string;
 /** Delivers a message to one session's socket (registered by the transport). */
 export type PublishSink = (session: SessionId, message: ServerMessage) => void;
 
+/** Hub subscription id for an entity topic. The `e:`/`c:` prefixes keep entity and channel namespaces disjoint. */
+export const entitySubscription = (name: string, id: string): string => `e:${name}:${id}`;
+/** Hub subscription id for a state invalidation channel. */
+export const channelSubscription = (channel: string): string => `c:${channel}`;
+
 export type HubOptions = {
   /** How long an unbound session's subscriptions survive (never-connected SSR sessions, closed tabs). */
   ttlMs?: number;
