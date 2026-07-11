@@ -41,7 +41,11 @@ export type IModelRegistry<TModels extends ModelsShape = any> = {
     name: N,
     entities: Record<string, EntityOf<TModels[N]>>,
   ) => void;
-  // queries, channels, namedStores, stores, added$ — unchanged
+  namedStores: () => ReadonlyMap<
+    keyof TModels & string,
+    { [K in keyof TModels]: ModelStore<EntityOf<TModels[K]>> }[keyof TModels]
+  >;
+  // queries, channels, stores, added$ — unchanged
 };
 ```
 
