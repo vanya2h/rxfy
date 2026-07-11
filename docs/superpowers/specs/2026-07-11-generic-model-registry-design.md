@@ -31,7 +31,7 @@ literal `"post"`. Trailing position + default keeps existing usage compiling unc
 type ModelsShape = Record<string, ModelDescriptor<any, any, any, any>>;
 type EntityOf<D> = D extends ModelDescriptor<infer E, any, any, any> ? E : never;
 
-export type IModelRegistry<TModels extends ModelsShape = ModelsShape> = {
+export type IModelRegistry<TModels extends ModelsShape = any> = {
   add: <D extends ModelDescriptor<any, any, any, any>>(
     descriptor: D,
   ) => IModelRegistry<TModels & Record<D["name"], D>>;
@@ -45,9 +45,12 @@ export type IModelRegistry<TModels extends ModelsShape = ModelsShape> = {
 };
 ```
 
-Because the default `TModels = ModelsShape` has a string index signature, bare
-`IModelRegistry` stays the open registry: `model()` accepts any descriptor and infers its
-entity type exactly as today.
+The default is `TModels = any` (not `ModelsShape`): with an `any` argument, bare
+`IModelRegistry` is mutually assignable with every typed instantiation, so it stays the open
+registry — `model()` accepts any descriptor and infers its entity type exactly as today — and
+typed registries flow into every existing `IModelRegistry`-typed signature unchanged. A
+`ModelsShape` default would instead close `store`/`stashHydration` over `string` names, whose
+parameter contravariance blocks that assignability.
 
 ### Construction
 
@@ -68,11 +71,8 @@ Runtime: `.add()` delegates to `model(descriptor)` (materializes the store, idem
 
 ### Internals ripple
 
-A closed registry is not assignable to the open `IModelRegistry` (parameter contravariance),
-so framework-internal signatures accept `IModelRegistry<any>`, exported as the alias
-`AnyModelRegistry`. Affected: `state/normalize.ts`, `ssr/hydration.ts`, rxfy-react
-(`StoreProvider`, `registry-context`, `ssr/collect-state-data`), rxfy-client
-(`live-client.ts`), rxfy-server (`server.ts`).
+None. Because the default is `any`, bare `IModelRegistry` already accepts typed registries;
+no framework-internal signature changes. `AnyModelDescriptor` and `ModelsShape` are exported.
 
 ## Testing
 
@@ -85,7 +85,7 @@ so framework-internal signatures accept `IModelRegistry<any>`, exported as the a
 
 ## Release
 
-- `rxfy`: minor (new `add`/`store` API, new generics, `AnyModelRegistry` export).
-- `rxfy-react`, `rxfy-client`, `rxfy-server`: patch (type-only signature widening).
+- `rxfy`: minor (new `add`/`store` API, new generics, `AnyModelDescriptor`/`ModelsShape` exports).
+- No changes to `rxfy-react`, `rxfy-client`, `rxfy-server`.
 
 Docs updates (`apps/docs`) are a follow-up, out of scope here.
