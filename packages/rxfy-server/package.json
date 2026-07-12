@@ -35,6 +35,16 @@
         "types": "./dist/browser.d.cts",
         "default": "./dist/browser.cjs"
       }
+    },
+    "./hub": {
+      "import": {
+        "types": "./dist/hub.d.ts",
+        "default": "./dist/hub.js"
+      },
+      "require": {
+        "types": "./dist/hub.d.cts",
+        "default": "./dist/hub.cjs"
+      }
     }
   },
   "main": "./dist/index.js",

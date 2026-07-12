@@ -9,5 +9,6 @@ export default defineConfig({
   entry: {
     index: path.join(config.srcDir, "index.ts"),
     browser: path.join(config.srcDir, "browser.ts"),
+    hub: path.join(config.srcDir, "hub-entry.ts"),
   },
 });
