@@ -5,7 +5,7 @@ The wire protocol and codec for [rxfy](https://rxfy.vanya2h.me) live updates. Yo
 ## Messages
 
 - Server → client: `patch` (an entity changed), `stale` (a state channel was invalidated).
-- Client → server: `subscribe` / `unsubscribe` (by topic id).
+- Client → server: `subscribe` (presents a signed channel grant + the entity topics — the only client frame).
 
 ## Codec
 

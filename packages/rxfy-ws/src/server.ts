@@ -1,5 +1,5 @@
 import { parseClientMessage, serialize } from "rxfy-protocol";
-import type { ConnId, Hub } from "rxfy-server";
+import { channelSubscription, type ConnId, entityTopicSubscription, type Hub, verifyGrant } from "rxfy-server/hub";
 
 /** The minimal socket shape the adapter needs (satisfied structurally by a `ws` WebSocket). */
 export type ServerSocket = {
@@ -7,18 +7,28 @@ export type ServerSocket = {
   on: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
-/** Bridges a `Hub` to WebSocket connections. Register the sink once; call `handleConnection` per socket. */
-export function createWsServer(hub: Hub): { handleConnection: (socket: ServerSocket) => void } {
+export type WsServerOptions = { secret: string };
+
+/**
+ * Bridges a Hub to WebSocket connections. Clients present signed channel grants in `subscribe`
+ * frames; entity topics are accepted alongside any currently-valid grant (entity ids are required
+ * to be unguessable — see the live-grants spec). Invalid frames are dropped silently: the client's
+ * renewal/refetch loop is the recovery path. A closed socket drops all of its subscriptions.
+ */
+export function createWsServer(
+  hub: Hub,
+  options: WsServerOptions,
+): { handleConnection: (socket: ServerSocket) => void } {
   const sockets = new Map<ConnId, ServerSocket>();
+  let nextConn: ConnId = 0;
   hub.onPublish((conn, message) => {
     sockets.get(conn)?.send(serialize(message));
   });
 
-  let nextConnId = 0;
   return {
     handleConnection(socket) {
-      const connId: ConnId = nextConnId++;
-      sockets.set(connId, socket);
+      const conn = nextConn++;
+      sockets.set(conn, socket);
 
       socket.on("message", (data: unknown) => {
         const text = typeof data === "string" ? data : (data as { toString(): string }).toString();
@@ -28,13 +38,15 @@ export function createWsServer(hub: Hub): { handleConnection: (socket: ServerSoc
         } catch {
           return;
         }
-        if (frame.kind === "subscribe") hub.subscribe(connId, frame.ids);
-        else hub.unsubscribe(connId, frame.ids);
+        const claims = verifyGrant(frame.grant, { secret: options.secret });
+        if (claims === null) return;
+        const ids = [channelSubscription(claims.channel), ...frame.entities.map(entityTopicSubscription)];
+        hub.subscribe(conn, ids, claims.exp);
       });
 
       socket.on("close", () => {
-        hub.drop(connId);
-        sockets.delete(connId);
+        sockets.delete(conn);
+        hub.drop(conn);
       });
     },
   };
