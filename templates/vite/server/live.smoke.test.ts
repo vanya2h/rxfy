@@ -1,13 +1,17 @@
-import type { PublishSink, Resource } from "rxfy-server";
-import { createInMemoryHub, createServer, createTopicKeyer, touch } from "rxfy-server";
+import { EventEmitter } from "node:events";
+import { collectEntityTopics, createModelRegistry, normalizeResult, stateChannel } from "rxfy";
+import type { LiveClient } from "rxfy-client";
+import { createLiveClient } from "rxfy-client";
+import type { Hub, PublishSink } from "rxfy-server";
+import { createInMemoryHub, createServer, touch } from "rxfy-server";
+import type { WebSocketLike } from "rxfy-ws/client";
+import { createWsClient } from "rxfy-ws/client";
+import { createWsServer } from "rxfy-ws";
 import { describe, expect, it } from "vitest";
 import { resources, todoResource } from "../src/resources.js";
-import { todosChannel } from "../src/routes.js";
-import type { todos } from "./db.js";
+import { todoModel, todosState } from "../src/todos.js";
 
-// live.create/update accept Resource<TTable> with the table's raw row shape; the model omits
-// `createdAt`, so re-view the resource as its raw-row writer resource.
-const todoWriteResource = todoResource as unknown as Resource<typeof todos>;
+const SECRET = "test-secret";
 
 /** Derive ServerMessage from the PublishSink type exported by rxfy-server. */
 type ServerMessage = Parameters<PublishSink>[1];
@@ -23,6 +27,38 @@ async function freshDb() {
   return db;
 }
 
+/**
+ * Wire a real live client to the hub over the same WebSocket bridge the template's `ws.ts` uses:
+ * an in-memory socket pair carries `subscribe` frames to `createWsServer` (which verifies the grant)
+ * and carries published messages back to `createWsClient` → `createLiveClient`. No network, but the
+ * full grant → subscribe → verify → publish path runs.
+ */
+function connectClient(hub: Hub, registry: ReturnType<typeof createModelRegistry>): LiveClient {
+  const wsServer = createWsServer(hub, { secret: SECRET });
+  const serverEmitter = new EventEmitter();
+  const clientListeners = new Map<string, ((event: unknown) => void)[]>();
+
+  const clientSocket: WebSocketLike = {
+    readyState: 1, // OPEN — the live client sends subscribe frames immediately
+    send: (data: string) => serverEmitter.emit("message", data), // client → server
+    close: () => serverEmitter.emit("close"),
+    addEventListener: (type, listener) => {
+      const arr = clientListeners.get(type) ?? [];
+      arr.push(listener);
+      clientListeners.set(type, arr);
+    },
+  };
+
+  wsServer.handleConnection({
+    // server → client: dispatch a `message` event to the client socket's listeners
+    send: (data: string) => clientListeners.get("message")?.forEach((l) => l({ data })),
+    on: (event, cb) => serverEmitter.on(event, cb),
+  });
+
+  const transport = createWsClient({ url: "ws://test", WebSocketImpl: () => clientSocket });
+  return createLiveClient({ registry, transport });
+}
+
 // Generous timeouts: each test cold-starts a PGlite (wasm Postgres) instance, which is
 // fast locally (~1s) but several times slower on CI runners.
 describe("live server", () => {
@@ -33,43 +69,97 @@ describe("live server", () => {
   it("create persists and touches the todos channel with a bare stale", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
+    const live = createServer({ db, resources, hub, secret: SECRET });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("todos")]);
+    hub.subscribe(0, ["c:todos"], Date.now() + 60_000);
 
     const row = await live.create(
-      todoWriteResource,
+      todoResource,
       { id: "t1", title: "Hi", done: false },
-      { touch: [touch(todosChannel, {})] },
+      { touch: [touch(todosState, {})] },
     );
     expect(row).toMatchObject({ id: "t1", title: "Hi" });
-    expect(received).toEqual([{ v: 1, kind: "stale", channel: "todos" }]);
+    expect(received).toEqual([{ v: 2, kind: "stale", channel: "todos" }]);
   }, 30_000);
 
   it("update broadcasts a patch on the entity topic", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
-    await live.create(todoWriteResource, { id: "t1", title: "Hi", done: false });
+    const live = createServer({ db, resources, hub, secret: SECRET });
+    await live.create(todoResource, { id: "t1", title: "Hi", done: false });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("todo:t1")]);
+    hub.subscribe(0, ["e:todo:t1"], Date.now() + 60_000);
 
-    const row = await live.update(todoWriteResource, "t1", { done: true });
+    const row = await live.update(todoResource, "t1", { done: true });
     expect(row).toMatchObject({ id: "t1", done: true });
     expect(received).toEqual([
       {
-        v: 1,
+        v: 2,
         kind: "patch",
         name: "todo",
         id: "t1",
         data: { id: "t1", title: "Hi", done: true, createdAt: expect.any(Date) },
       },
     ]);
+  }, 30_000);
+});
+
+describe("live end-to-end over the grant/WebSocket path", () => {
+  it("serve → $grant lift → subscribe → live.update patches the client's model store", async () => {
+    const db = await freshDb();
+    const hub = createInMemoryHub();
+    const live = createServer({ db, resources, hub, secret: SECRET });
+    await live.create(todoResource, { id: "t1", title: "Hi", done: false });
+
+    const registry = createModelRegistry(todoModel);
+    const liveClient = connectClient(hub, registry);
+
+    // Server hands back the parsed shape + a signed grant, exactly as the /todos endpoint does.
+    const served = live.serve(todosState, {}, { todos: [{ id: "t1", title: "Hi", done: false }] });
+    const { $grant, ...payload } = served;
+
+    // The client lifts $grant, normalizes the payload into its stores, and subscribes the channel
+    // grant plus the payload's entity topics — mirroring useStateData's settle().
+    const query = normalizeResult(registry, todosState.fields, payload);
+    liveClient.subscribe($grant, collectEntityTopics(todosState.fields, query as Record<string, unknown>));
+
+    const row = await live.update(todoResource, "t1", { done: true });
+    expect(row).toMatchObject({ id: "t1", done: true });
+
+    // The entity patch flowed hub → ws server → ws client → live client → model store, in place.
+    expect(registry.model(todoModel).getValue("t1")).toMatchObject({ id: "t1", done: true });
+
+    liveClient.stop();
+  }, 30_000);
+
+  it("serve → $grant lift → subscribe → touch bumps the client's channel counter (stale)", async () => {
+    const db = await freshDb();
+    const hub = createInMemoryHub();
+    const live = createServer({ db, resources, hub, secret: SECRET });
+    await live.create(todoResource, { id: "t1", title: "Hi", done: false });
+
+    const registry = createModelRegistry(todoModel);
+    const liveClient = connectClient(hub, registry);
+
+    const channel = stateChannel(todosState, {})!;
+    const counter = liveClient.channel(channel);
+    let available = 0;
+    const sub = counter.available$.subscribe((n) => (available = n));
+
+    const served = live.serve(todosState, {}, { todos: [{ id: "t1", title: "Hi", done: false }] });
+    const { $grant, ...payload } = served;
+    const query = normalizeResult(registry, todosState.fields, payload);
+    liveClient.subscribe($grant, collectEntityTopics(todosState.fields, query as Record<string, unknown>));
+
+    // A write on another connection touches the todos channel; the client sees a stale bump.
+    live.touch(touch(todosState, {}));
+    expect(available).toBe(1);
+
+    sub.unsubscribe();
+    liveClient.stop();
   }, 30_000);
 });

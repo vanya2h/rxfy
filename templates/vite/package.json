@@ -19,6 +19,7 @@
     "@electric-sql/pglite": "^0.5.3",
     "@hono/node-server": "^1.14.0",
     "@hono/node-ws": "^1.1.0",
+    "@hono/zod-validator": "^0.8.0",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.7.0",
     "lodash": "^4.17.21",
@@ -26,6 +27,7 @@
     "react-dom": "^19.2.7",
     "react-router": "^7.17.0",
     "rxfy": "workspace:*",
+    "rxfy-client": "workspace:*",
     "rxfy-react": "workspace:*",
     "rxfy-server": "workspace:*",
     "rxfy-ws": "workspace:*",
@@ -43,5 +45,8 @@
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -25,8 +25,10 @@ Open http://localhost:3000 in **two tabs**. Toggling a todo in one tab updates t
 
 - `src/todos.ts` — the model + state (shared by server and client)
 - `src/db/schema.ts` / `src/resources.ts` — Drizzle table bound to the model
-- `server/api.ts` — reads return `{ data, grants }`; writes go through `live.create/update`
+- `server/api.ts` — reads go through `live.serve`; writes go through `live.create/update`
 - `src/pages/TodosPage.tsx` — `useStateData`, entity subscription, updates badge
 - `src/entry-server.tsx` / `src/entry-client.tsx` — SSR dehydrate → hydrate loop
+
+The server signs a channel grant for each state it serves; the client lifts the grant, subscribes over the WebSocket, and renews it before expiry — see `live.serve` in server/api.ts and `live.hydration` in src/entry-server.tsx.
 
 Docs: https://rxfy.vanya2h.me/getting-started/framework

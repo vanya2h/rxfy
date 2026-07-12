@@ -2,26 +2,28 @@ import { PassThrough } from "node:stream";
 import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import { StaticRouter } from "react-router";
-import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
-import { live } from "../server/live.js";
+import type { RenderFn } from "../server/render-types.js";
+import { ApiProvider, createApiClient } from "./api-client.js";
 import { App } from "./App.js";
-import { todoResource } from "./resources.js";
-import { routeStates } from "./routes.js";
 
-export function render(url: string): Promise<{ html: string; state: string }> {
+export const render: RenderFn = (url, live, apiFetch) => {
+  // SSR data fetching goes through the server's own endpoints, in-process.
+  const apiClient = createApiClient(apiFetch);
   const registry = createModelRegistry();
-  const pathname = new URL(url, "http://localhost").pathname;
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
       <StrictMode>
         <StoreProvider registry={registry} ssr>
-          <Suspense fallback={null}>
-            <StaticRouter location={url}>
-              <App />
-            </StaticRouter>
-          </Suspense>
+          <ApiProvider client={apiClient}>
+            <Suspense fallback={null}>
+              <StaticRouter location={url}>
+                <App />
+              </StaticRouter>
+            </Suspense>
+          </ApiProvider>
         </StoreProvider>
       </StrictMode>,
       {
@@ -30,13 +32,9 @@ export function render(url: string): Promise<{ html: string; state: string }> {
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
           sink.on("end", () => {
-            // Grants must be minted AFTER the render: only entities/channels actually
-            // fetched into the registry are grantable.
-            const grants = live.grant(registry, {
-              entities: [todoResource],
-              states: routeStates(pathname),
-            });
-            resolve({ html, state: hydrationScript({ ...dehydrate(registry), grants }) });
+            // hydration() signs a channel grant per state this render served and embeds them
+            // alongside the dehydrated registry; the client lifts the grants and subscribes.
+            resolve({ html, state: live.hydration(registry) });
           });
           pipe(sink);
         },
@@ -44,4 +42,4 @@ export function render(url: string): Promise<{ html: string; state: string }> {
       },
     );
   });
-}
+};
