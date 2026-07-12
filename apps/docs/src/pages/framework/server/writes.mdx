@@ -14,46 +14,33 @@ All three accept an optional `{ touch: [...] }` option to mark state channels st
 :::code-group
 
 ```ts [server/api.ts]
-import { type Resource, type StateChannelDescriptor, touch } from "rxfy-server";
+import { touch } from "rxfy-server";
 import { postsState } from "../src/blog/states.js";
 import { postResource } from "../src/blog/resources.js";
-import { posts } from "./db.js";
 import { live } from "./live.js";
 
-// A defineState result has more fields than the descriptor, so cast through `unknown`.
-const postsChannel = postsState as unknown as StateChannelDescriptor;
-
-// Shared-model resources carry a branded row (`id: PostId`); the writers want the raw table row.
-// The bound table is identical — re-view it as `Resource<typeof posts>` so `values` type-checks.
-const postWriteResource = postResource as unknown as Resource<typeof posts>;
-
 // update — publishes a `patch` on the entity topic automatically
-await live.update(postWriteResource, postId, { title, body });
+await live.update(postResource, postId, { title, body });
 
 // create — does NOT publish a patch; touch the state channels that list this entity
 await live.create(
-  postWriteResource,
+  postResource,
   { id: newId(), userId, title, body },
-  { touch: [touch(postsChannel, {})] },
+  { touch: [touch(postsState, {})] },
 );
 
 // delete — same: no patch, touch the channels that referenced this entity
-await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
+await live.delete(postResource, postId, { touch: [touch(postsState, {})] });
 ```
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
 export const hub = createInMemoryHub();
 
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+export const live = createServer({ db, resources, hub });
 ```
 
 ```ts [src/blog/resources.ts]
@@ -94,12 +81,16 @@ export const postsState = defineState({
 `create` and `delete` publish no entity patch — there is no row to push for a new entity, and the
 deleted row is gone. They publish `stale` on every touched channel so clients know to refetch.
 
+**Return values:** `create` resolves the inserted row. `update` resolves the updated row, or
+`undefined` when no row matches the id — a not-found update writes nothing and publishes
+nothing (no patch, no touch).
+
 ## touch
 
 `touch(stateDescriptor, params)` builds a `TouchTarget` for a specific state instance. Window
 dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key so
 all windows of the same partition share one invalidation channel — see
-[Grants & live hydration](/framework/server/grants) for how channels are derived.
+[Grants](/framework/server/grants) for how channels are derived and signed.
 
 You can also call `live.touch(...targets)` directly without a write to invalidate channels out of
 band.

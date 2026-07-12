@@ -1,28 +1,34 @@
-# Live client (rxfy-react)
+# Live client (rxfy-client)
 
-Connects a WebSocket transport to a `ModelRegistry` so server pushes land in the normalized stores and per-state update counters tick up. Pass the result to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces `updatesAvailable$` / `applyUpdates` on every handle.
+Connects a WebSocket transport to a `ModelRegistry` so server pushes land in the normalized stores and per-state update counters tick up. Lives in `rxfy-client`, the framework-agnostic browser runtime (`rxfy-react` re-exports everything for back-compat — either import works). Pass the result to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces `updatesAvailable$` / `applyUpdates` on every handle.
 
 ## createLiveClient
 
 ```ts
-import { createLiveClient, readSsrGrants } from "rxfy-react";
+import { createLiveClient } from "rxfy-client";
 import { createWsClient } from "rxfy-ws/client";
 
 const liveClient = createLiveClient({
-  registry,    // IModelRegistry — the same one passed to StoreProvider
-  transport,   // LiveTransport — e.g. createWsClient() from rxfy-ws/client
-  grants,      // Grants (optional) — topic/channel → subscription-id map
+  registry,          // IModelRegistry — the same one passed to StoreProvider
+  transport,         // ClientTransport — e.g. createWsClient() from rxfy-ws/client
+  renewUrl: "/api/live/renew", // optional — the app's grant-renewal endpoint; omit to let grants expire
+  // renewLeadMs?: number — how long before exp to renew (optional)
 });
 ```
 
-What it does:
+It drives the grant lifecycle. What it does:
 
-- Calls `transport.onMessage` once. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); channel-invalidation messages increment the matching channel counter.
-- Subscribes to `registry.added$` and calls `transport.subscribe` for each newly tracked entity whose topic id (`"<name>:<key>"`) is in the grants table — late-arriving entities are covered without extra wiring.
+- Registers a `transport.onMessage` handler. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); `"stale"` messages increment the matching channel counter.
+- Registers a `transport.onOpen` handler that replays every live entry's `subscribe` frame, so subscriptions re-establish after a reconnect with no caller action.
+- On `readSsrGrants()` at startup and on each `$grant` lifted from a served payload, it records the entry and sends a `subscribe(grant, entities)` frame via `transport.send`.
+- Runs one renewal timer: near a grant's expiry it POSTs the expiring grants to `renewUrl`, then re-subscribes with the reissued grants. A denied renewal (401, rotated secret) drops that entry — the state goes static until a refetch mints a fresh grant.
+- Exposes `subscribe(grant, entities)` — how `useStateData` hands it a freshly-lifted `$grant`.
 - Exposes `channel(name)` → `ChannelCounter` (`{ available$: Observable<number>, reset: () => void }`); `useStateData` calls it internally for each keyed state.
-- Exposes `addGrants(grants)` for subscription ids received after boot, and `stop()` — unsubscribe all internal RxJS subscriptions and complete all counters (it does not send transport-level unsubscribes).
+- Exposes `stop()` — completes all channel counters and cancels the renewal timer.
 
-`grants` defaults to empty maps, but in practice always pass `grants: readSsrGrants()` so the client subscribes with server-issued ids immediately, without a round-trip (see `grants-hydration.md`).
+There is no session id, no `getSessionId`, and no header on the API client. Live capability rides
+entirely in the `$grant` fields of served payloads and the SSR `grants` array; `readSsrGrants()`
+(from `rxfy-client`) lifts the latter (see `live-grants.md`).
 
 ## StoreProvider `liveClient` prop
 
@@ -45,16 +51,17 @@ Optional. When omitted, every `updatesAvailable$` emits `0` and `applyUpdates` f
 const live = useLiveClient(); // LiveClient | null
 ```
 
-Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient` prop was provided. Escape hatch for custom transports or imperative `addGrants` calls — normally never called directly (`useStateData` does it).
+Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient` prop was provided. Escape hatch for custom transports or direct `channel(name)` access — normally never called directly (`useStateData` does it).
 
 ## updatesAvailable$ / applyUpdates
 
 Both come from the `StateHandle` returned by `useStateData`:
 
 ```ts
+const api = useApi(); // the typed client from context, see live-grants.md
 const { data$, updatesAvailable$, applyUpdates } = useStateData({
   state: postsState,
-  fetchFn: fetchPosts,
+  fetchFn: async () => (await api.posts.$get()).json(),
   params: {},
 });
 ```

@@ -1,150 +1,141 @@
-# Grants & live hydration [Hand off an SSR render to a live client]
+# Grants [The server signs what it serves; the client subscribes with the token]
 
-A live client subscribes to entity topics and state invalidation channels over a persistent
-connection. The server must decide which subscriptions are allowed before the client connects —
-clients cannot self-issue subscriptions, so the server mints a signed allow-list (grants) during
-the SSR render and embeds it in the page.
+Live subscriptions ride **stateless signed channel grants**. The server records nothing at serve
+time — it *signs*. `live.serve` returns the parsed payload plus a reserved `$grant` field: a JWT
+whose claims are the state's channel and an expiry. The client lifts that grant automatically,
+subscribes with it over the WebSocket, and renews it before it expires. There is no session, no
+server-held subscription table, no header to inject.
 
-## The problem
+## Serving = signing
 
-Every entity topic (`posts:42`) and state channel (`posts:author=7`) is a capability. If clients
-could subscribe freely, any user could watch data they are not permitted to see. Grants are
-capability tokens minted server-side from the rendered registry — only topics and channels that
-were actually fetched during the render are included, and the token is tied to a rotating key the
-server controls.
+A read endpoint wraps its result in `live.serve` — it parses the raw payload (the state's *input*
+shape, e.g. DB rows with unbranded ids and extra columns) through the state's schemas, signs a
+grant for `stateChannel(state, params)`, and returns the parsed shape (ids branded, unknown keys
+stripped) with the grant attached as `$grant`. Raw Drizzle rows go in with no casts, and there is
+**no `req` argument** — serving is stateless, the hub is never touched:
 
-## On the server
+```ts [server/api.ts]
+.get("/todos", async (c) => {
+  const rows = await db.select().from(todos);
+  // Parses the rows through the state's schemas and attaches a signed channel grant as `$grant`.
+  return c.json(live.serve(todosState, {}, { todos: rows }));
+})
+```
 
-`live.grant(registry, spec)` mints the allow-list from a rendered registry. Call it after
-`onAllReady`, once the registry is fully populated, and spread the returned `grants` object into
-`hydrationScript` alongside the dehydrated state:
+Pass the **same** `params` you pass to `useStateData` — window keys are stripped internally, so the
+signed channel always matches the one the client's `updatesAvailable$` counts. A consumer that
+ignores `$grant` (curl, server-to-server) just sees one extra string field.
 
-`live` comes from [`createServer`](/framework/server/create-server); the `resources.ts` and
-`routes.ts` tabs show the `entities` and `states` you hand to `live.grant`:
-
-:::code-group
+SSR renders sign everything at once: `useStateData` logs each rendered state's channel into
+`registry.channels` during SSR, and [`live.hydration(registry)`](/framework/server/create-server)
+signs one grant per logged channel and embeds them in the hydration payload as `grants: string[]`.
+One call at the end of the render hands the whole thing to the client:
 
 ```tsx [entry-server.tsx]
-import { dehydrate, hydrationScript } from "rxfy";
-import { live } from "../server/live.js";
-import { commentResource, postResource, userResource } from "./blog/resources.js";
-import { matchRoute, routeStates } from "./routes.js";
-
 onAllReady() {
-  // collect pipe to `html` string, then:
-  const grants = live.grant(registry, {
-    entities: [postResource, userResource, commentResource],
-    states: routeStates(route),   // Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }>
-  });
-  resolve({ html, state: hydrationScript({ ...dehydrate(registry), grants }) });
+  // collect pipe into `html`, then:
+  resolve({ html, state: live.hydration(registry) });
 }
 ```
 
-```ts [src/blog/resources.ts]
-import { commentModel, postModel, userModel } from "./models.js";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
-import { comments, posts, users } from "../db/schema.js";
+The entry implements the shared `RenderFn` contract from `server/render-types.ts` — it receives
+`live` and `apiFetch` (hono's in-process `app.request`) as parameters rather than importing them:
+in dev, Vite's SSR module graph is separate from the server's, and the hub, the db, and the api
+must stay single instances across both. `server/render.ts` calls `render(url, live, api.request)`
+— `request` is a bound class-field arrow, safe to detach — and the entry builds
+`createApiClient(apiFetch)` from it, so SSR data fetching goes through the server's own endpoints
+in-process.
 
-export const userResource = defineResource({ table: users, model: userModel });
-export const postResource = defineResource({ table: posts, model: postModel });
-export const commentResource = defineResource({ table: comments, model: commentModel });
+## The client lifts and subscribes
 
-export const resources = createResourceRegistry([userResource, postResource, commentResource]);
-```
+Because the grant rides the data, the client needs **zero plumbing** — no session header, no fetch
+wrapping. `useStateData` already returns the payload to the framework; after `fetchFn` resolves the
+live client strips `$grant`, normalizes the rest, derives the entity topics the payload normalized
+into, and sends one `subscribe` frame carrying `{ grant, entities }`. The channel subscription is
+authorized by the token; the entity topics are accepted alongside any currently-valid grant. SSR
+grants take the same path via [`readSsrGrants`](/react/live-client).
 
-```ts [src/routes.ts]
-import type { StateChannelDescriptor } from "rxfy-server";
-import { postDetailState, postsState } from "./blog/states.js";
+The API client is therefore plain — no session header to attach:
 
-export type Route = { name: "home" } | { name: "post"; postId: string } | { name: "not-found" };
-
-/** Parse a pathname into a route. */
-export function matchRoute(pathname: string): Route {
-  if (pathname === "/") return { name: "home" };
-  const m = /^\/posts\/([^/]+)\/?$/.exec(pathname);
-  if (m) return { name: "post", postId: decodeURIComponent(m[1]!) };
-  return { name: "not-found" };
-}
-
-/** The state instances a route renders — used to mint grant channels during SSR. */
-export function routeStates(route: Route): Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }> {
-  if (route.name === "home") return [{ state: postsState as unknown as StateChannelDescriptor, params: {} }];
-  if (route.name === "post")
-    return [{ state: postDetailState as unknown as StateChannelDescriptor, params: { postId: route.postId } }];
-  return [];
+```ts [src/api-client.tsx]
+export function createApiClient(serverFetch?: ApiFetch) {
+  return serverFetch
+    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) // SSR: hono's in-process app.request
+    : hc<AppType>("/api"); // browser: a real network trip, nothing extra to carry
 }
 ```
 
-:::
-
-- `entities` — the resources whose loaded rows should be grantable. Only ids actually present in
-  the registry are included, keyed through
-  [`createTopicKeyer`](/framework/server/create-topic-keyer).
-- `states` — concrete state instances (`{ state: StateChannelDescriptor; params }`) whose
-  invalidation channels the client may watch.
-
-`grants` has shape `{ entities: Record<string, string>; channels: Record<string, string> }` —
-a topic-or-channel → hashed-key lookup the client uses when opening subscriptions.
-
-Outside SSR you can mint grants the same way and return them directly in the API response
-(`return c.json({ data, grants })`); the client reads them instead of `readSsrGrants()`.
-
-## On the client
-
-Read the embedded grants with `readSsrGrants()` and pass them to `createLiveClient`. Hand the
-live client to `StoreProvider` so every `useStateData` call can subscribe automatically once the
-socket opens.
-
-```tsx [entry-client.tsx]
-import { createModelRegistry } from "rxfy";
-import { createLiveClient, readSsrGrants, StoreProvider } from "rxfy-react";
-import { createWsClient } from "rxfy-ws/client";
-
-const registry = createModelRegistry();
+```ts [src/entry-client.tsx]
 const liveClient = createLiveClient({
   registry,
-  transport: createWsClient({
-    url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`,
-  }),
-  grants: readSsrGrants(),
+  transport: createWsClient({ url }),
+  renewUrl: "/api/live/renew", // where the client posts grants nearing expiry
 });
-
-hydrateRoot(
-  document.getElementById("root")!,
-  <StoreProvider registry={registry} ssr liveClient={liveClient}>
-    <App url={location.pathname} />
-  </StoreProvider>,
-);
 ```
 
-For the full `createLiveClient` API — reconnection, optimistic updates, and manual grant refresh
-— see [Live client](/react/live-client).
+Client-only first fetches subscribe the moment the socket opens — grants are client-held, so there
+is no ordering requirement and no correlator race.
 
-## State channels
+## Renewal
 
-`invalidationChannel(state, params)` derives the channel name for a state instance. It is pure
-and deterministic: the same inputs always produce the same string on both client and server.
+Grants expire (default TTL 15 minutes). The client runs one renewal timer: shortly before the
+soonest expiry it POSTs the expiring grants to `renewUrl` and replaces them. Mount that endpoint
+**behind the app's own auth middleware** — this is where revocation actually bites. A user whose
+access was withdrawn fails the middleware, the reissue never happens, and their live updates end at
+`exp`. `live.renew` verifies each grant (accepting tokens expired within a grace window, default 5
+minutes) and reissues it, or returns `null` when denied:
 
-Window dimensions (`page`, `cursor`, `sort`, …) listed in `state.window` are stripped before
-building the channel, so every window of the same partition shares one channel. When the server
-publishes a `stale` message on e.g. `posts:author=7`, every client subscribed to any page of
-that author's post list receives the invalidation and knows to refetch.
-
-```ts [state-channel.ts]
-export type StateChannelDescriptor = {
-  key: string;
-  window?: readonly string[];   // params excluded from the channel (pagination dims)
-};
-
-// Pure, identical on client and server.
-function invalidationChannel(
-  state: StateChannelDescriptor,
-  params: Record<string, unknown>,
-): string;
+```ts [server/api.ts]
+.post("/live/renew", authed, async (c) => {
+  const { grants } = await c.req.json<{ grants: string[] }>();
+  return c.json({ grants: grants.map((g) => live.renew(g)) });
+})
 ```
 
-:::info[No window keys in grants]
-`states` passed to `live.grant` should use the same `params` object you passed to `useStateData`
-— `invalidationChannel` strips the window keys internally, so the channel in the grant and the
-channel the client derives from the same params always agree.
+A denied renewal (revoked access, or a rotated secret) drops that grant on the client: updates for
+its state end, the data goes quietly static, and the recovery is a refetch — which returns a fresh
+grant or an error.
+
+## The signing secret
+
+`createServer` requires a `secret` — the HMAC key it signs grants with. The WebSocket server
+([`createWsServer`](/framework/ws/server)) verifies grants with the **same** secret, so the two
+must share it:
+
+```ts [server/live.ts]
+export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
+export const live = createServer({ db, resources, hub, secret: SECRET });
+```
+
+Rotating the secret invalidates every outstanding grant at once: renewals fail, clients degrade to
+static data, and refetches mint fresh grants. Graceful by construction — no restart choreography.
+
+:::danger[Entity ids MUST be unguessable in live-enabled apps]
+Entity patches carry **full rows** and fan out on raw `name:id` topics, gated only by the presence
+of a currently-valid grant — the server cannot statelessly verify that an entity belongs to the
+grant's state. With guessable ids (serial integer primary keys) any valid grant would let a client
+watch arbitrary rows. **Use unguessable ids — `crypto.randomUUID()`, not auto-increment PKs.**
+
+The mandate covers exactly the models whose rows are published: resource-backed models written
+through `live.create` / `live.update` in a live-enabled app. (A model written via `live.*`
+publishes patches even if no state serving it ever calls `live.serve`, so its ids must be opaque
+regardless.) Store-only apps, client-only models, and non-live states impose nothing on ids.
 :::
+
+:::warning[Cache-Control on state endpoints]
+Endpoints that return `$grant` should send `Cache-Control: private, no-store`. A cached
+personalized response already leaks a data snapshot; with grants it would also leak a **live
+capability** — a token that keeps pushing updates until it expires.
+:::
+
+## What stays manual
+
+- [`touch(stateDescriptor, params)`](/framework/server/writes) on writes — only the app knows which
+  lists a write invalidates.
+- One `live.serve` per read endpoint — the server can't see what a plain Drizzle read served.
+- One mounted `renew` route — behind your own auth.
+
+See [`createServer`](/framework/server/create-server) for `live.serve` / `live.renew` /
+`live.hydration` in the full `Live` object, [`createInMemoryHub`](/framework/server/hub) for the
+socket-keyed hub, and [Live client](/react/live-client) for `createLiveClient` and `readSsrGrants`
+on the browser side.

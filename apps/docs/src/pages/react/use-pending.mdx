@@ -6,19 +6,17 @@ returns the current `IWrapped<T>`, narrowed to `PENDING` / `FULFILLED` /
 `REJECTED`, never `IDLE`. Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
 
 ```tsx
-import { useMemo } from "react";
-import { usePending, useModelStore } from "rxfy-react";
+import { usePending, useStateData } from "rxfy-react";
 import { StatusEnum } from "rxfy";
-import { TodoModel } from "./models";
+import { fetchTodos, todosState } from "./todos";
 
-function TodoTitle({ id }: { id: string }) {
-  const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
-  const wrapped = usePending(todo$);
+function TodoCount({ params }: { params: object }) {
+  const { data$ } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
+  const wrapped = usePending(data$);
 
   if (wrapped.type === StatusEnum.PENDING) return <span>…</span>;
   if (wrapped.type === StatusEnum.REJECTED) return <span>error</span>;
-  return <span>{wrapped.value.title}</span>;
+  return <span>{wrapped.value.todos.length} todos</span>;
 }
 ```
 

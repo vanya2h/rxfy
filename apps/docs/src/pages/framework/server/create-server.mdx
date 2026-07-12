@@ -1,26 +1,29 @@
-# createServer [Wire db, resources, hub, and keyer into a Live object]
+# createServer [Wire db, resources, hub, and secret into a Live object]
 
-`createServer` wires together the database, resource registry, hub, and keyer into a `Live` object
-with typed write methods and a grant helper.
+`createServer` wires together the database, resource registry, hub, and signing secret into a
+`Live` object with typed write methods plus the grant calls `serve`, `renew`, and `hydration`.
 
-`resources` is the registry from [`defineResource`](/framework/server/define-resource) and `db` is
-any Drizzle instance — the tabs below show both:
+`resources` is the registry from [`defineResource`](/framework/server/define-resource), `db` is
+any Drizzle instance, and `secret` is the HMAC key used to sign and verify
+[channel grants](/framework/server/grants) — share it with the WebSocket server. The tabs below
+show them:
 
 :::code-group
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
+// The hub holds live socket subscriptions, so there must be exactly ONE instance. entry-server
+// receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
+// graph never instantiates a second hub.
 export const hub = createInMemoryHub();
 
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+// Signs/verifies channel grants — shared with the WebSocket server. Override via RXFY_SECRET.
+export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
+
+export const live = createServer({ db, resources, hub, secret: SECRET });
 ```
 
 ```ts [src/blog/resources.ts]
@@ -52,10 +55,21 @@ The returned `Live` object exposes:
 
 - [`live.create` / `live.update` / `live.delete` / `live.touch`](/framework/server/writes) —
   typed writes that publish live messages.
-- [`live.grant`](/framework/server/grants) — mint the client's subscription allow-list.
+- [`live.serve(state, params, data)`](/framework/server/grants) — read-endpoint wrapper; parses
+  `data` (the state's input shape — raw DB rows work as-is) through the state's schemas, signs a
+  grant for the state's channel, and returns the parsed shape with the grant attached as `$grant`.
+  Stateless — no `req`, no hub interaction.
+- [`live.renew(grant)`](/framework/server/grants) — verify a grant (within a grace window) and
+  reissue it with a fresh expiry, or return `null` when denied. Mount it behind your app's auth.
+- [`live.hydration(registry)`](/framework/server/grants) — one-call SSR payload: signs one grant
+  per channel the render logged, embeds them as `grants: string[]`, and returns the
+  `hydrationScript` string.
 - `live.db` — the raw Drizzle database instance if you need it outside of writes.
 
+`createServer` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
+(how long past expiry a grant still renews, default 5 minutes).
+
 Its collaborators each have their own article: the resource registry comes from
-[`createResourceRegistry`](/framework/server/define-resource), the hub from
-[`createInMemoryHub`](/framework/server/hub), and the keyer from
-[`createTopicKeyer`](/framework/server/create-topic-keyer).
+[`createResourceRegistry`](/framework/server/define-resource), and the hub from
+[`createInMemoryHub`](/framework/server/hub) — it holds per-socket subscriptions, so there must be
+exactly one instance per process.

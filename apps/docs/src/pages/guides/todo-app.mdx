@@ -188,23 +188,18 @@ Each row reads its own todo from the store by id. Because the row subscribes to 
 entity, it re-renders when (and only when) that todo changes:
 
 ```tsx [TodoItem.tsx]
-import { useMemo } from "react";
-import { useModelStore, Pending } from "rxfy-react";
+import { useAtom, useModelStore } from "rxfy-react";
 import { TodoModel } from "./todos";
 
 export function TodoItem({ id, onToggle }: { id: string; onToggle: () => void }) {
   const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const [todo] = useAtom(store.get(id));
 
   return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <input type="checkbox" checked={todo.done} onChange={onToggle} />
-          {todo.title}
-        </li>
-      )}
-    </Pending>
+    <li>
+      <input type="checkbox" checked={todo.done} onChange={onToggle} />
+      {todo.title}
+    </li>
   );
 }
 ```
@@ -269,16 +264,12 @@ export function TodoItem({
   onToggle: () => void;
   onRename: (todo: Todo) => void;
 }) {
-  // ...store and todo$ as before...
+  // ...store and todo as before...
   return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <input type="checkbox" checked={todo.done} onChange={onToggle} />
-          <EditTitle todo={todo} onSave={onRename} />
-        </li>
-      )}
-    </Pending>
+    <li>
+      <input type="checkbox" checked={todo.done} onChange={onToggle} />
+      <EditTitle todo={todo} onSave={onRename} />
+    </li>
   );
 }
 ```

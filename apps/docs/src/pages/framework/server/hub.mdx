@@ -1,8 +1,8 @@
-# createInMemoryHub [The pub/sub backbone]
+# createInMemoryHub [The socket-keyed pub/sub backbone]
 
-The hub is the pub/sub backbone: it maps opaque routing ids (produced by the keyer) to
-connections, and forwards `ServerMessage` objects from `live.create`/`update`/`delete` to
-connected clients.
+The hub is the pub/sub backbone: it maps **connections** to subscriptions, and forwards
+`ServerMessage` objects from `live.create` / `update` / `delete` to whichever sockets are
+subscribed to the affected topic. Subscription state lives and dies with the socket.
 
 ```ts [server/live.ts]
 import { createInMemoryHub } from "rxfy-server";
@@ -11,13 +11,32 @@ export const hub = createInMemoryHub();
 ```
 
 `createInMemoryHub` is a single-process, in-memory implementation suitable for development and
-single-node deployments.
+single-node deployments. It takes no configuration (an optional `{ now }` clock is injectable for
+deterministic tests).
+
+```ts
+type ConnId = number;
+
+type Hub = {
+  publish: (id: string, message: ServerMessage) => void;
+  subscribe: (conn: ConnId, ids: string[], exp: number) => void;
+  drop: (conn: ConnId) => void;
+  onPublish: (sink: (conn: ConnId, message: ServerMessage) => void) => void;
+};
+```
 
 **Wiring:**
 
-- Register a delivery sink with `hub.onPublish(sink)` — every published message flows through it
-  to the transport.
-- The transport adapter calls `hub.subscribe` / `hub.unsubscribe` as clients open and close
-  subscriptions, and `hub.drop` when a connection dies.
+- Register a delivery sink with `hub.onPublish(sink)` — [`createWsServer`](/framework/ws/server)
+  does this internally to route `patch` / `stale` messages to the right socket by connection id.
+- Subscriptions are written **by the WS layer** from verified `subscribe` frames:
+  `createWsServer` verifies the [grant](/framework/server/grants) a client presents, then calls
+  `hub.subscribe(conn, [channel, ...entities], exp)` with the grant's expiry. `publish` skips
+  entries past their `exp` (lazy prune); re-subscribing with a fresh grant extends `exp` in place.
+- `drop` runs when a socket closes — it forgets every subscription that connection held. There is
+  no unbound subscription and no TTL to configure: an unsubscribed topic cannot exist because
+  subscribing requires a live socket, and a closed socket's state is dropped immediately. The
+  client owns durability by replaying its grant set on reconnect.
 
-For WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).
+For grant signing (`live.serve` / `live.hydration`) see [Grants](/framework/server/grants); for
+WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).

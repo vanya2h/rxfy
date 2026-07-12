@@ -9,7 +9,7 @@ import { z } from "zod";
 import { defineState, array } from "rxfy";
 
 const todosState = defineState({
-  key: "todos", // stable identity for the SSR query cache; omit to opt out of caching
+  key: "todos", // stable identity for the SSR query cache and the live invalidation channel
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(TodoModel) },
   mutations: {
@@ -26,8 +26,8 @@ A `StateDescriptor<TParams, TShape, TMutations>` exposes (note your `params` is 
 
 ```ts
 type StateDescriptor<TParams, TShape, TMutations> = {
-  key?: string; // SSR query-cache identity; absent ⇒ opts out of caching
-  window?: readonly string[]; // param names that slice within a dataset (page, cursor, sort)
+  key: string; // SSR query-cache identity, also derives the live invalidation channel
+  window?: readonly (keyof TParams & string)[]; // param names that slice within a dataset (page, cursor, sort)
   paramsSchema: z.ZodType<TParams>; // the `params` schema, used to validate fetch params
   fields: FieldsMap; // the `model` entries: array(Model) | single(Model) | a zod schema (plain value)
   mutations: TMutations; // the reducers, bound by useStateData
@@ -54,6 +54,7 @@ a single item.
 import { array, single } from "rxfy";
 
 const userPageState = defineState({
+  key: "user-page",
   params: z.object({ userId: z.string() }),
   model: {
     user: single(UserModel), // one item
@@ -117,5 +118,5 @@ const postsState = defineState({
 ```
 
 The field is inert in a client-only store — it only affects channel derivation in the
-real-time layer. See [state channels and grants](/framework/server/grants) for how the
-channel is derived and delivered.
+real-time layer. See [Grants](/framework/server/grants) for how the channel is derived
+and signed into a grant.

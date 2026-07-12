@@ -22,11 +22,11 @@ All messages carry a `v` field (protocol version) and a `kind` discriminant.
 
 | Type | `kind` | Fields | Description |
 |---|---|---|---|
-| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `ids` | Request live updates for the given ids (`string[]`). |
-| `UnsubscribeMessage` | `"unsubscribe"` | `v`, `kind`, `ids` | Cancel subscriptions for the given ids (`string[]`). |
+| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `grant`, `entities` | Present a signed channel [grant](/framework/server/grants) plus the raw `name:id` entity topics the payload normalized into. The channel is authorized by the grant; entity topics are accepted alongside any currently-valid grant. |
 
-The `ids` on the wire are the opaque grant values (HMAC topic ids from
-[`live.grant`](/framework/server/grants)), never raw `"name:id"` topics.
+`subscribe` is the client's **only** outbound frame. The client sends one per served state (lifted
+from the payload's `$grant`) and replays its whole grant set on reconnect — see
+[Grants](/framework/server/grants).
 
 ## Wire encoding
 
@@ -43,7 +43,8 @@ upgrade of the server and all clients before traffic resumes.
 
 :::info[The `rxfy-protocol` package]
 The message types and codec live in [`rxfy-protocol`](https://www.npmjs.com/package/rxfy-protocol),
-a dependency of `rxfy-server`, `rxfy-ws`, and `rxfy-react` that installs automatically with them.
+a dependency of `rxfy-server`, `rxfy-ws`, `rxfy-client`, and `rxfy-react` that installs
+automatically with them.
 You rarely import it directly — its main direct use is building a
 [custom transport](/framework/ws/custom-transport) or a non-JS client against the wire contract.
 :::
