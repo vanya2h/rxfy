@@ -1,13 +1,13 @@
 import { renderHook } from "@testing-library/react";
+import type { LiveClient } from "rxfy-client";
 import { of } from "rxjs";
 import { describe, expect, it } from "vitest";
-import type { LiveClient } from "./live/live-client.js";
 import { useLiveClient } from "./live-context.js";
 import { StoreProvider } from "./StoreProvider.js";
 
 const stubClient: LiveClient = {
+  subscribe: () => {},
   channel: () => ({ available$: of(0), reset: () => {} }),
-  addGrants: () => {},
   stop: () => {},
 };
 

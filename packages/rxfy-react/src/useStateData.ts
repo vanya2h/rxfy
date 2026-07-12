@@ -10,7 +10,7 @@ import type {
 } from "rxfy";
 import {
   attachReload,
-  createAtom,
+  collectEntityTopics,
   createFulfilled,
   createIdle,
   createPending,
@@ -20,10 +20,10 @@ import {
   normalizeResult,
   normalizeWritable,
   stableStringify,
+  stateChannel,
   StatusEnum,
 } from "rxfy";
 import { filter, merge, Observable, of, ReplaySubject, share, switchMap, throwError, timer } from "rxjs";
-import { stateChannel } from "./live/channel.js";
 import { useLiveClient } from "./live-context.js";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
@@ -90,12 +90,15 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   // FULFILLED → reload in particular — updates the shared atom in place and keeps data$ stable.
   const [reloadEpoch, setReloadEpoch] = useState(0);
 
-  // Value-based key — params with the same shape resolve to the same query (and, when keyed, the
-  // same shared atom). The memo keys off this string rather than `params`'s identity, so an
+  // Value-based key — params with the same shape resolve to the same query (and the same shared
+  // atom). The memo keys off this string rather than `params`'s identity, so an
   // identity-unstable-but-value-stable params object does not churn data$.
   const paramsKey = stableStringify(params);
-  const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
+  const cacheKey = `${state.key}:${paramsKey}`;
   const channel = stateChannel(state, params as Record<string, unknown>);
+
+  // During SSR, log the channel so live.hydration can sign a grant for it.
+  if (typeof window === "undefined" && ssr && channel) registry.channels.add(channel);
 
   // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
   // keep a stable identity across renders (directive: as stable as possible) and across a changing
@@ -107,15 +110,21 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     const fields = state.fields as FieldsMap;
     const isServer = typeof window === "undefined";
 
-    // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
-    const atom$: Atom<IWrapped<TQuery>> = cacheKey
-      ? registry.queries.getQuery<TQuery>(cacheKey)
-      : createAtom<IWrapped<TQuery>>(createIdle());
+    // The query's status Atom, shared via the registry — every state with this key+params pair
+    // reads and writes the same query.
+    const atom$: Atom<IWrapped<TQuery>> = registry.queries.getQuery<TQuery>(cacheKey);
 
     // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
     // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
+    // A loader payload may also carry the reserved `$grant`; lift it before normalizing so the key
+    // never reaches the query, and subscribe the payload's entity topics when a live client is present.
     if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
-      atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData) as TQuery));
+      const { $grant, ...payload } = defaultData as TShape & { $grant?: string };
+      const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
+      atom$.set(createFulfilled(query));
+      if ($grant !== undefined && liveClient) {
+        liveClient.subscribe($grant, collectEntityTopics(fields, query as Record<string, unknown>));
+      }
     }
 
     // Live-updates counter for this state's channel. Null when no live client or no channel key.
@@ -130,7 +139,16 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       run.then(
         (result) => {
           if (signal?.aborted) return;
-          atom$.set(createFulfilled(normalizeResult(registry, fields, result) as TQuery));
+          // Lift the reserved `$grant` before normalizing so the key never reaches the query. A
+          // grant marks a live endpoint; with a live client in context, subscribe the payload's
+          // entity topics. Both conditions are load-bearing: no grant → store-only endpoint; no
+          // live client → store-only app (grant dropped after stripping).
+          const { $grant, ...payload } = result as TShape & { $grant?: string };
+          const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
+          atom$.set(createFulfilled(query));
+          if ($grant !== undefined && liveClient) {
+            liveClient.subscribe($grant, collectEntityTopics(fields, query as Record<string, unknown>));
+          }
           counter?.reset();
         },
         (error: unknown) => {
@@ -155,16 +173,12 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
     if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
-      if (!cacheKey) {
-        console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
-      } else {
-        // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
-        // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
-        throw registry.queries.getOrStart(cacheKey, () => {
-          atom$.set(createPending());
-          return settle(fetchFn(params, new AbortController().signal));
-        });
-      }
+      // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
+      // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
+      throw registry.queries.getOrStart(cacheKey, () => {
+        atom$.set(createPending());
+        return settle(fetchFn(params, new AbortController().signal));
+      });
     }
 
     const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));

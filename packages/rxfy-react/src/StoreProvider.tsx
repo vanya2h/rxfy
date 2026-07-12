@@ -1,6 +1,6 @@
 import { createContext, type PropsWithChildren, useEffect, useState } from "react";
 import { createModelRegistry, type DehydratedState, hydrate, type IModelRegistry } from "rxfy";
-import type { LiveClient } from "./live/live-client.js";
+import type { LiveClient } from "rxfy-client";
 import { LiveClientContext } from "./live-context.js";
 import { ModelRegistryContext } from "./registry-context.js";
 

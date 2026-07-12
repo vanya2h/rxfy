@@ -6,7 +6,7 @@ import { useModelRegistry } from "./registry-context.js";
 import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 
-const testModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
+const testModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "test" });
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 

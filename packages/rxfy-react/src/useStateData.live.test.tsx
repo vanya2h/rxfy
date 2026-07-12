@@ -1,9 +1,9 @@
 import { renderHook } from "@testing-library/react";
 import { array, createModel, defineState } from "rxfy";
+import type { LiveClient } from "rxfy-client";
 import { BehaviorSubject, firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import type { LiveClient } from "./live/live-client.js";
 import { StoreProvider } from "./StoreProvider.js";
 import { useStateData } from "./useStateData.js";
 
@@ -25,8 +25,12 @@ function stubLive() {
   const counter = new BehaviorSubject(0);
   const reset = vi.fn(() => counter.next(0));
   const channel = vi.fn(() => ({ available$: counter.asObservable(), reset }));
-  const client: LiveClient = { channel, addGrants: vi.fn(), stop: vi.fn() };
-  return { client, counter, reset, channel };
+  const subscribed: { grant: string; entities: string[] }[] = [];
+  const subscribe = vi.fn((grant: string, entities: string[]) => {
+    subscribed.push({ grant, entities });
+  });
+  const client: LiveClient = { subscribe, channel, stop: vi.fn() };
+  return { client, counter, reset, channel, subscribe, subscribed };
 }
 
 const withLive = (client: LiveClient) =>
@@ -84,6 +88,36 @@ describe("useStateData live updates", () => {
 
     expect(reset).toHaveBeenCalled();
     expect(fetchFn.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it("lifts $grant from the fetch result and subscribes with the payload's entity topics", async () => {
+    const { client, subscribed } = stubLive();
+    const post1 = { id: "1", title: "One" };
+    const fetchFn = async () => ({ posts: [post1], $grant: "h.payload.s" }) as never;
+
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), {
+      wrapper: withLive(client),
+    });
+    const data = await firstValueFrom(result.current.data$);
+
+    expect(subscribed).toEqual([{ grant: "h.payload.s", entities: ["post:1"] }]);
+    // the $grant key must NOT reach the normalized data
+    expect(data).toEqual({ posts: ["1"] });
+    expect(data).not.toHaveProperty("$grant");
+  });
+
+  it("a payload without $grant subscribes nothing and normalizes as before", async () => {
+    const { client, subscribe } = stubLive();
+    const post1 = { id: "1", title: "One" };
+    const fetchFn = async () => ({ posts: [post1] }) as never;
+
+    const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), {
+      wrapper: withLive(client),
+    });
+    const data = await firstValueFrom(result.current.data$);
+
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(data).toEqual({ posts: ["1"] });
   });
 
   it("without a live client, updatesAvailable$ stays 0 and applyUpdates still reloads", async () => {

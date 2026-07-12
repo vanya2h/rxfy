@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Pending } from "../Pending.js";
 import { StoreProvider } from "../StoreProvider.js";
+import { useAtom } from "../useAtom.js";
 import { useModelStore } from "../useModelStore.js";
 import { useStateData } from "../useStateData.js";
 
@@ -21,7 +22,8 @@ type FetchFn = (p: object, s: AbortSignal) => Promise<{ todos: { id: string; tit
 
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
-  return <Pending value$={store.get(id)}>{(todo) => <li>{todo.title}</li>}</Pending>;
+  const [todo] = useAtom(store.get(id));
+  return <li>{todo.title}</li>;
 }
 
 function App({ fetchFn }: { fetchFn: FetchFn }) {
