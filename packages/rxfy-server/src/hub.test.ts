@@ -1,70 +1,53 @@
-import { patch, type ServerMessage } from "rxfy-protocol";
+import { stale } from "rxfy-protocol";
 import { describe, expect, it } from "vitest";
-import { type ConnId, createInMemoryHub } from "./hub.js";
+import { createInMemoryHub } from "./hub.js";
 
-const msg = (): ServerMessage => patch("post", "1", { id: "1" });
-
-function collector() {
-  const received: Array<{ conn: ConnId; message: ServerMessage }> = [];
-  return { received, sink: (conn: ConnId, message: ServerMessage) => received.push({ conn, message }) };
-}
+const msg = stale("todos");
 
 describe("createInMemoryHub", () => {
-  it("delivers a published message to subscribers of that id", () => {
+  it("delivers a publish to every subscribed connection", () => {
     const hub = createInMemoryHub();
-    const { received, sink } = collector();
-    hub.onPublish(sink);
-    hub.subscribe("a", ["id-1"]);
-    hub.subscribe("b", ["id-1"]);
-    const m = msg();
-    hub.publish("id-1", m);
-    expect(received).toEqual([
-      { conn: "a", message: m },
-      { conn: "b", message: m },
-    ]);
+    const seen: number[] = [];
+    hub.onPublish((conn) => seen.push(conn));
+    hub.subscribe(1, ["c:todos"], Date.now() + 60_000);
+    hub.subscribe(2, ["c:todos"], Date.now() + 60_000);
+    hub.publish("c:todos", msg);
+    expect(seen.sort()).toEqual([1, 2]);
   });
 
-  it("does not deliver to non-subscribers", () => {
-    const hub = createInMemoryHub();
-    const { received, sink } = collector();
-    hub.onPublish(sink);
-    hub.subscribe("a", ["id-1"]);
-    hub.publish("id-2", msg());
-    expect(received).toEqual([]);
+  it("delivers to subscribed connections until expiry", () => {
+    const hub = createInMemoryHub({ now: () => clock });
+    let clock = 0;
+    const seen: Array<[number, unknown]> = [];
+    hub.onPublish((conn, msg) => seen.push([conn, msg]));
+    hub.subscribe(1, ["c:todos"], 1_000);
+    hub.publish("c:todos", stale("todos"));
+    clock = 1_001;
+    hub.publish("c:todos", stale("todos"));
+    expect(seen).toHaveLength(1);
   });
 
-  it("is a no-op to publish an id with no subscribers", () => {
-    const hub = createInMemoryHub();
-    const { received, sink } = collector();
-    hub.onPublish(sink);
-    expect(() => hub.publish("nobody", msg())).not.toThrow();
-    expect(received).toEqual([]);
+  it("re-subscribe extends expiry in place", () => {
+    let clock = 0;
+    const hub = createInMemoryHub({ now: () => clock });
+    const seen: unknown[] = [];
+    hub.onPublish((_conn, msg) => seen.push(msg));
+    hub.subscribe(1, ["c:todos"], 1_000);
+    clock = 900;
+    hub.subscribe(1, ["c:todos"], 2_000);
+    clock = 1_500;
+    hub.publish("c:todos", stale("todos"));
+    expect(seen).toHaveLength(1);
   });
 
-  it("stops delivering after unsubscribe", () => {
+  it("drop removes every subscription of a connection", () => {
     const hub = createInMemoryHub();
-    const { received, sink } = collector();
-    hub.onPublish(sink);
-    hub.subscribe("a", ["id-1"]);
-    hub.unsubscribe("a", ["id-1"]);
-    hub.publish("id-1", msg());
-    expect(received).toEqual([]);
-  });
-
-  it("drop removes a connection from all its subscriptions", () => {
-    const hub = createInMemoryHub();
-    const { received, sink } = collector();
-    hub.onPublish(sink);
-    hub.subscribe("a", ["id-1", "id-2"]);
-    hub.drop("a");
-    hub.publish("id-1", msg());
-    hub.publish("id-2", msg());
-    expect(received).toEqual([]);
-  });
-
-  it("does nothing if no sink is registered", () => {
-    const hub = createInMemoryHub();
-    hub.subscribe("a", ["id-1"]);
-    expect(() => hub.publish("id-1", msg())).not.toThrow();
+    const seen: unknown[] = [];
+    hub.onPublish((_conn, msg) => seen.push(msg));
+    hub.subscribe(1, ["c:todos", "e:todo:1"], Date.now() + 60_000);
+    hub.drop(1);
+    hub.publish("c:todos", stale("todos"));
+    hub.publish("e:todo:1", stale("x"));
+    expect(seen).toHaveLength(0);
   });
 });
