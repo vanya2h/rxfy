@@ -4,14 +4,13 @@ Returns the `ModelStore` for a model descriptor, so a component can subscribe to
 normalized entity without re-fetching the full list.
 
 ```tsx
-import { useMemo } from "react";
-import { useModelStore, Pending } from "rxfy-react";
+import { useAtom, useModelStore } from "rxfy-react";
 import { TodoModel } from "./models";
 
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
-  return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
+  const [todo] = useAtom(store.get(id));
+  return <li>{todo.title}</li>;
 }
 ```
 
@@ -23,14 +22,16 @@ The returned `ModelStore<T>` exposes:
 
 ```ts
 type ModelStore<T> = {
-  get(key: EntityKey<T>): Observable<T>; // reactive read; emits on every change
+  get(key: EntityKey<T>): IAtom<T>; // writable handle; throws if the entity is not loaded
   set(key: string, val: T): void; // write one entity
   setMany(items: T[]): void; // write many; key is derived via getKey
-  getValue(key: string): T | undefined; // synchronous read, no subscription
-  entity(key: EntityKey<T>): IAtom<T>; // writable handle
+  getValue(key: string): T | undefined; // synchronous read, no subscription, never throws
   valueEntries(): [string, T][]; // snapshot of all loaded [key, value] pairs
   added$: Observable<string>; // a key, the first time its entity appears
 };
 ```
 
-See [Model](/rxfy/create-model) for the full reference on each method.
+`get(id)` assumes the entity is already loaded — pass it ids that came out of a fulfilled
+state (`data$`), and it holds by construction. It returns the entity's cell itself, so the
+handle is stable across calls (no `useMemo` needed). See [Model](/rxfy/create-model) for the
+full reference on each method.

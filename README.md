@@ -82,7 +82,6 @@ npm install rxfy rxfy-react
 
 **Examples**
 
-- [vite-todo](examples/vite-todo) — Todo app with Vite SSR
 - [vite-blog-framework](examples/vite-blog-framework) — live blog: SSR + WebSocket patches/stale, HMAC grants (Vite · Hono · PGlite · Drizzle · rxfy-server · rxfy-ws)
 - [vite-ssr-pagination](examples/vite-ssr-pagination) — infinite paginated list with a switch between Load-more button and infinite scroll; streaming SSR; rows generated on demand with faker
 - [next-blog](examples/next-blog) — Next.js App Router with streaming SSR

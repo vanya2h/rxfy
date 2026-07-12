@@ -6,13 +6,21 @@ mock for tests, a custom reconnection policy, or a non-WebSocket channel.
 
 ```ts
 type ClientTransport = {
-  subscribe: (ids: string[]) => void;
-  unsubscribe: (ids: string[]) => void;
+  /** Send a client frame (a `subscribe`). Dropped if the channel is closed. */
+  send: (message: ClientMessage) => void;
   /** Single-slot inbound handler — a later call replaces the previous one. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
+  /** Fired on every (re)connect; the live client replays its grant set from here. */
+  onOpen: (handler: () => void) => void;
   close: () => void;
 };
 ```
+
+The client *does* send frames — a `subscribe` frame per live entry, carrying the state's grant and
+its entity topics. What changed is that a grant, not a session, authorizes them: the server verifies
+the grant on the wire rather than tracking a session it minted at the serve path
+([`live.serve` / `live.hydration`](/framework/server/grants)). There is no `hello` frame and no
+`session` frame. On reconnect the client replays its whole grant set through `onOpen`.
 
 Note that `onMessage` is single-slot: a later call replaces the previous handler.
 

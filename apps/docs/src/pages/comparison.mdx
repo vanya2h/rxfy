@@ -15,7 +15,7 @@ refetch. A `defineState` declaration bundles fetching, normalization, and SSR in
 reactive state.
 
 On top of that, rxfy offers a first-party
-[live-update framework](/framework/server) (`rxfy-server` / `rxfy-ws`) that pushes entity changes into the same
+[live-update framework](/framework/server) (`rxfy-server` / `rxfy-ws` / `rxfy-client`) that pushes entity changes into the same
 normalized stores — real-time is built in, not bolted on.
 
 ## At a glance
@@ -35,8 +35,8 @@ normalized stores — real-time is built in, not bolted on.
 | **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          | `@tanstack/react-query`     |
 
 **Core deps** lists the store path. The real-time ✅ is the opt-in
-[framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` packages (peers:
-`drizzle-orm`, `ws`) that add nothing to a client-only app.
+[framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` / `rxfy-client` packages
+(peers: `drizzle-orm`, `ws`) that add nothing to a client-only app.
 
 ## vs Redux Toolkit
 
@@ -82,7 +82,7 @@ immutable snapshots serialize and rehydrate as-is, which is central to rxfy's SS
 mutable proxy graphs are harder to capture; MobX gives you no built-in normalization or
 query/SSR layer anyway. Two-way binding shows the difference: MobX mutates the observable, while rxfy
 composes a [`Lens`](/rxfy/create-lens) over a
-[`store.entity(id)`](/rxfy/create-model#modelstore-entity) and drives it with
+[`store.get(id)`](/rxfy/create-model#modelstore-get) and drives it with
 [`useAtom`](/react/use-atom), so the write flows back into the normalized
 store and reaches every subscriber.
 
@@ -131,13 +131,13 @@ persistence and two-way binding to you.
 Real-time sharpens the split. React Query leaves the socket to you: subscribe, then call
 `setQueryData` or `invalidateQueries` for each affected key, and decide yourself who may
 listen to what. rxfy's [framework](/framework/server) ships that pipeline — server write functions
-persist via Drizzle and publish on their own, HMAC-signed grants scope each client to the
-entities its own fetches returned, and the WebSocket transport reconnects and replays
-subscriptions. Edits patch the entity cell in place; creates and deletes surface as an
+persist via Drizzle and publish on their own, and the server signs a channel grant per served
+state, delivered in the payload, so the client subscribes with exactly that capability: no
+allow-list to manage. Edits patch the entity cell in place; creates and deletes surface as an
 "updates available" count ([`updatesAvailable$` / `applyUpdates`](/react/live-client)), so
 the client reloads on its own terms instead of through an eager key invalidation. SSR carries
-this through: rxfy's `dehydrate` embeds the live grants next to the data, so a
-server-rendered page resumes its subscriptions along with its cache.
+this through: `live.hydration` signs a grant per rendered channel next to the dehydrated data,
+so a server-rendered page subscribes and resumes receiving pushes along with its cache.
 
 **Reach for TanStack Query when** you want a mature, framework-agnostic cache with rich
 refetch/staleness controls and don't need normalization. **Reach for rxfy when** the same

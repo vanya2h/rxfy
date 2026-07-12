@@ -7,16 +7,15 @@ re-exports the subset safe to import in shared (client+server) code — `defineR
 
 - [`defineResource`](/framework/server/define-resource) — tie a Drizzle `PgTable` to an rxfy
   model; `createResourceRegistry` indexes resources for server-side wiring.
-- [`createServer`](/framework/server/create-server) — wire the database, resources, hub, and
-  keyer into a `Live` object with typed write methods.
+- [`createServer`](/framework/server/create-server) — wire the database, resources, and hub into a
+  `Live` object with typed write methods.
 - [Writes](/framework/server/writes) — `live.create` / `live.update` / `live.delete`, plus
   `touch()` for state-channel invalidation.
-- [`createTopicKeyer`](/framework/server/create-topic-keyer) — time-windowed HMAC ids that keep
-  raw topic strings off the wire.
-- [Grants & live hydration](/framework/server/grants) — mint the subscription allow-list with
-  `live.grant` and flow it from an SSR render into a connecting live client, end to end.
-- [`createInMemoryHub`](/framework/server/hub) — the single-process pub/sub backbone between
-  writes and transports.
+- [Grants](/framework/server/grants) — `live.serve` and `live.hydration` sign a channel grant for
+  exactly what was served; the client lifts it from the payload and subscribes, then renews it
+  before it expires.
+- [`createInMemoryHub`](/framework/server/hub) — the single-process, socket-keyed pub/sub
+  backbone between writes and transports.
 
 Start with [`defineResource`](/framework/server/define-resource) and
 [`createServer`](/framework/server/create-server); for an end-to-end walkthrough see the

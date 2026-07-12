@@ -65,10 +65,9 @@ are covered in [Server-Side Rendering](/core-concepts/ssr).
 One file: a model, a state, a fetch, and two components.
 
 ```tsx [App.tsx]
-import { useMemo } from "react";
 import { z } from "zod";
 import { array, createModel, defineState } from "rxfy";
-import { Pending, useModelStore, useStateData } from "rxfy-react";
+import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 
 // A model: an entity type plus how to read its id.
 const UserModel = createModel({
@@ -97,8 +96,8 @@ async function fetchUsers() {
 // Each row subscribes to its own entity by id and re-renders only when that entity changes.
 function UserRow({ id }: { id: string }) {
   const store = useModelStore(UserModel);
-  const user$ = useMemo(() => store.get(id), [store, id]);
-  return <Pending value$={user$}>{(user) => <li>{user.name}</li>}</Pending>;
+  const [user] = useAtom(store.get(id));
+  return <li>{user.name}</li>;
 }
 
 export function App() {
@@ -129,8 +128,9 @@ What happened, in order:
 1. `useStateData` ran `fetchUsers` and **normalizes** the result: each user was written
    into the shared `UserModel` store under its id, and `data$` emitted the query shape —
    `{ users: ["1", "2"] }`. It holds ids, not user objects so you can then reference this entity right from the store by its id.
-2. Each `UserRow` resolved its own entity with `store.get(id)`, an observable of that one
-   user. `Pending` rendered a fallback until it settled.
+2. Each `UserRow` resolved its own entity with `store.get(id)` — a synchronous, writable
+   handle. Its id came out of the fulfilled query, so the entity is already in the store;
+   there is nothing to wait for.
 3. The button called `store.set` with a new entity for id `"1"`. The row subscribed to
    that id re-rendered; the list and the other row did not, and nothing re-fetched.
 
@@ -139,9 +139,9 @@ land the same way — one write to the store, and every view of that entity upda
 
 Notice what unwraps where. The button sits **outside** `Pending`: a write needs no
 unwrapped data, so it never waits on the query. `App` unwraps only the id list; each
-`UserRow` unwraps its one entity. rxfy keeps values wrapped until the leaf that renders
-them — unwrap late, and both loading UI and re-renders stay exactly where the data is
-used.
+`UserRow` reads its one entity synchronously. rxfy keeps values wrapped until the leaf
+that renders them — unwrap late, and both loading UI and re-renders stay exactly where
+the data is used.
 
 :::tip
 `params` compares by value, so passing a fresh `{}` each render is fine. What you fetch is

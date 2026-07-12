@@ -26,22 +26,26 @@ export const resources = createResourceRegistry([userResource, postResource, com
 
 ## createServer
 
-`createServer({ db, resources, hub, keyer })` returns a `Live` object with typed write methods and a grant helper:
+`createServer({ db, resources, hub, secret })` returns a `Live` object with typed write methods plus
+the grant-signing calls `serve`, `hydration`, and `renew`. `secret` is REQUIRED — it is the HMAC key
+used to sign and verify channel grants, and it MUST be the same secret passed to the WS server.
+Optional: `grantTtlMs` (default 15 min), `renewGraceMs` (default 5 min):
 
 ```ts
 // server/live.ts
-import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
+import { createInMemoryHub, createServer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
 import { db } from "./db.js";
 
+// The hub holds socket-keyed live subscriptions, so there must be exactly ONE instance. entry-server's
+// render (typed by the shared RenderFn in server/render-types.ts) receives `live` — and `apiFetch`,
+// hono's in-process `app.request`, for SSR data fetching — as parameters instead of importing
+// server modules, so a separate Vite SSR module graph never instantiates a second db/hub/api.
+// server/render.ts calls render(url, live, api.request); `request` is a bound arrow, safe to detach.
 export const hub = createInMemoryHub();
 
-export const live = createServer({
-  db,
-  resources,
-  hub,
-  keyer: createTopicKeyer({ secret: process.env.RXFY_SECRET ?? "dev-secret", windowMs: 10 * 60_000 }),
-});
+export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
+export const live = createServer({ db, resources, hub, secret: SECRET });
 ```
 
 `live.db` exposes the raw Drizzle instance for reads outside of writes.
@@ -55,10 +59,10 @@ export const live = createServer({
 | `live.delete(resource, id, { touch })` | DELETE | `stale` on touched channels only |
 | `live.touch(...targets)` | none | `stale` out of band |
 
-```ts
-import { touch, type StateChannelDescriptor } from "rxfy-server";
+Return values: `create` resolves the inserted row. `update` resolves the updated row, or `undefined` when no row matches the id — a not-found update writes nothing and publishes nothing (no patch, no touch).
 
-const postsChannel = postsState as unknown as StateChannelDescriptor;
+```ts
+import { touch } from "rxfy-server";
 
 // update — publishes a `patch` on the entity topic automatically
 await live.update(postWriteResource, postId, { title, body });
@@ -67,28 +71,50 @@ await live.update(postWriteResource, postId, { title, body });
 await live.create(
   postWriteResource,
   { id: newId(), userId, title, body },
-  { touch: [touch(postsChannel, {})] },
+  { touch: [touch(postsState, {})] },
 );
 
 // delete — same: no patch, touch the channels that referenced this entity
-await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
+await live.delete(postResource, postId, { touch: [touch(postsState, {})] });
 ```
 
 `touch(stateDescriptor, params)` builds a `TouchTarget` for a state instance. Window dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key, so all windows of the same partition share one invalidation channel.
 
-## createTopicKeyer
-
-`createTopicKeyer({ secret, windowMs })` converts raw topic strings into time-windowed HMAC ids; clients only ever see the opaque ids.
-
-- `keyer.current(topic)` — id for the current time window; used by `live.grant` for client subscriptions.
-- `keyer.forPublish(topic)` — `[currentId, previousId]`; publishing on both covers window rollover so grants issued just before the boundary still receive messages.
-
-Keep `windowMs` long enough for the grant-to-subscribe round-trip. **Warning:** rotating `secret` invalidates all outstanding grants immediately — clients miss messages until they refetch a fresh grant.
-
 ## createInMemoryHub
 
-`createInMemoryHub()` is the single-process pub/sub backbone: maps opaque routing ids to connections and forwards `ServerMessage`s from writes to clients. Register a delivery sink with `hub.onPublish(sink)`; the transport adapter calls `hub.subscribe`/`unsubscribe`/`drop` as connections open and close.
+`createInMemoryHub()` is the single-process pub/sub backbone: pub/sub over subscription ids, keyed by
+**socket** (`ConnId = number`), not by session. It takes no options (only an optional `{ now }`
+injectable clock for tests) — there is no `ttlMs`. Subscriptions are written by the WS layer from
+verified `subscribe` frames, and a closed socket drops everything it held.
 
-## live.grant
+```ts
+export type Hub = {
+  publish: (id: string, message: ServerMessage) => void;
+  subscribe: (conn: ConnId, ids: string[], exp: number) => void;
+  drop: (conn: ConnId) => void;
+  onPublish: (sink: (conn: ConnId, message: ServerMessage) => void) => void;
+};
+```
 
-`live.grant(registry, { entities, states })` issues a `{ entities, channels }` token the client uses to subscribe to live updates — return it alongside the initial data. Covered in depth in `grants-hydration.md`.
+- `subscribe(conn, ids, exp)` records the socket's topics with an expiry (the grant's `exp`);
+  re-subscribing the same socket extends `exp` in place. There is no `bind` / `release` /
+  `unsubscribe`.
+- `drop(conn)` removes every subscription for that socket — `createWsServer` calls it when the
+  socket closes.
+- Register the delivery sink with `hub.onPublish(sink)` — `createWsServer` does this internally to
+  route `patch`/`stale` messages to the right socket by `ConnId`.
+
+## live.serve, live.hydration, live.renew
+
+Covered in depth in `live-grants.md`. In short:
+
+- `live.serve(state, params, data)` — read-endpoint wrapper (no `req`); accepts the state's *input*
+  shape (raw DB rows — unbranded ids, extra columns OK), parses it through the state's schemas, signs
+  a grant for the state's channel, and returns the parsed shape (ids branded, unknown keys stripped)
+  with the grant attached as a reserved `$grant` field. Stateless — it never touches the hub.
+- `live.hydration(registry)` — one-call SSR payload: signs one grant per channel the render logged
+  into `registry.channels`, and returns the `hydrationScript` string carrying the dehydrated state
+  plus `grants: string[]`.
+- `live.renew(grant)` — verifies a grant (accepting tokens expired within `renewGraceMs`) and returns
+  a freshly-dated grant string, or `null` when the signature is invalid or beyond grace. Mount it
+  behind the app's own auth on `POST /live/renew`.

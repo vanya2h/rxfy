@@ -62,13 +62,12 @@ type Updater<T> = T | ((prev: T) => T);
 See [`set` vs `setRaw`](#set-vs-setraw--writing-entities-vs-writing-the-id-list) below for the
 full reference on writing entities.
 
-**Caching** (states with a `key`): results, mutations, and `set` write through to the
-registry's query cache, so a remount with the same params starts from cached ids without
-re-fetching, while entity values always come live from model stores. `reload()` re-fetches
-**in place** — it flips the shared query atom to pending and fetches into it, so every
-component reading the same keyed state updates together and `data$` keeps its identity (the
-current data stays visible until the refetch settles). Keyless states skip the cache and
-fetch per mount.
+**Caching**: results, mutations, and `set` write through to the registry's query cache, so a
+remount with the same params starts from cached ids without re-fetching, while entity values
+always come live from model stores. `reload()` re-fetches **in place** — it flips the shared
+query atom to pending and fetches into it, so every component reading the same state updates
+together and `data$` keeps its identity (the current data stays visible until the refetch
+settles).
 
 `data$` keeps a **stable identity** across re-renders, across a changing `defaultData`, and
 across a `params` object whose value is unchanged (the query is keyed by the params value, not
