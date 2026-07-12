@@ -1,29 +1,25 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Pending, useModelStore, useStateData } from "rxfy-react";
+import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 import { createTodo } from "../lib/actions";
 import { fetchTodos, todoModel, todosState } from "../lib/todos";
 
 // Subscribes to one entity by id — a store.set for this id re-renders only this item.
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const [todo] = useAtom(store.get(id));
   return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={todo.done}
-              // optimistic client-only toggle — add a server action here to also persist the change
-              onChange={() => store.set(todo.id, { ...todo, done: !todo.done })}
-            />
-            <span className={todo.done ? "line-through opacity-60" : ""}>{todo.title}</span>
-          </label>
-        </li>
-      )}
-    </Pending>
+    <li>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={todo.done}
+          // optimistic client-only toggle — add a server action here to also persist the change
+          onChange={() => store.set(todo.id, { ...todo, done: !todo.done })}
+        />
+        <span className={todo.done ? "line-through opacity-60" : ""}>{todo.title}</span>
+      </label>
+    </li>
   );
 }
 

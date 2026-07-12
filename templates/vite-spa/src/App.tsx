@@ -1,26 +1,18 @@
 import { useMemo, useState } from "react";
-import { Pending, useModelStore, useStateData } from "rxfy-react";
+import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 import { fetchTodos, todoModel, todosState } from "./todos.ts";
 
 // Subscribes to one entity by id — a store.set for this id re-renders only this item.
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const [todo] = useAtom(store.get(id));
   return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <label>
-            <input
-              type="checkbox"
-              checked={todo.done}
-              onChange={() => store.set(todo.id, { ...todo, done: !todo.done })}
-            />
-            <span className={todo.done ? "done" : ""}>{todo.title}</span>
-          </label>
-        </li>
-      )}
-    </Pending>
+    <li>
+      <label>
+        <input type="checkbox" checked={todo.done} onChange={() => store.set(todo.id, { ...todo, done: !todo.done })} />
+        <span className={todo.done ? "done" : ""}>{todo.title}</span>
+      </label>
+    </li>
   );
 }
 

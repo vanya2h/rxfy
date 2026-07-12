@@ -1,33 +1,45 @@
-import { useMemo, useState } from "react";
-import { Pending, useModelStore, useObservable, useStateData } from "rxfy-react";
-import { createTodo, fetchTodos, toggleTodo } from "../api-client.js";
+import { parseResponse } from "hono/client";
+import { useState } from "react";
+import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
+import { useApi } from "../api-client.js";
 import { todoModel, todosState } from "../todos.js";
 
 function TodoItem({ id }: { id: string }) {
+  const api = useApi();
+
   const store = useModelStore(todoModel);
-  const todo$ = useMemo(() => store.get(id), [store, id]);
+  const [todo] = useAtom(store.get(id));
+
   return (
-    <Pending value$={todo$}>
-      {(todo) => (
-        <li>
-          <label>
-            <input type="checkbox" checked={todo.done} onChange={() => void toggleTodo(todo.id, !todo.done)} />
-            <span className={todo.done ? "done" : ""}>{todo.title}</span>
-          </label>
-        </li>
-      )}
-    </Pending>
+    <li>
+      <label>
+        <input
+          type="checkbox"
+          checked={todo.done}
+          onChange={() =>
+            void parseResponse(
+              api.todos[":id"].$patch({
+                param: { id: todo.id },
+                json: { done: !todo.done },
+              }),
+            )
+          }
+        />
+        <span className={todo.done ? "done" : ""}>{todo.title}</span>
+      </label>
+    </li>
   );
 }
 
 export function TodosPage() {
+  const [title, setTitle] = useState("");
+
+  const api = useApi();
   const { data$, updatesAvailable$, applyUpdates } = useStateData({
     state: todosState,
-    fetchFn: fetchTodos,
+    fetchFn: () => parseResponse(api.todos.$get()),
     params: {},
   });
-  const updates = useObservable(updatesAvailable$, 0);
-  const [title, setTitle] = useState("");
 
   return (
     <section>
@@ -37,7 +49,7 @@ export function TodosPage() {
           const next = title.trim();
           if (!next) return;
           setTitle("");
-          void createTodo(next)
+          void parseResponse(api.todos.$post({ json: { title: next } }))
             .then(() => applyUpdates())
             .catch(() => setTitle(next)); // restore the input so a failed create isn't lost
         }}
@@ -45,11 +57,15 @@ export function TodosPage() {
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs doing?" />
         <button type="submit">Add</button>
       </form>
-      {updates > 0 && (
-        <button className="updates-badge" onClick={applyUpdates}>
-          {updates} new — refresh
-        </button>
-      )}
+      <Pending value$={updatesAvailable$}>
+        {(updates) =>
+          updates > 0 && (
+            <button className="updates-badge" onClick={applyUpdates}>
+              {updates} new — refresh
+            </button>
+          )
+        }
+      </Pending>
       <Pending value$={data$} pending={<p>Loading…</p>} rejected={(w) => <p>Failed: {String(w.error)}</p>}>
         {({ todos }) => (
           <ul>
