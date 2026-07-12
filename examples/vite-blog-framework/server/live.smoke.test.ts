@@ -1,20 +1,20 @@
+import { EventEmitter } from "node:events";
 import { postsState } from "examples-shared/data";
-import type { PublishSink, Resource, StateChannelDescriptor } from "rxfy-server";
-import { createInMemoryHub, createServer, createTopicKeyer, touch } from "rxfy-server";
+import { collectEntityTopics, createModelRegistry, normalizeResult, stateChannel } from "rxfy";
+import type { LiveClient } from "rxfy-client";
+import { createLiveClient } from "rxfy-client";
+import type { Hub, PublishSink } from "rxfy-server";
+import { createInMemoryHub, createServer, touch } from "rxfy-server";
+import { createWsServer } from "rxfy-ws";
+import type { WebSocketLike } from "rxfy-ws/client";
+import { createWsClient } from "rxfy-ws/client";
 import { describe, expect, it } from "vitest";
-import { commentResource, postResource, resources, userResource } from "../src/blog/resources.js";
-import { posts } from "./db.js";
+import { commentResource, postModel, postResource, resources, userResource } from "../src/blog/resources.js";
 
-// `live.create`/`live.update` accept `Resource<TTable>` with the table's raw `InferSelectModel` row;
-// the injected shared model brands ids and omits `createdAt`, so cast to the table's writer resource.
-const postWriteResource = postResource as unknown as Resource<typeof posts>;
+const SECRET = "test-secret";
 
 /** Derive ServerMessage from the PublishSink type exported by rxfy-server. */
 type ServerMessage = Parameters<PublishSink>[1];
-
-// StateDescriptor.key is `string | undefined` in rxfy but StateChannelDescriptor requires `string`.
-// Both states have a key supplied at definition time; cast to satisfy rxfy-server's narrower type.
-const postsChannel = postsState as unknown as StateChannelDescriptor;
 
 async function freshDb() {
   const { PGlite } = await import("@electric-sql/pglite");
@@ -29,6 +29,40 @@ async function freshDb() {
   return db;
 }
 
+/**
+ * Wire a real live client to the hub over the same WebSocket bridge the app's `ws.ts` uses:
+ * an in-memory socket pair carries `subscribe` frames to `createWsServer` (which verifies the grant)
+ * and carries published messages back to `createWsClient` → `createLiveClient`. No network, but the
+ * full grant → subscribe → verify → publish path runs.
+ */
+function connectClient(hub: Hub, registry: ReturnType<typeof createModelRegistry>): LiveClient {
+  const wsServer = createWsServer(hub, { secret: SECRET });
+  const serverEmitter = new EventEmitter();
+  const clientListeners = new Map<string, ((event: unknown) => void)[]>();
+
+  const clientSocket: WebSocketLike = {
+    readyState: 1, // OPEN — the live client sends subscribe frames immediately
+    send: (data: string) => serverEmitter.emit("message", data), // client → server
+    close: () => serverEmitter.emit("close"),
+    addEventListener: (type, listener) => {
+      const arr = clientListeners.get(type) ?? [];
+      arr.push(listener);
+      clientListeners.set(type, arr);
+    },
+  };
+
+  wsServer.handleConnection({
+    // server → client: dispatch a `message` event to the client socket's listeners
+    send: (data: string) => clientListeners.get("message")?.forEach((l) => l({ data })),
+    on: (event, cb) => serverEmitter.on(event, cb),
+  });
+
+  const transport = createWsClient({ url: "ws://test", WebSocketImpl: () => clientSocket });
+  return createLiveClient({ registry, transport });
+}
+
+// Generous timeouts: each test cold-starts a PGlite (wasm Postgres) instance, which is
+// fast locally (~1s) but several times slower on CI runners.
 describe("vite-blog-framework live server", () => {
   it("registers the three resources", () => {
     expect(resources.byName("post")).toBe(postResource);
@@ -39,45 +73,105 @@ describe("vite-blog-framework live server", () => {
   it("create persists and touches the posts channel with a bare stale", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
+    const live = createServer({ db, resources, hub, secret: SECRET });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("posts")]);
+    hub.subscribe(0, ["c:posts"], Date.now() + 60_000);
 
     const row = await live.create(
-      postWriteResource,
+      postResource,
       { id: "p1", userId: "u1", title: "Hi", body: "B" },
-      { touch: [touch(postsChannel, {})] },
+      { touch: [touch(postsState, {})] },
     );
     expect(row).toMatchObject({ id: "p1", title: "Hi" });
-    expect(received).toEqual([{ v: 1, kind: "stale", channel: "posts" }]);
-    // Generous timeout: each test cold-starts a PGlite (wasm Postgres) instance, which is fast
-    // locally (~1s) but several times slower on CI runners.
+    expect(received).toEqual([{ v: 2, kind: "stale", channel: "posts" }]);
   }, 30_000);
 
   it("update broadcasts a patch on the entity topic", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const keyer = createTopicKeyer({ secret: "t", windowMs: 60_000, now: () => 0 });
-    const live = createServer({ db, resources, hub, keyer });
-    await live.create(postWriteResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
+    const live = createServer({ db, resources, hub, secret: SECRET });
+    await live.create(postResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
-    hub.subscribe("client", [keyer.current("post:p1")]);
+    hub.subscribe(0, ["e:post:p1"], Date.now() + 60_000);
 
-    const row = await live.update(postWriteResource, "p1", { title: "New" });
+    const row = await live.update(postResource, "p1", { title: "New" });
     expect(row).toMatchObject({ title: "New" });
     expect(received).toEqual([
       {
-        v: 1,
+        v: 2,
         kind: "patch",
         name: "post",
         id: "p1",
         data: { id: "p1", userId: "u1", title: "New", body: "B", createdAt: expect.any(Date) },
       },
     ]);
+  }, 30_000);
+});
+
+describe("live end-to-end over the grant/WebSocket path", () => {
+  it("serve → $grant lift → subscribe → live.update patches the client's model store", async () => {
+    const db = await freshDb();
+    const hub = createInMemoryHub();
+    const live = createServer({ db, resources, hub, secret: SECRET });
+    await live.create(postResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
+
+    const registry = createModelRegistry(postModel);
+    const liveClient = connectClient(hub, registry);
+
+    // Server hands back the parsed shape + a signed grant, exactly as the /posts endpoint does.
+    const served = live.serve(postsState, {}, {
+      posts: [{ id: "p1", userId: "u1", title: "Old", body: "B" }],
+      authors: [{ id: "u1", name: "Ada", email: "ada@example.com" }],
+      meta: { total: 1, generatedAt: new Date().toISOString() },
+    });
+    const { $grant, ...payload } = served;
+
+    // The client lifts $grant, normalizes the payload into its stores, and subscribes the channel
+    // grant plus the payload's entity topics — mirroring useStateData's settle().
+    const query = normalizeResult(registry, postsState.fields, payload);
+    liveClient.subscribe($grant, collectEntityTopics(postsState.fields, query as Record<string, unknown>));
+
+    const row = await live.update(postResource, "p1", { title: "New" });
+    expect(row).toMatchObject({ id: "p1", title: "New" });
+
+    // The entity patch flowed hub → ws server → ws client → live client → model store, in place.
+    expect(registry.model(postModel).getValue("p1")).toMatchObject({ id: "p1", title: "New" });
+
+    liveClient.stop();
+  }, 30_000);
+
+  it("serve → $grant lift → subscribe → touch bumps the client's channel counter (stale)", async () => {
+    const db = await freshDb();
+    const hub = createInMemoryHub();
+    const live = createServer({ db, resources, hub, secret: SECRET });
+    await live.create(postResource, { id: "p1", userId: "u1", title: "Old", body: "B" });
+
+    const registry = createModelRegistry(postModel);
+    const liveClient = connectClient(hub, registry);
+
+    const channel = stateChannel(postsState, {})!;
+    const counter = liveClient.channel(channel);
+    let available = 0;
+    const sub = counter.available$.subscribe((n) => (available = n));
+
+    const served = live.serve(postsState, {}, {
+      posts: [{ id: "p1", userId: "u1", title: "Old", body: "B" }],
+      authors: [{ id: "u1", name: "Ada", email: "ada@example.com" }],
+      meta: { total: 1, generatedAt: new Date().toISOString() },
+    });
+    const { $grant, ...payload } = served;
+    const query = normalizeResult(registry, postsState.fields, payload);
+    liveClient.subscribe($grant, collectEntityTopics(postsState.fields, query as Record<string, unknown>));
+
+    // A write on another connection touches the posts channel; the client sees a stale bump.
+    live.touch(touch(postsState, {}));
+    expect(available).toBe(1);
+
+    sub.unsubscribe();
+    liveClient.stop();
   }, 30_000);
 });

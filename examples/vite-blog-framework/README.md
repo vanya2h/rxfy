@@ -8,7 +8,7 @@ A live blog example that demonstrates the rxfy live framework (`rxfy-server` + `
 - **Hono** + **`@hono/node-ws`** — HTTP API + WebSocket transport for live messages
 - **PGlite** — in-memory Postgres (no external DB needed; resets on restart)
 - **Drizzle ORM** — type-safe schema + queries
-- **rxfy-server** — `defineResource` / `createServer` / `createTopicKeyer` / `touch`
+- **rxfy-server** — `defineResource` / `createServer` / `live.serve` / `live.hydration` / `touch`
 - **rxfy-ws** — WebSocket protocol layer (server-side `createWsServer`)
 - **rxfy-react** — `useStateData`, live client, `StoreProvider`
 - **shadcn/ui** (Tailwind v4) — `Card`/`Button`/`Input`/`Textarea`/`Select` components, semantic theme
@@ -33,7 +33,7 @@ Open http://localhost:5176. The in-memory database resets each time the server r
 
 ## How it works
 
-`defineResource` derives an rxfy model and Drizzle table operations from the schema in one call. `createServer` wraps `create` / `update` / `delete` so every write also broadcasts over the hub: an **update** publishes a `patch` message on the entity's topic (`post:<id>`); a **create** or **delete** publishes a `stale` message on the state channel named in the `touch(...)` call (e.g. `posts` or `post-detail:postId=<id>`). `rxfy-ws` carries those messages over a single WebSocket connection. On the client, `createLiveClient` applies `patch` messages directly to the shared model store (so the updated entity re-renders everywhere it is used) and increments a per-channel stale counter for `stale` messages — that counter is what `updatesAvailable$` exposes. Grants (HMAC-hashed topic ids with a rolling time window) are minted at fetch/SSR time and sent to the client so it can subscribe to exactly the topics relevant to the data it received.
+`defineResource` derives an rxfy model and Drizzle table operations from the schema in one call. `createServer` wraps `create` / `update` / `delete` so every write also broadcasts over the hub: an **update** publishes a `patch` message on the entity's topic (`post:<id>`); a **create** or **delete** publishes a `stale` message on the state channel named in the `touch(...)` call (e.g. `posts` or `post-detail:postId=<id>`). `rxfy-ws` carries those messages over a single WebSocket connection. On the client, `createLiveClient` applies `patch` messages directly to the shared model store (so the updated entity re-renders everywhere it is used) and increments a per-channel stale counter for `stale` messages — that counter is what `updatesAvailable$` exposes. Each read is stateless: `live.serve` signs a **channel grant** (a short-lived HMAC-signed JWT scoped to the state it served) and returns it in the payload as `$grant`; the client lifts the grant, subscribes over the single WebSocket, and posts grants nearing expiry to `POST /api/live/renew` so long-lived tabs keep receiving updates. The WebSocket server verifies each grant against the same secret the HTTP server signs with, so it pushes updates for exactly the topics the grant authorizes — no server-side session state.
 
 ## Notes
 

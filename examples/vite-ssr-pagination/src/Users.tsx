@@ -1,41 +1,44 @@
+import { parseResponse } from "hono/client";
 import { useMemo, useState } from "react";
-import { Pending, useStateData, useStatePagedData } from "rxfy-react";
-import { fetchUsers, fetchUsersHeader } from "./api.ts";
+import { Pending, useAtom, useModelStore, useStateData, useStatePagedData } from "rxfy-react";
+import { useApi } from "./api-client.tsx";
 import { LoadMoreSentinel } from "./LoadMoreSentinel.tsx";
 import { UserRow } from "./UserRow.tsx";
-import { userModel, usersHeaderState, useUserStore } from "./users.ts";
+import { userModel, usersHeaderState } from "./users.ts";
 
 type Mode = "scroll" | "click";
 
+/** Subscribes to the top user entity — the id comes normalized out of the header state. */
+function TopUserName({ id }: { id: string }) {
+  const store = useModelStore(userModel);
+  const [user] = useAtom(store.get(id));
+  return <strong>{user.name}</strong>;
+}
+
 /** Renders the header line — entity (topUser name via store) + plain value (meta). */
 function UsersHeaderLine() {
+  const api = useApi();
   const headerParams = useMemo(() => ({}), []);
   const { data$ } = useStateData({
     state: usersHeaderState,
-    fetchFn: fetchUsersHeader,
+    fetchFn: () => parseResponse(api["users-header"].$get()),
     params: headerParams,
   });
-  const store = useUserStore();
 
   return (
     <Pending value$={data$} pending={<p className="status">Loading header…</p>}>
-      {({ topUser: topUserId, meta }) => {
-        // topUser is a normalized id — look up the real entity from the store synchronously.
-        const user = store.getValue(topUserId);
-        const name = user?.name ?? topUserId;
-        const time = new Date(meta.generatedAt).toLocaleTimeString();
-        return (
-          <p className="header-caption">
-            Top: <strong>{name}</strong> · {meta.total} users · loaded {time}
-          </p>
-        );
-      }}
+      {({ topUser: topUserId, meta }) => (
+        <p className="header-caption">
+          Top: <TopUserName id={topUserId} /> · {meta.total} users · loaded{" "}
+          {new Date(meta.generatedAt).toLocaleTimeString()}
+        </p>
+      )}
     </Pending>
   );
 }
 
 export function Users() {
-  // Stable params → one query identity → loadMore accumulates a single growing list.
+  const api = useApi();
   const params = useMemo(() => ({}), []);
 
   // How the next page loads — pure view state, defaults to "scroll" on both server and client.
@@ -48,7 +51,7 @@ export function Users() {
     model: userModel,
     key: "users",
     params,
-    fetchPage: ({ cursor }) => fetchUsers(cursor === 0 ? null : String(cursor)),
+    fetchPage: ({ cursor }) => parseResponse(api.users.$get({ query: cursor === 0 ? {} : { cursor: String(cursor) } })),
     getCursor: ({ ids }) => ids.length,
     select: ({ page }) => page.items,
   });

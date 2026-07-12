@@ -1,21 +1,27 @@
 "use client";
 import { BlogProvider } from "examples-shared";
+import { parseResponse } from "hono/client";
 import { useMemo } from "react";
 import { StoreProvider } from "rxfy-react";
 import { useRouter } from "waku";
-import { addCommentRpc } from "./blog/fetchers";
+import { api } from "./blog/api-client";
+import { live } from "./blog/live-client";
 
 export function RxfyProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const blog = useMemo(
     () => ({
       navigate: (path: string) => router.push(path as Parameters<typeof router.push>[0]),
-      onAddComment: (postId: string, input: { name: string; body: string }) => addCommentRpc(postId, input),
+      onAddComment: (postId: string, input: { name: string; body: string }) =>
+        parseResponse(api.posts[":id"].comments.$post({ param: { id: postId }, json: input })),
     }),
     [router],
   );
   return (
-    <StoreProvider ssr>
+    // In the browser the registry + live client come from the live singleton, so patch/stale
+    // messages land in the same stores the views read; during SSR `live` is undefined and
+    // StoreProvider creates its own per-render registry.
+    <StoreProvider ssr registry={live?.registry} liveClient={live?.liveClient}>
       <BlogProvider value={blog}>{children}</BlogProvider>
     </StoreProvider>
   );

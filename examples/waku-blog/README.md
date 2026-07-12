@@ -1,33 +1,34 @@
 # rxfy + Waku blog example
 
 A [Waku](https://waku.gg) (minimal React framework, RSC-based) blog using **rxfy** for
-normalized, reactive state with SSR hydration. Companion to the `next-blog` (Next.js App Router)
-and `rr7-blog` (React Router 7) examples — same domain, three frameworks.
+normalized, reactive state with SSR hydration **and live updates**. Companion to the `next-blog`
+(Next.js App Router) and `rr7-blog` (React Router 7) examples — same domain, three frameworks.
 
 ## What it shows
 
-- **Static home (`/`)** — `getConfig { render: "static" }`. Posts are prefetched and dehydrated
-  at build time; the list ships in fully static HTML with rxfy data already hydrated.
-- **Dynamic detail (`/posts/[slug]`)** — `getConfig { render: "dynamic" }`. Fetched and dehydrated
-  per request.
+- **RSC pages fetch, views seed from props.** Each page (a Server Component) fetches through the
+  in-process typed client (`src/blog/api-server.ts` — hono's `app.request`, no HTTP self-call) and
+  passes the result to its client view as `defaultData`, which seeds the shared store before any
+  client fetch can fire. The hono endpoints are the single data source for both environments.
+- **Dynamic rendering, per-request grants** — both pages are `render: "dynamic"`: every request
+  signs a fresh, time-limited channel grant, so pages can't be statically prerendered.
 - **Client navigation** — Waku `Link`; the rxfy store lives in the persistent root layout and
   survives route transitions, so seen entities are not refetched.
 
-## How rxfy + Waku fit together
+## Live updates
 
-Waku is RSC-based and exposes no script-injection seam (unlike Next's `useServerInsertedHTML`,
-which `rxfy-react/next`'s `HydrationStream` relies on, or React Router's custom `entry.server`).
-So instead of injecting a snapshot _after_ render, each page **prefetches before render**:
+Waku owns its HTTP server, so the live WebSocket listens on a **sibling port** (8090), started by
+the api middleware at boot (`src/server/ws.ts`). Live subscriptions ride **stateless JWT channel
+grants** — no server-side session state. The loop:
 
-1. The page (a Server Component) calls a rxfy fetcher into a fresh `ModelRegistry`, then
-   `dehydrate`s it — see `src/ssr.ts`.
-2. The JSON-safe snapshot is passed as a prop to `<HydrateSnapshot>`, a client component that
-   merges it into the single `StoreProvider` registry owned by the root layout (`src/providers.tsx`).
-3. Client components (`useStateData`, `useModelStore`, `Pending`) read from the hydrated store —
-   no client fetch on first paint.
-
-`src/ssr.ts`'s `prefetch` is built only from public `rxfy` exports (`normalizeResult`,
-`stableStringify`, `createFulfilled`, `dehydrate`) — no library changes required.
+1. Each read runs through `live.serve(...)` (`src/server/live.ts`), which parses the payload and
+   attaches a signed channel grant as `$grant`. RSC renders pass it down via `defaultData`; client
+   refetches return it too.
+2. `useStateData` lifts `$grant` and subscribes it on the browser live socket (wired in
+   `src/blog/live-client.ts`). The client renews grants before expiry against `POST /api/live/renew`,
+   so long-lived tabs keep receiving updates.
+3. Posting a comment `touchState`s the post-detail channel — every tab holding a grant for that
+   channel gets a `stale` push and shows the "new comment — refresh" badge; `applyUpdates()` refetches.
 
 ## Run
 

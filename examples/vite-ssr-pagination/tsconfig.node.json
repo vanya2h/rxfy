@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
+    // DOM lib + jsx: `typeof import("./src/entry-server.tsx")` in server.ts pulls the (type-only)
+    // src graph into this program, and those files use JSX and browser globals.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -19,5 +22,5 @@
     "noUncheckedSideEffectImports": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "eslint.config.ts", "server.ts", "shared"]
+  "include": ["vite.config.ts", "vitest.config.ts", "eslint.config.ts", "server.ts", "server", "shared"]
 }

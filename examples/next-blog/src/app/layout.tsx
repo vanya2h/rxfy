@@ -11,7 +11,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <RxfyProvider>{children}</RxfyProvider>
+        <RxfyProvider>
+          <div className="container mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">{children}</div>
+        </RxfyProvider>
       </body>
     </html>
   );

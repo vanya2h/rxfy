@@ -1,8 +1,9 @@
 "use client";
 import { type ReactNode, useMemo } from "react";
-import { Pending, useStateData } from "rxfy-react";
+import type { StateDescriptor } from "rxfy";
+import { Pending, type StateHandle } from "rxfy-react";
 import { type Post, type PostId, type User } from "../data/models";
-import { postsState } from "../data/states";
+import type { postsState } from "../data/states";
 import { PostItem } from "./PostItem";
 import { UpdatesBadge } from "./UpdatesBadge";
 
@@ -11,27 +12,33 @@ export type PostsFetcher = (params: Record<never, never>, signal: AbortSignal) =
 /** Imperative controls surfaced via `onReady` so a host can refresh the state after a local mutation. */
 export type StateControls = { reload: () => void; applyUpdates: () => void };
 
+/** The `useStateData` handle for a given state descriptor — what a host passes into a view. */
+export type StateHandleFor<S> =
+  S extends StateDescriptor<infer _TParams, infer TShape, infer TMutations, infer TQuery, infer TWritable>
+    ? StateHandle<TShape, TMutations, TQuery, TWritable>
+    : never;
+
 export function PostList({
-  fetchPosts,
+  posts,
   header,
   renderItemActions,
 }: {
-  fetchPosts: PostsFetcher;
+  /** The host-owned `useStateData` handle for `postsState` — this component only renders it. */
+  posts: StateHandleFor<typeof postsState>;
   /** A node, or a render function receiving the state's refresh controls (e.g. for a "new post" form). */
   header?: ReactNode | ((controls: StateControls) => ReactNode);
   renderItemActions?: (id: PostId, controls: StateControls) => ReactNode;
 }) {
-  const handle = useStateData({ state: postsState, fetchFn: fetchPosts, params: {} });
   const controls = useMemo<StateControls>(
-    () => ({ reload: handle.reload, applyUpdates: handle.applyUpdates }),
-    [handle.reload, handle.applyUpdates],
+    () => ({ reload: posts.reload, applyUpdates: posts.applyUpdates }),
+    [posts.reload, posts.applyUpdates],
   );
   return (
     <div className="flex flex-col gap-4">
-      <UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />
+      <UpdatesBadge available$={posts.updatesAvailable$} onApply={posts.applyUpdates} noun="post" />
       {typeof header === "function" ? header(controls) : header}
       <Pending
-        value$={handle.data$}
+        value$={posts.data$}
         pending={<p className="text-muted-foreground">Loading posts…</p>}
         rejected={() => <p className="text-destructive">Failed to load.</p>}
       >
