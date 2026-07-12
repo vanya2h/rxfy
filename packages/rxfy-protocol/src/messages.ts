@@ -1,4 +1,4 @@
-export const PROTOCOL_VERSION = 1 as const;
+export const PROTOCOL_VERSION = 2 as const;
 export type ProtocolVersion = typeof PROTOCOL_VERSION;
 
 // @todo I'm thinking whether it is possible to add T extends generic for values like "name" and "channel" so then we could derive union type anywhere we combine them
@@ -25,19 +25,17 @@ export type ServerMessage = PatchMessage | StaleMessage;
 
 // --- Client -> server messages ---
 
+/** The client's ONLY outbound frame: present a signed channel grant and the raw entity topics
+ *  (`name:id`) its payload normalized into. Channel access is authorized by the grant; entity
+ *  topics are accepted alongside any currently-valid grant (ids are required to be unguessable). */
 export type SubscribeMessage = {
   v: ProtocolVersion;
   kind: "subscribe";
-  ids: string[];
+  grant: string;
+  entities: string[];
 };
 
-export type UnsubscribeMessage = {
-  v: ProtocolVersion;
-  kind: "unsubscribe";
-  ids: string[];
-};
-
-export type ClientMessage = SubscribeMessage | UnsubscribeMessage;
+export type ClientMessage = SubscribeMessage;
 
 export type ProtocolMessage = ServerMessage | ClientMessage;
 
@@ -57,14 +55,9 @@ export const stale = (channel: string): StaleMessage => ({
   channel,
 });
 
-export const subscribe = (ids: string[]): SubscribeMessage => ({
+export const subscribe = (grant: string, entities: string[]): SubscribeMessage => ({
   v: PROTOCOL_VERSION,
   kind: "subscribe",
-  ids,
-});
-
-export const unsubscribe = (ids: string[]): UnsubscribeMessage => ({
-  v: PROTOCOL_VERSION,
-  kind: "unsubscribe",
-  ids,
+  grant,
+  entities,
 });

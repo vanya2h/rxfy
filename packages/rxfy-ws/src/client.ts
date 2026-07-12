@@ -1,10 +1,4 @@
-import {
-  parseServerMessage,
-  serialize,
-  type ServerMessage,
-  subscribe as subscribeFrame,
-  unsubscribe as unsubscribeFrame,
-} from "rxfy-protocol";
+import { type ClientMessage, parseServerMessage, serialize, type ServerMessage } from "rxfy-protocol";
 
 /** The subset of the WHATWG WebSocket API the client uses (browser `WebSocket` and `ws` both satisfy it). */
 export type WebSocketLike = {
@@ -18,10 +12,13 @@ export type WebSocketLike = {
 export type WebSocketFactory = (url: string) => WebSocketLike;
 
 export type ClientTransport = {
-  subscribe: (ids: string[]) => void;
-  unsubscribe: (ids: string[]) => void;
+  /** Send a client frame; silently dropped when the socket isn't open — the live client replays
+   *  its full grant set on every `onOpen`, which is the durability mechanism. */
+  send: (message: ClientMessage) => void;
   /** Register the inbound-message handler. Single slot — a later call replaces the previous handler. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
+  /** Fires on every (re)connect once the socket is open. Single slot. */
+  onOpen: (handler: () => void) => void;
   close: () => void;
 };
 
@@ -40,20 +37,16 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
     options.WebSocketImpl ??
     ((u) => new (globalThis as unknown as { WebSocket: new (u: string) => WebSocketLike }).WebSocket(u));
 
-  const active = new Set<string>();
-  let handler: ((message: ServerMessage) => void) | undefined;
+  let messageHandler: ((message: ServerMessage) => void) | undefined;
+  let openHandler: (() => void) | undefined;
   let socket: WebSocketLike | undefined;
   let closed = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const send = (data: string): void => {
-    if (socket && socket.readyState === OPEN) socket.send(data);
-  };
-
   const connect = (): void => {
     socket = create(url);
     socket.addEventListener("open", () => {
-      if (active.size > 0) send(serialize(subscribeFrame([...active])));
+      openHandler?.();
     });
     socket.addEventListener("message", (event: unknown) => {
       const ev = event as { data: unknown };
@@ -64,7 +57,7 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
       } catch {
         return;
       }
-      handler?.(message);
+      messageHandler?.(message);
     });
     socket.addEventListener("close", () => {
       if (closed) return;
@@ -75,16 +68,14 @@ export function createWsClient(options: WsClientOptions): ClientTransport {
   connect();
 
   return {
-    subscribe(ids) {
-      for (const id of ids) active.add(id);
-      send(serialize(subscribeFrame(ids)));
-    },
-    unsubscribe(ids) {
-      for (const id of ids) active.delete(id);
-      send(serialize(unsubscribeFrame(ids)));
+    send(message) {
+      if (socket && socket.readyState === OPEN) socket.send(serialize(message));
     },
     onMessage(next) {
-      handler = next;
+      messageHandler = next;
+    },
+    onOpen(next) {
+      openHandler = next;
     },
     close() {
       closed = true;
