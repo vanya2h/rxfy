@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { LiveClient } from "./live/live-client.js";
+import type { LiveClient } from "rxfy-client";
 
 export const LiveClientContext = createContext<LiveClient | null>(null);
 

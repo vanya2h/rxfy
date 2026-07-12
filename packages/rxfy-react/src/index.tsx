@@ -1,8 +1,3 @@
-export type { ChannelStateDescriptor } from "./live/channel.js";
-export { stateChannel } from "./live/channel.js";
-export type { ChannelCounter, Grants, LiveClient, LiveClientConfig, LiveTransport } from "./live/live-client.js";
-export { createLiveClient } from "./live/live-client.js";
-export { readSsrGrants } from "./live/read-grants.js";
 export { LiveClientContext, useLiveClient } from "./live-context.js";
 export type { IPendingProps } from "./Pending.js";
 export { Pending } from "./Pending.js";
@@ -19,3 +14,7 @@ export type { BoundMutations, StateHandle, Updater, UseStateDataConfig } from ".
 export { useStateData } from "./useStateData.js";
 export type { PagedListHandle, UseStatePagedDataConfig } from "./useStatePagedData.js";
 export { useStatePagedData } from "./useStatePagedData.js";
+export type { ChannelStateDescriptor } from "rxfy";
+export { stateChannel } from "rxfy";
+export type { ChannelCounter, LiveClient, LiveClientConfig, LiveTransport } from "rxfy-client";
+export { createLiveClient, readSsrGrants } from "rxfy-client";

@@ -16,7 +16,7 @@ const Post = createModel<PostT, string>({
 
 function TitleInput({ id }: { id: string }) {
   const store = useModelStore(Post);
-  const post$ = useMemo(() => store.entity(id), [store, id]);
+  const post$ = store.get(id); // the entity's cell — stable across renders
   const title$ = useMemo(() => createLens(post$, keyLens<PostT, "title">("title")), [post$]);
   const [title, setTitle] = useAtom(title$);
   return <input aria-label="title" value={title} onChange={(e) => setTitle(e.target.value)} />;
@@ -24,7 +24,7 @@ function TitleInput({ id }: { id: string }) {
 
 function TitleLabel({ id }: { id: string }) {
   const store = useModelStore(Post);
-  const post$ = useMemo(() => store.entity(id), [store, id]);
+  const post$ = store.get(id); // the entity's cell — stable across renders
   const [post] = useAtom(post$);
   return <span data-testid="label">{post.title}</span>;
 }

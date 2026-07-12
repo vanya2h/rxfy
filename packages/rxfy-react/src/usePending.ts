@@ -14,7 +14,7 @@ function toObservable<T>(val: ObservableLike<T>): Observable<T> {
 type ProbeResult<T> = { kind: "value"; value: T } | { kind: "error"; error: unknown } | null;
 
 /**
- * Render-time probe for sync-marked sources (hydrated query state, seeded model stores).
+ * Render-time probe for sync-marked sources (hydrated query state).
  * Subscribes and immediately unsubscribes — only rxfy-controlled observables are marked,
  * so this never triggers user side effects.
  */

@@ -112,19 +112,15 @@ describe("useStateData server suspend (ssr mode)", () => {
     expect(html).toBe(""); // Pending renders the default null pending state
   });
 
-  it("keyless state in ssr mode warns and does not suspend", () => {
-    const keyless = defineState({ params: z.object({}), model: { todos: array(todoModel) } });
-    function Widget() {
-      const { data$ } = useStateData({ state: keyless, fetchFn: () => new Promise(() => {}), params: {} });
-      return <Pending value$={data$}>{() => null}</Pending>;
-    }
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    renderToString(
-      <StoreProvider registry={createModelRegistry()} ssr>
-        <Widget />
-      </StoreProvider>,
-    );
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('without "key"'));
-    warn.mockRestore();
+  it("records the state's channel into registry.channels during SSR", async () => {
+    const registry = createModelRegistry();
+    const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "A" }] });
+
+    renderApp(registry, fetchFn); // first pass — suspends, promise stored
+    await Promise.all(registry.queries.inflight());
+
+    renderApp(registry, fetchFn); // second pass — cache hit, channel recorded
+
+    expect(registry.channels.all()).toContain("todos");
   });
 });
