@@ -1,7 +1,8 @@
 import { BlogProvider } from "examples-shared";
+import { parseResponse } from "hono/client";
 import { useMemo } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useNavigate } from "react-router";
-import { addCommentRpc } from "./blog/fetchers";
+import { useApi } from "./blog/api-client";
 import "./app.css";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -25,12 +26,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const navigate = useNavigate();
+  const api = useApi();
   const blog = useMemo(
     () => ({
       navigate: (path: string) => navigate(path),
-      onAddComment: (postId: string, input: { name: string; body: string }) => addCommentRpc(postId, input),
+      onAddComment: (postId: string, input: { name: string; body: string }) =>
+        parseResponse(api.posts[":id"].comments.$post({ param: { id: postId }, json: input })),
     }),
-    [navigate],
+    [navigate, api],
   );
   return (
     <BlogProvider value={blog}>
