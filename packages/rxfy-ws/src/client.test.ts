@@ -40,7 +40,7 @@ describe("createWsClient", () => {
         return s.ws;
       },
     });
-    const frame = subscribe("grant-1", ["todo:1"]);
+    const frame = subscribe("grant-1");
 
     transport.send(frame); // socket not open yet — dropped silently, nothing buffered
     expect(sockets[0]!.sent).toEqual([]);

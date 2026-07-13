@@ -71,11 +71,10 @@ through.
 The Drizzle schema itself is ordinary Drizzle — three `pgTable` definitions (users, posts,
 comments) with text primary keys and timestamp defaults. Nothing rxfy-specific is required there.
 
-:::warning[Entity ids must be unguessable]
-Entity patches carry full rows and fan out on raw `name:id` topics gated only by a valid grant.
-With guessable ids (serial integer PKs) any valid grant lets a client watch arbitrary rows — so
-ids of live models must be opaque. Use UUIDs (`crypto.randomUUID()`) for every id these tables
-generate.
+:::note[Entity ids can be anything]
+The grant `live.serve` signs names the exact entity topics it authorizes, and the WebSocket server
+subscribes a socket to only those — so any id scheme works, including serial integer PKs. (UUIDs are
+still a fine default for other reasons.)
 :::
 
 ### Stand up the live server

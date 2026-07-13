@@ -21,5 +21,6 @@ payload's entity topics. Nothing to declare, no keyer, no fetch-client wiring.
 - `rxfy-ws`: the server verifies grants on `subscribe`; the client transport is `send`/`onOpen`.
 - `rxfy-react`: `useStateData` lifts `$grant`; `addGrants` and grant props are removed.
 
-SECURITY: entity patches fan out on raw `name:id` topics gated by a valid grant — entity ids MUST
-be unguessable (UUIDs, not serial integers) in live-enabled apps.
+SECURITY: the grant authorizes both the channel and the exact entity topics it was signed for (see
+the entity-grants changeset), so entity ids need not be unguessable. Keep `Cache-Control: private,
+no-store` on state endpoints as ordinary response hygiene (the payload carries a bearer grant).

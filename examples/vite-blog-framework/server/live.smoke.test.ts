@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { postsState } from "examples-shared/data";
-import { collectEntityTopics, createModelRegistry, normalizeResult, stateChannel } from "rxfy";
+import { createModelRegistry, normalizeResult, stateChannel } from "rxfy";
 import type { LiveClient } from "rxfy-client";
 import { createLiveClient } from "rxfy-client";
 import type { Hub, PublishSink } from "rxfy-server";
@@ -123,17 +123,21 @@ describe("live end-to-end over the grant/WebSocket path", () => {
     const liveClient = connectClient(hub, registry);
 
     // Server hands back the parsed shape + a signed grant, exactly as the /posts endpoint does.
-    const served = live.serve(postsState, {}, {
-      posts: [{ id: "p1", userId: "u1", title: "Old", body: "B" }],
-      authors: [{ id: "u1", name: "Ada", email: "ada@example.com" }],
-      meta: { total: 1, generatedAt: new Date().toISOString() },
-    });
+    const served = live.serve(
+      postsState,
+      {},
+      {
+        posts: [{ id: "p1", userId: "u1", title: "Old", body: "B" }],
+        authors: [{ id: "u1", name: "Ada", email: "ada@example.com" }],
+        meta: { total: 1, generatedAt: new Date().toISOString() },
+      },
+    );
     const { $grant, ...payload } = served;
 
-    // The client lifts $grant, normalizes the payload into its stores, and subscribes the channel
-    // grant plus the payload's entity topics — mirroring useStateData's settle().
-    const query = normalizeResult(registry, postsState.fields, payload);
-    liveClient.subscribe($grant, collectEntityTopics(postsState.fields, query as Record<string, unknown>));
+    // The client lifts $grant, normalizes the payload into its stores, and subscribes with the grant
+    // alone — its claims name the entity topics — mirroring useStateData's settle().
+    normalizeResult(registry, postsState.fields, payload);
+    liveClient.subscribe($grant);
 
     const row = await live.update(postResource, "p1", { title: "New" });
     expect(row).toMatchObject({ id: "p1", title: "New" });
@@ -158,14 +162,18 @@ describe("live end-to-end over the grant/WebSocket path", () => {
     let available = 0;
     const sub = counter.available$.subscribe((n) => (available = n));
 
-    const served = live.serve(postsState, {}, {
-      posts: [{ id: "p1", userId: "u1", title: "Old", body: "B" }],
-      authors: [{ id: "u1", name: "Ada", email: "ada@example.com" }],
-      meta: { total: 1, generatedAt: new Date().toISOString() },
-    });
+    const served = live.serve(
+      postsState,
+      {},
+      {
+        posts: [{ id: "p1", userId: "u1", title: "Old", body: "B" }],
+        authors: [{ id: "u1", name: "Ada", email: "ada@example.com" }],
+        meta: { total: 1, generatedAt: new Date().toISOString() },
+      },
+    );
     const { $grant, ...payload } = served;
-    const query = normalizeResult(registry, postsState.fields, payload);
-    liveClient.subscribe($grant, collectEntityTopics(postsState.fields, query as Record<string, unknown>));
+    normalizeResult(registry, postsState.fields, payload);
+    liveClient.subscribe($grant);
 
     // A write on another connection touches the posts channel; the client sees a stale bump.
     live.touch(touch(postsState, {}));

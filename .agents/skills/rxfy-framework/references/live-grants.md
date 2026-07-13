@@ -1,28 +1,26 @@
 # Live grants
 
 The server records nothing at serve time — it **signs**. A read endpoint wraps its result in
-`live.serve`, which parses the payload and attaches a per-state JWT grant (claims: channel + expiry)
-as a reserved `$grant` field on the returned data. The client lifts `$grant` automatically inside
-`useStateData` — no session header, no fetch wrapping, no integrator plumbing — sends a `subscribe`
-frame carrying the grant plus the entity topics its payload normalized into, and renews grants
-before they expire. Subscription state is socket-keyed on the server and dies with the socket.
+`live.serve`, which parses the payload and attaches a per-state JWT grant (claims: channel + the
+served payload's entity topics + expiry) as a reserved `$grant` field on the returned data. The
+client lifts `$grant` automatically inside `useStateData` — no session header, no fetch wrapping, no
+integrator plumbing — sends a `subscribe` frame carrying just the grant, and renews grants before
+they expire. Subscription state is socket-keyed on the server and dies with the socket.
 
-## SECURITY — entity ids MUST be unguessable
+## SECURITY — the grant is a precise capability
 
-> **Use UUIDs for every resource-backed id that can go live (`crypto.randomUUID()`).**
+> The grant's claims name both the **channel** and the exact **entity topics** (`name:id`) the
+> payload was served with. The WebSocket server subscribes a socket to only the channel + entities
+> its grant enumerates — nothing the client asks for out of band — so a grant can watch exactly the
+> rows it was served and no more. Entity ids therefore need not be unguessable; serial integer PKs
+> are safe.
 >
-> Entity patches carry **full rows** and fan out on raw `name:id` topics gated ONLY by a valid
-> grant — the topic string is never checked against the grant's channel. With guessable ids (serial
-> integer PKs) any client holding one valid grant can subscribe to arbitrary `name:id` topics and
-> watch rows it was never served. Opaque ids close that gap.
->
-> Scope: this applies to resource-backed models PUBLISHED through `live.*` in a live-enabled app. A
-> model written via `live.create` / `live.update` publishes patches even if no state serving it ever
-> calls `live.serve`, so its ids must be opaque regardless. Store-only apps, client-only models, and
-> non-live states impose nothing on ids.
->
-> **Also set `Cache-Control: private, no-store` on state endpoints.** A cached personalized response
+> **Still set `Cache-Control: private, no-store` on state endpoints.** A cached personalized response
 > would leak a live *capability* (the grant), not merely a data snapshot.
+>
+> For large payloads the grant grows with the entity count. It rides the data plane (smaller than the
+> rows it accompanies) and, on reconnect, the same id list the subscribe frame always carried — enable
+> WebSocket `permessage-deflate` in production.
 
 A leaked grant is a capability until its `exp`: mitigate with short TTL, renewal behind the app's own
 auth, and never putting grants in URLs. Rotating the secret invalidates all outstanding grants at
@@ -31,8 +29,8 @@ once — renewals then fail, clients degrade to static, and a refetch mints fres
 ## Grant custody
 
 The grant is never something the integrator handles. `live.serve` attaches it as `$grant`;
-`useStateData` strips it before normalization, derives the `name:id` entity topics from the
-normalized result, and hands `{ grant, entities }` to the live client. A payload without `$grant`
+`useStateData` strips it before normalization and hands the grant straight to the live client — the
+entity topics ride inside the grant, so the client computes nothing. A payload without `$grant`
 simply isn't live; a store-only app hits none of this. A consumer that ignores `$grant` (curl,
 server-to-server) just sees one extra string field.
 
@@ -150,7 +148,7 @@ a fresh grant.
 
 ## Lifecycle
 
-- The client sends a `subscribe` frame (grant + entities) as soon as it has a grant — from
+- The client sends a `subscribe` frame (the grant alone; its claims carry the entities) as soon as it has a grant — from
   `readSsrGrants()` on an SSR load, or from the `$grant` lifted out of a client-side fetch. The WS
   server verifies the grant and subscribes that socket; fetch-before-connect is fine (the frame is
   replayed on open).

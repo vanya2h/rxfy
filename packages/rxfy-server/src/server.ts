@@ -1,6 +1,13 @@
 import { eq, getTableColumns, type InferInsertModel, type InferSelectModel } from "drizzle-orm";
 import { type PgColumn, type PgDatabase, type PgTable } from "drizzle-orm/pg-core";
-import { type IModelRegistry, parseShape, stateChannel, type StateDescriptor } from "rxfy";
+import {
+  collectShapeTopics,
+  type FieldsMap,
+  type IModelRegistry,
+  parseShape,
+  stateChannel,
+  type StateDescriptor,
+} from "rxfy";
 import { patch, stale } from "rxfy-protocol";
 import { signGrant, verifyGrant } from "./grant.js";
 import { channelSubscription, entitySubscription, type Hub } from "./hub.js";
@@ -49,10 +56,11 @@ export type Live = {
   touch: (...targets: TouchTarget[]) => void;
   /**
    * Parses `data` (the state's *input* shape — e.g. raw DB rows with unbranded ids and extra
-   * columns) into the state's shape via the field schemas, signs a channel grant for
-   * `stateChannel(state, params)`, and returns the parsed shape (unknown keys stripped) with the
-   * grant attached as `$grant`. Stateless: the hub is never touched — the client presents the grant
-   * on its own subscribe frame.
+   * columns) into the state's shape via the field schemas, then signs a grant for
+   * `stateChannel(state, params)` whose claims also enumerate the payload's entity topics
+   * (`name:id`). Returns the parsed shape (unknown keys stripped) with the grant attached as
+   * `$grant`. Stateless: the hub is never touched — the client presents the grant on its own
+   * subscribe frame, and the WS server authorizes exactly the channel + entities the grant names.
    */
   serve: <TParams, TShape, TShapeInput>(
     state: StateDescriptor<TParams, TShape, any, any, any, TShapeInput>,
@@ -61,14 +69,13 @@ export type Live = {
   ) => TShape & { $grant: string };
   /** Verify (with grace) and reissue one grant; null = signature invalid or beyond grace (denied). */
   renew: (grant: string) => string | null;
-  /** SSR payload: signs a grant per channel the render logged, returns the hydration script. */
+  /** SSR payload: embeds the grants the render logged (each entity-bearing) and returns the hydration script. */
   hydration: (registry: IModelRegistry) => string;
 };
 
 export function createServer(config: ServerConfig): Live {
   const { db, resources, hub } = config;
   const grantTtlMs = config.grantTtlMs ?? 15 * 60_000;
-  const signChannel = (channel: string): string => signGrant({ channel, secret: config.secret, ttlMs: grantTtlMs });
 
   const pkColumn = (resource: AnyResource): PgColumn =>
     getTableColumns(resource.table)[resource.primaryKeyColumn] as PgColumn;
@@ -132,14 +139,18 @@ export function createServer(config: ServerConfig): Live {
     serve(state, params, data) {
       const parsed = parseShape<Record<string, unknown>>(state.fields, data);
       const channel = stateChannel(state, params as Record<string, unknown>);
-      return { ...parsed, $grant: signChannel(channel!) } as never;
+      if (!channel) throw new Error("rxfy-server: serve requires a keyed state");
+      const entities = collectShapeTopics(state.fields as FieldsMap, parsed);
+      return { ...parsed, $grant: signGrant({ channel, entities, secret: config.secret, ttlMs: grantTtlMs }) } as never;
     },
     renew(grant) {
       const claims = verifyGrant(grant, { secret: config.secret, graceMs: config.renewGraceMs ?? 5 * 60_000 });
-      return claims === null ? null : signChannel(claims.channel);
+      return claims === null
+        ? null
+        : signGrant({ channel: claims.channel, entities: claims.entities, secret: config.secret, ttlMs: grantTtlMs });
     },
     hydration(registry) {
-      return grantsHydration(registry, { secret: config.secret, ttlMs: grantTtlMs });
+      return grantsHydration(registry);
     },
   };
 }

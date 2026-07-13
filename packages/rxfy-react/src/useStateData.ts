@@ -10,7 +10,6 @@ import type {
 } from "rxfy";
 import {
   attachReload,
-  collectEntityTopics,
   createFulfilled,
   createIdle,
   createPending,
@@ -97,9 +96,6 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
   const cacheKey = `${state.key}:${paramsKey}`;
   const channel = stateChannel(state, params as Record<string, unknown>);
 
-  // During SSR, log the channel so live.hydration can sign a grant for it.
-  if (typeof window === "undefined" && ssr && channel) registry.channels.add(channel);
-
   // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
   // keep a stable identity across renders (directive: as stable as possible) and across a changing
   // `defaultData` (directive: a new defaultData must not reset the stream). The closure captures
@@ -117,14 +113,13 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
     // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
     // A loader payload may also carry the reserved `$grant`; lift it before normalizing so the key
-    // never reaches the query, and subscribe the payload's entity topics when a live client is present.
+    // never reaches the query. During SSR log it for hydration; with a live client, subscribe it.
     if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
       const { $grant, ...payload } = defaultData as TShape & { $grant?: string };
       const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
       atom$.set(createFulfilled(query));
-      if ($grant !== undefined && liveClient) {
-        liveClient.subscribe($grant, collectEntityTopics(fields, query as Record<string, unknown>));
-      }
+      if (isServer && ssr && $grant !== undefined) registry.grants.add($grant);
+      if ($grant !== undefined && liveClient) liveClient.subscribe($grant);
     }
 
     // Live-updates counter for this state's channel. Null when no live client or no channel key.
@@ -140,15 +135,14 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
         (result) => {
           if (signal?.aborted) return;
           // Lift the reserved `$grant` before normalizing so the key never reaches the query. A
-          // grant marks a live endpoint; with a live client in context, subscribe the payload's
-          // entity topics. Both conditions are load-bearing: no grant → store-only endpoint; no
-          // live client → store-only app (grant dropped after stripping).
+          // grant marks a live endpoint (its claims enumerate the entities). During SSR, log it so
+          // hydration embeds it; with a live client in context, subscribe it. Both conditions are
+          // load-bearing: no grant → store-only endpoint; no live client → store-only app.
           const { $grant, ...payload } = result as TShape & { $grant?: string };
           const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
           atom$.set(createFulfilled(query));
-          if ($grant !== undefined && liveClient) {
-            liveClient.subscribe($grant, collectEntityTopics(fields, query as Record<string, unknown>));
-          }
+          if (isServer && ssr && $grant !== undefined) registry.grants.add($grant);
+          if ($grant !== undefined && liveClient) liveClient.subscribe($grant);
           counter?.reset();
         },
         (error: unknown) => {

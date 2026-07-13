@@ -25,14 +25,13 @@ export type ServerMessage = PatchMessage | StaleMessage;
 
 // --- Client -> server messages ---
 
-/** The client's ONLY outbound frame: present a signed channel grant and the raw entity topics
- *  (`name:id`) its payload normalized into. Channel access is authorized by the grant; entity
- *  topics are accepted alongside any currently-valid grant (ids are required to be unguessable). */
+/** The client's ONLY outbound frame: present a signed channel grant. The grant's claims name the
+ *  channel AND the exact entity topics (`name:id`) the served payload normalized into — the server
+ *  subscribes to those and nothing the client asks for out of band. */
 export type SubscribeMessage = {
   v: ProtocolVersion;
   kind: "subscribe";
   grant: string;
-  entities: string[];
 };
 
 export type ClientMessage = SubscribeMessage;
@@ -55,9 +54,8 @@ export const stale = (channel: string): StaleMessage => ({
   channel,
 });
 
-export const subscribe = (grant: string, entities: string[]): SubscribeMessage => ({
+export const subscribe = (grant: string): SubscribeMessage => ({
   v: PROTOCOL_VERSION,
   kind: "subscribe",
   grant,
-  entities,
 });

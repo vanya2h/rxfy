@@ -1,7 +1,7 @@
 import { Observable, Subject } from "rxjs";
 import { Atom, createAtom, type IAtom } from "../atom/atom.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
-import { type ChannelLog, createChannelLog } from "../state/channel-log.js";
+import { createGrantLog, type GrantLog } from "../state/grant-log.js";
 import type { EntityKey, ModelDescriptor } from "./model.js";
 
 export type ModelStore<TEntity> = {
@@ -47,8 +47,8 @@ export type IModelRegistry<TModels extends ModelsShape = any> = {
   store: <TName extends keyof TModels & string>(name: TName) => ModelStore<EntityOf<TModels[TName]>>;
   /** SSR query cache — fulfilled/rejected entries keyed by state key + params. */
   queries: QueryCache;
-  /** State channels materialized this request — read when signing the render's channel grants during SSR. */
-  channels: ChannelLog;
+  /** Signed grants logged during an SSR render — read by grantsHydration to embed in the script. */
+  grants: GrantLog;
   /** Keys are the registered model names; values the union of their stores (a Map cannot correlate value to key — use `store(name)` for a per-name type). */
   namedStores: () => ReadonlyMap<
     keyof TModels & string,
@@ -122,13 +122,13 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
   const named = new Map<string, ModelStore<any>>();
   const stash = new Map<string, Record<string, unknown>>();
   const queries = createQueryCache();
-  const channels = createChannelLog();
+  const grants = createGrantLog();
   // Fires once per store as it's created, so added$ subscribers can hook stores born later.
   const namedCreated = new Subject<{ name: string; store: ModelStore<any> }>();
 
   const registry: IModelRegistry = {
     queries,
-    channels,
+    grants,
     add: (descriptor) => {
       registry.model(descriptor);
       return registry;
