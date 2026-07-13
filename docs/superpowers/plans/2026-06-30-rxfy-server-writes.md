@@ -14,16 +14,16 @@ This is Plan 4 of the rxfy live framework. It implements design spec §5.3 (writ
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `packages/rxfy-server/package.json` | Add `rxfy-protocol` dep + `@electric-sql/pglite` dev dep |
-| `packages/rxfy-server/src/hub.ts` | `Hub`, `ConnId`, `PublishSink`, `createInMemoryHub` |
-| `packages/rxfy-server/src/test-db.ts` | Test-only PGlite helper (`createTestDb`) |
-| `packages/rxfy-server/src/server.ts` | `createServer`, `Live`, `touch`, `TouchTarget`, `WriteOpts` |
-| `packages/rxfy-server/src/grant.ts` | `grant` types (`GrantSpec`, `Grants`) — implemented inside server.ts, types here |
-| `packages/rxfy-server/src/index.ts` | Barrel (add hub + server) |
-| `packages/rxfy-server/src/hub.test.ts` | Hub pub/sub tests |
-| `packages/rxfy-server/src/server.test.ts` | Write + touch + grant tests (PGlite) |
+| File                                      | Responsibility                                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| `packages/rxfy-server/package.json`       | Add `rxfy-protocol` dep + `@electric-sql/pglite` dev dep                         |
+| `packages/rxfy-server/src/hub.ts`         | `Hub`, `ConnId`, `PublishSink`, `createInMemoryHub`                              |
+| `packages/rxfy-server/src/test-db.ts`     | Test-only PGlite helper (`createTestDb`)                                         |
+| `packages/rxfy-server/src/server.ts`      | `createServer`, `Live`, `touch`, `TouchTarget`, `WriteOpts`                      |
+| `packages/rxfy-server/src/grant.ts`       | `grant` types (`GrantSpec`, `Grants`) — implemented inside server.ts, types here |
+| `packages/rxfy-server/src/index.ts`       | Barrel (add hub + server)                                                        |
+| `packages/rxfy-server/src/hub.test.ts`    | Hub pub/sub tests                                                                |
+| `packages/rxfy-server/src/server.test.ts` | Write + touch + grant tests (PGlite)                                             |
 
 > `grant` is implemented as a method on `Live` (it needs the keyer closure), so its types live in `server.ts`; no separate `grant.ts` file is needed. The table row above lists it for clarity only.
 
@@ -32,25 +32,30 @@ This is Plan 4 of the rxfy live framework. It implements design spec §5.3 (writ
 ## Task 1: Add dependencies
 
 **Files:**
+
 - Modify: `packages/rxfy-server/package.json`
 
 - [ ] **Step 1: Add `rxfy-protocol` as a dependency and `@electric-sql/pglite` as a dev dependency**
 
 In `packages/rxfy-server/package.json`:
+
 - Add a `"dependencies"` block (before `"devDependencies"`):
+
 ```json
   "dependencies": {
     "rxfy-protocol": "workspace:*"
   },
 ```
+
 - Add `"@electric-sql/pglite": "^0.5.3"` to `devDependencies` (keep the list alphabetically ordered: it goes first).
 
 The `devDependencies` block becomes:
+
 ```json
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.3",
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
     "eslint": "^9.27.0",
@@ -82,6 +87,7 @@ git commit -m "chore(rxfy-server): add rxfy-protocol dep and pglite dev dep"
 ## Task 2: `hub.ts` — in-memory pub/sub hub
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/hub.ts`
 - Test: `packages/rxfy-server/src/hub.test.ts`
 
@@ -257,6 +263,7 @@ git commit -m "feat(rxfy-server): add in-memory pub/sub hub"
 ## Task 3: `test-db.ts` — PGlite test helper
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/test-db.ts`
 
 This is a test-only helper (imported by `server.test.ts`). It is NOT exported from the barrel.
@@ -295,6 +302,7 @@ git commit -m "test(rxfy-server): add PGlite test-db helper"
 ## Task 4: `server.ts` — write functions + touch + createServer
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/server.ts`
 - Test: `packages/rxfy-server/src/server.test.ts`
 
@@ -373,7 +381,10 @@ describe("createServer.update", () => {
     const row = await live.update(posts, "1", { title: "New" });
     expect(row).toEqual({ id: "1", orgId: "A", title: "New" });
     expect(received).toEqual([
-      { conn: "client", message: { v: 1, kind: "patch", name: "post", id: "1", data: { id: "1", orgId: "A", title: "New" } } },
+      {
+        conn: "client",
+        message: { v: 1, kind: "patch", name: "post", id: "1", data: { id: "1", orgId: "A", title: "New" } },
+      },
     ]);
   });
 });
@@ -412,7 +423,10 @@ describe("dynamic PK where", () => {
     const row = await live.update(widgets, "S1", { label: "L2" });
     expect(row).toEqual({ sku: "S1", label: "L2" });
     // sanity: the PgColumn lookup path is exercised
-    const [direct] = await db.select().from(widgetsTable).where(eq(getTableColumns(widgetsTable)["sku"] as PgColumn, "S1"));
+    const [direct] = await db
+      .select()
+      .from(widgetsTable)
+      .where(eq(getTableColumns(widgetsTable)["sku"] as PgColumn, "S1"));
     expect(direct.label).toBe("L2");
   });
 });
@@ -574,6 +588,7 @@ git commit -m "feat(rxfy-server): add createServer write functions and touch"
 ## Task 5: `grant` test (rxfy registry)
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/server.test.ts` (append a `grant` describe block)
 
 `grant` is already implemented in `server.ts`; this task tests it against a real rxfy model registry.
@@ -639,6 +654,7 @@ git commit -m "test(rxfy-server): cover grant against the rxfy model registry"
 ## Task 6: Barrel export, verification, and changeset
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/index.ts`
 - Create: `.changeset/rxfy-server-writes.md`
 
@@ -686,7 +702,7 @@ git commit -m "feat(rxfy-server): export hub and server; add changeset"
 ## Final Verification
 
 - [ ] Run: `pnpm turbo build test lint check-types --filter=rxfy-server`
-Expected: all four tasks succeed.
+      Expected: all four tasks succeed.
 
 ---
 

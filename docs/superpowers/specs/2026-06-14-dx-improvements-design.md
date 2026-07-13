@@ -27,7 +27,10 @@ the most common operation in the library.
 function useEntity$<T>(model: ModelDescriptor<T>, id: EntityKey<T>): Observable<T>;
 
 // imperative — status object, caller switches on type
-function useEntity<T>(model: ModelDescriptor<T>, id: EntityKey<T>): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED>;
+function useEntity<T>(
+  model: ModelDescriptor<T>,
+  id: EntityKey<T>,
+): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED>;
 ```
 
 - `useEntity$` = `useModelStore(model)` + `useMemo(() => store.get(id), [store, id])`. This is the
@@ -60,6 +63,7 @@ function denormalizeShape$<TShape>(
 ```
 
 Behavior:
+
 - `switchMap` on each `ids$` emission — re-subscribe when the query shape changes (add / remove /
   reorder).
 - Per field, build the entity stream: `single` → `store.get(id)`; `array` →
@@ -96,7 +100,7 @@ loaded" window hands back `undefined` typed as `T`, crashing downstream (`undefi
 hint why.
 
 **Invariant context.** Through the normalized dataflow this cannot happen: `normalizeResult` calls
-`store.set`/`setMany` *before* producing ids, so any id in `data$` provably corresponds to a loaded
+`store.set`/`setMany` _before_ producing ids, so any id in `data$` provably corresponds to a loaded
 entity, and `denormalizeValue` already throws on a missing entity. The undefined window only opens
 for ids that enter from **outside** the normalized flow (URL param, websocket key-only event,
 hand-written id) read before load. The guard is therefore a defensive assertion of an existing
@@ -143,6 +147,7 @@ function createLens<TSource, TTarget>(
 
 Default `equals` = `_.isEqual` (current behavior, fully backwards compatible). Thread it through the
 two `TTarget` comparison sites in `Lens`:
+
 - the `distinctUntilChanged` on the source → subject sync,
 - the `tap` write guard.
 
@@ -169,6 +174,7 @@ async-event-handler idiom; the `entity()` loaded-contract from item 6.
 values.
 
 **Touch-ups:**
+
 - `react.mdx` — document `useEntity`, `useEntity$`, `useStateEntities`.
 - `models-state.mdx` — note the `entity()` loaded-contract.
 - `core-concepts/lens.mdx` — document the `equals` option.

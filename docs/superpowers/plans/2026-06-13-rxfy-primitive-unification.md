@@ -14,21 +14,21 @@
 
 ## File Structure
 
-| File | Phase | Change |
-|---|---|---|
-| `packages/rxfy/src/index.ts` | 1 | Remove `edge` export |
-| `packages/rxfy/src/edge/` | 1 | Delete directory |
-| `packages/rxfy/src/batcher/` | 1 | Delete directory |
-| `packages/rxfy-react/src/index.tsx` | 1, 3, 4 | Remove `useEdge`/`Edge`; remove `IPendingStatus` re-export; add `useAtom` export |
-| `packages/rxfy-react/src/index.test.tsx` | 1 | Delete (Edge-only test) |
-| `packages/rxfy/src/model/model-store.ts` | 2, 4 | Atom cells; `entity()` handle |
-| `packages/rxfy/src/ssr/serialize.ts` | 3 | Add `SerializedWrapped` + `serializeWrapped`/`deserializeWrapped` |
-| `packages/rxfy/src/query/query-cache.ts` | 3 | Own `Atom<IWrapped>` per key; remove `QueryEntry` |
-| `packages/rxfy/src/ssr/hydration.ts` | 3 | `DehydratedState.queries` → `SerializedWrapped`; seed Atoms on hydrate |
-| `packages/rxfy-react/src/useStateData.ts` | 3 | Use `registry.queries.getQuery`; drive status on the Atom |
-| `packages/rxfy-react/src/usePending.ts` | 3 | Return `IWrapped<T>`; drop `onReload` |
-| `packages/rxfy-react/src/Pending.tsx` | 3 | Switch on `StatusEnum` |
-| `packages/rxfy-react/src/useAtom.ts` | 4 | New hook |
+| File                                      | Phase   | Change                                                                           |
+| ----------------------------------------- | ------- | -------------------------------------------------------------------------------- |
+| `packages/rxfy/src/index.ts`              | 1       | Remove `edge` export                                                             |
+| `packages/rxfy/src/edge/`                 | 1       | Delete directory                                                                 |
+| `packages/rxfy/src/batcher/`              | 1       | Delete directory                                                                 |
+| `packages/rxfy-react/src/index.tsx`       | 1, 3, 4 | Remove `useEdge`/`Edge`; remove `IPendingStatus` re-export; add `useAtom` export |
+| `packages/rxfy-react/src/index.test.tsx`  | 1       | Delete (Edge-only test)                                                          |
+| `packages/rxfy/src/model/model-store.ts`  | 2, 4    | Atom cells; `entity()` handle                                                    |
+| `packages/rxfy/src/ssr/serialize.ts`      | 3       | Add `SerializedWrapped` + `serializeWrapped`/`deserializeWrapped`                |
+| `packages/rxfy/src/query/query-cache.ts`  | 3       | Own `Atom<IWrapped>` per key; remove `QueryEntry`                                |
+| `packages/rxfy/src/ssr/hydration.ts`      | 3       | `DehydratedState.queries` → `SerializedWrapped`; seed Atoms on hydrate           |
+| `packages/rxfy-react/src/useStateData.ts` | 3       | Use `registry.queries.getQuery`; drive status on the Atom                        |
+| `packages/rxfy-react/src/usePending.ts`   | 3       | Return `IWrapped<T>`; drop `onReload`                                            |
+| `packages/rxfy-react/src/Pending.tsx`     | 3       | Switch on `StatusEnum`                                                           |
+| `packages/rxfy-react/src/useAtom.ts`      | 4       | New hook                                                                         |
 
 ---
 
@@ -37,6 +37,7 @@
 ### Task 1: Delete Edge and Batcher from core
 
 **Files:**
+
 - Modify: `packages/rxfy/src/index.ts:2`
 - Delete: `packages/rxfy/src/edge/edge.ts`
 - Delete: `packages/rxfy/src/batcher/index.ts`, `packages/rxfy/src/batcher/index.test.ts`
@@ -44,23 +45,28 @@
 - [ ] **Step 1: Confirm nothing in core imports Edge or Batcher**
 
 Run:
+
 ```bash
 cd /Users/ivankoryakovtsev/Work/rxfy
 grep -rn --include="*.ts" -E "from \"\.\./edge|from \"\./edge|/edge/edge|batcher" packages/rxfy/src | grep -v "src/edge/" | grep -v "src/batcher/"
 ```
+
 Expected: no output (only the deleted dirs reference themselves).
 
 - [ ] **Step 2: Remove the edge export from the barrel**
 
 In `packages/rxfy/src/index.ts`, delete this line:
+
 ```ts
 export * from "./edge/edge.js";
 ```
+
 (There is no batcher export line — Batcher was never exported.)
 
 - [ ] **Step 3: Delete the directories**
 
 Run:
+
 ```bash
 rm -rf packages/rxfy/src/edge packages/rxfy/src/batcher
 ```
@@ -68,9 +74,11 @@ rm -rf packages/rxfy/src/edge packages/rxfy/src/batcher
 - [ ] **Step 4: Verify core builds and type-checks**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy check-types && pnpm --filter rxfy test
 ```
+
 Expected: all PASS. (`wrapped.ts`, which Edge used, stays — it now serves the query layer.)
 
 - [ ] **Step 5: Commit**
@@ -83,15 +91,18 @@ git commit -m "refactor(rxfy): remove orphaned Edge and Batcher"
 ### Task 2: Remove useEdge / <Edge> from rxfy-react
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/index.tsx:1-43`
 - Delete: `packages/rxfy-react/src/index.test.tsx`
 
 - [ ] **Step 1: Confirm the React Edge has no other consumers**
 
 Run:
+
 ```bash
 grep -rn --include="*.ts" --include="*.tsx" -E "useEdge|<Edge|renderWithParams|IRenderFn" packages examples | grep -vE "rxfy-react/src/index"
 ```
+
 Expected: no output.
 
 - [ ] **Step 2: Rewrite `index.tsx` removing the Edge surface**
@@ -112,11 +123,13 @@ export { usePending } from "./usePending.js";
 export type { BoundMutations, StateHandle } from "./useStateData.js";
 export { useStateData } from "./useStateData.js";
 ```
+
 (The `IPendingStatus` re-export stays for now — Phase 3 Task 11 removes it. `useEdge`, `Edge`, `IEdgeProps`, `IRenderFn`, `renderWithParams`, and the `IEdge`/`StatusEnum` import are all gone.)
 
 - [ ] **Step 3: Delete the Edge-only test**
 
 Run:
+
 ```bash
 rm packages/rxfy-react/src/index.test.tsx
 ```
@@ -124,9 +137,11 @@ rm packages/rxfy-react/src/index.test.tsx
 - [ ] **Step 4: Verify the React package**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy-react check-types && pnpm --filter rxfy-react test
 ```
+
 Expected: all PASS. The `usePending` + `Pending` path is the documented replacement for `<Edge>`.
 
 - [ ] **Step 5: Commit**
@@ -145,6 +160,7 @@ This is an internal refactor. The public `ModelStore<T>` type is unchanged, so e
 ### Task 3: Convert ModelStore cells to Atom
 
 **Files:**
+
 - Modify: `packages/rxfy/src/model/model-store.ts:1-48`
 - Test: `packages/rxfy/src/model/model-store.test.ts`
 
@@ -193,9 +209,11 @@ If the test file lacks `postSchema`, define a minimal one at the top: `const pos
 - [ ] **Step 2: Run the new tests — they should pass against the OLD implementation too**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- model-store
 ```
+
 Expected: PASS (these assert current behavior; they guard the refactor).
 
 - [ ] **Step 3: Refactor `createModelStore` to use Atom cells**
@@ -254,9 +272,11 @@ Keep `createModelRegistry` (lines 50-89) exactly as it is — it is untouched in
 - [ ] **Step 4: Run the full core suite**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy check-types && pnpm --filter rxfy test
 ```
+
 Expected: all PASS, including the new cell-semantics tests and every existing model-store/normalize/hydration test.
 
 - [ ] **Step 5: Commit**
@@ -273,6 +293,7 @@ git commit -m "refactor(rxfy): back ModelStore cells with Atom"
 ### Task 4: Add the SerializedWrapped boundary helpers
 
 **Files:**
+
 - Modify: `packages/rxfy/src/ssr/serialize.ts`
 - Test: `packages/rxfy/src/ssr/serialize.test.ts`
 
@@ -314,9 +335,11 @@ describe("serializeWrapped / deserializeWrapped", () => {
 - [ ] **Step 2: Run it to confirm failure**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- serialize
 ```
+
 Expected: FAIL — `serializeWrapped`/`deserializeWrapped` are not exported.
 
 - [ ] **Step 3: Implement the helpers**
@@ -348,9 +371,11 @@ export function deserializeWrapped<TValue>(entry: SerializedWrapped<TValue>): IW
 - [ ] **Step 4: Run the test**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- serialize
 ```
+
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -363,6 +388,7 @@ git commit -m "feat(rxfy): add SerializedWrapped boundary helpers"
 ### Task 5: Rewrite query-cache to own Atom<IWrapped> per key
 
 **Files:**
+
 - Modify: `packages/rxfy/src/query/query-cache.ts` (full rewrite)
 - Test: `packages/rxfy/src/query/query-cache.test.ts` (rewrite to new API)
 
@@ -407,7 +433,10 @@ describe("createQueryCache", () => {
     cache.getQuery("pending").set(createPending());
     cache.getQuery("ok").set(createFulfilled(1));
     cache.getQuery("bad").set(createRejected(new Error("x")));
-    const keys = cache.entries().map(([k]) => k).sort();
+    const keys = cache
+      .entries()
+      .map(([k]) => k)
+      .sort();
     expect(keys).toEqual(["bad", "ok"]);
   });
 
@@ -433,9 +462,11 @@ describe("createQueryCache", () => {
 - [ ] **Step 2: Run to confirm failure**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- query-cache
 ```
+
 Expected: FAIL — `getQuery`/`peek` not defined.
 
 - [ ] **Step 3: Rewrite `query-cache.ts`**
@@ -500,9 +531,11 @@ export function createQueryCache(): QueryCache {
 - [ ] **Step 4: Run query-cache tests**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- query-cache
 ```
+
 Expected: PASS.
 
 - [ ] **Step 5: Commit** (core won't fully build yet — `hydration.ts` still references the old API; that is Task 6)
@@ -515,6 +548,7 @@ git commit -m "feat(rxfy): query cache owns Atom<IWrapped> per key"
 ### Task 6: Update hydration to the SerializedWrapped snapshot
 
 **Files:**
+
 - Modify: `packages/rxfy/src/ssr/hydration.ts`
 - Test: `packages/rxfy/src/ssr/hydration.test.ts`
 
@@ -546,9 +580,11 @@ it("dehydrate emits only terminal queries in SerializedWrapped form", () => {
 - [ ] **Step 2: Run to confirm failure**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- hydration
 ```
+
 Expected: FAIL — `peek`/new shape mismatch and `queries.set` no longer exists.
 
 - [ ] **Step 3: Rewrite the query parts of `hydration.ts`**
@@ -556,11 +592,13 @@ Expected: FAIL — `peek`/new shape mismatch and `queries.set` no longer exists.
 In `packages/rxfy/src/ssr/hydration.ts`:
 
 Replace the import on line 2-3:
+
 ```ts
 import { type SerializedWrapped, serializeForHtml, serializeWrapped, deserializeWrapped } from "./serialize.js";
 ```
 
 Change `DehydratedState` (lines 5-8):
+
 ```ts
 export type DehydratedState = {
   queries: Record<string, SerializedWrapped>;
@@ -569,19 +607,21 @@ export type DehydratedState = {
 ```
 
 Change the query loop in `dehydrate` (lines 15-18):
+
 ```ts
-  const queries: DehydratedState["queries"] = {};
-  for (const [key, wrapped] of registry.queries.entries()) {
-    const serialized = serializeWrapped(wrapped);
-    if (serialized) queries[key] = serialized;
-  }
+const queries: DehydratedState["queries"] = {};
+for (const [key, wrapped] of registry.queries.entries()) {
+  const serialized = serializeWrapped(wrapped);
+  if (serialized) queries[key] = serialized;
+}
 ```
 
 Change the query loop in `hydrate` (lines 38-40):
+
 ```ts
-  for (const [key, entry] of Object.entries(state.queries)) {
-    registry.queries.getQuery(key).set(deserializeWrapped(entry));
-  }
+for (const [key, entry] of Object.entries(state.queries)) {
+  registry.queries.getQuery(key).set(deserializeWrapped(entry));
+}
 ```
 
 (The `models` loops and `hydrationScript` are unchanged.)
@@ -589,9 +629,11 @@ Change the query loop in `hydrate` (lines 38-40):
 - [ ] **Step 4: Run core build + tests**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy check-types && pnpm --filter rxfy test
 ```
+
 Expected: all PASS. Core is now internally consistent on `IWrapped`.
 
 - [ ] **Step 5: Commit**
@@ -604,6 +646,7 @@ git commit -m "feat(rxfy): SerializedWrapped SSR snapshot, seed query Atoms on h
 ### Task 7: Rewire useStateData onto the query Atom
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStateData.ts` (full rewrite of the `useMemo` body and imports)
 - Test: `packages/rxfy-react/src/useStateData.test.tsx`
 
@@ -620,6 +663,7 @@ Ensure `packages/rxfy-react/src/useStateData.test.tsx` covers these (add any tha
 ```
 
 Concrete miss-then-fetch test:
+
 ```ts
 it("fetches on miss and emits ids", async () => {
   const registry = createModelRegistry();
@@ -634,14 +678,17 @@ it("fetches on miss and emits ids", async () => {
 - [ ] **Step 2: Run to confirm current state**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy-react test -- useStateData
 ```
+
 Expected: existing tests PASS against the old implementation (the new ones may already pass; they pin behavior we must preserve).
 
 - [ ] **Step 3: Rewrite `useStateData.ts`**
 
 Replace the imports (lines 1-14) with:
+
 ```ts
 import { useContext, useMemo, useState } from "react";
 import type { FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor } from "rxfy";
@@ -667,109 +714,111 @@ import { SsrContext } from "./StoreProvider.js";
 Keep `BoundMutations` and `StateHandle` types (lines 16-28) unchanged. Replace the `useMemo` body (lines 39-151) with:
 
 ```ts
-  return useMemo(() => {
-    void reloadCounter; // reload() bumps this to rebuild the handle
-    const fields = state.fields as FieldsMap;
-    const cacheKey = state.key ? `${state.key}:${stableStringify(params)}` : undefined;
-    const isServer = typeof window === "undefined";
+return useMemo(() => {
+  void reloadCounter; // reload() bumps this to rebuild the handle
+  const fields = state.fields as FieldsMap;
+  const cacheKey = state.key ? `${state.key}:${stableStringify(params)}` : undefined;
+  const isServer = typeof window === "undefined";
 
-    // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
-    const atom$: Atom<IWrapped<QueryShapeOf<TShape>>> = cacheKey
-      ? registry.queries.getQuery<QueryShapeOf<TShape>>(cacheKey)
-      : createAtom<IWrapped<QueryShapeOf<TShape>>>(createIdle());
+  // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
+  const atom$: Atom<IWrapped<QueryShapeOf<TShape>>> = cacheKey
+    ? registry.queries.getQuery<QueryShapeOf<TShape>>(cacheKey)
+    : createAtom<IWrapped<QueryShapeOf<TShape>>>(createIdle());
 
-    const settle = (run: Promise<TShape>) =>
-      run.then(
-        (result) => atom$.set(createFulfilled(normalizeResult(registry, fields, result))),
-        (error: unknown) => atom$.set(createRejected(error)),
-      );
-
-    // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
-    if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
-      if (!cacheKey) {
-        console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
-      } else {
-        const inflight = registry.queries.getPromise(cacheKey);
-        if (inflight) throw inflight; // dedup: another component already started this fetch
-        atom$.set(createPending());
-        const promise = settle(fetchFn(params, new AbortController().signal));
-        registry.queries.setPromise(cacheKey, promise);
-        throw promise;
-      }
-    }
-
-    const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
-
-    // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows pending).
-    const derived$ = atom$.pipe(
-      filter((w) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED),
-      switchMap((w) => (w.type === StatusEnum.FULFILLED ? of(w.value) : throwError(() => toError(w.error)))),
+  const settle = (run: Promise<TShape>) =>
+    run.then(
+      (result) => atom$.set(createFulfilled(normalizeResult(registry, fields, result))),
+      (error: unknown) => atom$.set(createRejected(error)),
     );
 
-    let data$: Observable<QueryShapeOf<TShape>>;
-    const settled = atom$.get().type === StatusEnum.FULFILLED || atom$.get().type === StatusEnum.REJECTED;
-    if (settled) {
-      // cache hit / hydrated: emit synchronously, no fetch (markSync lets usePending probe it at render)
-      data$ = markSync(derived$);
+  // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
+  if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
+    if (!cacheKey) {
+      console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
     } else {
-      // IDLE or shared in-flight PENDING: fetch on subscribe only if still IDLE, else just wait for settle
-      data$ = new Observable<QueryShapeOf<TShape>>((subscriber) => {
-        const sub = derived$.subscribe(subscriber);
-        let controller: AbortController | undefined;
-        if (atom$.get().type === StatusEnum.IDLE) {
-          atom$.set(createPending());
-          controller = new AbortController();
-          void settle(fetchFn(params, controller.signal));
-        }
-        return () => {
-          controller?.abort();
-          sub.unsubscribe();
-        };
-      });
+      const inflight = registry.queries.getPromise(cacheKey);
+      if (inflight) throw inflight; // dedup: another component already started this fetch
+      atom$.set(createPending());
+      const promise = settle(fetchFn(params, new AbortController().signal));
+      registry.queries.setPromise(cacheKey, promise);
+      throw promise;
     }
+  }
 
-    const writeThrough = (ids: QueryShapeOf<TShape>) => atom$.set(createFulfilled(ids));
+  const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
-    const applyUpdate = (updater: (prev: TShape) => TShape) => {
-      const current = atom$.get();
-      if (current.type !== StatusEnum.FULFILLED) return;
-      const prev = denormalizeValue<TShape>(registry, fields, current.value);
-      writeThrough(normalizeResult(registry, fields, updater(prev)));
-    };
+  // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows pending).
+  const derived$ = atom$.pipe(
+    filter((w) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED),
+    switchMap((w) => (w.type === StatusEnum.FULFILLED ? of(w.value) : throwError(() => toError(w.error)))),
+  );
 
-    const set = (valueOrUpdater: TShape | ((prev: TShape) => TShape)) => {
-      if (typeof valueOrUpdater === "function") {
-        applyUpdate(valueOrUpdater as (prev: TShape) => TShape);
-      } else {
-        writeThrough(normalizeResult(registry, fields, valueOrUpdater));
+  let data$: Observable<QueryShapeOf<TShape>>;
+  const settled = atom$.get().type === StatusEnum.FULFILLED || atom$.get().type === StatusEnum.REJECTED;
+  if (settled) {
+    // cache hit / hydrated: emit synchronously, no fetch (markSync lets usePending probe it at render)
+    data$ = markSync(derived$);
+  } else {
+    // IDLE or shared in-flight PENDING: fetch on subscribe only if still IDLE, else just wait for settle
+    data$ = new Observable<QueryShapeOf<TShape>>((subscriber) => {
+      const sub = derived$.subscribe(subscriber);
+      let controller: AbortController | undefined;
+      if (atom$.get().type === StatusEnum.IDLE) {
+        atom$.set(createPending());
+        controller = new AbortController();
+        void settle(fetchFn(params, controller.signal));
       }
-    };
+      return () => {
+        controller?.abort();
+        sub.unsubscribe();
+      };
+    });
+  }
 
-    const mutations = Object.fromEntries(
-      Object.entries(state.mutations).map(([key, reducer]) => [
-        key,
-        (...args: unknown[]) =>
-          applyUpdate((prev) => (reducer as (prev: TShape, ...a: unknown[]) => TShape)(prev, ...args)),
-      ]),
-    ) as BoundMutations<TShape, TMutations>;
+  const writeThrough = (ids: QueryShapeOf<TShape>) => atom$.set(createFulfilled(ids));
 
-    const reload = () => {
-      if (cacheKey) registry.queries.delete(cacheKey);
-      setReloadCounter((c) => c + 1);
-    };
+  const applyUpdate = (updater: (prev: TShape) => TShape) => {
+    const current = atom$.get();
+    if (current.type !== StatusEnum.FULFILLED) return;
+    const prev = denormalizeValue<TShape>(registry, fields, current.value);
+    writeThrough(normalizeResult(registry, fields, updater(prev)));
+  };
 
-    attachReload(data$, reload);
+  const set = (valueOrUpdater: TShape | ((prev: TShape) => TShape)) => {
+    if (typeof valueOrUpdater === "function") {
+      applyUpdate(valueOrUpdater as (prev: TShape) => TShape);
+    } else {
+      writeThrough(normalizeResult(registry, fields, valueOrUpdater));
+    }
+  };
 
-    return { data$, set, reload, mutations };
-  }, [params, fetchFn, reloadCounter, state, registry, ssr]);
+  const mutations = Object.fromEntries(
+    Object.entries(state.mutations).map(([key, reducer]) => [
+      key,
+      (...args: unknown[]) =>
+        applyUpdate((prev) => (reducer as (prev: TShape, ...a: unknown[]) => TShape)(prev, ...args)),
+    ]),
+  ) as BoundMutations<TShape, TMutations>;
+
+  const reload = () => {
+    if (cacheKey) registry.queries.delete(cacheKey);
+    setReloadCounter((c) => c + 1);
+  };
+
+  attachReload(data$, reload);
+
+  return { data$, set, reload, mutations };
+}, [params, fetchFn, reloadCounter, state, registry, ssr]);
 ```
 
 - [ ] **Step 4: Run the React suite**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy-react check-types && pnpm --filter rxfy-react test -- useStateData
 ```
+
 Expected: all PASS — sync cache hit, miss-fetch, reload, mutations, and rejection all behave as before, now driven by the shared Atom.
 
 - [ ] **Step 5: Commit**
@@ -782,6 +831,7 @@ git commit -m "feat(rxfy-react): drive useStateData from the registry's query At
 ### Task 8: usePending returns IWrapped; Pending switches on StatusEnum
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/usePending.ts`
 - Modify: `packages/rxfy-react/src/Pending.tsx`
 - Modify: `packages/rxfy-react/src/index.tsx` (drop `IPendingStatus` re-export)
@@ -806,9 +856,11 @@ it("returns PENDING then FULFILLED for an async source", async () => {
 - [ ] **Step 2: Run to confirm failure**
 
 Run:
+
 ```bash
 pnpm --filter rxfy-react test -- usePending Pending
 ```
+
 Expected: FAIL — `result.current.type` undefined (still returns `IPendingStatus`).
 
 - [ ] **Step 3: Rewrite `usePending.ts`**
@@ -958,6 +1010,7 @@ export function BehaviorSubjectRender<T>({ value$, children }: IBehaviorSubjectR
 - [ ] **Step 5: Drop the `IPendingStatus` re-export**
 
 In `packages/rxfy-react/src/index.tsx`, change the usePending re-export line to:
+
 ```tsx
 export type { ObservableLike } from "./usePending.js";
 export { usePending } from "./usePending.js";
@@ -966,9 +1019,11 @@ export { usePending } from "./usePending.js";
 - [ ] **Step 6: Run the React suite**
 
 Run:
+
 ```bash
 pnpm --filter rxfy-react check-types && pnpm --filter rxfy-react test
 ```
+
 Expected: all PASS.
 
 - [ ] **Step 7: Commit**
@@ -985,6 +1040,7 @@ git commit -m "refactor(rxfy-react): unify usePending/Pending on IWrapped, decou
 ### Task 9: Add ModelStore.entity(key)
 
 **Files:**
+
 - Modify: `packages/rxfy/src/model/model-store.ts`
 - Test: `packages/rxfy/src/model/model-store.test.ts`
 
@@ -1018,9 +1074,11 @@ describe("ModelStore.entity", () => {
 - [ ] **Step 2: Run to confirm failure**
 
 Run:
+
 ```bash
 pnpm --filter rxfy test -- model-store
 ```
+
 Expected: FAIL — `store.entity` is not a function.
 
 - [ ] **Step 3: Add `entity` to the type and implementation**
@@ -1028,18 +1086,21 @@ Expected: FAIL — `store.entity` is not a function.
 In `packages/rxfy/src/model/model-store.ts`:
 
 Add to the `ModelStore<T>` type (after `valueEntries`):
+
 ```ts
-  /** Writable handle over a single entity's cell — for field Lenses and form binding. */
-  entity: (key: EntityKey<T>) => IAtom<T>;
+/** Writable handle over a single entity's cell — for field Lenses and form binding. */
+entity: (key: EntityKey<T>) => IAtom<T>;
 ```
 
 Add the import:
+
 ```ts
 import { Atom, type IAtom, createAtom } from "../atom/atom.js";
 import { createLens } from "../lens/lens.js";
 ```
 
 Add to the returned object in `createModelStore` (after `valueEntries`):
+
 ```ts
     entity: (key) =>
       createLens<T | undefined, T>(getCell(key as string), {
@@ -1051,9 +1112,11 @@ Add to the returned object in `createModelStore` (after `valueEntries`):
 - [ ] **Step 4: Run core tests**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy check-types && pnpm --filter rxfy test
 ```
+
 Expected: all PASS.
 
 - [ ] **Step 5: Commit**
@@ -1066,6 +1129,7 @@ git commit -m "feat(rxfy): ModelStore.entity writable handle for field Lenses"
 ### Task 10: Add the useAtom hook
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/useAtom.ts`
 - Modify: `packages/rxfy-react/src/index.tsx`
 - Test: `packages/rxfy-react/src/useAtom.test.tsx`
@@ -1099,9 +1163,11 @@ describe("useAtom", () => {
 - [ ] **Step 2: Run to confirm failure**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy-react test -- useAtom
 ```
+
 Expected: FAIL — `./useAtom.js` does not exist.
 
 - [ ] **Step 3: Implement `useAtom.ts`**
@@ -1125,6 +1191,7 @@ export function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void] {
 - [ ] **Step 4: Export it**
 
 In `packages/rxfy-react/src/index.tsx`, add:
+
 ```tsx
 export { useAtom } from "./useAtom.js";
 ```
@@ -1132,9 +1199,11 @@ export { useAtom } from "./useAtom.js";
 - [ ] **Step 5: Run the test**
 
 Run:
+
 ```bash
 pnpm --filter rxfy-react check-types && pnpm --filter rxfy-react test -- useAtom
 ```
+
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -1147,6 +1216,7 @@ git commit -m "feat(rxfy-react): add useAtom hook for IAtom binding"
 ### Task 11: Integration test — app-wide two-way form sync
 
 **Files:**
+
 - Test: `packages/rxfy-react/src/form-sync.test.tsx` (new)
 
 - [ ] **Step 1: Write the integration test**
@@ -1211,9 +1281,11 @@ If `@testing-library/user-event` is not already a dev dependency of `rxfy-react`
 - [ ] **Step 2: Run the integration test**
 
 Run:
+
 ```bash
 pnpm --filter rxfy build && pnpm --filter rxfy-react test -- form-sync
 ```
+
 Expected: PASS — the label tracks the input through `Lens → cell → independent subscriber`.
 
 - [ ] **Step 3: Commit**
@@ -1232,26 +1304,32 @@ git commit -m "test(rxfy-react): app-wide two-way form sync via entity Lens + us
 - [ ] **Step 1: Run every gate from the repo root**
 
 Run:
+
 ```bash
 cd /Users/ivankoryakovtsev/Work/rxfy
 turbo build && turbo check-types && turbo lint && turbo test
 ```
+
 Expected: all PASS across `rxfy`, `rxfy-react`, and examples.
 
 - [ ] **Step 2: Confirm Edge/Batcher and the duplicate unions are gone**
 
 Run:
+
 ```bash
 grep -rn --include="*.ts" --include="*.tsx" -E "QueryEntry|IPendingStatus|createEdge|useEdge|\"\./edge|batcher" packages | grep -vE "/dist/"
 ```
+
 Expected: no output.
 
 - [ ] **Step 3: Add a changeset**
 
 Run:
+
 ```bash
 pnpm changeset
 ```
+
 Write a minor-bump entry for `rxfy` and `rxfy-react` describing: "Unify the data layer on Atom/Lens/Wrapped; query status is now an Atom<IWrapped>; add ModelStore.entity + useAtom for two-way binding; remove Edge and Batcher." Then commit the generated file.
 
 ```bash
@@ -1264,6 +1342,7 @@ git commit -m "chore: changeset for primitive unification"
 ## Self-Review
 
 **Spec coverage:**
+
 - Seam 1 (Wrapped universal type) → Tasks 4, 5, 6, 8. Three unions collapsed: `QueryEntry` (Task 5), `IPendingStatus` (Task 8); core `Wrapped` is the survivor. ✓
 - Seam 2 (registry owns `Atom<IWrapped>`, Approach A) → Tasks 5, 7. Keyless fallback (Task 7), promise slot kept for SSR (Tasks 5, 7). ✓
 - Seam 3a (Atom cell) → Task 3. ✓

@@ -32,21 +32,21 @@ live.serve(state, params, data) signs $grant / live.hydration(registry) signs gr
 
 **Store layer** (client state + SSR):
 
-| Read | When working on |
-|---|---|
-| `references/models-states.md` | `createModel`, `defineState`, `array`/`single`, plain value fields |
-| `references/react-bindings.md` | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table |
-| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes |
-| `references/lens-atoms.md` | `createAtom`, `createLens`, `keyLens` nested state |
-| `references/ssr.md` | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
-| `references/common-mistakes.md` | debugging — check here first for known pitfalls |
+| Read                             | When working on                                                         |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| `references/models-states.md`    | `createModel`, `defineState`, `array`/`single`, plain value fields      |
+| `references/react-bindings.md`   | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table     |
+| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes               |
+| `references/lens-atoms.md`       | `createAtom`, `createLens`, `keyLens` nested state                      |
+| `references/ssr.md`              | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
+| `references/common-mistakes.md`  | debugging — check here first for known pitfalls                         |
 
 **Real-time layer:**
 
-| Read | When working on |
-|---|---|
-| `references/framework-server.md` | `defineResource` (rxfy-server-drizzle), `createLive`, storage adapters, `live.create/update/delete/serve/hydration`, hub |
-| `references/framework-protocol.md` | patch/stale/subscribe wire format, codec, `PROTOCOL_VERSION` |
-| `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect |
-| `references/live-client.md` | `createLiveClient` (from `rxfy-client`), `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop |
-| `references/live-grants.md` | grant custody (the `$grant` lift, `subscribe` frames, renewal, `readSsrGrants`), API client wiring (`createApiClient`, `ApiProvider`, `useApi()` returning the client, the shared `RenderFn`), `live.serve`, `live.hydration` |
+| Read                                | When working on                                                                                                                                                                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `references/framework-server.md`    | `defineResource` (rxfy-server-drizzle), `createLive`, storage adapters, `live.create/update/delete/serve/hydration`, hub                                                                                                      |
+| `references/framework-protocol.md`  | patch/stale/subscribe wire format, codec, `PROTOCOL_VERSION`                                                                                                                                                                  |
+| `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect                                                                                                                                                                |
+| `references/live-client.md`         | `createLiveClient` (from `rxfy-client`), `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop                                                                                                               |
+| `references/live-grants.md`         | grant custody (the `$grant` lift, `subscribe` frames, renewal, `readSsrGrants`), API client wiring (`createApiClient`, `ApiProvider`, `useApi()` returning the client, the shared `RenderFn`), `live.serve`, `live.hydration` |

@@ -34,16 +34,16 @@ Installs one of two agent skills for AI coding assistants — `rxfy` (store + Re
 
 ## Packages
 
-| Package                                                     | Purpose                                                                     |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------- |
-| [`rxfy`](packages/rxfy)                                     | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
-| [`rxfy-react`](packages/rxfy-react)                         | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
-| [`rxfy-server`](packages/rxfy-server)                       | Storage-agnostic live server: write + publish, signed grants                |
-| [`rxfy-server-drizzle`](packages/rxfy-server-drizzle)       | Drizzle/Postgres storage adapter (`defineResource`, `drizzleStorage`)       |
-| [`rxfy-server-memory`](packages/rxfy-server-memory)         | In-memory storage adapter (`defineCollection`, `memoryStorage`)             |
-| [`rxfy-client`](packages/rxfy-client)                       | Framework-agnostic browser live runtime: grant custody, renewal, replay     |
-| [`rxfy-protocol`](packages/rxfy-protocol)                   | Wire protocol and codec for live updates                                    |
-| [`rxfy-ws`](packages/rxfy-ws)                               | Default WebSocket transport (client + server)                               |
+| Package                                               | Purpose                                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| [`rxfy`](packages/rxfy)                               | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy-react`](packages/rxfy-react)                   | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
+| [`rxfy-server`](packages/rxfy-server)                 | Storage-agnostic live server: write + publish, signed grants                |
+| [`rxfy-server-drizzle`](packages/rxfy-server-drizzle) | Drizzle/Postgres storage adapter (`defineResource`, `drizzleStorage`)       |
+| [`rxfy-server-memory`](packages/rxfy-server-memory)   | In-memory storage adapter (`defineCollection`, `memoryStorage`)             |
+| [`rxfy-client`](packages/rxfy-client)                 | Framework-agnostic browser live runtime: grant custody, renewal, replay     |
+| [`rxfy-protocol`](packages/rxfy-protocol)             | Wire protocol and codec for live updates                                    |
+| [`rxfy-ws`](packages/rxfy-ws)                         | Default WebSocket transport (client + server)                               |
 
 ## Install
 

@@ -24,7 +24,7 @@ function TodoCount({ params }: { params: object }) {
 function usePending<T>(
   source$: ObservableLike<T>,
   getDefaultValue?: () => T,
-): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>
+): IWrapped<T, StatusEnum.PENDING | StatusEnum.FULFILLED | StatusEnum.REJECTED>;
 
 type ObservableLike<T> = Observable<T> | T;
 ```

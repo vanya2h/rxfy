@@ -32,15 +32,10 @@ type ModelsShape = Record<string, ModelDescriptor<any, any, any, any>>;
 type EntityOf<D> = D extends ModelDescriptor<infer E, any, any, any> ? E : never;
 
 export type IModelRegistry<TModels extends ModelsShape = any> = {
-  add: <D extends ModelDescriptor<any, any, any, any>>(
-    descriptor: D,
-  ) => IModelRegistry<TModels & Record<D["name"], D>>;
+  add: <D extends ModelDescriptor<any, any, any, any>>(descriptor: D) => IModelRegistry<TModels & Record<D["name"], D>>;
   model: <D extends TModels[keyof TModels]>(descriptor: D) => ModelStore<EntityOf<D>>;
   store: <N extends keyof TModels & string>(name: N) => ModelStore<EntityOf<TModels[N]>>;
-  stashHydration: <N extends keyof TModels & string>(
-    name: N,
-    entities: Record<string, EntityOf<TModels[N]>>,
-  ) => void;
+  stashHydration: <N extends keyof TModels & string>(name: N, entities: Record<string, EntityOf<TModels[N]>>) => void;
   namedStores: () => ReadonlyMap<
     keyof TModels & string,
     { [K in keyof TModels]: ModelStore<EntityOf<TModels[K]>> }[keyof TModels]

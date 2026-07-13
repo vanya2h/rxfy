@@ -126,7 +126,7 @@ per-chunk hydration.
 
 ### Known limitation (documented, not built)
 
-True *per-chunk progressive* hydration — where each Suspense flush also pushes its own
+True _per-chunk progressive_ hydration — where each Suspense flush also pushes its own
 data delta — is not available in a plain Vite server. rxfy's `HydrationStream` relies on
 Next's `useServerInsertedHTML` and cannot run here. The README notes this as a potential
 future library feature (a Vite/raw-Node streaming adapter). The end-of-stream snapshot is

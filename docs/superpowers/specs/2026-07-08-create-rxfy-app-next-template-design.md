@@ -76,7 +76,7 @@ templates/next/
 
 ## Dependencies
 
-- **dependencies:** `next` (^16), `react`, `react-dom`, `rxfy` (workspace:*), `rxfy-react` (workspace:*), `rxjs`, `zod`, `lodash`.
+- **dependencies:** `next` (^16), `react`, `react-dom`, `rxfy` (workspace:_), `rxfy-react` (workspace:_), `rxjs`, `zod`, `lodash`.
 - **devDependencies:** `@types/node`, `@types/react`, `@types/react-dom`, `@types/lodash`, `typescript`, `eslint`, `eslint-config-next`, `tailwindcss`, `@tailwindcss/postcss`, `vitest`.
 
 `workspace:*` deps are rewritten to published versions by `scripts/prepare-templates.ts` at CLI build time.

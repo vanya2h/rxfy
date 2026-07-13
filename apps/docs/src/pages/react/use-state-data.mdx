@@ -20,10 +20,12 @@ function TodoApp() {
     <Pending value$={data$} pending={<p>Loading...</p>}>
       {({ todos }) => (
         <>
-          <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>
-          <button onClick={() => mutations.addTodo({ id: crypto.randomUUID(), title: "new", done: false })}>
-            Add
-          </button>
+          <ul>
+            {todos.map((id) => (
+              <TodoItem key={id} id={id} />
+            ))}
+          </ul>
+          <button onClick={() => mutations.addTodo({ id: crypto.randomUUID(), title: "new", done: false })}>Add</button>
           <button onClick={reload}>Reload</button>
         </>
       )}
@@ -38,7 +40,7 @@ function useStateData<TParams, TShape, TMutations>(config: {
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
   params: TParams;
   defaultData?: TShape;
-}): StateHandle<TShape, TMutations>
+}): StateHandle<TShape, TMutations>;
 ```
 
 `data$` emits the normalized query shape — entity ids for `array`/`single` fields, and
@@ -104,7 +106,13 @@ export default function TodoPage() {
 
   return (
     <Pending value$={data$}>
-      {({ todos }) => <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>}
+      {({ todos }) => (
+        <ul>
+          {todos.map((id) => (
+            <TodoItem key={id} id={id} />
+          ))}
+        </ul>
+      )}
     </Pending>
   );
 }

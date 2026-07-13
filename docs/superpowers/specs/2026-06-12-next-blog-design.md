@@ -39,8 +39,8 @@ examples/next-blog/
 ### Zod Schemas (`db.ts`)
 
 ```ts
-const UserSchema    = z.object({ id: z.string(), name: z.string(), email: z.string() });
-const PostSchema    = z.object({ id: z.string(), userId: z.string(), title: z.string(), body: z.string() });
+const UserSchema = z.object({ id: z.string(), name: z.string(), email: z.string() });
+const PostSchema = z.object({ id: z.string(), userId: z.string(), title: z.string(), body: z.string() });
 const CommentSchema = z.object({ id: z.string(), postId: z.string(), name: z.string(), body: z.string() });
 ```
 
@@ -55,8 +55,8 @@ All hardcoded in `db.ts` as module-level arrays. Mutations append to those array
 ### rxfy Models (`blog.ts`)
 
 ```ts
-export const userModel    = createModel(UserSchema,    { getKey: (x) => x.id, name: "user" });
-export const postModel    = createModel(PostSchema,    { getKey: (x) => x.id, name: "post" });
+export const userModel = createModel(UserSchema, { getKey: (x) => x.id, name: "user" });
+export const postModel = createModel(PostSchema, { getKey: (x) => x.id, name: "post" });
 export const commentModel = createModel(CommentSchema, { getKey: (x) => x.id, name: "comment" });
 ```
 
@@ -97,7 +97,7 @@ export const postDetailState = defineState({
 
 export async function fetchPostDetail(
   { postId }: { postId: string },
-  signal: AbortSignal
+  signal: AbortSignal,
 ): Promise<{ post: Post; author: User; comments: Comment[] }>;
 // Returns post + its author + its comments. Simulated ~400ms latency.
 ```

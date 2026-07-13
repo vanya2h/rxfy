@@ -37,7 +37,7 @@ pnpm --filter rxfy-example-ssr-pagination dev
   shared cell.
 - **Offset as cursor, derived from the loaded count.** `getCursor: ({ ids }) => ids.length` — the
   next offset is simply the number of rows already loaded. This is hydration-safe: under SSR the
-  hook hydrates page 1 from the cache and does *not* re-run the first fetch on the client, so a
+  hook hydrates page 1 from the cache and does _not_ re-run the first fetch on the client, so a
   cursor stashed during that fetch would be lost; deriving it from the id-list length works on
   both server and client. Stable `params` keep one growing list (a `params` change resets it).
 
@@ -57,6 +57,6 @@ Piping at `onShellReady` streams the shell progressively, but everything inside 
 JavaScript disabled (or for non-executing crawlers) the fallback is all that ever shows. Piping
 at `onAllReady` makes React emit the resolved markup in place: no reveal scripts, content-complete
 HTML. If you want progressive streaming for browsers, the standard hybrid is `onShellReady` for
-regular user agents and `onAllReady` for bots. (Per-chunk *data* hydration — rxfy's
+regular user agents and `onAllReady` for bots. (Per-chunk _data_ hydration — rxfy's
 `HydrationStream` — relies on Next's `useServerInsertedHTML` and can't run in a plain Vite server
 either way; the snapshot here is sent once, at the end.)

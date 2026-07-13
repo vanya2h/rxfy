@@ -103,8 +103,8 @@ have.
 
 ## `window`
 
-For live apps, `window` names the params that slice *within* a dataset — page, cursor, sort —
-as opposed to params that select *which* dataset the state shows. Windowed params are excluded
+For live apps, `window` names the params that slice _within_ a dataset — page, cursor, sort —
+as opposed to params that select _which_ dataset the state shows. Windowed params are excluded
 from the state's live invalidation channel, so every page of a list shares one channel and a
 server write marks all of them stale at once.
 

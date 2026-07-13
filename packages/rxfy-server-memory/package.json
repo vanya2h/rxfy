@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "description": "In-memory storage adapter for rxfy-server",
   "homepage": "https://rxfy.vanya2h.me",
-  "bugs": { "url": "https://github.com/vanya2h/rxfy/issues" },
+  "bugs": {
+    "url": "https://github.com/vanya2h/rxfy/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vanya2h/rxfy.git",
@@ -15,14 +17,24 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "package.json", "README.md"],
+  "files": [
+    "dist",
+    "package.json",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "check-types": "tsc --noEmit",
@@ -38,8 +50,8 @@
     "rxfy-server": "workspace:*"
   },
   "devDependencies": {
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "eslint": "^9.27.0",
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",
@@ -49,5 +61,8 @@
     "vitest": "^3.1.4",
     "zod": "^4.4.3"
   },
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org" }
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
 }

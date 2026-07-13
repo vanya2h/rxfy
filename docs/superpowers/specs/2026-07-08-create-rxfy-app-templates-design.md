@@ -15,15 +15,15 @@ Define the set of official templates bundled with `create-rxfy-app`, their stack
 
 ## Template list
 
-| Name | Display | Stack depth | Contents |
-|---|---|---|---|
-| `vite-spa` | Vite (client-only SPA) | store only | `createModel` + `defineState` + `useStateData` + `StoreProvider`; no server, no SSR. The "hello rxfy" entry point. |
-| `vite` | Vite + Hono (live SSR app) | live | Exists today. Vite SSR, React Router, Hono, Drizzle + PGlite, WebSocket live updates. Slimmed to one entity / one page (see content policy). |
-| `react-router` | React Router v7 (live SSR app) | live | RR7 framework mode with a custom Hono server carrying `rxfy-server` + `rxfy-ws`; dehydrate/hydrate SSR. |
-| `next` | Next.js (App Router) | SSR store | `rxfy` + `rxfy-react` with `rxfy-react/next` `<HydrationStream />` streaming SSR. No live stack (serverless deployment reality). |
-| `waku` | Waku | SSR store | RSC-based minimal framework; rxfy SSR hydration in client islands. |
-| `tanstack-start` | TanStack Start | SSR store | TanStack Start with rxfy dehydrate/hydrate SSR. |
-| `expo` | Expo (React Native) | store only | Client-only store on React Native. Ships last; treated as experimental until its CI story is proven (Metro toolchain, no Vite/tsup). |
+| Name             | Display                        | Stack depth | Contents                                                                                                                                     |
+| ---------------- | ------------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vite-spa`       | Vite (client-only SPA)         | store only  | `createModel` + `defineState` + `useStateData` + `StoreProvider`; no server, no SSR. The "hello rxfy" entry point.                           |
+| `vite`           | Vite + Hono (live SSR app)     | live        | Exists today. Vite SSR, React Router, Hono, Drizzle + PGlite, WebSocket live updates. Slimmed to one entity / one page (see content policy). |
+| `react-router`   | React Router v7 (live SSR app) | live        | RR7 framework mode with a custom Hono server carrying `rxfy-server` + `rxfy-ws`; dehydrate/hydrate SSR.                                      |
+| `next`           | Next.js (App Router)           | SSR store   | `rxfy` + `rxfy-react` with `rxfy-react/next` `<HydrationStream />` streaming SSR. No live stack (serverless deployment reality).             |
+| `waku`           | Waku                           | SSR store   | RSC-based minimal framework; rxfy SSR hydration in client islands.                                                                           |
+| `tanstack-start` | TanStack Start                 | SSR store   | TanStack Start with rxfy dehydrate/hydrate SSR.                                                                                              |
+| `expo`           | Expo (React Native)            | store only  | Client-only store on React Native. Ships last; treated as experimental until its CI story is proven (Metro toolchain, no Vite/tsup).         |
 
 ## Content policy: near-empty starter
 

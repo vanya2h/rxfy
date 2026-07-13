@@ -52,7 +52,11 @@ describe("collectEntityTopics", () => {
       ],
       author: { id: "9", name: "Ann" },
     });
-    expect(collectEntityTopics(fields, query as Record<string, unknown>).sort()).toEqual(["post:1", "post:2", "user:9"]);
+    expect(collectEntityTopics(fields, query as Record<string, unknown>).sort()).toEqual([
+      "post:1",
+      "post:2",
+      "user:9",
+    ]);
   });
 
   it("ignores plain-value fields", () => {

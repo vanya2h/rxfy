@@ -9,10 +9,10 @@ All messages carry a `v` field (protocol version) and a `kind` discriminant.
 
 ## Server → client
 
-| Type | `kind` | Fields | Description |
-|---|---|---|---|
+| Type           | `kind`    | Fields                            | Description                                                                                                             |
+| -------------- | --------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Live entity update. Holders of `name:id` apply it in place. `data` is validated against the model schema on the client. |
-| `StaleMessage` | `"stale"` | `v`, `kind`, `channel` | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch. |
+| `StaleMessage` | `"stale"` | `v`, `kind`, `channel`            | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch.     |
 
 `live.update` publishes a `patch` on the entity topic; `live.create` / `live.delete` /
 `live.touch` publish `stale` on the touched channels — see
@@ -20,8 +20,8 @@ All messages carry a `v` field (protocol version) and a `kind` discriminant.
 
 ## Client → server
 
-| Type | `kind` | Fields | Description |
-|---|---|---|---|
+| Type               | `kind`        | Fields                           | Description                                                                                                                                                                                                                          |
+| ------------------ | ------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `grant`, `entities` | Present a signed channel [grant](/framework/server/grants) plus the raw `name:id` entity topics the payload normalized into. The channel is authorized by the grant; entity topics are accepted alongside any currently-valid grant. |
 
 `subscribe` is the client's **only** outbound frame. The client sends one per served state (lifted

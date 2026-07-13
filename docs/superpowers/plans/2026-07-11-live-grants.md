@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript, node:crypto (HS256 JWT — no new dependency), RxJS, Vitest 3, pnpm + Turbo.
 
 **Context for a zero-context engineer:**
+
 - The published packages (all 2.0.0) ship the OLD grant flow: `createTopicKeyer`, `RXFY_SECRET`, `grant`/`GrantSpec`, subscribe frames carrying hashed tokens, `addGrants`. This branch replaced that with sessions (protocol v2, unmerged, PR #23). This plan replaces sessions with JWT grants and keeps the protocol number **2** — changesets must describe the migration **from 2.0.0's old grants**, never from sessions.
 - Entity topics use **model names** (`descriptor.name`). Patches already apply via `registry.namedStores().get(message.name)`, so `resource.name` must equal the model name for live updates — a pre-existing constraint, now also relied on by client-derived subscriptions.
 - `defineState` requires `key` on this branch, so `stateChannel(state, params)` always returns a string on the serve path — `serve` can always sign.
@@ -19,6 +20,7 @@
 ### Task 1: Spec renaming — grants become v2
 
 **Files:**
+
 - Rename: `docs/superpowers/specs/2026-07-11-live-grants-v3-design.md` → `docs/superpowers/specs/2026-07-11-live-grants-design.md`
 - Modify: the renamed file; `docs/superpowers/specs/2026-07-08-auto-grants-design.md`
 
@@ -28,7 +30,7 @@
 git mv docs/superpowers/specs/2026-07-11-live-grants-v3-design.md docs/superpowers/specs/2026-07-11-live-grants-design.md
 ```
 
-In the renamed file: title → `# Live Grants: stateless JWT channel grants on the data plane (protocol v2)`; `**Status:** Approved`; replace the `Supersedes (if approved)` line with `**Replaces (pre-release):** the session design below never shipped; this design takes protocol v2.`; replace every `v3`/`protocol v3` referring to *this* design with `v2` (the protocol section "PROTOCOL_VERSION bumps to 3" → "stays 2 — the session protocol never shipped"); in the Release section replace "Protocol v3" wording accordingly.
+In the renamed file: title → `# Live Grants: stateless JWT channel grants on the data plane (protocol v2)`; `**Status:** Approved`; replace the `Supersedes (if approved)` line with `**Replaces (pre-release):** the session design below never shipped; this design takes protocol v2.`; replace every `v3`/`protocol v3` referring to _this_ design with `v2` (the protocol section "PROTOCOL_VERSION bumps to 3" → "stays 2 — the session protocol never shipped"); in the Release section replace "Protocol v3" wording accordingly.
 
 - [ ] **Step 2: Mark the session spec superseded**
 
@@ -46,6 +48,7 @@ git commit -m "docs(spec): live grants approved as protocol v2; session design s
 ### Task 2: rxfy-protocol — `subscribe` replaces `hello`/`session`
 
 **Files:**
+
 - Modify: `packages/rxfy-protocol/src/messages.ts`, `packages/rxfy-protocol/src/codec.ts`
 - Test: `packages/rxfy-protocol/src/messages.test.ts`, `packages/rxfy-protocol/src/codec.test.ts`
 
@@ -76,9 +79,9 @@ it("rejects a subscribe frame with non-string entities", () => {
 
 it("no longer accepts hello or session frames", () => {
   expect(() => parseClientMessage(serialize({ v: PROTOCOL_VERSION, kind: "hello" } as never))).toThrow(ProtocolError);
-  expect(() =>
-    parseServerMessage(serialize({ v: PROTOCOL_VERSION, kind: "session", session: "s" } as never)),
-  ).toThrow(ProtocolError);
+  expect(() => parseServerMessage(serialize({ v: PROTOCOL_VERSION, kind: "session", session: "s" } as never))).toThrow(
+    ProtocolError,
+  );
 });
 ```
 
@@ -132,6 +135,7 @@ Update `messages.test.ts` constructor tests to match (delete hello/session cases
 ### Task 3: rxfy core — hydration payload carries `grants`
 
 **Files:**
+
 - Modify: `packages/rxfy/src/ssr/hydration.ts:4-9`
 - Test: `packages/rxfy/src/ssr/hydration.test.ts`
 
@@ -166,6 +170,7 @@ grants?: string[];
 The client must derive `name:id` topics from a normalized payload. Server-side derivation walked a throwaway registry; the client registry is shared and accumulating, so derive from the **query shape** instead.
 
 **Files:**
+
 - Modify: `packages/rxfy/src/state/normalize.ts`, `packages/rxfy/src/index.ts` (export)
 - Test: `packages/rxfy/src/state/normalize.test.ts` (or `state.test.ts` if normalize has no own test file — check first)
 
@@ -222,6 +227,7 @@ Export from `packages/rxfy/src/index.ts` next to `normalizeResult`.
 ### Task 5: rxfy-server — grant module (HS256 JWT)
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/grant.ts`
 - Test: `packages/rxfy-server/src/grant.test.ts`
 
@@ -276,8 +282,7 @@ export type GrantClaims = { channel: string; exp: number };
 
 const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
 
-const hmac = (input: string, secret: string): string =>
-  createHmac("sha256", secret).update(input).digest("base64url");
+const hmac = (input: string, secret: string): string => createHmac("sha256", secret).update(input).digest("base64url");
 
 export function signGrant(opts: { channel: string; secret: string; ttlMs: number; now?: () => number }): string {
   const now = opts.now ?? Date.now;
@@ -320,6 +325,7 @@ export function verifyGrant(
 ### Task 6: rxfy-server — socket-keyed, expiry-aware hub
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/hub.ts` (full rewrite of the hub body; keep `entitySubscription`/`channelSubscription`)
 - Test: `packages/rxfy-server/src/hub.test.ts` (rewrite session/TTL cases)
 
@@ -456,6 +462,7 @@ export function createInMemoryHub(options: HubOptions = {}): Hub {
 ### Task 7: rxfy-server — serving = signing; `renew`; grants hydration
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/server.ts`, `packages/rxfy-server/src/hydration.ts`, `packages/rxfy-server/src/hub-entry.ts`, `packages/rxfy-server/src/index.ts`
 - Test: `packages/rxfy-server/src/server.test.ts`, `packages/rxfy-server/src/hydration.test.ts`
 
@@ -570,6 +577,7 @@ Update `hub-entry.ts` (the `rxfy-server/hub` subpath): export `grantsHydration`,
 ### Task 8: rxfy-ws — server verifies subscribe frames
 
 **Files:**
+
 - Modify: `packages/rxfy-ws/src/server.ts`
 - Test: `packages/rxfy-ws/src/server.test.ts`
 
@@ -632,7 +640,10 @@ export type WsServerOptions = { secret: string };
  * to be unguessable — see the live-grants spec). Invalid frames are dropped silently: the client's
  * renewal/refetch loop is the recovery path.
  */
-export function createWsServer(hub: Hub, options: WsServerOptions): { handleConnection: (socket: ServerSocket) => void } {
+export function createWsServer(
+  hub: Hub,
+  options: WsServerOptions,
+): { handleConnection: (socket: ServerSocket) => void } {
   const sockets = new Map<ConnId, ServerSocket>();
   let nextConn: ConnId = 0;
   hub.onPublish((conn, message) => {
@@ -667,7 +678,7 @@ export function createWsServer(hub: Hub, options: WsServerOptions): { handleConn
 }
 ```
 
-(If `rxfy-server/hub` does not export a bare `e:` helper for pre-joined `name:id` topics, add `export const entityTopicSubscription = (topic: string): string => \`e:${topic}\`;` to `hub.ts` and use it instead of the inline template.)
+(If `rxfy-server/hub` does not export a bare `e:` helper for pre-joined `name:id` topics, add `export const entityTopicSubscription = (topic: string): string => \`e:${topic}\`;`to`hub.ts` and use it instead of the inline template.)
 
 - [ ] **Step 4: Run** — `pnpm --filter rxfy-ws test -- server` — expect PASS.
 
@@ -678,14 +689,19 @@ export function createWsServer(hub: Hub, options: WsServerOptions): { handleConn
 ### Task 9: rxfy-ws — client transport: send/onOpen
 
 **Files:**
+
 - Modify: `packages/rxfy-ws/src/client.ts`
 - Test: `packages/rxfy-ws/src/client.test.ts`, `packages/rxfy-ws/src/integration.test.ts`
 
 - [ ] **Step 1: Write failing tests** (replace hello-replay cases):
 
 ```ts
-it("send delivers when open and drops when not (no buffering — onOpen replay owns recovery)", () => { /* fake socket, assert */ });
-it("onOpen fires on first open and every reconnect", () => { /* open, drop, reconnect via fake factory; count callback firings */ });
+it("send delivers when open and drops when not (no buffering — onOpen replay owns recovery)", () => {
+  /* fake socket, assert */
+});
+it("onOpen fires on first open and every reconnect", () => {
+  /* open, drop, reconnect via fake factory; count callback firings */
+});
 ```
 
 Write these against the file's existing fake `WebSocketImpl` pattern (see the current hello tests for the harness — reuse it verbatim, swapping hello assertions for `send`/`onOpen`).
@@ -717,6 +733,7 @@ In `createWsClient`: delete `session`/`announced` and the hello replay; keep the
 ### Task 10: rxfy-client — grant custody, renewal loop, SSR intake
 
 **Files:**
+
 - Delete: `packages/rxfy-client/src/session.ts`, `packages/rxfy-client/src/session.test.ts`
 - Rename: `packages/rxfy-client/src/read-session.ts` → `read-grants.ts` (+ test file)
 - Modify: `packages/rxfy-client/src/live-client.ts`, `packages/rxfy-client/src/index.ts`
@@ -735,13 +752,21 @@ export function readSsrGrants(): string[] {
 - [ ] **Step 2: Write failing live-client tests** (replace session/hello cases; keep the patch/stale/counter cases as-is):
 
 ```ts
-it("subscribe() sends the frame, records the entry, and replays on onOpen", () => { /* fake transport capturing send + onOpen cb; call client.subscribe(grant, ["todo:1"]); fire onOpen; expect two identical frames */ });
-it("adopts SSR grants on startup, attaching current registry entities to the first frame", () => { /* seed __RXFY_SSR__ with grants + a registry with a hydrated store; expect subscribe frames: first carries the store's name:id topics, rest carry [] */ });
-it("renews grants before expiry via renewUrl and re-subscribes", async () => { /* stub globalThis.fetch to return fresh grants; grant with short exp; injectable now/timer — expect fetch called with the expiring grants and a re-sent subscribe */ });
-it("a failed renewal drops the entry silently", async () => { /* fetch returns { grants: [null] }; expect no re-subscribe, no throw */ });
+it("subscribe() sends the frame, records the entry, and replays on onOpen", () => {
+  /* fake transport capturing send + onOpen cb; call client.subscribe(grant, ["todo:1"]); fire onOpen; expect two identical frames */
+});
+it("adopts SSR grants on startup, attaching current registry entities to the first frame", () => {
+  /* seed __RXFY_SSR__ with grants + a registry with a hydrated store; expect subscribe frames: first carries the store's name:id topics, rest carry [] */
+});
+it("renews grants before expiry via renewUrl and re-subscribes", async () => {
+  /* stub globalThis.fetch to return fresh grants; grant with short exp; injectable now/timer — expect fetch called with the expiring grants and a re-sent subscribe */
+});
+it("a failed renewal drops the entry silently", async () => {
+  /* fetch returns { grants: [null] }; expect no re-subscribe, no throw */
+});
 ```
 
-Write complete test bodies against a fake transport `{ sent: ClientMessage[], send, onMessage, onOpen }`. Grants in tests are real `signGrant` outputs? No — rxfy-client must not depend on rxfy-server. Build test tokens inline: `` const token = (exp: number, ch = "c") => `h.${Buffer.from(JSON.stringify({ ch, exp })).toString("base64url")}.s`; `` (the client only decodes, never verifies).
+Write complete test bodies against a fake transport `{ sent: ClientMessage[], send, onMessage, onOpen }`. Grants in tests are real `signGrant` outputs? No — rxfy-client must not depend on rxfy-server. Build test tokens inline: ``const token = (exp: number, ch = "c") => `h.${Buffer.from(JSON.stringify({ ch, exp })).toString("base64url")}.s`;`` (the client only decodes, never verifies).
 
 - [ ] **Step 3: Run** — expect FAIL.
 
@@ -835,7 +860,10 @@ export function createLiveClient(config: LiveClientConfig): LiveClient {
   transport.onMessage((message) => {
     switch (message.kind) {
       case "patch":
-        registry.namedStores().get(message.name)?.set(message.id, message.data as unknown);
+        registry
+          .namedStores()
+          .get(message.name)
+          ?.set(message.id, message.data as unknown);
         break;
       case "stale": {
         const counter = counters.get(message.channel);
@@ -900,6 +928,7 @@ Update `index.ts`: export `readSsrGrants`; delete `getSessionId`/`sessionHeaders
 ### Task 11: rxfy-react — `$grant` lift in useStateData
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStateData.ts:130-141` (the `settle` function), `packages/rxfy-react/src/live-context.ts` (LiveClient type import only, if needed)
 - Test: `packages/rxfy-react/src/useStateData.live.test.tsx`
 
@@ -913,7 +942,9 @@ it("lifts $grant from the fetch result and subscribes with the payload's entity 
   // and the $grant key must NOT reach the normalized data
 });
 
-it("a payload without $grant subscribes nothing and normalizes as before", async () => { /* plain fetch, expect no subscribe call, data intact */ });
+it("a payload without $grant subscribes nothing and normalizes as before", async () => {
+  /* plain fetch, expect no subscribe call, data intact */
+});
 ```
 
 - [ ] **Step 2: Run** — expect FAIL.
@@ -946,6 +977,7 @@ The live-client interface used here is structural (`useLiveClient()`); confirm `
 ### Task 12: templates — rewire vite (and check next)
 
 **Files:**
+
 - Modify: `templates/vite/server/live.ts`, `templates/vite/server/api.ts`, `templates/vite/server/ws.ts`, `templates/vite/src/api-client.tsx`, `templates/vite/src/entry-client.tsx`, `templates/vite/server/live.smoke.test.ts`, `templates/vite/src/ssr.smoke.test.ts`
 - Check: `templates/next` (uses `hubHydration`? grep first)
 
@@ -990,6 +1022,7 @@ api.post("/live/renew", async (c) => {
 ### Task 14: changesets — describe grants against published 2.0.0
 
 **Files:**
+
 - Delete: `.changeset/live-sessions.md`
 - Create: `.changeset/live-grants.md`
 - Modify: `.changeset/rxfy-client.md`, `.changeset/hub-subpath.md`, `.changeset/hub-hydration.md`, `.changeset/serve-parses-input-shape.md`

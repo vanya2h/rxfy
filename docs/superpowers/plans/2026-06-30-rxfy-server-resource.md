@@ -16,20 +16,21 @@ This is Plan 3 of the rxfy live framework. It implements design spec §5.1 (`def
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `packages/rxfy-server/package.json` | Add drizzle/zod/rxfy as peer + dev deps |
-| `packages/rxfy-server/src/resource.ts` | `defineResource`, `Resource`, `primaryKeyColumn` |
-| `packages/rxfy-server/src/resource-registry.ts` | `createResourceRegistry`, `ResourceRegistry` |
-| `packages/rxfy-server/src/index.ts` | Barrel (add the two new modules) |
-| `packages/rxfy-server/src/resource.test.ts` | Tests for derivation + PK detection |
-| `packages/rxfy-server/src/resource-registry.test.ts` | Tests for the registry |
+| File                                                 | Responsibility                                   |
+| ---------------------------------------------------- | ------------------------------------------------ |
+| `packages/rxfy-server/package.json`                  | Add drizzle/zod/rxfy as peer + dev deps          |
+| `packages/rxfy-server/src/resource.ts`               | `defineResource`, `Resource`, `primaryKeyColumn` |
+| `packages/rxfy-server/src/resource-registry.ts`      | `createResourceRegistry`, `ResourceRegistry`     |
+| `packages/rxfy-server/src/index.ts`                  | Barrel (add the two new modules)                 |
+| `packages/rxfy-server/src/resource.test.ts`          | Tests for derivation + PK detection              |
+| `packages/rxfy-server/src/resource-registry.test.ts` | Tests for the registry                           |
 
 ---
 
 ## Task 1: Add dependencies
 
 **Files:**
+
 - Modify: `packages/rxfy-server/package.json`
 
 - [ ] **Step 1: Add `peerDependencies` and the new `devDependencies`**
@@ -44,8 +45,8 @@ Edit `packages/rxfy-server/package.json`. Add a `peerDependencies` block (place 
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
     "eslint": "^9.27.0",
@@ -82,6 +83,7 @@ git commit -m "chore(rxfy-server): add drizzle, zod, and rxfy dependencies"
 ## Task 2: `resource.ts` — `defineResource` + primary-key detection
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/resource.ts`
 - Test: `packages/rxfy-server/src/resource.test.ts`
 
@@ -235,10 +237,7 @@ export function primaryKeyColumn(table: PgTable): string {
 }
 
 /** Derive a resource (rxfy model + Zod + getKey) from a Drizzle table. No codegen. */
-export function defineResource<TTable extends PgTable>(config: {
-  table: TTable;
-  name?: string;
-}): Resource<TTable> {
+export function defineResource<TTable extends PgTable>(config: { table: TTable; name?: string }): Resource<TTable> {
   type TRow = InferSelectModel<TTable>;
 
   const pk = primaryKeyColumn(config.table);
@@ -273,6 +272,7 @@ git commit -m "feat(rxfy-server): add defineResource with Drizzle->rxfy model de
 ## Task 3: `resource-registry.ts` — `createResourceRegistry`
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/resource-registry.ts`
 - Test: `packages/rxfy-server/src/resource-registry.test.ts`
 
@@ -374,6 +374,7 @@ git commit -m "feat(rxfy-server): add createResourceRegistry"
 ## Task 4: Barrel export + full verification
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/index.ts`
 
 - [ ] **Step 1: Update the barrel**
@@ -397,6 +398,7 @@ Expected: all tests pass (foundation + resource + registry); build emits `dist/i
 - [ ] **Step 3: Verify the built surface against a real table**
 
 Run from repo root:
+
 ```bash
 node --input-type=module -e "
 import('drizzle-orm/pg-core').then(async d => {
@@ -408,7 +410,9 @@ import('drizzle-orm/pg-core').then(async d => {
   console.log(typeof reg.model('posts').getKey);
 })"
 ```
+
 Expected output (two lines):
+
 - `posts id x`
 - `function`
 
@@ -424,6 +428,7 @@ git commit -m "feat(rxfy-server): export resource and resource-registry"
 ## Task 5: Changeset
 
 **Files:**
+
 - Create: `.changeset/rxfy-server-resource.md`
 
 - [ ] **Step 1: Create the changeset**
@@ -455,7 +460,7 @@ git commit -m "chore(rxfy-server): add resource changeset"
 ## Final Verification
 
 - [ ] Run: `pnpm turbo build test lint check-types --filter=rxfy-server`
-Expected: all four tasks succeed.
+      Expected: all four tasks succeed.
 
 ---
 

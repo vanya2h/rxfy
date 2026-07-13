@@ -44,7 +44,11 @@ function Feed() {
     <Pending value$={data$} pending={<p>Loading…</p>}>
       {(ids) => (
         <>
-          <ul>{ids.map((id) => <FeedRow key={id} id={id} />)}</ul>
+          <ul>
+            {ids.map((id) => (
+              <FeedRow key={id} id={id} />
+            ))}
+          </ul>
           {hasMore && (
             <button onClick={() => loadMore()} disabled={isLoading}>
               {isLoading ? "Loading…" : "Load more"}

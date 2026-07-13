@@ -81,7 +81,7 @@ examples/example-shared/
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
-    "@vanya2h/eslint-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
     "eslint": "^9.27.0",
     "react": "^19.2.7",
     "rxfy": "workspace:*",
@@ -95,9 +95,11 @@ examples/example-shared/
   }
 }
 ```
+
 > Consumed as **source** (`exports` point at `.ts`/`.tsx`), so consuming apps transpile it. `styles.css` is exported for `import "examples-shared/styles.css"`.
 
 - [ ] **Step 2: `tsconfig.json`** — a DOM+React config that can type-check the components (mirror `examples/vite-blog-framework/tsconfig.app.json`'s compilerOptions, but self-contained with `noEmit`):
+
 ```json
 {
   "compilerOptions": {
@@ -122,6 +124,7 @@ examples/example-shared/
 ```
 
 - [ ] **Step 3: `eslint.config.ts`** (mirror the vite example's, ignoring the copied shadcn `ui`/`lib`):
+
 ```ts
 import { config } from "@vanya2h/eslint-config/react";
 import { Linter } from "eslint";
@@ -135,9 +138,10 @@ export default [
 - [ ] **Step 4: placeholder `src/index.ts`** → `export {};`
 
 - [ ] **Step 5: install + verify**
-Run `pnpm install`, then `pnpm --filter examples-shared check-types` (0) and `pnpm --filter examples-shared lint` (clean).
+      Run `pnpm install`, then `pnpm --filter examples-shared check-types` (0) and `pnpm --filter examples-shared lint` (clean).
 
 - [ ] **Step 6: commit**
+
 ```bash
 git add examples/example-shared pnpm-lock.yaml
 git commit -m "chore(examples-shared): scaffold shared package"
@@ -158,6 +162,7 @@ git commit -m "chore(examples-shared): scaffold shared package"
 - [ ] **Step 4: verify** — `pnpm --filter examples-shared check-types` (0 errors; ui files resolve `radix-ui`/`cva`/`lucide`/relative cn) and `pnpm --filter examples-shared lint` (clean — ui/lib are ignored). Run `grep -rn '@/' examples/example-shared/src/ui examples/example-shared/src/lib || echo "no @/ (good)"` → `no @/ (good)`.
 
 - [ ] **Step 5: commit**
+
 ```bash
 git add examples/example-shared/src/lib examples/example-shared/src/ui examples/example-shared/src/styles.css
 git commit -m "feat(examples-shared): shadcn ui primitives + theme (relative imports)"
@@ -170,6 +175,7 @@ git commit -m "feat(examples-shared): shadcn ui primitives + theme (relative imp
 **Files:** `src/data/{models,states,seed,index}.ts`, `src/data/seed.test.ts`.
 
 - [ ] **Step 1: `src/data/models.ts`**
+
 ```ts
 import { createModel } from "rxfy";
 import { z } from "zod";
@@ -183,7 +189,12 @@ export type CommentId = z.infer<typeof CommentIdSchema>;
 
 export const UserSchema = z.object({ id: UserIdSchema, name: z.string(), email: z.string() });
 export const PostSchema = z.object({ id: PostIdSchema, userId: UserIdSchema, title: z.string(), body: z.string() });
-export const CommentSchema = z.object({ id: CommentIdSchema, postId: PostIdSchema, name: z.string(), body: z.string() });
+export const CommentSchema = z.object({
+  id: CommentIdSchema,
+  postId: PostIdSchema,
+  name: z.string(),
+  body: z.string(),
+});
 export type User = z.infer<typeof UserSchema>;
 export type Post = z.infer<typeof PostSchema>;
 export type Comment = z.infer<typeof CommentSchema>;
@@ -194,6 +205,7 @@ export const commentModel = createModel({ schema: CommentSchema, getKey: (x) => 
 ```
 
 - [ ] **Step 2: `src/data/states.ts`**
+
 ```ts
 import { array, defineState, single } from "rxfy";
 import { z } from "zod";
@@ -217,6 +229,7 @@ export const postDetailState = defineState({
 ```
 
 - [ ] **Step 3: `src/data/seed.ts`** (canonical content; branded ids via `as`)
+
 ```ts
 import type { Comment, CommentId, Post, PostId, User, UserId } from "./models.js";
 
@@ -227,21 +240,57 @@ export const seedUsers: User[] = [
 ];
 
 export const seedPosts: Post[] = [
-  { id: "1" as PostId, userId: "1" as UserId, title: "Getting Started with rxfy", body: "rxfy is a stream-based, normalized state library built on RxJS. This post walks through Atoms, Lenses, and normalized stores." },
-  { id: "2" as PostId, userId: "2" as UserId, title: "RxJS Patterns in 2025", body: "Reactive programming has matured: clean operator chains, minimal subscription management, and colocated teardown win." },
-  { id: "3" as PostId, userId: "1" as UserId, title: "Streaming SSR with React 19", body: "React 19 makes streaming server rendering first-class; combined with Suspense you deliver fast loads without waterfalls." },
-  { id: "4" as PostId, userId: "3" as UserId, title: "Zod for Runtime Type Safety", body: "TypeScript is compile-time; Zod fills the runtime gap with a chainable schema API that doubles as a parser." },
-  { id: "5" as PostId, userId: "2" as UserId, title: "Normalized State, Explained", body: "Keeping entities in id-keyed stores and pages as id-lists keeps updates cheap and caches shareable." },
+  {
+    id: "1" as PostId,
+    userId: "1" as UserId,
+    title: "Getting Started with rxfy",
+    body: "rxfy is a stream-based, normalized state library built on RxJS. This post walks through Atoms, Lenses, and normalized stores.",
+  },
+  {
+    id: "2" as PostId,
+    userId: "2" as UserId,
+    title: "RxJS Patterns in 2025",
+    body: "Reactive programming has matured: clean operator chains, minimal subscription management, and colocated teardown win.",
+  },
+  {
+    id: "3" as PostId,
+    userId: "1" as UserId,
+    title: "Streaming SSR with React 19",
+    body: "React 19 makes streaming server rendering first-class; combined with Suspense you deliver fast loads without waterfalls.",
+  },
+  {
+    id: "4" as PostId,
+    userId: "3" as UserId,
+    title: "Zod for Runtime Type Safety",
+    body: "TypeScript is compile-time; Zod fills the runtime gap with a chainable schema API that doubles as a parser.",
+  },
+  {
+    id: "5" as PostId,
+    userId: "2" as UserId,
+    title: "Normalized State, Explained",
+    body: "Keeping entities in id-keyed stores and pages as id-lists keeps updates cheap and caches shareable.",
+  },
 ];
 
 export const seedComments: Comment[] = [
-  { id: "1" as CommentId, postId: "1" as PostId, name: "Bob Smith", body: "Great intro! The Atom primitive reminds me of Jotai." },
-  { id: "2" as CommentId, postId: "1" as PostId, name: "Carol Lee", body: "Does rxfy support derived state like Recoil selectors?" },
+  {
+    id: "1" as CommentId,
+    postId: "1" as PostId,
+    name: "Bob Smith",
+    body: "Great intro! The Atom primitive reminds me of Jotai.",
+  },
+  {
+    id: "2" as CommentId,
+    postId: "1" as PostId,
+    name: "Carol Lee",
+    body: "Does rxfy support derived state like Recoil selectors?",
+  },
   { id: "3" as CommentId, postId: "2" as PostId, name: "Alice Doe", body: "The operator-chain examples are clean." },
 ];
 ```
 
 - [ ] **Step 4: `src/data/index.ts`**
+
 ```ts
 export * from "./models.js";
 export * from "./seed.js";
@@ -249,6 +298,7 @@ export * from "./states.js";
 ```
 
 - [ ] **Step 5: `src/data/seed.test.ts`** — a data-shape smoke test (models normalize the seed; state query shapes are ids):
+
 ```ts
 import { createModelRegistry, normalizeResult } from "rxfy";
 import { describe, expect, it } from "vitest";
@@ -295,7 +345,8 @@ describe("shared blog data", () => {
 ```
 
 - [ ] **Step 6: verify + commit**
-Run `pnpm --filter examples-shared exec vitest run src/data/seed.test.ts` (pass), `pnpm --filter examples-shared check-types` (0), `pnpm --filter examples-shared lint` (fix + re-lint clean).
+      Run `pnpm --filter examples-shared exec vitest run src/data/seed.test.ts` (pass), `pnpm --filter examples-shared check-types` (0), `pnpm --filter examples-shared lint` (fix + re-lint clean).
+
 ```bash
 git add examples/example-shared/src/data
 git commit -m "feat(examples-shared): shared Zod models, states, seed + data smoke test"
@@ -308,6 +359,7 @@ git commit -m "feat(examples-shared): shared Zod models, states, seed + data smo
 **Files:** `src/blog/*.tsx`, `src/blog/index.ts`, `src/index.ts`.
 
 - [ ] **Step 1: `src/blog/BlogContext.tsx`**
+
 ```tsx
 "use client";
 import { createContext, useContext, type ReactNode } from "react";
@@ -331,6 +383,7 @@ export function useBlog(): BlogContextValue {
 ```
 
 - [ ] **Step 2: `src/blog/UpdatesBadge.tsx`**
+
 ```tsx
 "use client";
 import { RefreshCw } from "lucide-react";
@@ -338,7 +391,15 @@ import { useObservable } from "rxfy-react";
 import type { Observable } from "rxjs";
 import { Button } from "../ui/button.js";
 
-export function UpdatesBadge({ available$, onApply, noun }: { available$: Observable<number>; onApply: () => void; noun: string }) {
+export function UpdatesBadge({
+  available$,
+  onApply,
+  noun,
+}: {
+  available$: Observable<number>;
+  onApply: () => void;
+  noun: string;
+}) {
   const n = useObservable(available$, 0);
   if (n <= 0) return null;
   return (
@@ -352,6 +413,7 @@ export function UpdatesBadge({ available$, onApply, noun }: { available$: Observ
 ```
 
 - [ ] **Step 3: `src/blog/AddCommentForm.tsx`**
+
 ```tsx
 "use client";
 import { useState } from "react";
@@ -377,13 +439,16 @@ export function AddCommentForm({ postId }: { postId: string }) {
     <form className="flex flex-col gap-3" onSubmit={submit}>
       <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
       <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Your comment…" />
-      <Button type="submit" size="sm" className="self-start">Post comment</Button>
+      <Button type="submit" size="sm" className="self-start">
+        Post comment
+      </Button>
     </form>
   );
 }
 ```
 
 - [ ] **Step 4: `src/blog/CommentItem.tsx`**
+
 ```tsx
 "use client";
 import { useMemo, type ReactNode } from "react";
@@ -410,6 +475,7 @@ export function CommentItem({ id, actions }: { id: CommentId; actions?: ReactNod
 ```
 
 - [ ] **Step 5: `src/blog/PostItem.tsx`**
+
 ```tsx
 "use client";
 import { useMemo, type ReactNode } from "react";
@@ -430,15 +496,22 @@ export function PostItem({ id, actions }: { id: PostId; actions?: ReactNode }) {
             <CardTitle>
               <a
                 href={`/posts/${post.id}`}
-                onClick={(e) => { e.preventDefault(); navigate(`/posts/${post.id}`); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(`/posts/${post.id}`);
+                }}
                 className="hover:underline"
               >
                 {post.title}
               </a>
             </CardTitle>
-            <CardDescription><Author userId={post.userId} /></CardDescription>
+            <CardDescription>
+              <Author userId={post.userId} />
+            </CardDescription>
           </CardHeader>
-          <CardContent><p className="text-muted-foreground">{post.body.slice(0, 140)}…</p></CardContent>
+          <CardContent>
+            <p className="text-muted-foreground">{post.body.slice(0, 140)}…</p>
+          </CardContent>
           {actions && <CardFooter className="gap-2">{actions}</CardFooter>}
         </Card>
       )}
@@ -458,6 +531,7 @@ function Author({ userId }: { userId: UserId }) {
 ```
 
 - [ ] **Step 6: `src/blog/PostList.tsx`**
+
 ```tsx
 "use client";
 import { type ReactNode } from "react";
@@ -470,7 +544,11 @@ import { UpdatesBadge } from "./UpdatesBadge.js";
 export type PostsData = { posts: Post[]; authors: User[]; meta: { total: number; generatedAt: string } };
 export type PostsFetcher = (params: Record<never, never>, signal: AbortSignal) => Promise<PostsData>;
 
-export function PostList({ fetchPosts, header, renderItemActions }: {
+export function PostList({
+  fetchPosts,
+  header,
+  renderItemActions,
+}: {
   fetchPosts: PostsFetcher;
   header?: ReactNode;
   renderItemActions?: (id: PostId) => ReactNode;
@@ -506,13 +584,23 @@ export function PostList({ fetchPosts, header, renderItemActions }: {
 ```
 
 - [ ] **Step 7: `src/blog/PostDetail.tsx`**
+
 ```tsx
 "use client";
 import { useMemo, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Pending, useModelStore, useStateData } from "rxfy-react";
 import { combineLatest } from "rxjs";
-import { type Comment, commentModel, type CommentId, type Post, postModel, type PostId, type User, userModel } from "../data/models.js";
+import {
+  type Comment,
+  commentModel,
+  type CommentId,
+  type Post,
+  postModel,
+  type PostId,
+  type User,
+  userModel,
+} from "../data/models.js";
 import { postDetailState } from "../data/states.js";
 import { Button } from "../ui/button.js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card.js";
@@ -526,7 +614,12 @@ export type PostDetailData = { post: Post; author: User; comments: Comment[] };
 export type PostDetailFetcher = (params: { postId: PostId }, signal: AbortSignal) => Promise<PostDetailData>;
 type DetailIds = { post: PostId; author: UserId; comments: CommentId[] };
 
-export function PostDetail({ postId, fetchPostDetail, actions, renderCommentActions }: {
+export function PostDetail({
+  postId,
+  fetchPostDetail,
+  actions,
+  renderCommentActions,
+}: {
   postId: PostId;
   fetchPostDetail: PostDetailFetcher;
   actions?: ReactNode;
@@ -555,7 +648,15 @@ export function PostDetail({ postId, fetchPostDetail, actions, renderCommentActi
   );
 }
 
-function Article({ ids, actions, renderCommentActions }: { ids: DetailIds; actions?: ReactNode; renderCommentActions?: (id: CommentId) => ReactNode }) {
+function Article({
+  ids,
+  actions,
+  renderCommentActions,
+}: {
+  ids: DetailIds;
+  actions?: ReactNode;
+  renderCommentActions?: (id: CommentId) => ReactNode;
+}) {
   const postStore = useModelStore(postModel);
   const userStore = useModelStore(userModel);
   const both$ = useMemo(
@@ -588,9 +689,11 @@ function Article({ ids, actions, renderCommentActions }: { ids: DetailIds; actio
   );
 }
 ```
+
 > `useStateData(postDetailState).data$` emits the query shape `{ post: PostId; author: UserId; comments: CommentId[] }`; the `ids as DetailIds` narrows it. If TS already infers `DetailIds` exactly, drop the cast (report which).
 
 - [ ] **Step 8: `src/blog/index.ts`**
+
 ```ts
 export * from "./AddCommentForm.js";
 export * from "./BlogContext.js";
@@ -602,13 +705,15 @@ export * from "./UpdatesBadge.js";
 ```
 
 - [ ] **Step 9: top barrel `src/index.ts`** (replace the placeholder)
+
 ```ts
 export * from "./blog/index.js";
 export * from "./data/index.js";
 ```
 
 - [ ] **Step 10: verify + commit**
-Run `pnpm --filter examples-shared check-types` (0 — resolve the one `DetailIds` cast if needed) and `pnpm --filter examples-shared lint` (`eslint . --fix` then re-lint; clean; verify exit code, don't pipe through `tail`).
+      Run `pnpm --filter examples-shared check-types` (0 — resolve the one `DetailIds` cast if needed) and `pnpm --filter examples-shared lint` (`eslint . --fix` then re-lint; clean; verify exit code, don't pipe through `tail`).
+
 ```bash
 git add examples/example-shared/src/blog examples/example-shared/src/index.ts
 git commit -m "feat(examples-shared): BlogProvider + shared read components"
@@ -619,7 +724,7 @@ git commit -m "feat(examples-shared): BlogProvider + shared read components"
 ## Task 5: Final verification
 
 - [ ] **Step 1: whole-package gate**
-Run `pnpm turbo test check-types lint --filter=examples-shared` — all pass (data smoke test; types; lint). (No `build` — source package.)
+      Run `pnpm turbo test check-types lint --filter=examples-shared` — all pass (data smoke test; types; lint). (No `build` — source package.)
 - [ ] **Step 2: confirm no `@/` leaked into shared source** — `grep -rn '@/' examples/example-shared/src || echo "no @/ (good)"` → `no @/ (good)`.
 - [ ] **Step 3: confirm the public surface imports** — `node --input-type=module -e "console.log('ok')"` is not enough for a source package; instead confirm the barrel type-resolves by checking `pnpm --filter examples-shared check-types` passed (step 1). Done.
 

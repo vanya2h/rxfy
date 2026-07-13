@@ -21,6 +21,7 @@
 ## File Structure
 
 **`rxfy-server` (core) — after:**
+
 - `src/storage.ts` (new) — `LiveStorage<TBinding>` port + neutral `Resource<TInsert, TRow, TBinding>` type.
 - `src/live.ts` (new, replaces `server.ts`) — `createLive<TBinding>` + `Live<TBinding>` + `LiveConfig<TBinding>` + `WriteOpts`.
 - `src/resource-registry.ts` (modified) — retyped over the neutral `Resource`.
@@ -28,12 +29,14 @@
 - **Deleted:** `src/resource.ts` (moves to drizzle adapter), `src/server.ts` (→ `live.ts`), `src/hub-entry.ts` + `src/browser.ts` (subpaths collapse into the main entry).
 
 **`rxfy-server-drizzle` (new package):**
+
 - `src/resource.ts` — `defineResource`, `primaryKeyColumn`, `DrizzleBinding`.
 - `src/storage.ts` — `drizzleStorage(db)`.
 - `src/index.ts` — barrel.
 - scaffold: `package.json`, `tsup.config.ts`, `config.ts`, `tsconfig.json`, `eslint.config.ts`, `vitest.config.ts`.
 
 **`rxfy-server-memory` (new package):**
+
 - `src/collection.ts` — `defineCollection`, `MemoryBinding`.
 - `src/storage.ts` — `memoryStorage()`.
 - `src/index.ts` — barrel.
@@ -44,6 +47,7 @@
 ## Task 1: Core — the `LiveStorage` port + neutral `Resource`
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/storage.ts`
 - Test: `packages/rxfy-server/src/storage.test.ts`
 
@@ -132,6 +136,7 @@ git commit -m "feat(rxfy-server): add LiveStorage port and neutral Resource type
 Replaces `server.ts`. The writers persist via the port then publish/touch; grant methods come from the composed issuer.
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/live.ts`
 - Create: `packages/rxfy-server/src/live.test.ts`
 - Delete (Step 6): `packages/rxfy-server/src/server.ts`, `packages/rxfy-server/src/server.test.ts`
@@ -150,7 +155,11 @@ import { createLive } from "./live.js";
 import type { LiveStorage, Resource } from "./storage.js";
 import { touch } from "./state-channel.js";
 
-const postModel = createModel({ schema: z.object({ id: z.string(), title: z.string() }), getKey: (p) => p.id, name: "post" });
+const postModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (p) => p.id,
+  name: "post",
+});
 
 type Binding = { name: string };
 const posts: Resource<{ id: string; title: string }, { id: string; title: string }, Binding> = {
@@ -242,7 +251,11 @@ export type LiveConfig<TBinding> = {
 /** The live server: storage-neutral writers + the stateless grant half (serve/renew/hydration). */
 export type Live<TBinding> = GrantIssuer & {
   /** Insert and publish a patch. Returns the persisted row. */
-  create: <TInsert, TRow>(resource: Resource<TInsert, TRow, TBinding>, values: TInsert, opts?: WriteOpts) => Promise<TRow>;
+  create: <TInsert, TRow>(
+    resource: Resource<TInsert, TRow, TBinding>,
+    values: TInsert,
+    opts?: WriteOpts,
+  ) => Promise<TRow>;
   /** Update by id and publish a patch. Resolves `undefined` when no row matches (no patch/touch then). */
   update: <TInsert, TRow>(
     resource: Resource<TInsert, TRow, TBinding>,
@@ -316,6 +329,7 @@ git commit -m "feat(rxfy-server): createLive over the storage port; drop the Dri
 Core no longer depends on Drizzle, so the `./hub` and `./browser` subpaths (which existed only to avoid the Drizzle main entry) collapse into a single entry. `defineResource`/`resource.ts` move out in Task 5.
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/resource-registry.ts`
 - Modify: `packages/rxfy-server/src/index.ts`
 - Delete: `packages/rxfy-server/src/hub-entry.ts`, `packages/rxfy-server/src/browser.ts`, `packages/rxfy-server/src/resource.ts`
@@ -371,7 +385,12 @@ import { createResourceRegistry } from "./resource-registry.js";
 import type { Resource } from "./storage.js";
 
 const model = createModel({ schema: z.object({ id: z.string() }), getKey: (r) => r.id, name: "post" });
-const post: Resource<{ id: string }, { id: string }, null> = { name: "post", model, getKey: (r) => r.id, binding: null };
+const post: Resource<{ id: string }, { id: string }, null> = {
+  name: "post",
+  model,
+  getKey: (r) => r.id,
+  binding: null,
+};
 
 describe("createResourceRegistry", () => {
   it("indexes by name and rejects duplicates", () => {
@@ -420,6 +439,7 @@ export default defineConfig({
 - [ ] **Step 5: Update `package.json` — drop subpath exports and the Drizzle deps**
 
 In `packages/rxfy-server/package.json`:
+
 - Delete the `"./browser"` and `"./hub"` keys from `exports` (keep only `"."`).
 - Remove `drizzle-orm` and `drizzle-zod` from both `peerDependencies` and `devDependencies`.
 - Remove `@electric-sql/pglite` from `devDependencies` (Drizzle-only test dep, moves to the drizzle package).
@@ -451,7 +471,11 @@ git commit -m "refactor(rxfy-server): drizzle-free core — single entry, neutra
   "description": "Drizzle/Postgres storage adapter for rxfy-server",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": { "url": "https://github.com/vanya2h/rxfy/issues" },
-  "repository": { "type": "git", "url": "git+https://github.com/vanya2h/rxfy.git", "directory": "packages/rxfy-server-drizzle" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vanya2h/rxfy.git",
+    "directory": "packages/rxfy-server-drizzle"
+  },
   "license": "MIT",
   "author": "hi@vanya2h.me",
   "type": "module",
@@ -485,8 +509,8 @@ git commit -m "refactor(rxfy-server): drizzle-free core — single entry, neutra
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.3",
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
     "eslint": "^9.27.0",
@@ -505,6 +529,7 @@ git commit -m "refactor(rxfy-server): drizzle-free core — single entry, neutra
 - [ ] **Step 2: `config.ts`, `tsup.config.ts`, `tsconfig.json`** (copy the core's shape)
 
 `config.ts`:
+
 ```ts
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -513,10 +538,16 @@ import pkg from "./package.json";
 const currentPath = fileURLToPath(import.meta.url);
 const rootDir = path.dirname(currentPath);
 
-export const config = { name: pkg.name, rootDir, distDir: path.join(rootDir, "dist"), srcDir: path.join(rootDir, "src") };
+export const config = {
+  name: pkg.name,
+  rootDir,
+  distDir: path.join(rootDir, "dist"),
+  srcDir: path.join(rootDir, "src"),
+};
 ```
 
 `tsup.config.ts`:
+
 ```ts
 import path from "node:path";
 import { defineConfig } from "tsup";
@@ -531,6 +562,7 @@ export default defineConfig({
 ```
 
 `tsconfig.json`:
+
 ```json
 {
   "extends": "@vanya2h/typescript-config/node",
@@ -562,6 +594,7 @@ git commit -m "chore(rxfy-server-drizzle): scaffold package"
 Move the Drizzle code out of the old core `resource.ts` (now deleted) into the adapter.
 
 **Files:**
+
 - Create: `packages/rxfy-server-drizzle/src/resource.ts`
 - Create: `packages/rxfy-server-drizzle/src/storage.ts`
 - Create: `packages/rxfy-server-drizzle/src/index.ts`
@@ -641,7 +674,9 @@ export function primaryKeyColumn(table: PgTable): string {
   if (pkColumns.length === 1) return pkColumns[0]!;
   const { name, primaryKeys } = getTableConfig(table);
   if (pkColumns.length > 1 || primaryKeys.length > 0) {
-    throw new Error(`rxfy-server-drizzle: table "${name}" has a composite primary key; only single-column keys are supported`);
+    throw new Error(
+      `rxfy-server-drizzle: table "${name}" has a composite primary key; only single-column keys are supported`,
+    );
   }
   throw new Error(`rxfy-server-drizzle: table "${name}" has no primary key`);
 }
@@ -692,13 +727,20 @@ const pkCol = (binding: DrizzleBinding): PgColumn => getTableColumns(binding.tab
 export function drizzleStorage(db: PgDatabase<any, any, any>): LiveStorage<DrizzleBinding> {
   return {
     async create(binding, values) {
-      const rows = await db.insert(binding.table).values(values as never).returning();
+      const rows = await db
+        .insert(binding.table)
+        .values(values as never)
+        .returning();
       const row = (rows as unknown[])[0];
       if (row === undefined) throw new Error("rxfy-server-drizzle: insert returned no row");
       return row;
     },
     async update(binding, id, values) {
-      const rows = await db.update(binding.table).set(values as never).where(eq(pkCol(binding), id)).returning();
+      const rows = await db
+        .update(binding.table)
+        .set(values as never)
+        .where(eq(pkCol(binding), id))
+        .returning();
       return (rows as unknown[])[0]; // undefined when no row matched
     },
     async delete(binding, id) {
@@ -744,7 +786,11 @@ Same scaffold as Task 4, zero runtime deps.
   "description": "In-memory storage adapter for rxfy-server",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": { "url": "https://github.com/vanya2h/rxfy/issues" },
-  "repository": { "type": "git", "url": "git+https://github.com/vanya2h/rxfy.git", "directory": "packages/rxfy-server-memory" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vanya2h/rxfy.git",
+    "directory": "packages/rxfy-server-memory"
+  },
   "license": "MIT",
   "author": "hi@vanya2h.me",
   "type": "module",
@@ -771,8 +817,8 @@ Same scaffold as Task 4, zero runtime deps.
   },
   "peerDependencies": { "rxfy": "^2.0.0", "rxfy-server": "workspace:*" },
   "devDependencies": {
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "eslint": "^9.27.0",
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",
@@ -801,6 +847,7 @@ git commit -m "chore(rxfy-server-memory): scaffold package"
 ## Task 7: `rxfy-server-memory` — `defineCollection` + `memoryStorage`
 
 **Files:**
+
 - Create: `packages/rxfy-server-memory/src/collection.ts`
 - Create: `packages/rxfy-server-memory/src/storage.ts`
 - Create: `packages/rxfy-server-memory/src/index.ts`
@@ -815,7 +862,11 @@ import { z } from "zod";
 import { defineCollection } from "./collection.js";
 import { memoryStorage } from "./storage.js";
 
-const model = createModel({ schema: z.object({ id: z.string(), title: z.string() }), getKey: (p) => p.id, name: "post" });
+const model = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (p) => p.id,
+  name: "post",
+});
 
 describe("memoryStorage + defineCollection", () => {
   it("create / update / delete mutate the collection map", async () => {
@@ -857,7 +908,11 @@ export type Collection<TRow> = Resource<TRow, TRow, MemoryBinding> & {
   get: (id: string) => TRow | undefined;
 };
 
-export function defineCollection<TRow>(config: { name: string; model: ModelDescriptor<TRow>; seed?: TRow[] }): Collection<TRow> {
+export function defineCollection<TRow>(config: {
+  name: string;
+  model: ModelDescriptor<TRow>;
+  seed?: TRow[];
+}): Collection<TRow> {
   const rows = new Map<string, TRow>();
   const getKey = config.model.getKey;
   for (const row of config.seed ?? []) rows.set(getKey(row), row);
@@ -926,13 +981,16 @@ git commit -m "feat(rxfy-server-memory): defineCollection + memoryStorage adapte
 Canonical transform (identical shape everywhere); apply per file below.
 
 **Resource module** (e.g. `examples/vite-blog-framework/src/blog/resources.ts`):
+
 - `import { createResourceRegistry, defineResource } from "rxfy-server/browser"` → `import { createResourceRegistry } from "rxfy-server"` + `import { defineResource } from "rxfy-server-drizzle"`.
 
 **Live module** (e.g. `examples/vite-blog-framework/server/live.ts`):
+
 - `import { createInMemoryHub, createServer } from "rxfy-server"` → `import { createInMemoryHub, createLive } from "rxfy-server"` + `import { drizzleStorage } from "rxfy-server-drizzle"`.
 - `createServer({ db, resources, hub, secret })` → `createLive({ storage: drizzleStorage(db), hub, secret })`. (The `resources` registry is still exported from the resource module for tests/client wiring; it just no longer goes into the live factory.)
 
 **Files & their `package.json` (add deps `rxfy-server-drizzle: workspace:*`):**
+
 - `examples/vite-blog-framework` — `src/blog/resources.ts`, `server/live.ts`, `package.json`
 - `examples/waku-blog` — `src/server/live.ts` (+ its resources module; `grep -rn "defineResource\|createServer\|rxfy-server/browser" examples/waku-blog/src`), `package.json`
 - `examples/vite-ssr-pagination` — `server.ts` (+ resources), `package.json`
@@ -959,6 +1017,7 @@ git commit -m "refactor(examples): Drizzle examples use createLive + drizzleStor
 `rr7-blog` and `next-blog` currently hand-roll an in-memory store (`store.ts`) plus a bare-hub `issuer`. Replace the store's write side with `defineCollection` + `memoryStorage`, and swap the bare-hub `createGrantIssuer` for `createLive` (which now works without Drizzle).
 
 **Per example** (`examples/rr7-blog/app/server/`, `examples/next-blog/src/server/`):
+
 - Add dep `rxfy-server-memory: workspace:*` to `package.json`.
 - Define collections for each model (post/user/comment) via `defineCollection({ name, model, seed })`, keyed off the shared models in `examples-shared/data`.
 - `store.ts` reads (`listPosts`, `getPostDetail`, `addComment`) read from the collections' `all()`/`get()`; writes go through `live.create/update/delete`.
@@ -993,6 +1052,7 @@ git commit -m "refactor(examples): in-memory examples use rxfy-server-memory + c
 - [ ] **Step 1: Update references**
 
 Run `grep -rn "createServer\|rxfy-server/hub\|rxfy-server/browser\|GrantSpec\|defineResource" apps/docs .agents/skills` and update:
+
 - `createServer(...)` → `createLive({ storage, ... })`; note `db`/`resources` → `storage: drizzleStorage(db)`.
 - `defineResource` now imports from `rxfy-server-drizzle`; introduce `defineCollection`/`memoryStorage` from `rxfy-server-memory`.
 - Drop mentions of the `rxfy-server/hub` and `rxfy-server/browser` subpaths (core is one drizzle-free entry now).
@@ -1055,6 +1115,7 @@ git commit -m "chore: workspace green after storage-adapter migration"
 ## Self-Review
 
 **Spec coverage:**
+
 - §1 `LiveStorage<TBinding>` → Task 1. §2 neutral `Resource` → Task 1. §3 `createLive<TBinding>` → Task 2. §4 drizzle adapter → Tasks 4–5. §5 memory adapter → Tasks 6–7. §6 ripple (hub subpath collapse, rename, registry, migration) → Tasks 3, 8, 9, 10. §7 type inference (compile-time binding match) → enforced by the generic signatures in Tasks 1–2, exercised by the migrated examples in Tasks 8–9. Testing section → per-adapter tests (Tasks 2, 5, 7) + end-to-end smoke via migrations (Tasks 8–9) + Task 12. Naming (unscoped) → Tasks 4, 6.
 - No spec requirement is left without a task.
 

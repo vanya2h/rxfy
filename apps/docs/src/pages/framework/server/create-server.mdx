@@ -63,10 +63,10 @@ The returned `Live` object exposes:
 - [`live.hydration(registry)`](/framework/server/grants) — one-call SSR payload: signs one grant
   per channel the render logged, embeds them as `grants: string[]`, and returns the
   `hydrationScript` string.
-`createLive` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
-(how long past expiry a grant still renews, default 5 minutes). `Live` is generic over the
-adapter's binding — `Live<DrizzleBinding>` for `drizzleStorage`, `Live<MemoryBinding>` for
-`memoryStorage`.
+  `createLive` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
+  (how long past expiry a grant still renews, default 5 minutes). `Live` is generic over the
+  adapter's binding — `Live<DrizzleBinding>` for `drizzleStorage`, `Live<MemoryBinding>` for
+  `memoryStorage`.
 
 Its collaborators each have their own article: resources come from
 [`defineResource`](/framework/server/define-resource) (Drizzle) or `defineCollection`

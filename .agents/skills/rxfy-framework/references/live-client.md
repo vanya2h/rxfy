@@ -9,8 +9,8 @@ import { createLiveClient } from "rxfy-client";
 import { createWsClient } from "rxfy-ws/client";
 
 const liveClient = createLiveClient({
-  registry,          // IModelRegistry — the same one passed to StoreProvider
-  transport,         // ClientTransport — e.g. createWsClient() from rxfy-ws/client
+  registry, // IModelRegistry — the same one passed to StoreProvider
+  transport, // ClientTransport — e.g. createWsClient() from rxfy-ws/client
   renewUrl: "/api/live/renew", // optional — the app's grant-renewal endpoint; omit to let grants expire
   // renewLeadMs?: number — how long before exp to renew (optional)
 });
@@ -73,10 +73,15 @@ const { data$, updatesAvailable$, applyUpdates } = useStateData({
 // UpdatesBadge.tsx (abbreviated)
 const n = useObservable(available$, 0);
 if (n <= 0) return null;
-return <button onClick={onApply}>{n} new {noun}{n === 1 ? "" : "s"} · refresh</button>;
+return (
+  <button onClick={onApply}>
+    {n} new {noun}
+    {n === 1 ? "" : "s"} · refresh
+  </button>
+);
 
 // PostList.tsx
-<UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />
+<UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />;
 ```
 
 `applyUpdates` also works as the `onCreated` / `onDeleted` callback in mutation forms — local writes reset the counter and re-fetch in one step.

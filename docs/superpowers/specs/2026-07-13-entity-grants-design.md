@@ -6,14 +6,14 @@
 
 ## Summary
 
-The live-grants design authorizes the **channel** with the signed grant but accepts **entity** subscriptions on raw `name:id` topics gated only on *some* valid grant accompanying them. Any grant-holder can therefore subscribe to any entity id they can guess, which is why that design had to mandate unguessable ids ("entity ids MUST be UUIDs").
+The live-grants design authorizes the **channel** with the signed grant but accepts **entity** subscriptions on raw `name:id` topics gated only on _some_ valid grant accompanying them. Any grant-holder can therefore subscribe to any entity id they can guess, which is why that design had to mandate unguessable ids ("entity ids MUST be UUIDs").
 
 This amendment closes that gap by making the grant the **complete, server-authoritative capability**: `serve` already knows the exact entity set at sign time (it parses the payload that normalizes into those topics), so it signs those topics into the grant. The client stops sending an entity list; it forwards the grant, and the WS server subscribes to exactly the channel plus entities the grant names — nothing the client asks for out of band.
 
 Consequences:
 
 - **The "ids MUST be unguessable" mandate is removed.** Serial integer ids are safe again; a grant authorizes a fixed, signed set of entities and nothing else.
-- **No new per-message bloat on subscribe/reconnect.** The entity id list already travelled on the v2 `subscribe { grant, entities }` frame in plaintext; this design *relocates* it into the signed token (marginal cost: base64 inflation + one signature), it does not add it.
+- **No new per-message bloat on subscribe/reconnect.** The entity id list already travelled on the v2 `subscribe { grant, entities }` frame in plaintext; this design _relocates_ it into the signed token (marginal cost: base64 inflation + one signature), it does not add it.
 - **The client stops computing subscription topics.** `collectEntityTopics` moves server-side into `serve`; the client only ever forwards grants.
 - **SSR hydration stops re-signing.** The grant `serve` already produced (entities included) is logged during render and embedded verbatim; `grantsHydration` no longer needs the secret, and only genuinely-live states emit grants.
 
@@ -23,7 +23,7 @@ The stateless-server property is preserved end to end: the server still records 
 
 ## Background
 
-The live-grants spec's deciding constraint was: *"entity patches carry full rows and fan out on raw-id topics, so entity ids MUST be unguessable."* That converts a security property into an operational discipline enforced nowhere in the framework — a leaked id (URL, referrer, log line, error payload) grants any authenticated user TTL-bounded, renewable read access to that row.
+The live-grants spec's deciding constraint was: _"entity patches carry full rows and fan out on raw-id topics, so entity ids MUST be unguessable."_ That converts a security property into an operational discipline enforced nowhere in the framework — a leaked id (URL, referrer, log line, error payload) grants any authenticated user TTL-bounded, renewable read access to that row.
 
 The escape was always available and was simply not taken: **`serve` has the entity set in hand.** It parses `data` into the state shape; the same walk that the client runs (`collectEntityTopics`) to discover topics can run on the server against the parsed payload, because the field schemas carry the model descriptors (`model.name`, `model.getKey`). Signing those topics into the grant makes the client's entity list redundant — and, once redundant, untrusted input we can drop.
 
@@ -137,11 +137,11 @@ Renewal reissues the same channel + entity set with a fresh expiry.
 
 The grant's entity list scales with entity count; it matters on exactly one plane.
 
-| Plane | When | Cost |
-|---|---|---|
-| Serve → client (data) | once per fetch | Grant lists **ids**; payload carries **full rows**. Grant is strictly smaller than the data it rides with. |
-| Client → WS (subscribe / reconnect) | per sub + each reconnect | The id list **already travelled here** as `frame.entities` in v2. Marginal cost = base64 (~33%) + one signature. Not newly massive. |
-| Renew (HTTP) | every ~TTL (~15 min) | The **only** genuinely new cost: entities now ride the renew round-trip (v2 renewal did not carry them). Bounded by a highly compressible id list. |
+| Plane                               | When                     | Cost                                                                                                                                               |
+| ----------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Serve → client (data)               | once per fetch           | Grant lists **ids**; payload carries **full rows**. Grant is strictly smaller than the data it rides with.                                         |
+| Client → WS (subscribe / reconnect) | per sub + each reconnect | The id list **already travelled here** as `frame.entities` in v2. Marginal cost = base64 (~33%) + one signature. Not newly massive.                |
+| Renew (HTTP)                        | every ~TTL (~15 min)     | The **only** genuinely new cost: entities now ride the renew round-trip (v2 renewal did not carry them). Bounded by a highly compressible id list. |
 
 Mitigations:
 
@@ -157,7 +157,7 @@ If renewal must be size-independent regardless of entity count, the **digest hyb
 ## Testing
 
 - **`grant.test`** — `entities` round-trips through sign → verify; a token with tampered/missing/non-array `ents` verifies to `null`; grace-window renewal preserves entities.
-- **`ws/server.test`** — a `subscribe` frame subscribes the socket to exactly `channel + grant.entities`; an entity id *not* in the grant is never subscribed (the frame has no channel-supplied entities to smuggle).
+- **`ws/server.test`** — a `subscribe` frame subscribes the socket to exactly `channel + grant.entities`; an entity id _not_ in the grant is never subscribed (the frame has no channel-supplied entities to smuggle).
 - **`live-client.test`** — `subscribe(grant)` derives nothing client-side; reconnect (`onOpen`) replays the stored grants; renewal replaces a grant in place preserving its entity set; a denied renewal drops the channel entry.
 - **`useStateData.live.test` / `useStateData.server.test`** — lift `$grant` and subscribe with no client-computed topic list; SSR settle logs the grant; hydration embeds it and the client resubscribes on load.
 - **Smoke (examples)** — an entity with a **serial integer id** cannot be watched by a socket whose grant does not enumerate it; the full serve → grant → subscribe → patch round-trip still delivers for enumerated entities.

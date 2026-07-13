@@ -16,7 +16,7 @@ they expire. Subscription state is socket-keyed on the server and dies with the 
 > are safe.
 >
 > **Still set `Cache-Control: private, no-store` on state endpoints.** A cached personalized response
-> would leak a live *capability* (the grant), not merely a data snapshot.
+> would leak a live _capability_ (the grant), not merely a data snapshot.
 >
 > For large payloads the grant grows with the entity count. It rides the data plane (smaller than the
 > rows it accompanies) and, on reconnect, the same id list the subscribe frame always carried — enable
@@ -93,7 +93,7 @@ void api.todos.$post({ json: { title: next } }).then(() => applyUpdates());
 ## Serving = signing
 
 A read endpoint wraps its result in `live.serve(state, params, data)` — it parses the raw payload
-(the state's *input* shape: raw DB rows, unbranded ids, extra columns allowed) through the state's
+(the state's _input_ shape: raw DB rows, unbranded ids, extra columns allowed) through the state's
 schemas, signs a grant for `stateChannel(state, params)`, and returns the parsed shape (ids branded,
 unknown keys stripped) with `$grant` attached. It never touches the hub — serving is stateless.
 Raw Drizzle rows go in directly, no casts, no `req`:

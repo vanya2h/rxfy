@@ -4,11 +4,12 @@
 
 **Goal:** Replace the capability-grant live-update flow with server-held session subscriptions: the server records what each session was served and pushes updates to it; the client's entire outbound protocol is one `hello` frame.
 
-**Architecture:** The hub's subscription table (already `session → ids`) gets written by the *serve path* (`live.serve` pass-through per read endpoint, `live.hydration` for SSR) instead of by client subscribe frames carrying granted tokens. The keyer/grant machinery is deleted across all packages. Channel derivation (`stateChannel`) is consolidated into `rxfy` core, and the registry gains a `ChannelLog` that `useStateData` feeds during SSR. Spec: `docs/superpowers/specs/2026-07-08-auto-grants-design.md`.
+**Architecture:** The hub's subscription table (already `session → ids`) gets written by the _serve path_ (`live.serve` pass-through per read endpoint, `live.hydration` for SSR) instead of by client subscribe frames carrying granted tokens. The keyer/grant machinery is deleted across all packages. Channel derivation (`stateChannel`) is consolidated into `rxfy` core, and the registry gains a `ChannelLog` that `useStateData` feeds during SSR. Spec: `docs/superpowers/specs/2026-07-08-auto-grants-design.md`.
 
 **Tech Stack:** TypeScript, pnpm + Turbo monorepo, tsup, Vitest 3, RxJS, zod, drizzle + PGlite (tests), Hono (template/example servers).
 
 **Conventions for this plan:**
+
 - Run package tests with `pnpm turbo test --filter=<pkg>` (turbo builds dependencies first).
 - Commit messages are plain conventional commits — NO `Co-Authored-By` or AI-attribution trailers.
 - `Read` any file before editing it. Line numbers cited below are pre-change positions; verify before editing.
@@ -32,6 +33,7 @@ git checkout -b feat/live-sessions
 The single channel-derivation implementation, replacing the duplicated copies in `rxfy-react/src/live/channel.ts` and `rxfy-server/src/state-channel.ts` (those are migrated in Tasks 6 and 9).
 
 **Files:**
+
 - Create: `packages/rxfy/src/state/channel.ts`
 - Create: `packages/rxfy/src/state/channel.test.ts`
 - Modify: `packages/rxfy/src/index.ts`
@@ -148,6 +150,7 @@ git commit -m "feat(rxfy): canonical stateChannel derivation in core"
 ### Task 2: `rxfy` core — `ChannelLog` on the registry
 
 **Files:**
+
 - Create: `packages/rxfy/src/state/channel-log.ts`
 - Create: `packages/rxfy/src/state/channel-log.test.ts`
 - Modify: `packages/rxfy/src/model/model-store.ts` (IModelRegistry type ~line 29, createModelRegistry ~line 106, added$ doc comment ~lines 37–43)
@@ -218,8 +221,8 @@ In `packages/rxfy/src/model/model-store.ts`:
 2. In the `IModelRegistry` type, after the `queries: QueryCache;` line, add:
 
 ```ts
-  /** State channels materialized this request — read by live-session registration during SSR. */
-  channels: ChannelLog;
+/** State channels materialized this request — read by live-session registration during SSR. */
+channels: ChannelLog;
 ```
 
 3. In `createModelRegistry()`, next to `const queries = createQueryCache();` add `const channels = createChannelLog();`, and add `channels,` to the returned object (next to `queries,`).
@@ -248,6 +251,7 @@ git commit -m "feat(rxfy): ChannelLog on the model registry"
 ### Task 3: `rxfy` core — hydration carries `session`, not `grants`
 
 **Files:**
+
 - Modify: `packages/rxfy/src/ssr/hydration.ts` (line 7)
 - Modify: `packages/rxfy/src/ssr/hydration.test.ts` (grants round-trip describe, ~lines 79–88)
 
@@ -310,6 +314,7 @@ git commit -m "feat(rxfy): hydration payload carries a live session id instead o
 ### Task 4: `rxfy-protocol` v2 — `hello` only
 
 **Files:**
+
 - Modify: `packages/rxfy-protocol/src/messages.ts`
 - Modify: `packages/rxfy-protocol/src/codec.ts` (parseClientMessage, ~lines 63–79)
 - Modify: `packages/rxfy-protocol/src/messages.test.ts`, `packages/rxfy-protocol/src/codec.test.ts`
@@ -410,6 +415,7 @@ git commit -m "feat(rxfy-protocol): v2 — hello frame replaces subscribe/unsubs
 ### Task 5: `rxfy-server` — session-keyed hub with TTL
 
 **Files:**
+
 - Rewrite: `packages/rxfy-server/src/hub.ts`
 - Rewrite: `packages/rxfy-server/src/hub.test.ts`
 
@@ -661,6 +667,7 @@ git commit -m "feat(rxfy-server): session-keyed hub with bind/release TTL lifecy
 ### Task 6: `rxfy-server` — `serve`/`hydration`, keyer and grants deleted
 
 **Files:**
+
 - Rewrite: `packages/rxfy-server/src/server.ts`
 - Rewrite: `packages/rxfy-server/src/state-channel.ts` (thin wrapper over core)
 - Delete: `packages/rxfy-server/src/topic-key.ts`, `packages/rxfy-server/src/topic-key.test.ts`
@@ -962,6 +969,7 @@ git commit -m "feat(rxfy-server): serve/hydration session registration; keyer an
 ### Task 7: `rxfy-ws` — server binds sessions on hello
 
 **Files:**
+
 - Rewrite: `packages/rxfy-ws/src/server.ts`
 - Rewrite: `packages/rxfy-ws/src/server.test.ts`
 
@@ -1125,6 +1133,7 @@ git commit -m "feat(rxfy-ws): hello-driven session binding on the server"
 ### Task 8: `rxfy-ws` — hello-replaying client transport
 
 **Files:**
+
 - Modify: `packages/rxfy-ws/src/client.ts`
 - Rewrite: `packages/rxfy-ws/src/client.test.ts`
 - Rewrite: `packages/rxfy-ws/src/integration.test.ts`
@@ -1252,9 +1261,9 @@ export type ClientTransport = {
 3. In `createWsClient`, replace `const active = new Set<string>();` with `let session: string | undefined;`. In `connect()`'s `"open"` listener, replace the active-set replay with:
 
 ```ts
-    socket.addEventListener("open", () => {
-      if (session) send(serialize(helloFrame(session)));
-    });
+socket.addEventListener("open", () => {
+  if (session) send(serialize(helloFrame(session)));
+});
 ```
 
 4. Replace the returned `subscribe`/`unsubscribe` methods with:
@@ -1341,6 +1350,7 @@ git commit -m "feat(rxfy-ws): hello-replaying client transport"
 ### Task 9: `rxfy-react` — channel from core + SSR channel recording
 
 **Files:**
+
 - Delete: `packages/rxfy-react/src/live/channel.ts`, `packages/rxfy-react/src/live/channel.test.ts` (cases already ported to core in Task 1)
 - Modify: `packages/rxfy-react/src/useStateData.ts` (imports ~line 26; record after ~line 98)
 - Modify: `packages/rxfy-react/src/index.tsx` (lines 1–2)
@@ -1372,8 +1382,8 @@ Expected: FAIL — `registry.channels.all()` is empty.
 2. After the line `const channel = stateChannel(state, params as Record<string, unknown>);` add:
 
 ```ts
-  // During SSR, log the channel so live.hydration can register this session's subscription.
-  if (typeof window === "undefined" && ssr && channel) registry.channels.add(channel);
+// During SSR, log the channel so live.hydration can register this session's subscription.
+if (typeof window === "undefined" && ssr && channel) registry.channels.add(channel);
 ```
 
 3. Delete the react copy:
@@ -1408,6 +1418,7 @@ git commit -m "feat(rxfy-react): use core stateChannel; record SSR channels on t
 ### Task 10: `rxfy-react` — sink-only live client + `readSsrSession`
 
 **Files:**
+
 - Rewrite: `packages/rxfy-react/src/live/live-client.ts`
 - Rewrite: `packages/rxfy-react/src/live/live-client.test.ts`
 - Delete: `packages/rxfy-react/src/live/read-grants.ts`, `packages/rxfy-react/src/live/read-grants.test.ts`
@@ -1622,7 +1633,7 @@ export { RXFY_SESSION_HEADER } from "rxfy-protocol";
 In `packages/rxfy-react/src/useStateData.live.test.tsx` line ~28, the stub client loses `addGrants`:
 
 ```ts
-  const client: LiveClient = { channel, stop: vi.fn() };
+const client: LiveClient = { channel, stop: vi.fn() };
 ```
 
 - [ ] **Step 10.4: Run to verify it passes**
@@ -1642,13 +1653,14 @@ git commit -m "feat(rxfy-react): sink-only live client with session hello; readS
 ### Task 11: Template migration (`templates/vite`)
 
 **Files:**
+
 - Create: `templates/vite/src/session.ts`
 - Modify: `templates/vite/src/api-client.ts`, `templates/vite/src/entry-client.tsx`, `templates/vite/src/entry-server.tsx`, `templates/vite/server/api.ts`, `templates/vite/server/live.ts`, `templates/vite/server/render.ts`
 - Delete: `templates/vite/src/live-singleton.ts`, `templates/vite/src/routes.ts`
 - Modify: `templates/vite/src/ssr.smoke.test.ts`, `templates/vite/server/live.smoke.test.ts`
 - Unchanged: `templates/vite/server/ws.ts` (createWsServer(hub) signature is the same)
 
-**Critical wiring note:** in dev, `entry-server.tsx` is loaded through Vite's SSR module graph while `server/*` runs in the tsx graph — two module instances. Hub subscriptions are now *state*, so the SSR render MUST use the tsx-graph `live` instance. Fix: `render(url, live)` — the server passes its `live` in; `entry-server.tsx` stops importing `../server/live.js` entirely.
+**Critical wiring note:** in dev, `entry-server.tsx` is loaded through Vite's SSR module graph while `server/*` runs in the tsx graph — two module instances. Hub subscriptions are now _state_, so the SSR render MUST use the tsx-graph `live` instance. Fix: `render(url, live)` — the server passes its `live` in; `entry-server.tsx` stops importing `../server/live.js` entirely.
 
 - [ ] **Step 11.1: Update the smoke tests first (they define done)**
 
@@ -1955,6 +1967,7 @@ git commit -m "feat(template-vite): session-based live updates — grants flow r
 Same shape as Task 11, applied to the blog example. Its extra wrinkle: two states (`postsState`, `postDetailState`) and `matchRoute` in `routes.ts` (which stays — only `routeStates` is deleted).
 
 **Files:**
+
 - Create: `examples/vite-blog-framework/src/session.ts` (same content as the template's, Step 11.3)
 - Modify: `examples/vite-blog-framework/src/blog/api-client.ts`, `src/entry-client.tsx`, `src/entry-server.tsx`, `src/routes.ts`, `server/api.ts`, `server/live.ts`, `server/render.ts` (or wherever its render invocation lives — find with `grep -rn "entry-server" examples/vite-blog-framework/server`)
 - Delete: `examples/vite-blog-framework/src/live-singleton.ts`
@@ -2050,12 +2063,13 @@ git commit -m "feat(example-vite-blog): migrate to session-based live updates"
 ### Task 13: Skill references (`.claude/skills/rxfy-framework`)
 
 **Files:**
+
 - Replace: `.claude/skills/rxfy-framework/references/grants-hydration.md` → `live-sessions.md`
 - Modify: `.claude/skills/rxfy-framework/SKILL.md`, `references/framework-server.md`, `references/framework-protocol.md`, `references/framework-transport.md`, `references/live-client.md`
 
 - [ ] **Step 13.1:** `git rm .claude/skills/rxfy-framework/references/grants-hydration.md` and create `.claude/skills/rxfy-framework/references/live-sessions.md`:
 
-```markdown
+````markdown
 # Live sessions
 
 There are no grants and no client subscriptions. The server tracks what each browser session was
@@ -2073,6 +2087,7 @@ served and pushes updates for exactly that. The client's entire outbound protoco
 import { readSsrSession } from "rxfy-react";
 export const sessionId = readSsrSession() ?? crypto.randomUUID();
 ```
+````
 
 Attach it to every API request and to the live client:
 
@@ -2124,13 +2139,14 @@ single instance.
 
 - `touch(channelDescriptor, params)` on writes — only the app knows which lists a write invalidates.
 - One `live.serve` per read endpoint — the server can't see what a plain Drizzle read served.
-```
+
+````
 
 - [ ] **Step 13.2:** Update the other references (grep-driven):
 
 ```bash
 grep -rn "grant\|keyer\|readSsrGrants\|addGrants\|subscribe" .claude/skills/rxfy-framework
-```
+````
 
 - `SKILL.md`: update the reference-table row `grants-hydration.md` → `live-sessions.md` ("session identity, live.serve, live.hydration, hub TTL"); update the data-flow diagram lines (`hub.publish(patch) → WebSocket` stays; remove grant/allow-list wording); update the module table for `framework-server.md` (add `serve`, `hydration`; drop topic keyer).
 - `framework-server.md`: remove the `createTopicKeyer` section; document `createServer({ db, resources, hub })`, `serve`, `hydration`, hub `bind`/`release`/TTL.
@@ -2174,6 +2190,7 @@ git commit -m "docs: session-based live updates — grants and keyer pages repla
 ### Task 15: Changeset
 
 **Files:**
+
 - Create: `.changeset/live-sessions.md`
 
 - [ ] **Step 15.1:** Create `.changeset/live-sessions.md`:

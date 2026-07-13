@@ -22,17 +22,17 @@ normalized stores — real-time is built in, not bolted on.
 
 ✅ built in · ➖ possible, but you wire it up · ❌ not addressed
 
-|                   | rxfy                                     | Redux Toolkit                     | MobX 6                    | Jotai            | TanStack Query              |
-| ----------------- | ---------------------------------------- | --------------------------------- | ------------------------- | ---------------- | --------------------------- |
-| **Model**         | Reactive states over normalized entities | Immutable store + reducers        | Mutable observables       | Composable atoms | Async cache keyed by query key |
-| **Reactivity**    | Only the changed entity's subscribers    | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers | Components subscribed to the query key |
-| **Data fetching** | ✅                                       | ➖ RTK Query                      | ❌                        | ➖ async atoms   | ✅                          |
-| **Normalization** | ✅                                       | ➖ manual                         | ❌                        | ➖ manual        | ➖ manual                   |
-| **SSR**           | ✅                                       | ➖ manual                         | ❌                        | ➖ helpers       | ✅ hydrate/dehydrate        |
-| **Real-time**     | ✅ [live framework](/getting-started/framework) | ➖ manual                  | ❌                        | ➖ manual        | ➖ manual                   |
-| **Validation**    | ✅ Zod                                   | ❌                                | ❌                        | ❌               | ❌                          |
-| **Boilerplate**   | Low                                      | Moderate                          | Very low                  | Very low         | Low                         |
-| **Core deps**     | `rxjs`, `zod`, `lodash`                  | `@reduxjs/toolkit`, `react-redux` | `mobx`, `mobx-react-lite` | `jotai`          | `@tanstack/react-query`     |
+|                   | rxfy                                            | Redux Toolkit                            | MobX 6                                 | Jotai                          | TanStack Query                         |
+| ----------------- | ----------------------------------------------- | ---------------------------------------- | -------------------------------------- | ------------------------------ | -------------------------------------- |
+| **Model**         | Reactive states over normalized entities        | Immutable store + reducers               | Mutable observables                    | Composable atoms               | Async cache keyed by query key         |
+| **Reactivity**    | Only the changed entity's subscribers           | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers | Components subscribed to the query key |
+| **Data fetching** | ✅                                              | ➖ RTK Query                             | ❌                                     | ➖ async atoms                 | ✅                                     |
+| **Normalization** | ✅                                              | ➖ manual                                | ❌                                     | ➖ manual                      | ➖ manual                              |
+| **SSR**           | ✅                                              | ➖ manual                                | ❌                                     | ➖ helpers                     | ✅ hydrate/dehydrate                   |
+| **Real-time**     | ✅ [live framework](/getting-started/framework) | ➖ manual                                | ❌                                     | ➖ manual                      | ➖ manual                              |
+| **Validation**    | ✅ Zod                                          | ❌                                       | ❌                                     | ❌                             | ❌                                     |
+| **Boilerplate**   | Low                                             | Moderate                                 | Very low                               | Very low                       | Low                                    |
+| **Core deps**     | `rxjs`, `zod`, `lodash`                         | `@reduxjs/toolkit`, `react-redux`        | `mobx`, `mobx-react-lite`              | `jotai`                        | `@tanstack/react-query`                |
 
 **Core deps** lists the store path. The real-time ✅ is the opt-in
 [framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` / `rxfy-client` packages
@@ -118,7 +118,7 @@ handles background refetching, staleness, and request dedup, and ships
 `dehydrate`/`HydrationBoundary` for SSR. It is unopinionated about the shape of your data — the
 cache stores whatever the query function returns.
 
-The split is **document cache vs normalized cells**. React Query keys the *response*, so the
+The split is **document cache vs normalized cells**. React Query keys the _response_, so the
 same entity returned by two queries lives in two cache entries; a mutation typically
 **invalidates** the affected keys and triggers a refetch to reconcile them. rxfy normalizes the
 response into one cell per entity, so an entity edit — a mutation or a live push — writes the

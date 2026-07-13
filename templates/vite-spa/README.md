@@ -17,12 +17,12 @@ pnpm dev
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Vite dev server |
-| `pnpm build` | Production bundle into `dist/` |
-| `pnpm preview` | Serve the production build |
-| `pnpm test` | Render smoke test |
-| `pnpm check-types` | Typecheck |
+| Script             | What it does                   |
+| ------------------ | ------------------------------ |
+| `pnpm dev`         | Vite dev server                |
+| `pnpm build`       | Production bundle into `dist/` |
+| `pnpm preview`     | Serve the production build     |
+| `pnpm test`        | Render smoke test              |
+| `pnpm check-types` | Typecheck                      |
 
 Docs: https://rxfy.vanya2h.me

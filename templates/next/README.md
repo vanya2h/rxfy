@@ -21,13 +21,13 @@ Open http://localhost:3000. The todo list is server-rendered (view source — th
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Next dev server |
-| `pnpm build` | Production build |
-| `pnpm start` | Serve the production build |
-| `pnpm test` | SSR-prefetch smoke test |
-| `pnpm lint` | ESLint |
-| `pnpm check-types` | Typecheck |
+| Script             | What it does               |
+| ------------------ | -------------------------- |
+| `pnpm dev`         | Next dev server            |
+| `pnpm build`       | Production build           |
+| `pnpm start`       | Serve the production build |
+| `pnpm test`        | SSR-prefetch smoke test    |
+| `pnpm lint`        | ESLint                     |
+| `pnpm check-types` | Typecheck                  |
 
 Docs: https://rxfy.vanya2h.me

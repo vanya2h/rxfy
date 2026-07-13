@@ -26,6 +26,7 @@ A server-rendered blog with three entity types — users, posts, comments — an
 The files touched in this guide:
 
 :::file-tree
+
 - src/
   - blog/
     - resources.ts
@@ -40,7 +41,7 @@ The files touched in this guide:
   - api.ts
   - render.ts
   - render-types.ts
-:::
+    :::
 
 ::::steps
 
@@ -165,11 +166,7 @@ import { live } from "./live.js";
 
 ```ts [server/api.ts (posts)]
 // POST /posts — create a post, mark the posts list as stale
-const row = await live.create(
-  postResource,
-  { id: newId(), userId, title, body },
-  { touch: [touch(postsState, {})] },
-);
+const row = await live.create(postResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
 
 // PATCH /posts/:id — update fields, push a live patch to every reader
 const row = await live.update(postResource, c.req.param("id"), patch);
@@ -226,9 +223,7 @@ import type { AppType } from "../../server/api.js";
 export type ApiFetch = Hono["request"];
 
 export function createApiClient(serverFetch?: ApiFetch) {
-  return serverFetch
-    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch })
-    : hc<AppType>("/api");
+  return serverFetch ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) : hc<AppType>("/api");
 }
 ```
 

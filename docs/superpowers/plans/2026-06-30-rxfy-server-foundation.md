@@ -14,25 +14,26 @@ This is Plan 2 of the rxfy live framework (after `rxfy-protocol`). It implements
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `packages/rxfy-server/package.json` | Package manifest — `.` export, no runtime deps yet |
-| `packages/rxfy-server/tsconfig.json` | Extends repo shared node tsconfig |
-| `packages/rxfy-server/config.ts` | tsup path config (mirrors `packages/rxfy/config.ts`) |
-| `packages/rxfy-server/tsup.config.ts` | Build config |
-| `packages/rxfy-server/vitest.config.ts` | Vitest node + globals |
-| `packages/rxfy-server/eslint.config.ts` | Lint config |
-| `packages/rxfy-server/src/topic-key.ts` | `createTopicKeyer`, `TopicKeyer`, `TopicKeyerConfig` |
-| `packages/rxfy-server/src/state-channel.ts` | `invalidationChannel`, `WindowSpec`, `StateChannelDescriptor` |
-| `packages/rxfy-server/src/index.ts` | Barrel re-export |
-| `packages/rxfy-server/src/topic-key.test.ts` | Tests for the keyer |
-| `packages/rxfy-server/src/state-channel.test.ts` | Tests for channel derivation |
+| File                                             | Responsibility                                                |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| `packages/rxfy-server/package.json`              | Package manifest — `.` export, no runtime deps yet            |
+| `packages/rxfy-server/tsconfig.json`             | Extends repo shared node tsconfig                             |
+| `packages/rxfy-server/config.ts`                 | tsup path config (mirrors `packages/rxfy/config.ts`)          |
+| `packages/rxfy-server/tsup.config.ts`            | Build config                                                  |
+| `packages/rxfy-server/vitest.config.ts`          | Vitest node + globals                                         |
+| `packages/rxfy-server/eslint.config.ts`          | Lint config                                                   |
+| `packages/rxfy-server/src/topic-key.ts`          | `createTopicKeyer`, `TopicKeyer`, `TopicKeyerConfig`          |
+| `packages/rxfy-server/src/state-channel.ts`      | `invalidationChannel`, `WindowSpec`, `StateChannelDescriptor` |
+| `packages/rxfy-server/src/index.ts`              | Barrel re-export                                              |
+| `packages/rxfy-server/src/topic-key.test.ts`     | Tests for the keyer                                           |
+| `packages/rxfy-server/src/state-channel.test.ts` | Tests for channel derivation                                  |
 
 ---
 
 ## Task 1: Scaffold the `rxfy-server` package
 
 **Files:**
+
 - Create: `packages/rxfy-server/package.json`
 - Create: `packages/rxfy-server/tsconfig.json`
 - Create: `packages/rxfy-server/config.ts`
@@ -76,10 +77,7 @@ This is Plan 2 of the rxfy live framework (after `rxfy-protocol`). It implements
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "package.json"
-  ],
+  "files": ["dist", "package.json"],
   "scripts": {
     "build": "tsup",
     "check-types": "tsc --noEmit",
@@ -91,8 +89,8 @@ This is Plan 2 of the rxfy live framework (after `rxfy-protocol`). It implements
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "eslint": "^9.27.0",
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",
@@ -204,6 +202,7 @@ git commit -m "chore(rxfy-server): scaffold package"
 ## Task 2: `topic-key.ts` — windowed HMAC topic-id deriver
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/topic-key.ts`
 - Test: `packages/rxfy-server/src/topic-key.test.ts`
 
@@ -329,6 +328,7 @@ git commit -m "feat(rxfy-server): add windowed HMAC topic-key deriver"
 ## Task 3: `state-channel.ts` — invalidation-channel derivation
 
 **Files:**
+
 - Create: `packages/rxfy-server/src/state-channel.ts`
 - Test: `packages/rxfy-server/src/state-channel.test.ts`
 
@@ -359,9 +359,7 @@ describe("invalidationChannel", () => {
 
   it("is independent of partition-param key order", () => {
     const s = { key: "posts" };
-    expect(invalidationChannel(s, { orgId: "A", team: "X" })).toBe(
-      invalidationChannel(s, { team: "X", orgId: "A" }),
-    );
+    expect(invalidationChannel(s, { orgId: "A", team: "X" })).toBe(invalidationChannel(s, { team: "X", orgId: "A" }));
   });
 
   it("returns just the state key when there are no partition params", () => {
@@ -370,15 +368,11 @@ describe("invalidationChannel", () => {
   });
 
   it("encodes primitive partition values without quotes", () => {
-    expect(invalidationChannel({ key: "items" }, { tier: 2, active: true })).toBe(
-      "items:active=true&tier=2",
-    );
+    expect(invalidationChannel({ key: "items" }, { tier: 2, active: true })).toBe("items:active=true&tier=2");
   });
 
   it("ignores undefined params", () => {
-    expect(invalidationChannel({ key: "posts" }, { orgId: "A", note: undefined })).toBe(
-      "posts:orgId=A",
-    );
+    expect(invalidationChannel({ key: "posts" }, { orgId: "A", note: undefined })).toBe("posts:orgId=A");
   });
 
   it("JSON-encodes object-valued partition params deterministically", () => {
@@ -425,10 +419,7 @@ const stableKey = (params: Record<string, unknown>): string =>
  * dropped so every window of the same partition shares one channel. Pure and identical on client
  * and server, so the strings always match.
  */
-export function invalidationChannel(
-  state: StateChannelDescriptor,
-  params: Record<string, unknown>,
-): string {
+export function invalidationChannel(state: StateChannelDescriptor, params: Record<string, unknown>): string {
   const windowKeys = new Set<string>(state.window ?? []);
   const partition: Record<string, unknown> = {};
   for (const key of Object.keys(params)) {
@@ -460,6 +451,7 @@ git commit -m "feat(rxfy-server): add invalidationChannel derivation"
 ## Task 4: Barrel export and full verification
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/index.ts`
 
 - [ ] **Step 1: Replace the placeholder barrel**
@@ -481,10 +473,13 @@ Expected: all tests pass; build emits `dist/index.{js,cjs,d.ts,d.cts}`; check-ty
 - [ ] **Step 3: Verify the built surface is importable**
 
 Run from repo root:
+
 ```bash
 node --input-type=module -e "import('./packages/rxfy-server/dist/index.js').then(m => { const k = m.createTopicKeyer({ secret: 's', windowMs: 1000, now: () => 5000 }); console.log(typeof k.current('post:1')); console.log(m.invalidationChannel({ key: 'posts', window: ['page'] }, { orgId: 'A', page: 1 })); })"
 ```
+
 Expected output (two lines):
+
 - `string`
 - `posts:orgId=A`
 
@@ -500,6 +495,7 @@ git commit -m "feat(rxfy-server): export topic-key and state-channel"
 ## Task 5: Changeset
 
 **Files:**
+
 - Create: `.changeset/rxfy-server-foundation.md`
 
 - [ ] **Step 1: Create the changeset**

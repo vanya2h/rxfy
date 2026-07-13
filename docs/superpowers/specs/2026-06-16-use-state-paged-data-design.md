@@ -33,11 +33,11 @@ opaque token) and the merge strategy (append, prepend, dedup, multi-field).
 function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations>(config: {
   state: StateDescriptor<TParams, TShape, TMutations>;
   params: TParams;
-  initial: TShape;                                                  // empty seed, e.g. { users: [] }
+  initial: TShape; // empty seed, e.g. { users: [] }
   fetchPage: (args: { cursor: TCursor; params: TParams; signal: AbortSignal }) => Promise<TPage>;
   getCursor: (args: { ids: QueryShapeOf<TShape>; pageIndex: number }) => TCursor;
   merge: (args: { prev: TShape; page: TPage }) => TShape;
-  hasMore?: (args: { page: TPage }) => boolean;                     // omitted ⇒ infinite
+  hasMore?: (args: { page: TPage }) => boolean; // omitted ⇒ infinite
 }): StateHandle<TShape, TMutations> & {
   loadMore: () => void;
   isLoading: boolean;
@@ -96,8 +96,9 @@ A single `fetchPage` handles every page, including the first. The hook synthesiz
 ```ts
 const emptyIds = normalizeResult(registry, state.fields, initial); // QueryShapeOf<TShape> with empty arrays
 const fetchFirst = (params, signal) =>
-  fetchPage({ cursor: getCursor({ ids: emptyIds, pageIndex: 0 }), params, signal })
-    .then((page) => merge({ prev: initial, page }));
+  fetchPage({ cursor: getCursor({ ids: emptyIds, pageIndex: 0 }), params, signal }).then((page) =>
+    merge({ prev: initial, page }),
+  );
 ```
 
 Because `fetchFirst` returns a `TShape`, **SSR, query caching, dedup, and hydration work
