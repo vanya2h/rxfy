@@ -30,6 +30,7 @@
     "rxfy-client": "workspace:*",
     "rxfy-react": "workspace:*",
     "rxfy-server": "workspace:*",
+    "rxfy-server-drizzle": "workspace:*",
     "rxfy-ws": "workspace:*",
     "rxjs": "^7.8.2",
     "zod": "^4.4.3"

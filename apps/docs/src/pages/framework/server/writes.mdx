@@ -5,7 +5,7 @@ All three accept an optional `{ touch: [...] }` option to mark state channels st
 
 `server/api.ts` pulls together four things declared elsewhere — the tabs below show each one:
 
-- `live` — the `Live` object from [`createServer`](/framework/server/create-server).
+- `live` — the `Live` object from [`createLive`](/framework/server/create-server).
 - `postResource` — a resource from [`defineResource`](/framework/server/define-resource).
 - `postsState` — a state from [`defineState`](/rxfy/define-state), the **same state you pass to
   `useStateData`** on the client. It already carries the `{ key, window }` a channel needs, so it
@@ -34,24 +34,22 @@ await live.delete(postResource, postId, { touch: [touch(postsState, {})] });
 ```
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer } from "rxfy-server";
-import { resources } from "../src/blog/resources.js";
+import { createInMemoryHub, createLive } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 export const hub = createInMemoryHub();
 
-export const live = createServer({ db, resources, hub });
+export const live = createLive({ storage: drizzleStorage(db), hub });
 ```
 
 ```ts [src/blog/resources.ts]
 import { postModel, userModel } from "./models.js";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { defineResource } from "rxfy-server-drizzle";
 import { posts, users } from "../db/schema.js";
 
 export const userResource = defineResource({ table: users, model: userModel });
 export const postResource = defineResource({ table: posts, model: postModel });
-
-export const resources = createResourceRegistry([userResource, postResource]);
 ```
 
 ```ts [src/blog/states.ts]

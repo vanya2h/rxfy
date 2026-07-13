@@ -1,13 +1,16 @@
 # rxfy-server [Bind Drizzle tables, write, and publish live updates]
 
-`rxfy-server` bridges Drizzle ORM tables with rxfy models, handles database writes, and
-publishes live update messages through a hub. Install it server-side only; `rxfy-server/browser`
-re-exports the subset safe to import in shared (client+server) code — `defineResource`,
-`createResourceRegistry`, `invalidationChannel`, and their types.
+`rxfy-server` runs writes through a storage adapter and publishes live update messages through a
+hub. Core `rxfy-server` is storage-agnostic: the Drizzle binding lives in
+`rxfy-server-drizzle` (`defineResource`, `drizzleStorage`) and an in-memory binding in
+`rxfy-server-memory` (`defineCollection`, `memoryStorage`). Everything else — the hub API,
+`createResourceRegistry`, grant signing, and `createLive` — imports from the single `rxfy-server`
+entry.
 
-- [`defineResource`](/framework/server/define-resource) — tie a Drizzle `PgTable` to an rxfy
-  model; `createResourceRegistry` indexes resources for server-side wiring.
-- [`createServer`](/framework/server/create-server) — wire the database, resources, and hub into a
+- [`defineResource`](/framework/server/define-resource) — from `rxfy-server-drizzle`, tie a Drizzle
+  `PgTable` to an rxfy model (or `defineCollection` from `rxfy-server-memory`);
+  `createResourceRegistry` (core) is a neutral convenience lookup.
+- [`createLive`](/framework/server/create-server) — wire a storage adapter and hub into a
   `Live` object with typed write methods.
 - [Writes](/framework/server/writes) — `live.create` / `live.update` / `live.delete`, plus
   `touch()` for state-channel invalidation.
@@ -18,5 +21,5 @@ re-exports the subset safe to import in shared (client+server) code — `defineR
   backbone between writes and transports.
 
 Start with [`defineResource`](/framework/server/define-resource) and
-[`createServer`](/framework/server/create-server); for an end-to-end walkthrough see the
+[`createLive`](/framework/server/create-server); for an end-to-end walkthrough see the
 [Live blog guide](/guides/live-blog).

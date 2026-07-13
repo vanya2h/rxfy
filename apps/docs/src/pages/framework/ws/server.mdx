@@ -2,7 +2,7 @@
 
 `createWsServer(hub, { secret })` attaches a `Hub` to WebSocket connections. Call it
 once at startup; call `handleConnection` for every new socket. The `secret` is required —
-the same HMAC key `createServer` signs grants with, so the WS layer can verify them.
+the same HMAC key `createLive` signs grants with, so the WS layer can verify them.
 
 ```ts
 import { createWsServer } from "rxfy-ws";

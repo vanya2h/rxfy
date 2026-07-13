@@ -1,5 +1,5 @@
 import { patch, serialize, stale, subscribe } from "rxfy-protocol";
-import { channelSubscription, createInMemoryHub, entitySubscription, signGrant } from "rxfy-server/hub";
+import { channelSubscription, createInMemoryHub, entitySubscription, signGrant } from "rxfy-server";
 import { describe, expect, it } from "vitest";
 import { createWsServer, type ServerSocket } from "./server.js";
 

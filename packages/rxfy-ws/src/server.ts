@@ -1,5 +1,5 @@
 import { parseClientMessage, serialize } from "rxfy-protocol";
-import { channelSubscription, type ConnId, entityTopicSubscription, type Hub, verifyGrant } from "rxfy-server/hub";
+import { channelSubscription, type ConnId, entityTopicSubscription, type Hub, verifyGrant } from "rxfy-server";
 
 /** The minimal socket shape the adapter needs (satisfied structurally by a `ws` WebSocket). */
 export type ServerSocket = {

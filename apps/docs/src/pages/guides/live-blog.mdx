@@ -47,11 +47,13 @@ The files touched in this guide:
 ### Define resources
 
 Resources are the bridge between your Drizzle tables and rxfy's normalized model stores.
-[rxfy-server](/framework/server) exports `defineResource` and `createResourceRegistry`:
+`defineResource` comes from `rxfy-server-drizzle`; `createResourceRegistry` from core
+[rxfy-server](/framework/server):
 
 ```ts [src/blog/resources.ts]
 import { commentModel, postModel, userModel } from "./models.js";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { createResourceRegistry } from "rxfy-server";
+import { defineResource } from "rxfy-server-drizzle";
 import { comments, posts, users } from "../db/schema.js";
 
 export const userResource = defineResource({ table: users, model: userModel });
@@ -83,8 +85,8 @@ The live server owns the database connection and the in-memory pub/sub hub, whic
 subscriptions by **socket**. Create it once and export it:
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer } from "rxfy-server";
-import { resources } from "../src/blog/resources.js";
+import { createInMemoryHub, createLive } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 // The hub holds live socket subscriptions, so there must be exactly ONE instance. entry-server
@@ -93,7 +95,7 @@ import { db } from "./db.js";
 export const hub = createInMemoryHub();
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 
-export const live = createServer({ db, resources, hub, secret: SECRET });
+export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
 
 - `createInMemoryHub` — pub/sub bus for the current process, keyed by socket. Replace with a
@@ -103,8 +105,8 @@ export const live = createServer({ db, resources, hub, secret: SECRET });
 - There is no server-held session: the server signs a per-state grant on `live.serve` /
   `live.hydration`, and the client subscribes with it — see
   [Grants](/framework/server/grants).
-- `createServer` — wires the hub, resource registry, and secret together into the `live` object
-  your API routes will call.
+- `createLive` — wires the storage adapter (`drizzleStorage(db)`), hub, and secret together into
+  the `live` object your API routes will call, with create/update/delete delegating to the adapter.
 
 ### Wire the WebSocket endpoint
 
@@ -444,7 +446,7 @@ database setup is required.
 
 ## Where to go next
 
-- [rxfy-server](/framework/server) — full API for `createServer`, `defineResource`, `createInMemoryHub`.
+- [rxfy-server](/framework/server) — full API for `createLive`, `defineResource`, `createInMemoryHub`.
 - [rxfy-ws](/framework/ws) — WebSocket transport reference.
 - [Grants](/framework/server/grants) — how the server signs a grant for exactly what it served.
 - [Live client](/react/live-client) — `createLiveClient`, grant renewal, and stale handling in React.

@@ -1,4 +1,5 @@
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { createResourceRegistry } from "rxfy-server";
+import { defineResource } from "rxfy-server-drizzle";
 import { todos } from "./db/schema.js";
 import { todoModel } from "./todos.js";
 

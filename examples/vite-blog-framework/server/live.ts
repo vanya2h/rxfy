@@ -1,5 +1,5 @@
-import { createInMemoryHub, createServer } from "rxfy-server";
-import { resources } from "../src/blog/resources.js";
+import { createInMemoryHub, createLive } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 // The hub holds live channel subscriptions, so there must be exactly ONE instance — the tsx-graph
@@ -11,4 +11,4 @@ export const hub = createInMemoryHub();
 // grants signed here verify there. Override via RXFY_SECRET in production.
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 
-export const live = createServer({ db, resources, hub, secret: SECRET });
+export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });

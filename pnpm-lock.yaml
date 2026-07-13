@@ -231,6 +231,9 @@ importers:
       rxfy-server:
         specifier: workspace:*
         version: link:../../packages/rxfy-server
+      rxfy-server-memory:
+        specifier: workspace:*
+        version: link:../../packages/rxfy-server-memory
       rxfy-ws:
         specifier: workspace:*
         version: link:../../packages/rxfy-ws
@@ -354,6 +357,9 @@ importers:
       rxfy-server:
         specifier: workspace:*
         version: link:../../packages/rxfy-server
+      rxfy-server-memory:
+        specifier: workspace:*
+        version: link:../../packages/rxfy-server-memory
       rxfy-ws:
         specifier: workspace:*
         version: link:../../packages/rxfy-ws
@@ -484,6 +490,9 @@ importers:
       rxfy-server:
         specifier: workspace:*
         version: link:../../packages/rxfy-server
+      rxfy-server-drizzle:
+        specifier: workspace:*
+        version: link:../../packages/rxfy-server-drizzle
       rxfy-ws:
         specifier: workspace:*
         version: link:../../packages/rxfy-ws
@@ -680,6 +689,9 @@ importers:
       rxfy-server:
         specifier: workspace:*
         version: link:../../packages/rxfy-server
+      rxfy-server-memory:
+        specifier: workspace:*
+        version: link:../../packages/rxfy-server-memory
       rxfy-ws:
         specifier: workspace:*
         version: link:../../packages/rxfy-ws
@@ -922,6 +934,36 @@ importers:
         specifier: workspace:*
         version: link:../rxfy-protocol
     devDependencies:
+      '@vanya2h/eslint-config':
+        specifier: ^0.4.0
+        version: 0.4.0(eslint@9.28.0(jiti@2.7.0))(prettier@3.8.4)(turbo@2.5.4)(typescript@5.8.3)
+      '@vanya2h/typescript-config':
+        specifier: ^0.4.0
+        version: 0.4.0(typescript@5.8.3)
+      eslint:
+        specifier: ^9.27.0
+        version: 9.28.0(jiti@2.7.0)
+      jiti:
+        specifier: ^2.4.2
+        version: 2.7.0
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.0.1
+      rxfy:
+        specifier: workspace:*
+        version: link:../rxfy
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.0(jiti@2.7.0)(postcss@8.5.15)(tsx@4.23.0)(typescript@5.8.3)(yaml@2.9.0)
+      vitest:
+        specifier: ^3.1.4
+        version: 3.1.4(@types/debug@4.1.13)(@types/node@22.15.29)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/rxfy-server-drizzle:
+    devDependencies:
       '@electric-sql/pglite':
         specifier: ^0.5.3
         version: 0.5.3
@@ -949,6 +991,42 @@ importers:
       rxfy:
         specifier: workspace:*
         version: link:../rxfy
+      rxfy-server:
+        specifier: workspace:*
+        version: link:../rxfy-server
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.0(jiti@2.7.0)(postcss@8.5.15)(tsx@4.23.0)(typescript@5.8.3)(yaml@2.9.0)
+      vitest:
+        specifier: ^3.1.4
+        version: 3.1.4(@types/debug@4.1.13)(@types/node@22.15.29)(jiti@2.7.0)(jsdom@26.1.0)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+
+  packages/rxfy-server-memory:
+    devDependencies:
+      '@vanya2h/eslint-config':
+        specifier: ^0.4.0
+        version: 0.4.0(eslint@9.28.0(jiti@2.7.0))(prettier@3.8.4)(turbo@2.5.4)(typescript@5.8.3)
+      '@vanya2h/typescript-config':
+        specifier: ^0.4.0
+        version: 0.4.0(typescript@5.8.3)
+      eslint:
+        specifier: ^9.27.0
+        version: 9.28.0(jiti@2.7.0)
+      jiti:
+        specifier: ^2.4.2
+        version: 2.7.0
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.0.1
+      rxfy:
+        specifier: workspace:*
+        version: link:../rxfy
+      rxfy-server:
+        specifier: workspace:*
+        version: link:../rxfy-server
       tsup:
         specifier: ^8.5.0
         version: 8.5.0(jiti@2.7.0)(postcss@8.5.15)(tsx@4.23.0)(typescript@5.8.3)(yaml@2.9.0)
@@ -1043,7 +1121,7 @@ importers:
         version: 9.28.0(jiti@2.7.0)
       eslint-config-next:
         specifier: ^16.2.9
-        version: 16.2.10(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3)
+        version: 16.2.10(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3)
       rimraf:
         specifier: ^6.0.1
         version: 6.0.1
@@ -1101,6 +1179,9 @@ importers:
       rxfy-server:
         specifier: workspace:*
         version: link:../../packages/rxfy-server
+      rxfy-server-drizzle:
+        specifier: workspace:*
+        version: link:../../packages/rxfy-server-drizzle
       rxfy-ws:
         specifier: workspace:*
         version: link:../../packages/rxfy-ws
@@ -13279,13 +13360,13 @@ snapshots:
       eslint: 9.28.0(jiti@2.7.0)
       semver: 7.7.4
 
-  eslint-config-next@16.2.10(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3):
+  eslint-config-next@16.2.10(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3):
     dependencies:
       '@next/eslint-plugin-next': 16.2.10
       eslint: 9.28.0(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.28.0(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.28.0(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.28.0(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@9.28.0(jiti@2.7.0))
@@ -13311,7 +13392,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -13322,17 +13403,18 @@ snapshots:
       tinyglobby: 0.2.17
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.28.0(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.14.0(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)):
+  eslint-module-utils@2.14.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
+      '@typescript-eslint/parser': 8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3)
       eslint: 9.28.0(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -13343,7 +13425,7 @@ snapshots:
       eslint: 9.28.0(jiti@2.7.0)
       eslint-compat-utils: 0.5.1(eslint@9.28.0(jiti@2.7.0))
 
-  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.28.0(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -13354,7 +13436,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.28.0(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.14.0(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
+      eslint-module-utils: 2.14.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0)))(eslint@9.28.0(jiti@2.7.0))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -13365,6 +13447,8 @@ snapshots:
       semver: 6.3.1
       string.prototype.trimend: 1.0.9
       tsconfig-paths: 3.15.0
+    optionalDependencies:
+      '@typescript-eslint/parser': 8.59.0(eslint@9.28.0(jiti@2.7.0))(typescript@5.8.3)
     transitivePeerDependencies:
       - eslint-import-resolver-typescript
       - eslint-import-resolver-webpack

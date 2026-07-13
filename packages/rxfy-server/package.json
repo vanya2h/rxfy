@@ -25,26 +25,6 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
-    },
-    "./browser": {
-      "import": {
-        "types": "./dist/browser.d.ts",
-        "default": "./dist/browser.js"
-      },
-      "require": {
-        "types": "./dist/browser.d.cts",
-        "default": "./dist/browser.cjs"
-      }
-    },
-    "./hub": {
-      "import": {
-        "types": "./dist/hub.d.ts",
-        "default": "./dist/hub.js"
-      },
-      "require": {
-        "types": "./dist/hub.d.cts",
-        "default": "./dist/hub.cjs"
-      }
     }
   },
   "main": "./dist/index.js",
@@ -66,8 +46,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "peerDependencies": {
-    "drizzle-orm": "^0.45.0",
-    "drizzle-zod": "^0.8.0",
     "rxfy": "^2.0.0-rc.0",
     "zod": "^4.0.0"
   },
@@ -75,11 +53,8 @@
     "rxfy-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.3",
     "@vanya2h/eslint-config": "^0.4.0",
     "@vanya2h/typescript-config": "^0.4.0",
-    "drizzle-orm": "^0.45.2",
-    "drizzle-zod": "^0.8.3",
     "eslint": "^9.27.0",
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",

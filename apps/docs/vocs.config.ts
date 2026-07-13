@@ -69,7 +69,7 @@ export default defineConfig({
       link: "/framework/server",
       items: [
         { text: "defineResource", link: "/framework/server/define-resource" },
-        { text: "createServer", link: "/framework/server/create-server" },
+        { text: "createLive", link: "/framework/server/create-server" },
         { text: "Writes", link: "/framework/server/writes" },
         { text: "Live messages", link: "/framework/server/messages" },
         { text: "Grants", link: "/framework/server/grants" },
