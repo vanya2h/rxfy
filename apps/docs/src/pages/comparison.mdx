@@ -15,24 +15,24 @@ refetch. A `defineState` declaration bundles fetching, normalization, and SSR in
 reactive state.
 
 On top of that, rxfy offers a first-party
-[live-update framework](/framework/server) (`rxfy-server` / `rxfy-ws` / `rxfy-client`) that pushes entity changes into the same
+[sync framework](/framework/server) (`rxfy-server` / `rxfy-ws` / `rxfy-client`) that pushes entity changes into the same
 normalized stores — real-time is built in, not bolted on.
 
 ## At a glance
 
 ✅ built in · ➖ possible, but you wire it up · ❌ not addressed
 
-|                   | rxfy                                            | Redux Toolkit                            | MobX 6                                 | Jotai                          | TanStack Query                         |
-| ----------------- | ----------------------------------------------- | ---------------------------------------- | -------------------------------------- | ------------------------------ | -------------------------------------- |
-| **Model**         | Reactive states over normalized entities        | Immutable store + reducers               | Mutable observables                    | Composable atoms               | Async cache keyed by query key         |
-| **Reactivity**    | Only the changed entity's subscribers           | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers | Components subscribed to the query key |
-| **Data fetching** | ✅                                              | ➖ RTK Query                             | ❌                                     | ➖ async atoms                 | ✅                                     |
-| **Normalization** | ✅                                              | ➖ manual                                | ❌                                     | ➖ manual                      | ➖ manual                              |
-| **SSR**           | ✅                                              | ➖ manual                                | ❌                                     | ➖ helpers                     | ✅ hydrate/dehydrate                   |
-| **Real-time**     | ✅ [live framework](/getting-started/framework) | ➖ manual                                | ❌                                     | ➖ manual                      | ➖ manual                              |
-| **Validation**    | ✅ Zod                                          | ❌                                       | ❌                                     | ❌                             | ❌                                     |
-| **Boilerplate**   | Low                                             | Moderate                                 | Very low                               | Very low                       | Low                                    |
-| **Core deps**     | `rxjs`, `zod`, `lodash`                         | `@reduxjs/toolkit`, `react-redux`        | `mobx`, `mobx-react-lite`              | `jotai`                        | `@tanstack/react-query`                |
+|                   | rxfy                                               | Redux Toolkit                            | MobX 6                                 | Jotai                          | TanStack Query                         |
+| ----------------- | -------------------------------------------------- | ---------------------------------------- | -------------------------------------- | ------------------------------ | -------------------------------------- |
+| **Model**         | Reactive states over normalized entities           | Immutable store + reducers               | Mutable observables                    | Composable atoms               | Async cache keyed by query key         |
+| **Reactivity**    | Only the changed entity's subscribers              | Components whose selector output changed | Components that read the changed field | The changed atom's subscribers | Components subscribed to the query key |
+| **Data fetching** | ✅                                                 | ➖ RTK Query                             | ❌                                     | ➖ async atoms                 | ✅                                     |
+| **Normalization** | ✅                                                 | ➖ manual                                | ❌                                     | ➖ manual                      | ➖ manual                              |
+| **SSR**           | ✅                                                 | ➖ manual                                | ❌                                     | ➖ helpers                     | ✅ hydrate/dehydrate                   |
+| **Real-time**     | ✅ [Sync Client](/getting-started/add-sync-client) | ➖ manual                                | ❌                                     | ➖ manual                      | ➖ manual                              |
+| **Validation**    | ✅ Zod                                             | ❌                                       | ❌                                     | ❌                             | ❌                                     |
+| **Boilerplate**   | Low                                                | Moderate                                 | Very low                               | Very low                       | Low                                    |
+| **Core deps**     | `rxjs`, `zod`, `lodash`                            | `@reduxjs/toolkit`, `react-redux`        | `mobx`, `mobx-react-lite`              | `jotai`                        | `@tanstack/react-query`                |
 
 **Core deps** lists the store path. The real-time ✅ is the opt-in
 [framework](/framework/server) — separate `rxfy-server` / `rxfy-ws` / `rxfy-client` packages
@@ -121,7 +121,7 @@ cache stores whatever the query function returns.
 The split is **document cache vs normalized cells**. React Query keys the _response_, so the
 same entity returned by two queries lives in two cache entries; a mutation typically
 **invalidates** the affected keys and triggers a refetch to reconcile them. rxfy normalizes the
-response into one cell per entity, so an entity edit — a mutation or a live push — writes the
+response into one cell per entity, so an entity edit — a mutation or a sync push — writes the
 entity once and reaches every subscriber **without invalidating or refetching** — and there is
 no second copy to drift out of sync. rxfy also validates the response with Zod and turns each
 entity into a composable [`Atom`](/rxfy/create-atom) you can drive with
@@ -152,12 +152,12 @@ The difference is what you adopt. A sync engine is a database decision — your 
 queries, and often your hosting move onto its platform or its replication protocol. rxfy
 layers onto what you already run: `defineResource` binds a Drizzle table you own to the same
 model the client renders, writes are Drizzle calls in your own API routes, and the store path
-needs no server at all — you can put one resource behind the live stack and leave the rest of
+needs no server at all — you can put one resource behind the sync stack and leave the rest of
 the app fetch-only.
 
 **Reach for a sync engine when** you want the whole platform: offline writes, conflict
 resolution, managed infrastructure. **Reach for rxfy when** you have a database-plus-fetch
-app and want live updates without re-platforming it.
+app and want real-time sync without re-platforming it.
 
 ## When rxfy is a good fit
 

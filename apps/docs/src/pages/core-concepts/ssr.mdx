@@ -14,8 +14,8 @@ SSR and on the client for reloads).
 [Plain value fields](/rxfy/define-state#plain-value-fields) (bare Zod schemas in `model`) don't need a model `name` — they travel inside the keyed state's dehydrated value. Keep them JSON-serializable.
 :::
 
-:::tip[Building a live app?]
-SSR also signs the channel **grants** a live client uses to receive pushes. See
+:::tip[Building a synced app?]
+SSR also signs the channel **grants** a Sync Client uses to receive pushes. See
 [Grants](/framework/server/grants).
 :::
 
@@ -190,7 +190,7 @@ function hydrate(registry: IModelRegistry, state: DehydratedState): void;
 In the common path you never call `hydrate` directly — the embedded script populates
 `window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically.
 
-Live apps use a different entry point for the same idea: [`live.hydration(registry)`](/framework/server/grants)
+Synced apps use a different entry point for the same idea: [`live.hydration(registry)`](/framework/server/grants)
 signs one grant per rendered channel, embeds them alongside the dehydrated data, and returns the
 hydration script in one call — the client lifts them with [`readSsrGrants`](/react/live-client)
 and subscribes, instead of calling `dehydrate` / `hydrationScript` directly.

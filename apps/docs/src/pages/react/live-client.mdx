@@ -1,4 +1,4 @@
-# Live client [Wire a WebSocket transport into StoreProvider]
+# Sync Client [Wire a WebSocket transport into StoreProvider]
 
 `createLiveClient` connects a WebSocket transport to a `ModelRegistry` so inbound server
 pushes land in the normalized stores and per-state update counters tick up. Pass the result
@@ -6,7 +6,7 @@ to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically an
 `updatesAvailable$` / `applyUpdates` on every handle.
 
 Its subscriptions ride the payload: `useStateData` lifts the `$grant` the server signed into each
-fetch result (via `live.serve` / `live.hydration`) and hands the live client the grant plus the
+fetch result (via `live.serve` / `live.hydration`) and hands the Sync Client the grant plus the
 entity topics its data normalized into. The client presents them on the wire as `subscribe` frames.
 
 ## `createLiveClient`
@@ -23,7 +23,7 @@ const liveClient = createLiveClient({
 ```
 
 `createLiveClient` and `readSsrGrants` below live in `rxfy-client`, the framework-agnostic
-browser live runtime — nothing in them is React-specific, so they work from vanilla JS, Vue, or
+browser sync runtime — nothing in them is React-specific, so they work from vanilla JS, Vue, or
 Svelte too. `rxfy-react` re-exports them for convenience, so either import path works.
 
 There is no `session` option: the client never carries a session id. Each grant is a stateless
@@ -49,7 +49,7 @@ session it minted (see [Grants](/framework/server/grants)).
 
 ## `StoreProvider` `liveClient` prop
 
-Pass the live client to `StoreProvider` alongside the registry:
+Pass the Sync Client to `StoreProvider` alongside the registry:
 
 ```tsx
 import { StoreProvider } from "rxfy-react";
@@ -93,8 +93,8 @@ const { data$, updatesAvailable$, applyUpdates } = useStateData({
 ```
 
 `updatesAvailable$` is an `Observable<number>` that starts at `0` and increments each time
-the server sends a `stale` message for this state's channel. When no live
-client is present it stays `0`.
+the server sends a `stale` message for this state's channel. When no Sync
+Client is present it stays `0`.
 
 `applyUpdates()` resets the counter to `0` and calls `reload()` — triggering a fresh
 fetch and updating `data$` in place.
@@ -131,9 +131,9 @@ const grants = readSsrGrants(); // string[]
 
 Returns the grants embedded in the SSR hydration payload — one per channel the server render
 logged into (`live.hydration(registry)` signs them). These are the grants the client lifts and
-subscribes to on hydration, so the first paint stays live without a round trip. On a CSR-only
+subscribes to on hydration, so the first paint stays in sync without a round trip. On a CSR-only
 load there is no SSR chunk to read and it returns an empty array; grants then arrive with each
-`useStateData` fetch instead. You rarely call this directly — `useStateData` and the live client
+`useStateData` fetch instead. You rarely call this directly — `useStateData` and the Sync Client
 handle it — but it is exported for custom hydration wiring.
 
 Putting it together in the client entry:

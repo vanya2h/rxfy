@@ -23,8 +23,9 @@ export default defineConfig({
       text: "Getting Started",
       link: "/getting-started",
       items: [
-        { text: "Store quickstart", link: "/getting-started/store" },
-        { text: "Framework quickstart", link: "/getting-started/framework" },
+        { text: "Create Store", link: "/getting-started/create-store" },
+        { text: "Add SSR", link: "/getting-started/add-ssr" },
+        { text: "Add Sync Client", link: "/getting-started/add-sync-client" },
       ],
     },
 
@@ -71,7 +72,7 @@ export default defineConfig({
         { text: "defineResource", link: "/framework/server/define-resource" },
         { text: "createLive", link: "/framework/server/create-server" },
         { text: "Writes", link: "/framework/server/writes" },
-        { text: "Live messages", link: "/framework/server/messages" },
+        { text: "Sync messages", link: "/framework/server/messages" },
         { text: "Grants", link: "/framework/server/grants" },
         { text: "createInMemoryHub", link: "/framework/server/hub" },
       ],
@@ -93,7 +94,7 @@ export default defineConfig({
       items: [
         { text: "Build a Todo app", link: "/guides/todo-app" },
         { text: "Pagination and infinite scroll", link: "/guides/pagination" },
-        { text: "Live blog", link: "/guides/live-blog" },
+        { text: "Sync blog", link: "/guides/sync-blog" },
       ],
     },
   ],

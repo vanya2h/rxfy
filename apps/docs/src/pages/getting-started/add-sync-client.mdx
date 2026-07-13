@@ -1,64 +1,32 @@
-# Framework quickstart [The full stack for a live app]
+# Add Sync Client [The full stack: the server publishes, the client syncs]
 
-The framework path puts the same normalized store behind a persistent connection. The
-server owns writes: it applies changes in database, then publishes the new entity value automatically; every connected
-client writes that value into its shared store, and every component subscribed to that
-entity re-renders. Same store, same components — nothing in `useStateData` or
-`useModelStore` is live-aware — the write just arrives over the wire instead of from a
-local call.
+This is the third rung of the ladder. On top of your [store](/getting-started/create-store)
+and [SSR](/getting-started/add-ssr), a **Sync Client** keeps every connected browser in
+sync in real time. The server owns writes: it applies a change, then publishes the new
+entity value automatically; every client writes that value into its shared store, and every
+component subscribed to that entity re-renders. Same store, same components — nothing in
+`useStateData` or `useModelStore` is sync-aware — the write just arrives over the wire
+instead of from a local call.
 
-This page walks the whole loop: install, wire the server, write through it, and watch an
-edit land in another browser tab.
+This page wires the whole loop: the server, the socket, writes, and the browser Sync Client,
+then watches an edit land in another tab. Prefer to start from a working app? Scaffold one
+with [`create-rxfy-app`](/getting-started) (the `vite` template is this exact stack).
 
-:::note[Is this path for you?]
-The framework fits best when you're starting a new app, or when your backend already runs
-on Node with [Drizzle](https://orm.drizzle.team) — `rxfy-server` binds live resources
+:::note[Is this rung for you?]
+The Sync Client fits best when you're starting a new app, or when your backend already runs
+on Node with [Drizzle](https://orm.drizzle.team) — `rxfy-server` binds synced resources
 directly to Drizzle tables. With a different backend stack, stay on the
-[Store quickstart](/getting-started/store) path and fetch your API your way; you can
-still add [SSR](/core-concepts/ssr) without the live stack.
+[Create Store](/getting-started/create-store) rung and fetch your API your way; you can
+still [Add SSR](/getting-started/add-ssr) without the sync stack.
 :::
-
-## Scaffold a new app
-
-The fastest start is the official scaffolder. It creates a standalone, fully server-rendered
-live app — Vite SSR, React Router, a Hono server, Drizzle on embedded Postgres
-([PGlite](https://pglite.dev)), and real-time todos wired end to end:
-
-:::code-group
-
-```bash [npm]
-npm create rxfy-app@latest my-app
-```
-
-```bash [pnpm]
-pnpm create rxfy-app my-app
-```
-
-```bash [yarn]
-yarn create rxfy-app my-app
-```
-
-:::
-
-Then:
-
-```bash
-cd my-app
-pnpm install
-pnpm dev
-```
-
-Open http://localhost:3000 in two tabs and toggle a todo — the other tab updates instantly.
-Everything below explains what the scaffold wired up; read on to understand it or to add
-the framework to an existing app by hand.
 
 ## Install
 
-Everything from the store path plus the live stack: `rxfy-server` (writes and
+Everything from the store path plus the sync stack: `rxfy-server` (writes and
 publishing), `rxfy-ws` (the WebSocket transport), and `rxfy-client` (the framework-agnostic
-browser live runtime — grant subscription and renewal, and the live update sink), with
+browser sync runtime — grant subscription and renewal, and the real-time sync sink), with
 [Drizzle](https://orm.drizzle.team) and `ws` as their peers.
-The wire contract between them (see [Live messages](/framework/server/messages)) comes
+The wire contract between them (see [Sync messages](/framework/server/messages)) comes
 along as an internal dependency.
 
 :::code-group
@@ -88,7 +56,7 @@ bun add rxjs zod lodash drizzle-orm drizzle-zod ws
 ## Bind tables to models
 
 A resource pairs a Drizzle table with the rxfy model that governs it — the model's name
-becomes the live topic namespace, and its `getKey` locates the primary key. The registry
+becomes the sync topic namespace, and its `getKey` locates the primary key. The registry
 gives the server one object to route events through:
 
 ```ts [src/resources.ts]
@@ -99,7 +67,7 @@ import { posts } from "./db/schema.js";
 export const postResource = defineResource({ table: posts, model: postModel });
 ```
 
-## Stand up the live server
+## Stand up the sync server
 
 `createLive` wires a storage adapter, a pub/sub hub, and a signing `secret` into the `live`
 object your API routes will call. `drizzleStorage(db)` (from `rxfy-server-drizzle`) is the
@@ -194,9 +162,9 @@ const { data$, updatesAvailable$, applyUpdates } = useStateData({
 void api.todos.$post({ json: { title: next } }).then(() => applyUpdates());
 ```
 
-## Go live on the client
+## Add the Sync Client
 
-Give `StoreProvider` a live client built from the WebSocket transport. Your components stay
+Give `StoreProvider` a Sync Client built from the WebSocket transport. Your components stay
 exactly as they were on the store path:
 
 ```tsx [src/entry-client.tsx]
@@ -227,7 +195,7 @@ There is no allow-list to read and nothing to pass by hand: the server signs a g
 exactly what it served, and the client lifts it from the payload automatically and subscribes
 with it. SSR grants come from `live.hydration(registry)`, embedded in the page and lifted on
 hydration; client-only loads pick up the grant from each `live.serve` response. Grants expire,
-so the live client renews them before expiry against the app-mounted `renewUrl` endpoint —
+so the Sync Client renews them before expiry against the app-mounted `renewUrl` endpoint —
 one route you add to your Hono app, behind your own auth, that reissues each grant with
 `live.renew`:
 
@@ -258,26 +226,26 @@ What happened, in order:
 
 Edits travel as `patch`; creates and deletes instead mark the lists that reference the
 entity as `stale`, surfacing a "click to refresh" badge. The two message kinds — and why
-lists aren't updated in place — are covered in [Live messages](/framework/server/messages).
+lists aren't updated in place — are covered in [Sync messages](/framework/server/messages).
 
 ## Next steps
 
 Go deeper on the concepts and each piece of the loop:
 
-- [Live messages](/framework/server/messages): `patch` vs `stale`, and what travels on the wire.
+- [Sync messages](/framework/server/messages): `patch` vs `stale`, and what travels on the wire.
 - [rxfy-server](/framework/server): `defineResource`, `createLive`, writes, and `live.serve` /
   `live.hydration` in full.
 - [rxfy-ws](/framework/ws): the WebSocket transport on both sides, and bringing your own.
 - [Grants](/framework/server/grants): how the server signs a grant for exactly what it served,
   and how the client subscribes and renews.
-- [Live client](/react/live-client): `createLiveClient`, reconnection, and stale handling in React.
+- [Sync Client](/react/live-client): `createLiveClient`, reconnection, and stale handling in React.
 
-Then build the whole thing end to end: the [Live blog guide](/guides/live-blog) walks
+Then build the whole thing end to end: the [Sync blog guide](/guides/sync-blog) walks
 through the runnable [`vite-blog-framework`](/examples) example — schema, server, sockets,
-SSR grants, and both live behaviors in two tabs.
+SSR grants, and both sync behaviors in two tabs.
 
 :::tip
 Not ready for a server? Everything above sits on the store concepts — the
-[Store quickstart](/getting-started/store) covers them in one file, and
-[Server-Side Rendering](/core-concepts/ssr) adds SSR without the live stack.
+[Create Store](/getting-started/create-store) covers them in one file, and
+[Server-Side Rendering](/core-concepts/ssr) adds SSR without the sync stack.
 :::
