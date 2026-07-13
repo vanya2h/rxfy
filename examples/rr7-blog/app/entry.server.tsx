@@ -6,7 +6,7 @@ import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import { ApiProvider, createApiClient } from "./blog/api-client";
 import { app } from "./server/app";
-import { hydration } from "./server/live";
+import { issuer } from "./server/live";
 
 const ABORT_DELAY = 10_000;
 
@@ -38,11 +38,11 @@ export default function handleRequest(
           body.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
           body.on("end", () => {
             const rendered = Buffer.concat(chunks).toString("utf8");
-            // useStateData logged each rendered state's channel into the registry during SSR;
-            // hydration() signs a grant per channel and embeds them alongside the dehydrated
-            // registry — injected just before </body> so it runs before RR's deferred client
-            // module hydrates. The client lifts the grants and subscribes on its own socket.
-            const script = hydration(registry);
+            // useStateData logged each rendered state's served grant into the registry during SSR;
+            // issuer.hydration() embeds them alongside the dehydrated registry — injected just
+            // before </body> so it runs before RR's deferred client module hydrates. The client
+            // lifts the grants and subscribes on its own socket.
+            const script = issuer.hydration(registry);
             const html = rendered.replace("</body>", `${script}</body>`);
 
             responseHeaders.set("Content-Type", "text/html");

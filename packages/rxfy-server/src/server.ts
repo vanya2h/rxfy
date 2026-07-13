@@ -1,17 +1,8 @@
 import { eq, getTableColumns, type InferInsertModel, type InferSelectModel } from "drizzle-orm";
 import { type PgColumn, type PgDatabase, type PgTable } from "drizzle-orm/pg-core";
-import {
-  collectShapeTopics,
-  type FieldsMap,
-  type IModelRegistry,
-  parseShape,
-  stateChannel,
-  type StateDescriptor,
-} from "rxfy";
 import { patch, stale } from "rxfy-protocol";
-import { signGrant, verifyGrant } from "./grant.js";
+import { createGrantIssuer, type GrantIssuer } from "./grant-issuer.js";
 import { channelSubscription, entitySubscription, type Hub } from "./hub.js";
-import { grantsHydration } from "./hydration.js";
 import type { Resource } from "./resource.js";
 import type { AnyResource, ResourceRegistry } from "./resource-registry.js";
 import type { TouchTarget } from "./state-channel.js";
@@ -33,7 +24,11 @@ export type ServerConfig = {
   renewGraceMs?: number;
 };
 
-export type Live = {
+/**
+ * The full live server: the Drizzle-bound writers plus the stateless grant half (`serve` / `renew`
+ * / `hydration`), which is shared with the bare hub via {@link GrantIssuer}.
+ */
+export type Live = GrantIssuer & {
   readonly db: Db;
   // TRow is inferred, not constrained: values and the returned row are typed from the table,
   // so resources carrying an injected model (branded / narrower row) fit as-is.
@@ -54,28 +49,11 @@ export type Live = {
   ) => Promise<InferSelectModel<TTable>>;
   delete: (resource: AnyResource, id: string, opts?: WriteOpts) => Promise<void>;
   touch: (...targets: TouchTarget[]) => void;
-  /**
-   * Parses `data` (the state's *input* shape — e.g. raw DB rows with unbranded ids and extra
-   * columns) into the state's shape via the field schemas, then signs a grant for
-   * `stateChannel(state, params)` whose claims also enumerate the payload's entity topics
-   * (`name:id`). Returns the parsed shape (unknown keys stripped) with the grant attached as
-   * `$grant`. Stateless: the hub is never touched — the client presents the grant on its own
-   * subscribe frame, and the WS server authorizes exactly the channel + entities the grant names.
-   */
-  serve: <TParams, TShape, TShapeInput>(
-    state: StateDescriptor<TParams, TShape, any, any, any, TShapeInput>,
-    params: TParams,
-    data: TShapeInput,
-  ) => TShape & { $grant: string };
-  /** Verify (with grace) and reissue one grant; null = signature invalid or beyond grace (denied). */
-  renew: (grant: string) => string | null;
-  /** SSR payload: embeds the grants the render logged (each entity-bearing) and returns the hydration script. */
-  hydration: (registry: IModelRegistry) => string;
 };
 
 export function createServer(config: ServerConfig): Live {
   const { db, resources, hub } = config;
-  const grantTtlMs = config.grantTtlMs ?? 15 * 60_000;
+  const issuer = createGrantIssuer(config);
 
   const pkColumn = (resource: AnyResource): PgColumn =>
     getTableColumns(resource.table)[resource.primaryKeyColumn] as PgColumn;
@@ -136,21 +114,9 @@ export function createServer(config: ServerConfig): Live {
     touch(...targets) {
       applyTouch(targets);
     },
-    serve(state, params, data) {
-      const parsed = parseShape<Record<string, unknown>>(state.fields, data);
-      const channel = stateChannel(state, params as Record<string, unknown>);
-      if (!channel) throw new Error("rxfy-server: serve requires a keyed state");
-      const entities = collectShapeTopics(state.fields as FieldsMap, parsed);
-      return { ...parsed, $grant: signGrant({ channel, entities, secret: config.secret, ttlMs: grantTtlMs }) } as never;
-    },
-    renew(grant) {
-      const claims = verifyGrant(grant, { secret: config.secret, graceMs: config.renewGraceMs ?? 5 * 60_000 });
-      return claims === null
-        ? null
-        : signGrant({ channel: claims.channel, entities: claims.entities, secret: config.secret, ttlMs: grantTtlMs });
-    },
-    hydration(registry) {
-      return grantsHydration(registry);
-    },
+    // The stateless grant half — serve / renew / hydration — has no dependency on the writers.
+    serve: issuer.serve,
+    renew: issuer.renew,
+    hydration: issuer.hydration,
   };
 }

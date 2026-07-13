@@ -1,25 +1,25 @@
 import { zValidator } from "@hono/zod-validator";
 import { CreateCommentInputSchema, postDetailState, type PostId, postsState } from "examples-shared/data";
 import { Hono } from "hono";
-import { renewGrant, serve, touchState } from "./live";
+import { issuer, touchState } from "./live";
 import { addComment, getPostDetail, listPosts } from "./store";
 
 export const app = new Hono()
   .basePath("/api")
   .get("/posts", (c) => {
-    // serve() attaches a signed channel grant as `$grant`; the client lifts it and subscribes.
-    return c.json(serve(postsState, {}, listPosts()));
+    // issuer.serve() attaches a signed grant as `$grant`; the client lifts it and subscribes.
+    return c.json(issuer.serve(postsState, {}, listPosts()));
   })
   .get("/posts/:id", (c) => {
     const postId = c.req.param("id") as PostId;
     const detail = getPostDetail(postId);
     if (!detail) return c.json({ error: "not found" }, 404);
-    return c.json(serve(postDetailState, { postId }, detail));
+    return c.json(issuer.serve(postDetailState, { postId }, detail));
   })
   .post("/live/renew", async (c) => {
-    // The client posts grants nearing expiry; renew reissues each (or null when denied).
+    // The client posts grants nearing expiry; issuer.renew reissues each (or null when denied).
     const { grants } = await c.req.json<{ grants: string[] }>();
-    return c.json({ grants: grants.map(renewGrant) });
+    return c.json({ grants: grants.map((g) => issuer.renew(g)) });
   })
   .post("/posts/:id/comments", zValidator("json", CreateCommentInputSchema), (c) => {
     const postId = c.req.param("id") as PostId;

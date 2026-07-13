@@ -1,4 +1,5 @@
 export { type GrantClaims, signGrant, verifyGrant } from "./grant.js";
+export { createGrantIssuer, type GrantIssuer, type GrantIssuerConfig } from "./grant-issuer.js";
 export * from "./hub.js";
 export * from "./hydration.js";
 export * from "./resource.js";
