@@ -1,4 +1,4 @@
-import type { IModelRegistry } from "rxfy";
+import { collectShapeTopics, type FieldsMap, type IModelRegistry } from "rxfy";
 import { stale } from "rxfy-protocol";
 import {
   channelSubscription,
@@ -28,25 +28,28 @@ export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 const GRANT_TTL_MS = 15 * 60_000;
 const RENEW_GRACE_MS = 5 * 60_000;
 
-const signChannel = (channel: string): string => signGrant({ channel, secret: SECRET, ttlMs: GRANT_TTL_MS });
-
 /**
- * Sign a channel grant for this state instance and attach it to the payload as `$grant`. Stateless
- * — the hub is never touched here; the client lifts `$grant` (via useStateData) and presents it on
- * its own subscribe frame, which the WebSocket server verifies against the same SECRET.
+ * Sign a grant for this state instance and attach it to the payload as `$grant`. The grant's claims
+ * name the channel AND the entity topics the payload holds, so the WebSocket server subscribes the
+ * socket to exactly those. Stateless — the hub is never touched here; the client lifts `$grant` (via
+ * useStateData) and presents it on its own subscribe frame, verified against the same SECRET.
  */
 export function serve<TShape extends object>(
-  state: StateChannelDescriptor,
+  state: StateChannelDescriptor & { fields: FieldsMap },
   params: Record<string, unknown>,
   data: TShape,
 ): TShape & { $grant: string } {
-  return { ...data, $grant: signChannel(invalidationChannel(state, params)) };
+  const channel = invalidationChannel(state, params);
+  const entities = collectShapeTopics(state.fields, data as Record<string, unknown>);
+  return { ...data, $grant: signGrant({ channel, entities, secret: SECRET, ttlMs: GRANT_TTL_MS }) };
 }
 
-/** Verify (with grace) and reissue one grant; null = signature invalid or beyond grace (denied). */
+/** Verify (with grace) and reissue one grant, preserving its entities; null = denied. */
 export function renew(grant: string): string | null {
   const claims = verifyGrant(grant, { secret: SECRET, graceMs: RENEW_GRACE_MS });
-  return claims === null ? null : signChannel(claims.channel);
+  return claims === null
+    ? null
+    : signGrant({ channel: claims.channel, entities: claims.entities, secret: SECRET, ttlMs: GRANT_TTL_MS });
 }
 
 /** Mark a state channel stale — every socket subscribed to it via a live grant gets an update badge. */
@@ -55,7 +58,7 @@ export function touchState(state: StateChannelDescriptor, params: Record<string,
   hub.publish(channelSubscription(channel), stale(channel));
 }
 
-/** SSR payload: signs a grant per channel the render logged into the registry, returns the script. */
+/** SSR payload: embeds the grants the render logged (each entity-bearing) and returns the script. */
 export function hydration(registry: IModelRegistry): string {
-  return grantsHydration(registry, { secret: SECRET, ttlMs: GRANT_TTL_MS });
+  return grantsHydration(registry);
 }

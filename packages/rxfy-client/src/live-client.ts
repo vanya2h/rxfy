@@ -16,8 +16,8 @@ export type ChannelCounter = {
 };
 
 export type LiveClient = {
-  /** Record a grant + its payload's entity topics; sends the subscribe frame and replays it on reconnect. */
-  subscribe: (grant: string, entities: string[]) => void;
+  /** Record a grant; sends the subscribe frame and replays it on reconnect and after renewal. */
+  subscribe: (grant: string) => void;
   channel: (channel: string) => ChannelCounter;
   stop: () => void;
 };
@@ -57,12 +57,11 @@ const decodeGrant = (token: string): { ch: string; exp: number } | null => {
 export function createLiveClient(config: LiveClientConfig): LiveClient {
   const { registry, transport, renewLeadMs = 60_000, now = Date.now } = config;
   const counters = new Map<string, BehaviorSubject<number>>();
-  const entries = new Map<string, { grant: string; exp: number; entities: string[] }>(); // by channel
+  const entries = new Map<string, { grant: string; exp: number }>(); // by channel
   let renewTimer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
 
-  const sendEntry = (entry: { grant: string; entities: string[] }): void =>
-    transport.send(subscribeFrame(entry.grant, entry.entities));
+  const sendEntry = (entry: { grant: string }): void => transport.send(subscribeFrame(entry.grant));
 
   const scheduleRenewal = (): void => {
     if (renewTimer) clearTimeout(renewTimer);
@@ -89,7 +88,7 @@ export function createLiveClient(config: LiveClientConfig): LiveClient {
           entries.delete(decodeGrant(old.grant)?.ch ?? old.grant); // denied — updates for this channel end
           return;
         }
-        const entry = { grant: fresh, exp: claims.exp, entities: old.entities };
+        const entry = { grant: fresh, exp: claims.exp };
         entries.set(claims.ch, entry);
         sendEntry(entry);
       });
@@ -126,12 +125,10 @@ export function createLiveClient(config: LiveClientConfig): LiveClient {
   });
 
   const client: LiveClient = {
-    subscribe(grant, entities) {
+    subscribe(grant) {
       const claims = decodeGrant(grant);
       if (claims === null) return;
-      const existing = entries.get(claims.ch);
-      const merged = existing ? [...new Set([...existing.entities, ...entities])] : entities;
-      const entry = { grant, exp: claims.exp, entities: merged };
+      const entry = { grant, exp: claims.exp };
       entries.set(claims.ch, entry);
       sendEntry(entry);
       scheduleRenewal();
@@ -151,15 +148,8 @@ export function createLiveClient(config: LiveClientConfig): LiveClient {
     },
   };
 
-  // SSR intake: hydrated entities ride the first grant's frame (any valid grant authorizes entity topics).
-  const ssrGrants = readSsrGrants();
-  if (ssrGrants.length > 0) {
-    const hydratedTopics: string[] = [];
-    for (const { descriptor, store } of registry.stores()) {
-      for (const [key] of store.valueEntries()) hydratedTopics.push(`${descriptor.name}:${key}`);
-    }
-    ssrGrants.forEach((grant, i) => client.subscribe(grant, i === 0 ? hydratedTopics : []));
-  }
+  // SSR intake: each grant self-describes its entities, so just resubscribe them all.
+  for (const grant of readSsrGrants()) client.subscribe(grant);
 
   return client;
 }

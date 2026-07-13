@@ -26,12 +26,11 @@ describe("message constructors", () => {
     });
   });
 
-  it("subscribe sets version, kind, grant, and entities", () => {
-    expect(subscribe("jwt.token.here", ["post:1", "user:9"])).toEqual({
+  it("subscribe frame carries only the grant", () => {
+    expect(subscribe("jwt.token.here")).toEqual({
       v: PROTOCOL_VERSION,
       kind: "subscribe",
       grant: "jwt.token.here",
-      entities: ["post:1", "user:9"],
     });
   });
 });

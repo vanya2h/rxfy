@@ -50,10 +50,10 @@ in-process.
 
 Because the grant rides the data, the client needs **zero plumbing** — no session header, no fetch
 wrapping. `useStateData` already returns the payload to the framework; after `fetchFn` resolves the
-live client strips `$grant`, normalizes the rest, derives the entity topics the payload normalized
-into, and sends one `subscribe` frame carrying `{ grant, entities }`. The channel subscription is
-authorized by the token; the entity topics are accepted alongside any currently-valid grant. SSR
-grants take the same path via [`readSsrGrants`](/react/live-client).
+live client strips `$grant`, normalizes the rest, and sends one `subscribe` frame carrying just the
+grant. The grant's claims authorize both the channel and the exact entity topics it was signed for,
+so the server subscribes the socket to precisely those. SSR grants take the same path via
+[`readSsrGrants`](/react/live-client).
 
 The API client is therefore plain — no session header to attach:
 
@@ -110,16 +110,15 @@ export const live = createServer({ db, resources, hub, secret: SECRET });
 Rotating the secret invalidates every outstanding grant at once: renewals fail, clients degrade to
 static data, and refetches mint fresh grants. Graceful by construction — no restart choreography.
 
-:::danger[Entity ids MUST be unguessable in live-enabled apps]
-Entity patches carry **full rows** and fan out on raw `name:id` topics, gated only by the presence
-of a currently-valid grant — the server cannot statelessly verify that an entity belongs to the
-grant's state. With guessable ids (serial integer primary keys) any valid grant would let a client
-watch arbitrary rows. **Use unguessable ids — `crypto.randomUUID()`, not auto-increment PKs.**
+:::note[Entity authorization is bound into the grant]
+`live.serve` signs the served payload's exact entity topics (`name:id`) into the grant's claims, and
+the WebSocket server subscribes a socket to **only** the channel + entities its grant enumerates.
+A grant is therefore a precise capability — it can watch exactly the rows it was served, nothing
+more — so entity ids need not be unguessable (serial integer PKs are fine).
 
-The mandate covers exactly the models whose rows are published: resource-backed models written
-through `live.create` / `live.update` in a live-enabled app. (A model written via `live.*`
-publishes patches even if no state serving it ever calls `live.serve`, so its ids must be opaque
-regardless.) Store-only apps, client-only models, and non-live states impose nothing on ids.
+For large payloads the grant grows with the entity count; it rides the data plane (smaller than the
+rows it accompanies) and, on reconnect, the same id list the subscribe frame already carried. Enable
+WebSocket `permessage-deflate` in production — a JWT of repeated `name:id` strings compresses well.
 :::
 
 :::warning[Cache-Control on state endpoints]

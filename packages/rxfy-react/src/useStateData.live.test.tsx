@@ -25,9 +25,9 @@ function stubLive() {
   const counter = new BehaviorSubject(0);
   const reset = vi.fn(() => counter.next(0));
   const channel = vi.fn(() => ({ available$: counter.asObservable(), reset }));
-  const subscribed: { grant: string; entities: string[] }[] = [];
-  const subscribe = vi.fn((grant: string, entities: string[]) => {
-    subscribed.push({ grant, entities });
+  const subscribed: { grant: string }[] = [];
+  const subscribe = vi.fn((grant: string) => {
+    subscribed.push({ grant });
   });
   const client: LiveClient = { subscribe, channel, stop: vi.fn() };
   return { client, counter, reset, channel, subscribe, subscribed };
@@ -90,7 +90,7 @@ describe("useStateData live updates", () => {
     expect(fetchFn.mock.calls.length).toBeGreaterThan(callsBefore);
   });
 
-  it("lifts $grant from the fetch result and subscribes with the payload's entity topics", async () => {
+  it("lifts $grant from the fetch result and subscribes with the grant alone", async () => {
     const { client, subscribed } = stubLive();
     const post1 = { id: "1", title: "One" };
     const fetchFn = async () => ({ posts: [post1], $grant: "h.payload.s" }) as never;
@@ -100,7 +100,7 @@ describe("useStateData live updates", () => {
     });
     const data = await firstValueFrom(result.current.data$);
 
-    expect(subscribed).toEqual([{ grant: "h.payload.s", entities: ["post:1"] }]);
+    expect(subscribed).toEqual([{ grant: "h.payload.s" }]);
     // the $grant key must NOT reach the normalized data
     expect(data).toEqual({ posts: ["1"] });
     expect(data).not.toHaveProperty("$grant");

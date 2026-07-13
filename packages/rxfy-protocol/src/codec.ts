@@ -62,10 +62,7 @@ export function parseClientMessage(raw: string): ClientMessage {
   switch (msg.kind) {
     case "subscribe": {
       if (typeof msg.grant !== "string") throw new ProtocolError("subscribe requires a string `grant`");
-      if (!Array.isArray(msg.entities) || msg.entities.some((e) => typeof e !== "string")) {
-        throw new ProtocolError("subscribe requires `entities: string[]`");
-      }
-      return { v: PROTOCOL_VERSION, kind: "subscribe", grant: msg.grant, entities: msg.entities as string[] };
+      return { v: PROTOCOL_VERSION, kind: "subscribe", grant: msg.grant };
     }
     default:
       throw new ProtocolError(`unknown client message kind: ${clip(msg.kind)}`);

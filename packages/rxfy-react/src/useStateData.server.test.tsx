@@ -112,15 +112,15 @@ describe("useStateData server suspend (ssr mode)", () => {
     expect(html).toBe(""); // Pending renders the default null pending state
   });
 
-  it("records the state's channel into registry.channels during SSR", async () => {
+  it("logs the served $grant into registry.grants during SSR", async () => {
     const registry = createModelRegistry();
-    const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "A" }] });
+    const grant = "h.served.s";
+    const fetchFn = vi.fn().mockResolvedValue({ todos: [{ id: "1", title: "A" }], $grant: grant });
 
-    renderApp(registry, fetchFn); // first pass — suspends, promise stored
+    renderApp(registry, fetchFn as unknown as FetchFn); // first pass — suspends, promise stored
     await Promise.all(registry.queries.inflight());
 
-    renderApp(registry, fetchFn); // second pass — cache hit, channel recorded
-
-    expect(registry.channels.all()).toContain("todos");
+    // the settle path (run during the await) strips $grant and logs it for hydration
+    expect(registry.grants.all()).toContain(grant);
   });
 });

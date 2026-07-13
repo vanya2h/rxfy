@@ -57,7 +57,7 @@ describe("live end-to-end", () => {
       setTimeout(() => reject(new Error("no stale received within 10s")), 10_000);
     });
     await new Promise((resolve) => ws.addEventListener("open", resolve));
-    ws.send(serialize(subscribe(detail.$grant, [])));
+    ws.send(serialize(subscribe(detail.$grant)));
     await new Promise((resolve) => setTimeout(resolve, 200)); // let the subscribe bind before writing
 
     // 3. Another client comments on the post.

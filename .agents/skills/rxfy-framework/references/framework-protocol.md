@@ -15,7 +15,7 @@ Client → server:
 
 | Type | `kind` | Fields | Description |
 |---|---|---|---|
-| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `grant`, `entities` | The client's ONLY outbound frame. `grant` is the signed JWT from a served payload (`$grant`) or the SSR `grants` array; `entities` are the raw `name:id` topics the payload normalized into. The server verifies the grant (signature + expiry) and subscribes the socket to the grant's channel plus `entities`. Replayed on every reconnect. |
+| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `grant` | The client's ONLY outbound frame. `grant` is the signed JWT from a served payload (`$grant`) or the SSR `grants` array; its claims name the channel AND the `name:id` entity topics it authorizes. The server verifies the grant (signature + expiry) and subscribes the socket to that channel plus those entities. Replayed on every reconnect. |
 
 Constructors stamp the current `PROTOCOL_VERSION` automatically:
 

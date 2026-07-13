@@ -18,18 +18,32 @@ function fakeSocket() {
 }
 
 describe("createWsServer", () => {
-  it("a verified subscribe registers channel + entities and receives pushes", () => {
+  it("a verified subscribe registers the grant's channel + entities and receives pushes", () => {
     const hub = createInMemoryHub();
     const ws = createWsServer(hub, { secret: "s" });
     const { socket, sent, emit } = fakeSocket();
     ws.handleConnection(socket);
 
-    const grant = signGrant({ channel: "todos|{}", secret: "s", ttlMs: 60_000 });
-    emit("message", serialize(subscribe(grant, ["todo:1"])));
+    const grant = signGrant({ channel: "todos|{}", entities: ["todo:1"], secret: "s", ttlMs: 60_000 });
+    emit("message", serialize(subscribe(grant)));
     hub.publish(channelSubscription("todos|{}"), stale("todos|{}"));
     hub.publish(entitySubscription("todo", "1"), patch("todo", "1", { done: true }));
 
     expect(sent).toHaveLength(2);
+  });
+
+  it("never subscribes to an entity the grant does not enumerate", () => {
+    const hub = createInMemoryHub();
+    const ws = createWsServer(hub, { secret: "s" });
+    const { socket, sent, emit } = fakeSocket();
+    ws.handleConnection(socket);
+
+    // grant authorizes only todo:1; a patch for the un-granted todo:2 must never reach this socket
+    const grant = signGrant({ channel: "todos|{}", entities: ["todo:1"], secret: "s", ttlMs: 60_000 });
+    emit("message", serialize(subscribe(grant)));
+    hub.publish(entitySubscription("todo", "2"), patch("todo", "2", { done: true }));
+
+    expect(sent).toHaveLength(0);
   });
 
   it("an invalid or expired grant is dropped silently", () => {
@@ -38,7 +52,7 @@ describe("createWsServer", () => {
     const { socket, sent, emit } = fakeSocket();
     ws.handleConnection(socket);
 
-    emit("message", serialize(subscribe("garbage", ["todo:1"])));
+    emit("message", serialize(subscribe("garbage")));
     hub.publish(entitySubscription("todo", "1"), patch("todo", "1", {}));
 
     expect(sent).toHaveLength(0);
@@ -50,8 +64,8 @@ describe("createWsServer", () => {
     const { socket, sent, emit } = fakeSocket();
     ws.handleConnection(socket);
 
-    const grant = signGrant({ channel: "c", secret: "s", ttlMs: 60_000 });
-    emit("message", serialize(subscribe(grant, [])));
+    const grant = signGrant({ channel: "c", entities: [], secret: "s", ttlMs: 60_000 });
+    emit("message", serialize(subscribe(grant)));
     emit("close");
     hub.publish(channelSubscription("c"), stale("c"));
 

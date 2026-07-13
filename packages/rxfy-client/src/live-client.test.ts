@@ -42,27 +42,24 @@ describe("createLiveClient", () => {
     const live = createLiveClient({ registry, transport });
 
     const grant = token(Date.now() + 60_000);
-    live.subscribe(grant, ["todo:1"]);
-    expect(sent).toEqual([subscribe(grant, ["todo:1"])]);
+    live.subscribe(grant);
+    expect(sent).toEqual([subscribe(grant)]);
 
     open();
-    expect(sent).toEqual([subscribe(grant, ["todo:1"]), subscribe(grant, ["todo:1"])]);
+    expect(sent).toEqual([subscribe(grant), subscribe(grant)]);
   });
 
-  it("adopts SSR grants on startup, attaching current registry entities to the first frame", () => {
-    (globalThis as { __RXFY_SSR__?: Array<{ grants?: string[] }> }).__RXFY_SSR__ = [
-      { grants: [token(Date.now() + 60_000, "a")] },
-      { grants: [token(Date.now() + 60_000, "b")] },
-    ];
+  it("adopts SSR grants on startup, resubscribing each self-describing grant", () => {
+    const ga = token(Date.now() + 60_000, "a");
+    const gb = token(Date.now() + 60_000, "b");
+    (globalThis as { __RXFY_SSR__?: Array<{ grants?: string[] }> }).__RXFY_SSR__ = [{ grants: [ga] }, { grants: [gb] }];
     try {
       const registry = createModelRegistry();
-      registry.model(postModel).setMany([{ id: "1", title: "one" }]);
+      // entities ride inside each grant now — the client attaches nothing from the registry
       const { transport, sent } = fakeTransport();
       createLiveClient({ registry, transport });
 
-      expect(sent).toHaveLength(2);
-      expect((sent[0] as { entities: string[] }).entities).toEqual(["post:1"]);
-      expect((sent[1] as { entities: string[] }).entities).toEqual([]);
+      expect(sent).toEqual([subscribe(ga), subscribe(gb)]);
     } finally {
       delete (globalThis as { __RXFY_SSR__?: unknown }).__RXFY_SSR__;
     }
@@ -84,15 +81,15 @@ describe("createLiveClient", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       const live = createLiveClient({ registry, transport, renewUrl: "/live/renew", now });
-      live.subscribe(expiring, ["post:1"]);
-      expect(sent).toEqual([subscribe(expiring, ["post:1"])]);
+      live.subscribe(expiring);
+      expect(sent).toEqual([subscribe(expiring)]);
 
       await vi.runOnlyPendingTimersAsync();
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const body = JSON.parse(fetchMock.mock.calls[0]![1]!.body as string);
       expect(body).toEqual({ grants: [expiring] });
-      expect(sent[sent.length - 1]).toEqual(subscribe(fresh, ["post:1"]));
+      expect(sent[sent.length - 1]).toEqual(subscribe(fresh));
 
       live.stop();
     } finally {
@@ -116,7 +113,7 @@ describe("createLiveClient", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       const live = createLiveClient({ registry, transport, renewUrl: "/live/renew", now });
-      live.subscribe(expiring, ["post:1"]);
+      live.subscribe(expiring);
       const before = sent.length;
 
       await vi.runOnlyPendingTimersAsync(); // must not throw
@@ -146,7 +143,7 @@ describe("createLiveClient", () => {
       vi.stubGlobal("fetch", fetchMock);
 
       const live = createLiveClient({ registry, transport, renewUrl: "/live/renew", renewLeadMs, now });
-      live.subscribe(expiring, ["post:1"]);
+      live.subscribe(expiring);
       const before = sent.length;
 
       // First renewal attempt (scheduled at ~0) fires and its fetch rejects — must not throw.

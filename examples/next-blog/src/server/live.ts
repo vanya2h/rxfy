@@ -1,3 +1,4 @@
+import { collectShapeTopics, type FieldsMap } from "rxfy";
 import { stale } from "rxfy-protocol";
 import {
   channelSubscription,
@@ -24,23 +25,26 @@ const GRANT_TTL_MS = 15 * 60_000; // the browser renews before expiry via POST /
 const RENEW_GRACE_MS = 5 * 60_000; // a grant expired by up to this long still renews
 
 /**
- * Attach a signed channel grant to a served payload. Stateless — no session, no request. The client
- * lifts `$grant`, subscribes the channel on its own WebSocket, and refetches when it goes stale.
+ * Attach a signed grant to a served payload. The grant's claims name the channel AND the entity
+ * topics the payload holds, so the WebSocket server subscribes the socket to exactly those.
+ * Stateless — no session, no request. The client lifts `$grant`, subscribes on its own WebSocket,
+ * and refetches when it goes stale.
  */
 export function serve<T extends object>(
-  state: StateChannelDescriptor,
+  state: StateChannelDescriptor & { fields: FieldsMap },
   params: Record<string, unknown>,
   data: T,
 ): T & { $grant: string } {
   const channel = invalidationChannel(state, params);
-  return { ...data, $grant: signGrant({ channel, secret: SECRET, ttlMs: GRANT_TTL_MS }) };
+  const entities = collectShapeTopics(state.fields, data as Record<string, unknown>);
+  return { ...data, $grant: signGrant({ channel, entities, secret: SECRET, ttlMs: GRANT_TTL_MS }) };
 }
 
-/** Reissue a grant nearing expiry (or null when it fails to verify) — the renew route's per-grant op. */
+/** Reissue a grant nearing expiry, preserving its entities (or null when it fails to verify). */
 export function renewGrant(grant: string): string | null {
   const claims = verifyGrant(grant, { secret: SECRET, graceMs: RENEW_GRACE_MS });
   if (!claims) return null;
-  return signGrant({ channel: claims.channel, secret: SECRET, ttlMs: GRANT_TTL_MS });
+  return signGrant({ channel: claims.channel, entities: claims.entities, secret: SECRET, ttlMs: GRANT_TTL_MS });
 }
 
 /** Mark a state channel stale — every client subscribed to it gets a live update badge. */

@@ -10,10 +10,11 @@ export type ServerSocket = {
 export type WsServerOptions = { secret: string };
 
 /**
- * Bridges a Hub to WebSocket connections. Clients present signed channel grants in `subscribe`
- * frames; entity topics are accepted alongside any currently-valid grant (entity ids are required
- * to be unguessable — see the live-grants spec). Invalid frames are dropped silently: the client's
- * renewal/refetch loop is the recovery path. A closed socket drops all of its subscriptions.
+ * Bridges a Hub to WebSocket connections. Clients present a signed channel grant in each `subscribe`
+ * frame; the grant's claims name the channel AND the exact entity topics it authorizes, so the
+ * server subscribes to those alone — nothing the client asks for out of band. Invalid frames are
+ * dropped silently: the client's renewal/refetch loop is the recovery path. A closed socket drops
+ * all of its subscriptions.
  */
 export function createWsServer(
   hub: Hub,
@@ -40,7 +41,7 @@ export function createWsServer(
         }
         const claims = verifyGrant(frame.grant, { secret: options.secret });
         if (claims === null) return;
-        const ids = [channelSubscription(claims.channel), ...frame.entities.map(entityTopicSubscription)];
+        const ids = [channelSubscription(claims.channel), ...claims.entities.map(entityTopicSubscription)];
         hub.subscribe(conn, ids, claims.exp);
       });
 

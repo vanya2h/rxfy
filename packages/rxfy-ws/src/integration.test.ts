@@ -39,10 +39,10 @@ describe("ws client/server integration", () => {
     const seen: unknown[] = [];
     transport.onMessage((m) => seen.push(m));
 
-    // The client presents a signed channel grant plus the payload's entity topics; the server
-    // verifies and subscribes the connection under both the channel and the entity ids.
-    const grant = signGrant({ channel: "todos|{}", secret, ttlMs: 60_000 });
-    transport.send(subscribe(grant, ["todo:1"]));
+    // The client presents a signed grant whose claims name the channel AND its entity topics; the
+    // server verifies and subscribes the connection under both the channel and the entity ids.
+    const grant = signGrant({ channel: "todos|{}", entities: ["todo:1"], secret, ttlMs: 60_000 });
+    transport.send(subscribe(grant));
 
     hub.publish(entitySubscription("todo", "1"), patch("todo", "1", { id: "1", done: true }));
     hub.publish(channelSubscription("todos|{}"), stale("todos|{}"));

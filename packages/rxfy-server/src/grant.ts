@@ -1,15 +1,23 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /** Decoded claims of a channel grant. `exp` is epoch milliseconds (not JWT seconds — internal format). */
-export type GrantClaims = { channel: string; exp: number };
+export type GrantClaims = { channel: string; entities: string[]; exp: number };
 
 const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
 
 const hmac = (input: string, secret: string): string => createHmac("sha256", secret).update(input).digest("base64url");
 
-export function signGrant(opts: { channel: string; secret: string; ttlMs: number; now?: () => number }): string {
+export function signGrant(opts: {
+  channel: string;
+  entities: string[];
+  secret: string;
+  ttlMs: number;
+  now?: () => number;
+}): string {
   const now = opts.now ?? Date.now;
-  const payload = Buffer.from(JSON.stringify({ ch: opts.channel, exp: now() + opts.ttlMs })).toString("base64url");
+  const payload = Buffer.from(
+    JSON.stringify({ ch: opts.channel, ents: opts.entities, exp: now() + opts.ttlMs }),
+  ).toString("base64url");
   return `${HEADER}.${payload}.${hmac(`${HEADER}.${payload}`, opts.secret)}`;
 }
 
@@ -32,8 +40,9 @@ export function verifyGrant(
   } catch {
     return null;
   }
-  const { ch, exp } = (claims ?? {}) as { ch?: unknown; exp?: unknown };
+  const { ch, ents, exp } = (claims ?? {}) as { ch?: unknown; ents?: unknown; exp?: unknown };
   if (typeof ch !== "string" || typeof exp !== "number") return null;
+  if (!Array.isArray(ents) || ents.some((e) => typeof e !== "string")) return null;
   if (exp + (opts.graceMs ?? 0) < now()) return null;
-  return { channel: ch, exp };
+  return { channel: ch, entities: ents as string[], exp };
 }

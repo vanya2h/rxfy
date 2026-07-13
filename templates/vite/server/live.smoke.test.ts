@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { collectEntityTopics, createModelRegistry, normalizeResult, stateChannel } from "rxfy";
+import { createModelRegistry, normalizeResult, stateChannel } from "rxfy";
 import type { LiveClient } from "rxfy-client";
 import { createLiveClient } from "rxfy-client";
 import type { Hub, PublishSink } from "rxfy-server";
@@ -122,10 +122,10 @@ describe("live end-to-end over the grant/WebSocket path", () => {
     const served = live.serve(todosState, {}, { todos: [{ id: "t1", title: "Hi", done: false }] });
     const { $grant, ...payload } = served;
 
-    // The client lifts $grant, normalizes the payload into its stores, and subscribes the channel
-    // grant plus the payload's entity topics — mirroring useStateData's settle().
-    const query = normalizeResult(registry, todosState.fields, payload);
-    liveClient.subscribe($grant, collectEntityTopics(todosState.fields, query as Record<string, unknown>));
+    // The client lifts $grant, normalizes the payload into its stores, and subscribes with the grant
+    // alone — its claims name the entity topics — mirroring useStateData's settle().
+    normalizeResult(registry, todosState.fields, payload);
+    liveClient.subscribe($grant);
 
     const row = await live.update(todoResource, "t1", { done: true });
     expect(row).toMatchObject({ id: "t1", done: true });
@@ -152,8 +152,8 @@ describe("live end-to-end over the grant/WebSocket path", () => {
 
     const served = live.serve(todosState, {}, { todos: [{ id: "t1", title: "Hi", done: false }] });
     const { $grant, ...payload } = served;
-    const query = normalizeResult(registry, todosState.fields, payload);
-    liveClient.subscribe($grant, collectEntityTopics(todosState.fields, query as Record<string, unknown>));
+    normalizeResult(registry, todosState.fields, payload);
+    liveClient.subscribe($grant);
 
     // A write on another connection touches the todos channel; the client sees a stale bump.
     live.touch(touch(todosState, {}));

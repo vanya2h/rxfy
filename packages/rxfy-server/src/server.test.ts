@@ -133,7 +133,7 @@ describe("createServer.touch", () => {
 const postsState = defineState({ key: "posts", params: z.object({}), model: { posts: array(postModel) } });
 
 describe("createServer.serve", () => {
-  it("parses and attaches a verifiable $grant for the state channel", async () => {
+  it("parses and attaches a verifiable $grant carrying the channel and entities", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const live = createServer({ db, resources, hub: createInMemoryHub(), secret: "s", grantTtlMs: 60_000 });
     const rawRow = { id: "1", orgId: "A", title: "a" };
@@ -141,6 +141,7 @@ describe("createServer.serve", () => {
     expect(result.posts[0]!.id).toBe(rawRow.id); // parsed shape intact
     const claims = verifyGrant((result as { $grant: string }).$grant, { secret: "s" });
     expect(claims?.channel).toBe(stateChannel(postsState, {}));
+    expect(claims?.entities).toEqual(["post:1"]);
   });
 
   it("parses the input shape: unknown keys are stripped from entities", async () => {
@@ -163,26 +164,31 @@ describe("createServer.serve", () => {
 });
 
 describe("createServer.renew", () => {
-  it("reissues a valid grant and rejects garbage", async () => {
+  it("reissues a valid grant preserving channel and entities, and rejects garbage", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const live = createServer({ db, resources, hub: createInMemoryHub(), secret: "s", grantTtlMs: 1_000 });
-    const grant = (live.serve(postsState, {}, { posts: [] }) as { $grant: string }).$grant;
+    const grant = (live.serve(postsState, {}, { posts: [{ id: "1", orgId: "A", title: "a" }] }) as { $grant: string })
+      .$grant;
     const renewed = live.renew(grant);
     expect(renewed).not.toBeNull();
-    expect(verifyGrant(renewed!, { secret: "s" })?.channel).toBe(stateChannel(postsState, {}));
+    const claims = verifyGrant(renewed!, { secret: "s" });
+    expect(claims?.channel).toBe(stateChannel(postsState, {}));
+    expect(claims?.entities).toEqual(["post:1"]);
     expect(live.renew("garbage")).toBeNull();
   });
 });
 
 describe("createServer.hydration", () => {
-  it("signs one grant per logged channel", async () => {
+  it("embeds the registry's logged grants verbatim", async () => {
     const { db } = await createTestDb(CREATE_POSTS);
     const { live } = harness(db);
     const registry = createModelRegistry();
-    registry.channels.add("posts");
+    registry.grants.add("grant-A");
+    registry.grants.add("grant-B");
     const script = live.hydration(registry);
     expect(script).toContain("__RXFY_SSR__");
-    expect(script).toContain('"grants"');
+    expect(script).toContain("grant-A");
+    expect(script).toContain("grant-B");
   });
 });
 

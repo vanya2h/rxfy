@@ -81,6 +81,26 @@ export function collectEntityTopics(fields: FieldsMap, query: Record<string, unk
   return topics;
 }
 
+/**
+ * `name:id` topics for every entity a *parsed* shape holds (full entities, pre-normalization) —
+ * the server's authoritative subscription list, signed into the grant. Mirrors `collectEntityTopics`
+ * but reads the id off each entity via `model.getKey` instead of expecting ids in place.
+ */
+export function collectShapeTopics(fields: FieldsMap, shape: Record<string, unknown>): string[] {
+  const topics: string[] = [];
+  for (const [fieldName, entry] of Object.entries(fields)) {
+    if (!isFieldDescriptor(entry)) continue; // plain-value fields carry no entities
+    const value = shape[fieldName];
+    if (entry.kind === "array") {
+      for (const entity of (value as unknown[]) ?? [])
+        topics.push(`${entry.model.name}:${entry.model.getKey(entity as never)}`);
+    } else if (value !== undefined && value !== null) {
+      topics.push(`${entry.model.name}:${entry.model.getKey(value as never)}`);
+    }
+  }
+  return topics;
+}
+
 /** Rebuilds the fetch shape from ids by reading store value maps; plain values are copied verbatim. */
 export function denormalizeValue<TShape>(
   registry: IModelRegistry,
