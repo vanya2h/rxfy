@@ -6,6 +6,7 @@
  * entry.
  */
 export { type GrantClaims, signGrant, verifyGrant } from "./grant.js";
+export { createGrantIssuer, type GrantIssuer, type GrantIssuerConfig } from "./grant-issuer.js";
 export * from "./hub.js";
 export { grantsHydration } from "./hydration.js";
 export * from "./state-channel.js";
