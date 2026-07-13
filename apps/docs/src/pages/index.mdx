@@ -70,17 +70,15 @@ The insight above unfolds into the four principles rxfy is built on:
 - **Every entity lives in one normalized store.** A model declares the entity's schema; every entity lands in a single slot keyed by id. Writing to the slot
   is the only write path — you can't fork a copy — so an update reaches every subscriber
   automatically.
-- **Each page declares its own state over those stores.** A state bundles the fetch params,
-  data shape, and mutation logic into one declaration, and it carries only ids, resolved
-  against the shared stores. Components are the granular consumers — each subscribes to the
-  entity it reads and re-renders only when that entity changes, nothing else.
-- **Values unwrap as late as possible.** The data is wrapped, and only the leaf
-  component that renders a value unwraps it. A write skips unwrapping entirely: it lands in the
-  store whether or not any query has settled. The narrower the unwrap, the narrower the
+- **Each page declares its own state over those stores.** A state composes the fetch params,
+  state shape, and mutation logic into one declaration that references data in shared normalized stores.
+  Components are the granular consumers — use id references from the store and unwrap it in your component. Each [`Pending`](/react/pending) component re-renders only when that entity changes, nothing else.
+- **Values unwrap as late as possible.** The data from normalized store is wrapped in [`Atom`](/rxfy/create-atom), and only the leaf
+  component that renders a value unwraps it. A write skips propagates to all subscribers automatically. The narrower the unwrap, the narrower the
   re-render — see [Late Unwrapping](/core-concepts/late-unwrapping).
 - **States and stores are serializable.** The same declaration the client renders from, the
   server fills and serializes; the client restores the snapshot and skips what it already
-  fetched. [SSR](/core-concepts/ssr) is first-class and works well with frameworks
+  fetched on server. [SSR](/core-concepts/ssr) has first-class support and works well with frameworks
   like Next.js or React Router v7.
 
 ## RxJS as a reactivity engine

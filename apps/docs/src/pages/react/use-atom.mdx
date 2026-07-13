@@ -27,7 +27,7 @@ no re-fetch. `store.get(id)` assumes the entity is already loaded and throws oth
 [Model](/rxfy/create-model#modelstore-get)).
 
 ```ts
-function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
+function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void];
 ```
 
 The `IAtom<T>` it accepts is the writable reactive cell:

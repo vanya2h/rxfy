@@ -54,12 +54,12 @@ export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRE
 
 ## Writes
 
-| Call | SQL | Publishes |
-|---|---|---|
-| `live.update(resource, id, patch)` | UPDATE … RETURNING | `patch` on `"<name>:<id>"` topic + `stale` on touched channels |
-| `live.create(resource, row, { touch })` | INSERT | `stale` on touched channels only (no patch) |
-| `live.delete(resource, id, { touch })` | DELETE | `stale` on touched channels only |
-| `live.touch(...targets)` | none | `stale` out of band |
+| Call                                    | SQL                | Publishes                                                      |
+| --------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `live.update(resource, id, patch)`      | UPDATE … RETURNING | `patch` on `"<name>:<id>"` topic + `stale` on touched channels |
+| `live.create(resource, row, { touch })` | INSERT             | `stale` on touched channels only (no patch)                    |
+| `live.delete(resource, id, { touch })`  | DELETE             | `stale` on touched channels only                               |
+| `live.touch(...targets)`                | none               | `stale` out of band                                            |
 
 Return values: `create` resolves the inserted row. `update` resolves the updated row, or `undefined` when no row matches the id — a not-found update writes nothing and publishes nothing (no patch, no touch).
 
@@ -70,11 +70,7 @@ import { touch } from "rxfy-server";
 await live.update(postWriteResource, postId, { title, body });
 
 // create — no patch; touch the state channels that list this entity
-await live.create(
-  postWriteResource,
-  { id: newId(), userId, title, body },
-  { touch: [touch(postsState, {})] },
-);
+await live.create(postWriteResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
 
 // delete — same: no patch, touch the channels that referenced this entity
 await live.delete(postResource, postId, { touch: [touch(postsState, {})] });
@@ -110,7 +106,7 @@ export type Hub = {
 
 Covered in depth in `live-grants.md`. In short:
 
-- `live.serve(state, params, data)` — read-endpoint wrapper (no `req`); accepts the state's *input*
+- `live.serve(state, params, data)` — read-endpoint wrapper (no `req`); accepts the state's _input_
   shape (raw DB rows — unbranded ids, extra columns OK), parses it through the state's schemas, signs
   a grant for the state's channel, and returns the parsed shape (ids branded, unknown keys stripped)
   with the grant attached as a reserved `$grant` field. Stateless — it never touches the hub.

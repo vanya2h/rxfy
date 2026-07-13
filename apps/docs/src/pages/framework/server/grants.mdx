@@ -1,14 +1,14 @@
 # Grants [The server signs what it serves; the client subscribes with the token]
 
 Live subscriptions ride **stateless signed channel grants**. The server records nothing at serve
-time — it *signs*. `live.serve` returns the parsed payload plus a reserved `$grant` field: a JWT
+time — it _signs_. `live.serve` returns the parsed payload plus a reserved `$grant` field: a JWT
 whose claims are the state's channel and an expiry. The client lifts that grant automatically,
 subscribes with it over the WebSocket, and renews it before it expires. There is no session, no
 server-held subscription table, no header to inject.
 
 ## Serving = signing
 
-A read endpoint wraps its result in `live.serve` — it parses the raw payload (the state's *input*
+A read endpoint wraps its result in `live.serve` — it parses the raw payload (the state's _input_
 shape, e.g. DB rows with unbranded ids and extra columns) through the state's schemas, signs a
 grant for `stateChannel(state, params)`, and returns the parsed shape (ids branded, unknown keys
 stripped) with the grant attached as `$grant`. Raw Drizzle rows go in with no casts, and there is

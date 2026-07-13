@@ -88,7 +88,11 @@ export type LiveConfig<TBinding> = {
 };
 
 export type Live<TBinding> = GrantIssuer & {
-  create: <TInsert, TRow>(resource: Resource<TInsert, TRow, TBinding>, values: TInsert, opts?: WriteOpts) => Promise<TRow>;
+  create: <TInsert, TRow>(
+    resource: Resource<TInsert, TRow, TBinding>,
+    values: TInsert,
+    opts?: WriteOpts,
+  ) => Promise<TRow>;
   update: <TInsert, TRow>(
     resource: Resource<TInsert, TRow, TBinding>,
     id: string,
@@ -178,7 +182,9 @@ export type MemoryBinding = { rows: Map<string, unknown>; getKey: (row: unknown)
 // Insert shape is the full row (the caller supplies the id, so `create` can key it); `update`
 // still takes Partial<TRow> via Live.update's Partial<TInsert>.
 export function defineCollection<TRow>(config: {
-  name: string; model: ModelDescriptor<TRow>; seed?: TRow[];
+  name: string;
+  model: ModelDescriptor<TRow>;
+  seed?: TRow[];
 }): Resource<TRow, TRow, MemoryBinding> & { all: () => TRow[]; get: (id: string) => TRow | undefined };
 
 export function memoryStorage(): LiveStorage<MemoryBinding> {
@@ -206,7 +212,7 @@ The `rr7-blog` / `next-blog` in-memory stores collapse onto these collections: w
 
 ### 6. Ripple effects
 
-- **`rxfy-server/hub` subpath collapses.** Its only purpose was a Drizzle-free import; once core *is* Drizzle-free, the main entry already is, so the subpath is redundant. Merge it into the main entry and drop the `./hub` export.
+- **`rxfy-server/hub` subpath collapses.** Its only purpose was a Drizzle-free import; once core _is_ Drizzle-free, the main entry already is, so the subpath is redundant. Merge it into the main entry and drop the `./hub` export.
 - **`createServer` → `createLive`; `ServerConfig` → `LiveConfig`** (`{ db, resources }` → `{ storage }`); `Live` drops `db`. Breaking rename — acceptable under the 3.0.0 major already in flight.
 - **`ResourceRegistry` / `createResourceRegistry`** are no longer required by the core writers (each call passes its resource). Keep them in core as a neutral name→resource lookup helper for apps that want it, retyped over the neutral `Resource`; not part of `LiveConfig`.
 - **Migration**: the Drizzle examples/templates (`vite-blog-framework`, `waku-blog`, `vite-ssr-pagination`, `templates/vite`) import `defineResource`/`drizzleStorage` from `rxfy-server-drizzle` and pass `storage: drizzleStorage(db)`; the in-memory examples (`rr7-blog`, `next-blog`) adopt `rxfy-server-memory`. Docs (`apps/docs`) and skills (`.agents/skills/rxfy-framework`) updated. Changesets: `major` for `rxfy-server`, plus initial releases for the two adapter packages.
@@ -220,13 +226,13 @@ Types flow in two layers, and the `unknown` on the port never reaches the app:
 - **Seam** — inside `createLive`, `storage.create(resource.binding, values)` crosses the `unknown` payload boundary with two contained casts (`values → unknown`, `unknown result → TRow`). This is invisible to the app.
 
 ```ts
-const posts = defineResource({ table: postsTable });   // Resource<PostInsert, PostRow, DrizzleBinding>
+const posts = defineResource({ table: postsTable }); // Resource<PostInsert, PostRow, DrizzleBinding>
 const live = createLive({ storage: drizzleStorage(db), hub, secret }); // Live<DrizzleBinding>
-await live.create(posts, values);   // values: PostInsert ✓   returns Promise<PostRow>
+await live.create(posts, values); // values: PostInsert ✓   returns Promise<PostRow>
 await live.create(memoryCollection, values); // ✗ compile error: binding mismatch
 ```
 
-Because `createLive` is generic over `TBinding` and the writers require `Resource<…, TBinding>`, pairing a storage with a foreign adapter's resource is a **compile-time** error, not a runtime one. Row/values payloads remain `unknown` only *at the port* — they can't be known by a generic storage — while the app-facing generics carry them precisely.
+Because `createLive` is generic over `TBinding` and the writers require `Resource<…, TBinding>`, pairing a storage with a foreign adapter's resource is a **compile-time** error, not a runtime one. Row/values payloads remain `unknown` only _at the port_ — they can't be known by a generic storage — while the app-facing generics carry them precisely.
 
 ---
 

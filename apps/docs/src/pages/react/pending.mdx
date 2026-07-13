@@ -22,17 +22,25 @@ function Todos() {
       value$={data$}
       pending={<p>Loading...</p>}
       rejected={({ error }) => (
-        <p>Error: {String(error)} <button onClick={reload}>Retry</button></p>
+        <p>
+          Error: {String(error)} <button onClick={reload}>Retry</button>
+        </p>
       )}
     >
-      {({ todos }) => <ul>{todos.map((id) => <TodoItem key={id} id={id} />)}</ul>}
+      {({ todos }) => (
+        <ul>
+          {todos.map((id) => (
+            <TodoItem key={id} id={id} />
+          ))}
+        </ul>
+      )}
     </Pending>
   );
 }
 ```
 
 ```ts
-function Pending<T>(props: IPendingProps<T>): React.ReactNode
+function Pending<T>(props: IPendingProps<T>): React.ReactNode;
 ```
 
 Its props are:

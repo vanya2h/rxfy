@@ -12,7 +12,9 @@ Integrate `@vanya2h/eslint-config`, `@vanya2h/prettier-config`, and `@vanya2h/ty
 If the user passed an argument, use it directly. Valid values: `base`, `node`, `react`, `lib`.
 
 If no argument was given, ask the user:
+
 > What type of project is this?
+>
 > 1. `base` — generic TypeScript package
 > 2. `node` — Node.js app or server
 > 3. `react` — React / browser app
@@ -23,6 +25,7 @@ Wait for the answer before continuing.
 ## Step 2 — Detect the package manager
 
 Check for lock files in the project root:
+
 - `pnpm-lock.yaml` → use `pnpm`
 - `yarn.lock` → use `yarn`
 - `package-lock.json` → use `npm`
@@ -33,15 +36,18 @@ Check for lock files in the project root:
 Check for these files in the project root:
 
 **ESLint:**
+
 - `eslint.config.js`, `eslint.config.mjs`, `eslint.config.cjs`
 - `.eslintrc`, `.eslintrc.js`, `.eslintrc.cjs`, `.eslintrc.json`, `.eslintrc.yaml`, `.eslintrc.yml`
 
 **Prettier:**
+
 - `prettier.config.js`, `prettier.config.mjs`, `prettier.config.cjs`
 - `.prettierrc`, `.prettierrc.js`, `.prettierrc.cjs`, `.prettierrc.json`, `.prettierrc.yaml`, `.prettierrc.yml`
 - `"prettier"` key in `package.json`
 
 **TypeScript:**
+
 - `tsconfig.json` (check if it already extends `@vanya2h/typescript-config`)
 
 For any config file found that is NOT already using `@vanya2h/*`, ask the user:
@@ -54,11 +60,11 @@ If the user says **no** for a config, skip that config entirely — do not insta
 
 Based on which configs the user approved, install only the needed packages:
 
-| Config approved | Command |
-|---|---|
-| ESLint | `<pm> add -D @vanya2h/eslint-config eslint typescript` |
-| Prettier | `<pm> add -D @vanya2h/prettier-config prettier` |
-| TypeScript | `<pm> add -D @vanya2h/typescript-config typescript` |
+| Config approved | Command                                                |
+| --------------- | ------------------------------------------------------ |
+| ESLint          | `<pm> add -D @vanya2h/eslint-config eslint typescript` |
+| Prettier        | `<pm> add -D @vanya2h/prettier-config prettier`        |
+| TypeScript      | `<pm> add -D @vanya2h/typescript-config typescript`    |
 
 Where `<pm>` is the package manager detected in Step 2. For `pnpm` use `pnpm add -D`, for `yarn` use `yarn add -D`, for `npm` use `npm install --save-dev`.
 
@@ -71,6 +77,7 @@ Run all approved installs. Show the commands before running them.
 Remove any old ESLint config files found in Step 3, then create `eslint.config.mjs`:
 
 **base:**
+
 ```js
 import { config } from "@vanya2h/eslint-config/base";
 
@@ -78,6 +85,7 @@ export default [...config];
 ```
 
 **node:**
+
 ```js
 import { config } from "@vanya2h/eslint-config/node";
 
@@ -85,6 +93,7 @@ export default [...config];
 ```
 
 **react:**
+
 ```js
 import { config } from "@vanya2h/eslint-config/react";
 
@@ -98,6 +107,7 @@ Remove any old Prettier config files found in Step 3.
 Also remove the `"prettier"` key from `package.json` if it exists.
 
 Then add to `package.json`:
+
 ```json
 "prettier": "@vanya2h/prettier-config"
 ```
@@ -105,10 +115,12 @@ Then add to `package.json`:
 ### TypeScript (if approved)
 
 Check if `tsconfig.json` exists:
+
 - If it exists and user approved replacement, update the `"extends"` field.
 - If it does not exist, create it.
 
 **base tsconfig:**
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -117,6 +129,7 @@ Check if `tsconfig.json` exists:
 ```
 
 **node tsconfig:**
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -129,6 +142,7 @@ Check if `tsconfig.json` exists:
 ```
 
 **react tsconfig:**
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -141,6 +155,7 @@ Check if `tsconfig.json` exists:
 ```
 
 **lib tsconfig:**
+
 ```json
 {
   "$schema": "https://json.schemastore.org/tsconfig",
@@ -157,6 +172,7 @@ When updating an existing `tsconfig.json`, preserve all other fields — only ad
 ## Step 6 — Add lint scripts (optional)
 
 Check whether `package.json` already has a `"lint"` script. If it does not, offer to add:
+
 ```json
 "lint": "eslint ./",
 "lint:fix": "eslint ./ --fix"

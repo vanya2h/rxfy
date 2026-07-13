@@ -14,7 +14,7 @@ Replace server-held sessions with **stateless, signed channel grants delivered i
 4. Writes are unchanged (`live.create/update/delete`, `touch`): the WS node fans each patch/stale out to every socket subscribed to the affected topic — subscription state is socket-keyed and dies with the socket.
 5. Grants expire. The client renews them through an app-mounted endpoint that runs the app's own auth middleware — **revocation latency collapses to the token TTL**.
 
-**Deleted from v2:** session ids, `RXFY_SESSION_HEADER`, `getSessionId`/`sessionHeaders`/`withSession`, the `hello` and `session` frames, session-keyed hub state, and the bind/release TTL lifecycle. The word "grant" re-enters the codebase — deliberately: this design keeps v2's *automatic derivation* of what to subscribe to, and restores v1's *capability* delivery, minus the per-entity token explosion that killed v1.
+**Deleted from v2:** session ids, `RXFY_SESSION_HEADER`, `getSessionId`/`sessionHeaders`/`withSession`, the `hello` and `session` frames, session-keyed hub state, and the bind/release TTL lifecycle. The word "grant" re-enters the codebase — deliberately: this design keeps v2's _automatic derivation_ of what to subscribe to, and restores v1's _capability_ delivery, minus the per-entity token explosion that killed v1.
 
 **The deciding constraint:** entity patches carry full rows and fan out on raw-id topics, so **entity ids MUST be unguessable**. This design converts an existing convention (the templates mint `crypto.randomUUID()`) into a hard framework requirement. If that mandate is unacceptable, sessions (v2) remain the right design.
 
@@ -30,10 +30,10 @@ v2 (sessions) shipped with three structural costs, none fatal alone:
 
 The v2 spec's revision history rejected response-delivered grants ("v1: forces a response shape on every endpoint") when grants were **per-entity** — a 100-row page meant 100 tokens in the body. Two observations dissolve that rejection:
 
-- Grants can be **state-wide**: one token per served state instance covers the channel. Entities delivered by that state don't need individual tokens *if* their ids are unguessable — possessing an id proves it was served by some authorized state fetch.
+- Grants can be **state-wide**: one token per served state instance covers the channel. Entities delivered by that state don't need individual tokens _if_ their ids are unguessable — possessing an id proves it was served by some authorized state fetch.
 - The state payload is already framework-shaped: `live.serve` **parses** it (brands ids, strips unknown keys). Endpoints that call `live.serve` are rxfy-aligned by construction; one reserved field in that payload is not a new intrusion, and it is confined to exactly those endpoints.
 
-What v2 got right and this design keeps: subscription *intent* derived server-side from what was actually served (no application-declared grant specs, no keyer), the canonical `stateChannel` derivation in core, `ChannelLog`, entity derivation via the resource registry, and unchanged write/publish semantics.
+What v2 got right and this design keeps: subscription _intent_ derived server-side from what was actually served (no application-declared grant specs, no keyer), the canonical `stateChannel` derivation in core, `ChannelLog`, entity derivation via the resource registry, and unchanged write/publish semantics.
 
 ---
 
@@ -44,10 +44,10 @@ What v2 got right and this design keeps: subscription *intent* derived server-si
 ```ts
 // client → server. The only client frame. Sent per served state, replayed in bulk on reconnect.
 export type SubscribeMessage = {
-  v: ProtocolVersion;                 // 2
+  v: ProtocolVersion; // 2
   kind: "subscribe";
-  grant: string;                      // JWT: { ch: string, exp: number }
-  entities: string[];                 // raw `${name}:${id}` topics the payload normalized into
+  grant: string; // JWT: { ch: string, exp: number }
+  entities: string[]; // raw `${name}:${id}` topics the payload normalized into
 };
 ```
 
@@ -96,10 +96,10 @@ The hub re-keys by connection and its lifecycle collapses into the socket's:
 ```ts
 export type ConnId = number;
 export type Hub = {
-  subscribe: (conn: ConnId, ids: string[], exp: number) => void;  // called by the WS layer on a verified frame
-  publish: (id: string, message: ServerMessage) => void;          // skips entries past exp (lazy prune)
+  subscribe: (conn: ConnId, ids: string[], exp: number) => void; // called by the WS layer on a verified frame
+  publish: (id: string, message: ServerMessage) => void; // skips entries past exp (lazy prune)
   onPublish: (sink: (conn: ConnId, message: ServerMessage) => void) => void;
-  drop: (conn: ConnId) => void;                                   // socket closed
+  drop: (conn: ConnId) => void; // socket closed
 };
 ```
 
@@ -129,12 +129,12 @@ After `fetchFn` resolves: strip `$grant` if present, normalize the rest (unchang
 
 ### 8. Template simplification (`templates/vite`)
 
-| File | Change |
-| --- | --- |
-| `src/api-client.ts` | Plain `hc<AppType>("/api")` — the lazy `sessionHeaders` wiring is deleted. |
-| `src/entry-client.tsx` | `createLiveClient({ registry, transport, renewUrl: "/api/live/renew" })`. |
-| `server/api.ts` | `live.serve(todosState, {}, { todos: rows })` — no `c.req.raw`. Plus the one-line renew route. |
-| `server/live.ts` | `createServer({ db, resources, secret })` — the hub config entry is gone (internal, socket-keyed). |
+| File                   | Change                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/api-client.ts`    | Plain `hc<AppType>("/api")` — the lazy `sessionHeaders` wiring is deleted.                         |
+| `src/entry-client.tsx` | `createLiveClient({ registry, transport, renewUrl: "/api/live/renew" })`.                          |
+| `server/api.ts`        | `live.serve(todosState, {}, { todos: rows })` — no `c.req.raw`. Plus the one-line renew route.     |
+| `server/live.ts`       | `createServer({ db, resources, secret })` — the hub config entry is gone (internal, socket-keyed). |
 
 What survives in app code: one `live.serve` per read endpoint, `touch` targets on writes, and one mounted renew route. The fetch client carries **nothing**.
 
@@ -142,7 +142,7 @@ What survives in app code: one `live.serve` per read endpoint, `touch` targets o
 
 ## Security
 
-- **Opaque entity ids are a hard requirement — scoped to live.** Full-row patches fan out on raw `name:id` topics; with guessable ids (serial integer PKs) any valid grant lets a client watch arbitrary rows. The mandate covers exactly the models whose rows are published — resource-backed models written through `live.*` in a live-enabled app. Store-only apps, client-only models, and non-live states impose nothing on ids. Note the scope is *published models*, not *live states*: a model written via `live.create/update` publishes patches even if no state serving it ever calls `live.serve`, so its ids must be opaque regardless. Templates already comply (`crypto.randomUUID()`). Dev-mode heuristic: warn when a resource-backed model's ids are short decimal integers.
+- **Opaque entity ids are a hard requirement — scoped to live.** Full-row patches fan out on raw `name:id` topics; with guessable ids (serial integer PKs) any valid grant lets a client watch arbitrary rows. The mandate covers exactly the models whose rows are published — resource-backed models written through `live.*` in a live-enabled app. Store-only apps, client-only models, and non-live states impose nothing on ids. Note the scope is _published models_, not _live states_: a model written via `live.create/update` publishes patches even if no state serving it ever calls `live.serve`, so its ids must be opaque regardless. Templates already comply (`crypto.randomUUID()`). Dev-mode heuristic: warn when a resource-backed model's ids are short decimal integers.
 - **A leaked grant is a capability until `exp`** — it authorizes receiving pushes for one channel (and presenting alongside entity subscriptions). Mitigations: short TTL, renewal behind app auth, and grants never appear in URLs. State endpoints should send `Cache-Control: private, no-store` — a cached personalized response already leaks a data snapshot, but with grants it would leak a live capability; the docs must say so explicitly.
 - **Possession of an id outlives access** in the window between revocation and `exp`: a revoked user holding a still-valid grant can resubscribe to known entity ids until the token dies. Bounded by TTL; apps needing tighter revocation use shorter TTLs.
 - **Secret rotation** invalidates all outstanding grants at once: renewals fail, clients degrade to static data, refetches mint fresh grants. Graceful by construction; no restart choreography.
@@ -153,7 +153,7 @@ What survives in app code: one `live.serve` per read endpoint, `touch` targets o
 
 - **Fetch completes before the WS connects** — the client queues the subscribe; grants are client-held, so nothing is lost. No ordering requirement (now including client-only first fetches, which v2 raced).
 - **Server restart** — sockets drop, clients reconnect and replay their grant set; subscription state is rebuilt from the client side. v2 lost it silently.
-- **Multi-node** — any node verifies a grant with the shared secret; subscription state lives on the node holding the socket. No shared or sticky hub. (Cross-node *publish* fan-out — a write on node A reaching a socket on node B — still needs a pub/sub backbone; that is orthogonal to subscription state and unchanged from v2's follow-up.)
+- **Multi-node** — any node verifies a grant with the shared secret; subscription state lives on the node holding the socket. No shared or sticky hub. (Cross-node _publish_ fan-out — a write on node A reaching a socket on node B — still needs a pub/sub backbone; that is orthogonal to subscription state and unchanged from v2's follow-up.)
 - **Grant expires with the tab open** — the renewal loop reissues ahead of `exp`; if renewal fails, that state's updates end and data goes static until refetch. No crash, no error surface beyond a dev-mode console warning.
 - **Windowed params** — every page of a partition signs the same channel (window keys stripped by `stateChannel`); the client dedups by channel, keeping the freshest grant.
 - **Two tabs** — independent clients, independent grant sets; no shared-session semantics to preserve (v2's per-page-load sessions had the same property via different means).
@@ -166,17 +166,17 @@ What survives in app code: one `live.serve` per read endpoint, `touch` targets o
 
 ## Trade-offs vs the session design
 
-| Axis | Sessions (superseded pre-release) | Grants (this spec) |
-| --- | --- | --- |
-| Server state at serve time | Hub write per serve | None — sign only |
-| Restart / multi-instance | In-memory hub: lost / sticky-or-shared | Client-held: rebuilt on reconnect / any node verifies |
-| Integrator fetch path | Must inject header (`withSession`) — infeasible for some clients | Nothing — grant rides the data |
-| First-fetch race (client-only) | Present | Structurally impossible |
-| Schema constraints | None | **Entity ids must be unguessable** |
-| Client machinery | Pure sink + one `hello` | Subscribe frames, grant custody, renewal loop |
-| Revocation | Drop the session (immediate) | Bounded by token TTL (renewal gate) |
-| Protocol | 1 client frame, no crypto | 1 client frame, JWT verify per subscribe |
-| Payload | Untouched | One reserved `$grant` field on framework-aligned endpoints |
+| Axis                           | Sessions (superseded pre-release)                                | Grants (this spec)                                         |
+| ------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------- |
+| Server state at serve time     | Hub write per serve                                              | None — sign only                                           |
+| Restart / multi-instance       | In-memory hub: lost / sticky-or-shared                           | Client-held: rebuilt on reconnect / any node verifies      |
+| Integrator fetch path          | Must inject header (`withSession`) — infeasible for some clients | Nothing — grant rides the data                             |
+| First-fetch race (client-only) | Present                                                          | Structurally impossible                                    |
+| Schema constraints             | None                                                             | **Entity ids must be unguessable**                         |
+| Client machinery               | Pure sink + one `hello`                                          | Subscribe frames, grant custody, renewal loop              |
+| Revocation                     | Drop the session (immediate)                                     | Bounded by token TTL (renewal gate)                        |
+| Protocol                       | 1 client frame, no crypto                                        | 1 client frame, JWT verify per subscribe                   |
+| Payload                        | Untouched                                                        | One reserved `$grant` field on framework-aligned endpoints |
 
 The v2 spec's "the ask is ceremony" argument does not survive this revision: the ask now buys statelessness. What remains true is that v2 imposes nothing on schemas — that is the axis on which the decision lives.
 

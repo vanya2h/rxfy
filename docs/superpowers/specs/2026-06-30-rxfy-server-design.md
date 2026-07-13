@@ -9,7 +9,7 @@
 
 Provide a higher-level, server-side framework on top of rxfy that delivers **live data
 updates at no extra developer cost**. A single server-side write call both persists to the
-database *and* notifies all relevant clients. The framework owns model→DB derivation, the
+database _and_ notifies all relevant clients. The framework owns model→DB derivation, the
 broadcast protocol, capability-based authorization, and the client wiring that applies
 updates to rxfy's existing normalized stores.
 
@@ -48,16 +48,16 @@ Two distinct, deliberately different live behaviors:
 
 ## 3. Key Decisions
 
-| # | Decision | Choice |
-|---|---|---|
-| 1 | Source of truth for model shape | **DB schema leads** — Drizzle table → derive rxfy model + Zod via `drizzle-zod` |
-| 2 | Change detection | **Framework-mediated writes** — write functions persist *and* broadcast |
-| 3 | Subscription granularity | **Per-entity topics + named channels** |
-| 4 | Authorization | **Hashed topic keys** — opaque `HMAC(secret, topic + window)` ids issued at data-send time; possession = capability; pure routing, self-expiring |
-| 5 | Runtime scope | **Core + transport adapters** (default `rxfy-ws`) |
-| 6 | Client write path | **Server functions; the app exposes them** via its own endpoints |
-| 7 | Update granularity | **Hybrid** — live in-place entity patches + per-state counter for structure |
-| 8 | Pagination invalidation | **First-class window/partition split** — invalidation channel derived from partition params only |
+| #   | Decision                        | Choice                                                                                                                                           |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Source of truth for model shape | **DB schema leads** — Drizzle table → derive rxfy model + Zod via `drizzle-zod`                                                                  |
+| 2   | Change detection                | **Framework-mediated writes** — write functions persist _and_ broadcast                                                                          |
+| 3   | Subscription granularity        | **Per-entity topics + named channels**                                                                                                           |
+| 4   | Authorization                   | **Hashed topic keys** — opaque `HMAC(secret, topic + window)` ids issued at data-send time; possession = capability; pure routing, self-expiring |
+| 5   | Runtime scope                   | **Core + transport adapters** (default `rxfy-ws`)                                                                                                |
+| 6   | Client write path               | **Server functions; the app exposes them** via its own endpoints                                                                                 |
+| 7   | Update granularity              | **Hybrid** — live in-place entity patches + per-state counter for structure                                                                      |
+| 8   | Pagination invalidation         | **First-class window/partition split** — invalidation channel derived from partition params only                                                 |
 
 ## 4. Architecture Overview
 
@@ -101,9 +101,9 @@ that drives a purely client-side per-state counter (for staleness).
 
 ### 5.1 Resource definition (shared)
 
-A **resource** ties a Drizzle table to an rxfy model. Drizzle *table definitions* are plain
+A **resource** ties a Drizzle table to an rxfy model. Drizzle _table definitions_ are plain
 isomorphic objects — importing one does not pull in the DB driver — so `defineResource` runs
-on both client and server. Only the DB *connection* is server-only.
+on both client and server. Only the DB _connection_ is server-only.
 
 ```ts
 import { pgTable, text, integer } from "drizzle-orm/pg-core";
@@ -118,7 +118,7 @@ export const postsTable = pgTable("posts", {
 
 export const posts = defineResource({
   table: postsTable,
-  name: "post",            // topic namespace; required for live; defaults to table name
+  name: "post", // topic namespace; required for live; defaults to table name
   // primary key auto-detected -> getKey
 });
 
@@ -127,12 +127,12 @@ export const resources = createResourceRegistry([posts]);
 
 `defineResource` produces (all derived, no codegen):
 
-| Member | Type | Derivation |
-|---|---|---|
-| `model` | `ModelDescriptor<Post>` | `drizzle-zod createSelectSchema` → Zod → `createModel`, `name` set |
-| `zod` | `z.ZodType<Post>` | `createSelectSchema(table)` |
-| `getKey` | `(row) => string` | the table's single primary-key column |
-| `name` | `string` | topic namespace |
+| Member   | Type                    | Derivation                                                         |
+| -------- | ----------------------- | ------------------------------------------------------------------ |
+| `model`  | `ModelDescriptor<Post>` | `drizzle-zod createSelectSchema` → Zod → `createModel`, `name` set |
+| `zod`    | `z.ZodType<Post>`       | `createSelectSchema(table)`                                        |
+| `getKey` | `(row) => string`       | the table's single primary-key column                              |
+| `name`   | `string`                | topic namespace                                                    |
 
 `posts.model` is exactly the `ModelDescriptor` today's `useModelStore`/`useStateData` accept —
 resources are drop-in with existing rxfy.
@@ -145,15 +145,15 @@ writes) and a `name → model` map used by the client live layer (to apply inbou
 
 ### 5.2 State, `window`, and the invalidation channel (shared)
 
-`defineState` gains an optional `window` array naming the params that slice *within* a dataset
+`defineState` gains an optional `window` array naming the params that slice _within_ a dataset
 (page, cursor, limit, sort). All other params are **partition** dims. The invalidation channel
 is derived purely (identical function on both sides, so strings always match):
 
 ```ts
 const postsState = defineState({
   key: "posts",
-  params: z.object({ orgId: z.string(), page: z.number(), sort: z.enum(["new","top"]) }),
-  window: ["page", "sort"],          // partition = { orgId }
+  params: z.object({ orgId: z.string(), page: z.number(), sort: z.enum(["new", "top"]) }),
+  window: ["page", "sort"], // partition = { orgId }
   model: { posts: array(posts.model) },
 });
 
@@ -246,7 +246,7 @@ change.
 ### 5.5 Hashed topic keys & grants
 
 A subscribable topic is addressed not by its plaintext name but by an **opaque, unguessable
-id** derived with a keyed hash. Possession of the id *is* the capability — an attacker who
+id** derived with a keyed hash. Possession of the id _is_ the capability — an attacker who
 lacks it cannot guess it (the secret makes it unforgeable) and therefore cannot subscribe.
 
 ```
@@ -262,7 +262,7 @@ createTopicKeyer({ secret, windowMs }) => {
 ```
 
 There is **no verification step**: the `rxfy-ws` adapter treats ids as opaque routing keys.
-Routing is still fully stateless because the server recomputes the *same* id at publish time —
+Routing is still fully stateless because the server recomputes the _same_ id at publish time —
 `live.update(posts, 42, …)` publishes on `current("post:42")`, which equals the id the client
 holds. The hub matches opaque strings; no reverse map.
 
@@ -276,15 +276,15 @@ re-subscribes after its next grant refresh (on refetch, or a periodic refresh sh
 early/selective revocation ("kick one user now") requires server-side subscription state and is
 a v1 non-goal (signed tokens share this limitation). Ids MUST be treated as secrets: never
 logged, only sent over `wss`. The id is more sensitive than the data snapshot it ships beside,
-because it grants access to *future* updates — hence the bounded window.
+because it grants access to _future_ updates — hence the bounded window.
 
 `grant()` turns "what this response is allowed to see" into topic ids, reusing the
 authorization the app already performed when it chose which rows to fetch:
 
 ```ts
 const grants = live.grant(registry, {
-  entities: posts,                                   // auto: id per post:<id> in the store
-  states: [{ state: postsState, params: { orgId, page, sort } }],  // channel id
+  entities: posts, // auto: id per post:<id> in the store
+  states: [{ state: postsState, params: { orgId, page, sort } }], // channel id
 });
 // grants = {
 //   entities: Record<topic, id>,                    // for patch subscriptions
@@ -306,9 +306,9 @@ the opaque id it must present to subscribe:
 
 ```ts
 grants = {
-  entities: { "post:1": "k7Fa9…", "post:2": "9xQ2b…" },   // topic           -> id (patch subs)
-  channels: { "posts:orgId=A": "p3Lm0…" },                 // invalidation ch -> id (stale subs)
-}
+  entities: { "post:1": "k7Fa9…", "post:2": "9xQ2b…" }, // topic           -> id (patch subs)
+  channels: { "posts:orgId=A": "p3Lm0…" }, // invalidation ch -> id (stale subs)
+};
 ```
 
 **Grant lifecycle (server → wire → client).**
@@ -339,7 +339,7 @@ grants = {
 
 4. **Refresh & expiry.** Grants are short-lived (the hash's time window). Every refetch returns
    fresh-window grants that `addGrants` merges and re-subscribes with — this is also how a
-   newly-created entity (pulled in by a post-`stale` refetch) obtains *its* grant, through the
+   newly-created entity (pulled in by a post-`stale` refetch) obtains _its_ grant, through the
    normal fetch path with no special create-token machinery. If a window rolls while the client
    is idle, stale ids quietly stop matching until the next refetch supplies new-window ids.
 
@@ -353,11 +353,11 @@ is `patch`.
 
 ```ts
 type ServerMessage =
-  | { v: 1; kind: "patch"; name: string; id: string; data: unknown }  // live entity update
-  | { v: 1; kind: "stale"; channel: string };                         // "this channel changed"
+  | { v: 1; kind: "patch"; name: string; id: string; data: unknown } // live entity update
+  | { v: 1; kind: "stale"; channel: string }; // "this channel changed"
 
 type ClientMessage =
-  | { v: 1; kind: "subscribe";   ids: string[] }        // opaque hashed topic ids
+  | { v: 1; kind: "subscribe"; ids: string[] } // opaque hashed topic ids
   | { v: 1; kind: "unsubscribe"; ids: string[] };
 ```
 
@@ -393,14 +393,14 @@ import { createLiveClient } from "rxfy-server/client";
 
 const liveClient = createLiveClient({
   url: "wss://example.com/live",
-  registry,                 // the same registry StoreProvider uses
-  resources,                // name -> model
-  grants: window.__RXFY_SSR__.grants,   // initial table (SSR); optional
-  transport: wsTransport,   // from rxfy-ws/client (default)
+  registry, // the same registry StoreProvider uses
+  resources, // name -> model
+  grants: window.__RXFY_SSR__.grants, // initial table (SSR); optional
+  transport: wsTransport, // from rxfy-ws/client (default)
 });
 
 // later, on every client-side fetch:
-liveClient.addGrants(grants);   // merge fresh-window ids; re-subscribes affected topics
+liveClient.addGrants(grants); // merge fresh-window ids; re-subscribes affected topics
 ```
 
 `addGrants(grants)` merges a new `{ entities, channels }` table into the live client's
@@ -417,7 +417,7 @@ Behavior:
   channel, starting at `0`. Each inbound `stale` for that channel does `count++`. The count
   resets to `0` whenever the state's `fetchFn` completes (refetch). The live client exposes a
   per-channel `available$` that emits this count. There is no server-side revision, baseline, or
-  diff — `available$` *is* the local count. A `stale` missed during a disconnect under-counts and
+  diff — `available$` _is_ the local count. A `stale` missed during a disconnect under-counts and
   a duplicate over-counts; both are acceptable because the count is a soft "want to refresh?"
   hint that `applyUpdates()` reconciles by refetching.
 - Idempotent on the patch path. Subscription cleanup is best-effort: when a refetch supersedes a
@@ -453,9 +453,7 @@ const available = useObservable(handle.updatesAvailable$);
 
 return (
   <>
-    {available > 0 && (
-      <button onClick={() => handle.applyUpdates()}>{available} updates available</button>
-    )}
+    {available > 0 && <button onClick={() => handle.applyUpdates()}>{available} updates available</button>}
     <PostList ids={useObservable(handle.data$).posts} />
   </>
 );
@@ -477,7 +475,7 @@ orthogonal to granting:
   doesn't, so fusing them saves a line while coupling a core primitive to `rxfy-server`. The
   client reads `window.__RXFY_SSR__.grants`.
 - **Streaming SSR** (`rxfy-react/next` `HydrationStream`): the streaming wrapper is the one place
-  that *does* attach grants programmatically — each streamed chunk carries the grants for the
+  that _does_ attach grants programmatically — each streamed chunk carries the grants for the
   entities/states it introduces, appended the same way query/model chunks already are.
 - On the client, `StoreProvider` drains grants alongside the existing hydration and feeds them
   to `createLiveClient`.
@@ -534,7 +532,7 @@ Client-safe modules avoid any DB-driver import. `rxfy-react` gains the `useState
 integration and `StoreProvider` `liveClient` prop (a `rxfy-server` peer dep, optional).
 
 Dependency graph (no cycles): `rxfy-protocol` ← `rxfy-server`, `rxfy-ws`. `rxfy-ws` server also
-imports the `Hub` *type* from `rxfy-server`; the `rxfy-ws` client imports only `rxfy-protocol`
+imports the `Hub` _type_ from `rxfy-server`; the `rxfy-ws` client imports only `rxfy-protocol`
 (plus the transport-interface type from `rxfy-server/client`).
 
 Peer deps: `rxfy-protocol` (none); `rxfy`, `drizzle-orm`, `drizzle-zod`, `zod`, `rxfy-protocol`

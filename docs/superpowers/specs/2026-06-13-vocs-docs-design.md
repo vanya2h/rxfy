@@ -27,12 +27,12 @@ drawn from the existing READMEs (not placeholders).
 
 ## Decisions
 
-| Decision | Choice |
-|---|---|
-| Placement | New `apps/docs` workspace package; add `apps/*` to `pnpm-workspace.yaml` |
-| Content depth | Full setup **plus** real initial pages from the READMEs |
-| Turbo integration | Standard `build` / `dev` task names (consistent with other packages) |
-| Workspace deps | None on rxfy packages — docs are static MDX |
+| Decision          | Choice                                                                   |
+| ----------------- | ------------------------------------------------------------------------ |
+| Placement         | New `apps/docs` workspace package; add `apps/*` to `pnpm-workspace.yaml` |
+| Content depth     | Full setup **plus** real initial pages from the READMEs                  |
+| Turbo integration | Standard `build` / `dev` task names (consistent with other packages)     |
+| Workspace deps    | None on rxfy packages — docs are static MDX                              |
 
 ## Architecture
 
@@ -150,4 +150,7 @@ Content is adapted from `README.md`, `packages/rxfy/README.md`, and
 - Custom theming, logo, social cards beyond Vocs defaults.
 - API reference autogeneration from source (`twoslash`, typedoc, etc.).
 - Versioned docs.
+
+```
+
 ```

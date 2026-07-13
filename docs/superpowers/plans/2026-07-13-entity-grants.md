@@ -10,7 +10,7 @@
 
 **Spec:** [docs/superpowers/specs/2026-07-13-entity-grants-design.md](../specs/2026-07-13-entity-grants-design.md)
 
-**Cross-package note:** This is a coordinated protocol change. Between tasks the *workspace* typecheck may be red (a consumer still references the old frame shape); each task keeps its own package's tests green, and **Task 9** runs the full `turbo build/test/check-types/lint` and must end green. Implement tasks in order.
+**Cross-package note:** This is a coordinated protocol change. Between tasks the _workspace_ typecheck may be red (a consumer still references the old frame shape); each task keeps its own package's tests green, and **Task 9** runs the full `turbo build/test/check-types/lint` and must end green. Implement tasks in order.
 
 **Convention reminders:** Prettier — 120 width, double quotes, semicolons, trailing commas. Commit messages: no `Co-Authored-By` trailer. Work directly on `feat/grantless` (current branch; HEAD carries the grant code + the entity-grants spec).
 
@@ -19,6 +19,7 @@
 ## Task 1: Protocol — drop `entities` from the subscribe frame
 
 **Files:**
+
 - Modify: `packages/rxfy-protocol/src/messages.ts`
 - Modify: `packages/rxfy-protocol/src/codec.ts`
 - Test: `packages/rxfy-protocol/src/messages.test.ts`, `packages/rxfy-protocol/src/codec.test.ts`
@@ -104,9 +105,10 @@ git commit -m "feat(rxfy-protocol): drop entities from the subscribe frame (v2 a
 
 ## Task 2: rxfy core — add `collectShapeTopics` (server-side topic extraction)
 
-`collectEntityTopics` walks a *normalized* query (id shape). `serve` holds the *parsed* shape (full entities), so it needs a sibling that reads ids via `model.getKey`.
+`collectEntityTopics` walks a _normalized_ query (id shape). `serve` holds the _parsed_ shape (full entities), so it needs a sibling that reads ids via `model.getKey`.
 
 **Files:**
+
 - Modify: `packages/rxfy/src/state/normalize.ts:70-82` (add function after `collectEntityTopics`)
 - Test: `packages/rxfy/src/state/normalize.test.ts`
 
@@ -119,7 +121,10 @@ describe("collectShapeTopics", () => {
   it("extracts name:id topics from a parsed full-entity shape via getKey", () => {
     // `fields` from an existing fixture: { posts: array(post), author: single(user) }
     const shape = {
-      posts: [{ id: "p1", title: "a" }, { id: "p2", title: "b" }],
+      posts: [
+        { id: "p1", title: "a" },
+        { id: "p2", title: "b" },
+      ],
       author: { id: "u1", name: "z" },
     };
     expect(collectShapeTopics(fields, shape)).toEqual(["post:p1", "post:p2", "user:u1"]);
@@ -155,7 +160,8 @@ export function collectShapeTopics(fields: FieldsMap, shape: Record<string, unkn
     if (!isFieldDescriptor(entry)) continue; // plain-value fields carry no entities
     const value = shape[fieldName];
     if (entry.kind === "array") {
-      for (const entity of (value as unknown[]) ?? []) topics.push(`${entry.model.name}:${entry.model.getKey(entity as never)}`);
+      for (const entity of (value as unknown[]) ?? [])
+        topics.push(`${entry.model.name}:${entry.model.getKey(entity as never)}`);
     } else if (value !== undefined && value !== null) {
       topics.push(`${entry.model.name}:${entry.model.getKey(value as never)}`);
     }
@@ -185,6 +191,7 @@ git commit -m "feat(rxfy): add collectShapeTopics for server-side grant entity e
 The SSR log now holds full grants (entity-bearing), not channel strings. Rename to match.
 
 **Files:**
+
 - Rename: `packages/rxfy/src/state/channel-log.ts` → `packages/rxfy/src/state/grant-log.ts`
 - Rename: `packages/rxfy/src/state/channel-log.test.ts` → `packages/rxfy/src/state/grant-log.test.ts`
 - Modify: `packages/rxfy/src/index.ts:12`
@@ -235,19 +242,26 @@ export * from "./state/grant-log.js";
 - [ ] **Step 5: Update `model-store.ts`**
 
 - Line 4:
+
 ```ts
 import { type GrantLog, createGrantLog } from "../state/grant-log.js";
 ```
+
 - Line 51 (the property in `IModelRegistry`) — replace `channels: ChannelLog;` with:
+
 ```ts
-  /** Signed grants logged during an SSR render — read by grantsHydration to embed in the script. */
-  grants: GrantLog;
+/** Signed grants logged during an SSR render — read by grantsHydration to embed in the script. */
+grants: GrantLog;
 ```
+
 - Line 125:
+
 ```ts
-  const grants = createGrantLog();
+const grants = createGrantLog();
 ```
+
 - Line 131 (inside the returned `registry` object) — replace `channels,` with:
+
 ```ts
     grants,
 ```
@@ -269,6 +283,7 @@ git commit -m "refactor(rxfy): rename registry channel log to grant log"
 ## Task 4: rxfy-server — entities in grant claims (`grant.ts`)
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/grant.ts`
 - Test: `packages/rxfy-server/src/grant.test.ts`
 
@@ -303,10 +318,13 @@ Expected: FAIL — `signGrant` calls missing `entities`; `verifyGrant` returns n
 - [ ] **Step 3: Update `grant.ts`**
 
 - Line 4:
+
 ```ts
 export type GrantClaims = { channel: string; entities: string[]; exp: number };
 ```
+
 - `signGrant` (lines 10–14):
+
 ```ts
 export function signGrant(opts: {
   channel: string;
@@ -322,13 +340,15 @@ export function signGrant(opts: {
   return `${HEADER}.${payload}.${hmac(`${HEADER}.${payload}`, opts.secret)}`;
 }
 ```
+
 - `verifyGrant` claim extraction (lines 35–38):
+
 ```ts
-  const { ch, ents, exp } = (claims ?? {}) as { ch?: unknown; ents?: unknown; exp?: unknown };
-  if (typeof ch !== "string" || typeof exp !== "number") return null;
-  if (!Array.isArray(ents) || ents.some((e) => typeof e !== "string")) return null;
-  if (exp + (opts.graceMs ?? 0) < now()) return null;
-  return { channel: ch, entities: ents as string[], exp };
+const { ch, ents, exp } = (claims ?? {}) as { ch?: unknown; ents?: unknown; exp?: unknown };
+if (typeof ch !== "string" || typeof exp !== "number") return null;
+if (!Array.isArray(ents) || ents.some((e) => typeof e !== "string")) return null;
+if (exp + (opts.graceMs ?? 0) < now()) return null;
+return { channel: ch, entities: ents as string[], exp };
 ```
 
 - [ ] **Step 4: Run to verify pass**
@@ -348,6 +368,7 @@ git commit -m "feat(rxfy-server): sign entity topics into grant claims"
 ## Task 5: rxfy-server — serve signs entities, renew carries them, hydration stops signing
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/server.ts`
 - Modify: `packages/rxfy-server/src/hydration.ts`
 - Test: `packages/rxfy-server/src/server.test.ts`, `packages/rxfy-server/src/hydration.test.ts`
@@ -415,6 +436,7 @@ export function grantsHydration(registry: IModelRegistry): string {
 - [ ] **Step 4: Update `server.ts`**
 
 - Add `collectShapeTopics` and `FieldsMap` to the `rxfy` import (line 3):
+
 ```ts
 import {
   collectShapeTopics,
@@ -425,8 +447,10 @@ import {
   type StateDescriptor,
 } from "rxfy";
 ```
+
 - Delete the `signChannel` helper (line 71).
 - Replace `serve`, `renew`, `hydration` (lines 132–143):
+
 ```ts
     serve(state, params, data) {
       const parsed = parseShape<Record<string, unknown>>(state.fields, data);
@@ -445,10 +469,12 @@ import {
       return grantsHydration(registry);
     },
 ```
+
 - Update the `serve` JSDoc (lines 50–56) to mention it also signs the payload's entity topics into the grant, and drop the now-inaccurate "signs a grant per channel the render logged" from `hydration`'s doc (line 64):
+
 ```ts
-  /** SSR payload: embeds the grants the render logged (each entity-bearing) and returns the hydration script. */
-  hydration: (registry: IModelRegistry) => string;
+/** SSR payload: embeds the grants the render logged (each entity-bearing) and returns the hydration script. */
+hydration: (registry: IModelRegistry) => string;
 ```
 
 - [ ] **Step 5: Run to verify pass**
@@ -468,12 +494,13 @@ git commit -m "feat(rxfy-server): serve signs entities, renew carries them, hydr
 ## Task 6: rxfy-ws — subscribe from grant entities only
 
 **Files:**
+
 - Modify: `packages/rxfy-ws/src/server.ts:41-44` and the doc block (lines 12–17)
 - Test: `packages/rxfy-ws/src/server.test.ts`, `packages/rxfy-ws/src/integration.test.ts`
 
 - [ ] **Step 1: Update the tests**
 
-In `server.test.ts`, the client sends only a grant; the socket must be subscribed to the grant's channel + entities, and a topic *not* in the grant must never be subscribed. Replace the subscribe-frame construction to `subscribe(grant)` and add:
+In `server.test.ts`, the client sends only a grant; the socket must be subscribed to the grant's channel + entities, and a topic _not_ in the grant must never be subscribed. Replace the subscribe-frame construction to `subscribe(grant)` and add:
 
 ```ts
 it("subscribes the socket to exactly the grant's channel and entities", () => {
@@ -497,10 +524,10 @@ Expected: FAIL — server still reads `frame.entities`.
 Replace lines 41–44:
 
 ```ts
-        const claims = verifyGrant(frame.grant, { secret: options.secret });
-        if (claims === null) return;
-        const ids = [channelSubscription(claims.channel), ...claims.entities.map(entityTopicSubscription)];
-        hub.subscribe(conn, ids, claims.exp);
+const claims = verifyGrant(frame.grant, { secret: options.secret });
+if (claims === null) return;
+const ids = [channelSubscription(claims.channel), ...claims.entities.map(entityTopicSubscription)];
+hub.subscribe(conn, ids, claims.exp);
 ```
 
 Update the doc block (lines 12–17) to drop the "entity ids are required to be unguessable" caveat:
@@ -532,12 +559,14 @@ git commit -m "feat(rxfy-ws): authorize entity subscriptions from grant claims o
 ## Task 7: rxfy-client — subscribe forwards the grant only
 
 **Files:**
+
 - Modify: `packages/rxfy-client/src/live-client.ts`
 - Test: `packages/rxfy-client/src/live-client.test.ts`
 
 - [ ] **Step 1: Update the tests**
 
 In `live-client.test.ts`:
+
 - Every `client.subscribe(grant, entities)` call becomes `client.subscribe(grant)`.
 - Every expectation on the sent frame drops `entities`: assert the transport received `subscribe(grant)` (i.e. `{ v, kind: "subscribe", grant }`).
 - Keep reconnect-replay and renewal tests; renewal now preserves the entry by re-sending `subscribe(freshGrant)` (no entities to carry client-side).
@@ -564,24 +593,33 @@ Expected: FAIL — `subscribe` arity / frame shape mismatch.
 - [ ] **Step 3: Update `live-client.ts`**
 
 - `LiveClient.subscribe` type (line 20):
+
 ```ts
   /** Record a grant; sends the subscribe frame and replays it on reconnect and after renewal. */
   subscribe: (grant: string) => void;
 ```
+
 - `entries` map value type (line 60) — drop `entities`:
+
 ```ts
-  const entries = new Map<string, { grant: string; exp: number }>(); // by channel
+const entries = new Map<string, { grant: string; exp: number }>(); // by channel
 ```
+
 - `sendEntry` (lines 64–65):
+
 ```ts
-  const sendEntry = (entry: { grant: string }): void => transport.send(subscribeFrame(entry.grant));
+const sendEntry = (entry: { grant: string }): void => transport.send(subscribeFrame(entry.grant));
 ```
+
 - Update the `subscribeFrame` import name usage — it now takes one arg (already imported as `subscribe as subscribeFrame`).
 - In `renew`, the renewed entry (line 92) drops `entities`:
+
 ```ts
-        const entry = { grant: fresh, exp: claims.exp };
+const entry = { grant: fresh, exp: claims.exp };
 ```
+
 - `client.subscribe` (lines 129–138):
+
 ```ts
     subscribe(grant) {
       const claims = decodeGrant(grant);
@@ -592,12 +630,15 @@ Expected: FAIL — `subscribe` arity / frame shape mismatch.
       scheduleRenewal();
     },
 ```
+
 - SSR intake (lines 154–162) collapses to:
+
 ```ts
-  // SSR intake: each grant self-describes its entities, so just resubscribe them all.
-  for (const grant of readSsrGrants()) client.subscribe(grant);
+// SSR intake: each grant self-describes its entities, so just resubscribe them all.
+for (const grant of readSsrGrants()) client.subscribe(grant);
 ```
-  (Delete the `registry.stores()` walk and the `hydratedTopics` construction. `registry` is still used by `transport.onMessage` for patch routing, so keep the import and the `registry` destructure.)
+
+(Delete the `registry.stores()` walk and the `hydratedTopics` construction. `registry` is still used by `transport.onMessage` for patch routing, so keep the import and the `registry` destructure.)
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -616,6 +657,7 @@ git commit -m "feat(rxfy-client): forward only the grant; entities ride the toke
 ## Task 8: rxfy-react — lift `$grant`, subscribe without a topic list, log grants for SSR
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStateData.ts`
 - Test: `packages/rxfy-react/src/useStateData.live.test.tsx`, `packages/rxfy-react/src/useStateData.server.test.tsx`
 
@@ -645,16 +687,19 @@ Expected: FAIL — subscribe called with two args; grants not logged.
 - Remove `collectEntityTopics` from the `rxfy` import (line 13).
 - Delete the render-time channel logging (lines 100–101).
 - In the `defaultData` seed block (lines 121–128), replace with:
+
 ```ts
-    if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
-      const { $grant, ...payload } = defaultData as TShape & { $grant?: string };
-      const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
-      atom$.set(createFulfilled(query));
-      if (isServer && ssr && $grant !== undefined) registry.grants.add($grant);
-      if ($grant !== undefined && liveClient) liveClient.subscribe($grant);
-    }
+if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
+  const { $grant, ...payload } = defaultData as TShape & { $grant?: string };
+  const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
+  atom$.set(createFulfilled(query));
+  if (isServer && ssr && $grant !== undefined) registry.grants.add($grant);
+  if ($grant !== undefined && liveClient) liveClient.subscribe($grant);
+}
 ```
+
 - In the `settle` success branch (lines 140–153), replace the strip/subscribe block with:
+
 ```ts
         (result) => {
           if (signal?.aborted) return;
@@ -686,6 +731,7 @@ git commit -m "feat(rxfy-react): subscribe with grant only; log served grants fo
 ## Task 9: Integration — changeset, docs, examples, full green build
 
 **Files:**
+
 - Create: `.changeset/entity-grants.md`
 - Modify: `.changeset/live-grants.md` (remove the unguessable-id warning), relevant `apps/docs` pages and `.agents/skills/rxfy-framework` references that describe entities-in-frame
 - Verify: `examples/*`, `templates/*`
@@ -693,11 +739,13 @@ git commit -m "feat(rxfy-react): subscribe with grant only; log served grants fo
 - [ ] **Step 1: Find direct callers of the changed signatures**
 
 Run:
+
 ```bash
 grep -rn "grantsHydration(" examples templates apps packages --include=*.ts --include=*.tsx | grep -v node_modules | grep -v "\.test\."
 grep -rn "\.subscribe(" examples templates apps --include=*.ts --include=*.tsx | grep -v node_modules
 grep -rn "must be unguessable\|unguessable\|UUID" apps/docs .agents/skills .changeset
 ```
+
 Expected: `grantsHydration` callers are `createServer` (already fixed) and any bare-hub example calling it directly — update those to drop the `{ secret, ttlMs }` argument. Examples using `live.serve` / `live.hydration` / `createLiveClient` need no change (signatures unchanged). Fix any bare-hub `grantsHydration(reg, {...})` → `grantsHydration(reg)`.
 
 - [ ] **Step 2: Write the changeset**
@@ -730,12 +778,14 @@ In `.changeset/live-grants.md`, delete the "🔒 Entity ids MUST be unguessable"
 - [ ] **Step 4: Full workspace verification**
 
 Run:
+
 ```bash
 turbo build
 turbo check-types
 turbo test
 turbo lint
 ```
+
 Expected: all PASS. Fix any remaining references to `frame.entities`, `registry.channels`, `ChannelLog`, `subscribe(grant, entities)`, or `signGrant`-without-entities surfaced by the type-check.
 
 - [ ] **Step 5: Commit**
@@ -750,6 +800,7 @@ git commit -m "docs(entity-grants): changeset, drop unguessable-id mandate, fix 
 ## Self-Review
 
 **Spec coverage:**
+
 - §1 entities in claims → Task 4. §2 serve extracts+signs → Tasks 2, 5. §3 frame drops entities → Task 1. §4 WS trusts grant only → Task 6. §5 client forwards grant → Task 7. §6 SSR grant log reuse → Tasks 3, 5, 8. §7 renew carries entities → Task 5. §8 security posture / docs → Task 9. Traffic profile (permessage-deflate note) → Task 9 Step 3. Testing section → covered per-task + Task 9 full run.
 - No spec requirement is left without a task.
 

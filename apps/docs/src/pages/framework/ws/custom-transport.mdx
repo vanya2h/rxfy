@@ -16,7 +16,7 @@ type ClientTransport = {
 };
 ```
 
-The client *does* send frames — a `subscribe` frame per live entry, carrying the state's grant and
+The client _does_ send frames — a `subscribe` frame per live entry, carrying the state's grant and
 its entity topics. What changed is that a grant, not a session, authorizes them: the server verifies
 the grant on the wire rather than tracking a session it minted at the serve path
 ([`live.serve` / `live.hydration`](/framework/server/grants)). There is no `hello` frame and no

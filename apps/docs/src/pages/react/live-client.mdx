@@ -15,10 +15,10 @@ entity topics its data normalized into. The client presents them on the wire as 
 import { createLiveClient } from "rxfy-client";
 
 const liveClient = createLiveClient({
-  registry,       // IModelRegistry — the same one passed to StoreProvider
-  transport,      // ClientTransport — e.g. createWsClient() from rxfy-ws/client
-  renewUrl,       // optional — the app's grant-renewal endpoint, e.g. "/api/live/renew"
-  renewLeadMs,    // optional — how far before expiry to renew (default is a sensible lead)
+  registry, // IModelRegistry — the same one passed to StoreProvider
+  transport, // ClientTransport — e.g. createWsClient() from rxfy-ws/client
+  renewUrl, // optional — the app's grant-renewal endpoint, e.g. "/api/live/renew"
+  renewLeadMs, // optional — how far before expiry to renew (default is a sensible lead)
 });
 ```
 
@@ -107,10 +107,15 @@ when the count is above zero. Clicking it calls `applyUpdates`:
 // UpdatesBadge.tsx (abbreviated)
 const n = useObservable(available$, 0);
 if (n <= 0) return null;
-return <button onClick={onApply}>{n} new {noun}{n === 1 ? "" : "s"} · refresh</button>;
+return (
+  <button onClick={onApply}>
+    {n} new {noun}
+    {n === 1 ? "" : "s"} · refresh
+  </button>
+);
 
 // PostList.tsx
-<UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />
+<UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />;
 ```
 
 `applyUpdates` is also used as the `onCreated` / `onDeleted` callback in mutation forms so

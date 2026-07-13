@@ -41,6 +41,7 @@
 ## Task 1: `denormalizeShape$` core helper
 
 **Files:**
+
 - Modify: `packages/rxfy/src/state/normalize.ts`
 - Test: `packages/rxfy/src/state/normalize.test.ts`
 
@@ -152,9 +153,7 @@ export function denormalizeShape$<TShape>(
           const store = registry.model(desc.model);
           if (desc.kind === "array") {
             const keys = idsRecord[name] as string[];
-            const items$ = keys.length
-              ? combineLatest(keys.map((key) => store.get(key)))
-              : of([] as unknown[]);
+            const items$ = keys.length ? combineLatest(keys.map((key) => store.get(key))) : of([] as unknown[]);
             return items$.pipe(map((items) => [name, items] as const));
           }
           const key = idsRecord[name] as string;
@@ -184,6 +183,7 @@ git commit -m "feat(rxfy): add denormalizeShape\$ reactive denormalization helpe
 ## Task 2: `entity()` loaded-contract guard
 
 **Files:**
+
 - Modify: `packages/rxfy/src/model/model-store.ts:14-27` (doc comment) and `:82-86` (entity impl)
 - Test: `packages/rxfy/src/model/model-store.test.ts`
 
@@ -226,12 +226,12 @@ In `packages/rxfy/src/model/model-store.ts`, replace the `entity` implementation
 Then update the doc comment on the `entity` field in the `ModelStore<T>` type (currently lines 16-19) to:
 
 ```ts
-  /**
-   * Writable handle over a single entity's cell — for field Lenses and form binding.
-   * Assumes the entity is already loaded: reading it before its first `set` throws. For
-   * not-yet-loaded entities use `get(key)` / `useEntity`, or seed the entity first.
-   */
-  entity: (key: EntityKey<T>) => IAtom<T>;
+/**
+ * Writable handle over a single entity's cell — for field Lenses and form binding.
+ * Assumes the entity is already loaded: reading it before its first `set` throws. For
+ * not-yet-loaded entities use `get(key)` / `useEntity`, or seed the entity first.
+ */
+entity: (key: EntityKey<T>) => IAtom<T>;
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -251,6 +251,7 @@ git commit -m "feat(rxfy): throw on entity() read before load instead of silent 
 ## Task 3: `equals` option on `createLens`
 
 **Files:**
+
 - Modify: `packages/rxfy/src/lens/lens.ts`
 - Test: `packages/rxfy/src/lens/lens.test.ts`
 
@@ -331,7 +332,7 @@ Inside the `super(...)` callback, replace `distinctUntilChanged(_.isEqual)` with
 At the end of the constructor, after `this.lens = lens;`, add:
 
 ```ts
-    this.equals = equals;
+this.equals = equals;
 ```
 
 Leave the `set` method's write-back guard (`if (!_.isEqual(updated, sourceVal))`) **unchanged** — it compares `TSource`, not `TTarget`.
@@ -365,6 +366,7 @@ git commit -m "feat(rxfy): add optional equals comparator to createLens"
 ## Task 4: `useEntity` / `useEntity$` hooks
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/useEntity.ts`
 - Test: `packages/rxfy-react/src/useEntity.test.tsx`
 
@@ -473,6 +475,7 @@ git commit -m "feat(rxfy-react): add useEntity and useEntity\$ hooks"
 ## Task 5: `useStateEntities` hook
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/useStateEntities.ts`
 - Test: `packages/rxfy-react/src/useStateEntities.test.tsx`
 
@@ -546,7 +549,9 @@ describe("useStateEntities", () => {
 
     await firstValueFrom(result.current.entities$);
     const seen: string[] = [];
-    const sub = result.current.entities$.subscribe((s) => seen.push((s as { posts: { title: string }[] }).posts[0].title));
+    const sub = result.current.entities$.subscribe((s) =>
+      seen.push((s as { posts: { title: string }[] }).posts[0].title),
+    );
     act(() => result.current.store.set("1", { id: "1", title: "A-edited" }));
     expect(seen.at(-1)).toBe("A-edited");
     sub.unsubscribe();
@@ -603,6 +608,7 @@ git commit -m "feat(rxfy-react): add useStateEntities denormalized stream hook"
 ## Task 6: Export new hooks + changeset
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/index.tsx`
 - Create: `.changeset/dx-improvements.md`
 
@@ -654,6 +660,7 @@ git commit -m "feat(rxfy-react): export useEntity/useEntity\$/useStateEntities; 
 ## Task 7: Docs — quickstart, error handling, testing, touch-ups
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/getting-started.mdx`
 - Create: `apps/docs/src/pages/guides/error-handling.mdx`
 - Create: `apps/docs/src/pages/guides/testing.mdx`
@@ -741,11 +748,7 @@ handle failures.
 `<Pending>` renders the right branch for each state. Pass `rejected` to handle a failed fetch:
 
 ```tsx
-<Pending
-  value$={data$}
-  pending={<Spinner />}
-  rejected={(w) => <p>Something went wrong: {String(w.error)}</p>}
->
+<Pending value$={data$} pending={<Spinner />} rejected={(w) => <p>Something went wrong: {String(w.error)}</p>}>
   {(data) => <List data={data} />}
 </Pending>
 ```
@@ -762,7 +765,7 @@ const { data$, reload } = useStateData(state, fetchFn, params);
 
 <Pending value$={data$} rejected={() => <button onClick={reload}>Retry</button>}>
   {(data) => <List data={data} />}
-</Pending>
+</Pending>;
 ```
 
 ## `REJECTED` is only the initial fetch
@@ -837,10 +840,13 @@ expect(data.todos).toEqual(["t1"]);
 ## Assert denormalized output
 
 ```tsx
-const todos$ = renderHook(() => {
-  const handle = useStateData(todosState, fetchTodos, {});
-  return useStateEntities(todosState, handle);
-}, { wrapper }).result.current;
+const todos$ = renderHook(
+  () => {
+    const handle = useStateData(todosState, fetchTodos, {});
+    return useStateEntities(todosState, handle);
+  },
+  { wrapper },
+).result.current;
 
 expect((await firstValueFrom(todos$)).todos[0].title).toBe("Hi");
 ```

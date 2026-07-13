@@ -15,6 +15,7 @@ this is a presentation-layer change only.
 ## 2. Scope
 
 ### In scope
+
 - Tailwind v4 setup (`@tailwindcss/vite`) + the `@/*` path alias (client + SSR builds).
 - `shadcn init` (neutral base) → `components.json`, `src/lib/utils.ts` (`cn`), theme CSS vars.
 - Add components: `button card input textarea select badge separator`.
@@ -27,6 +28,7 @@ this is a presentation-layer change only.
 - Delete the old `styles.css` hand-rolled classes (the file becomes the Tailwind entry).
 
 ### Non-goals
+
 - No `Field`/`FieldGroup` form wrappers, `Skeleton`, `Alert`, `Dialog`, or `sonner` (deferred —
   "keep it simple"; loading/error use plain `text-muted-foreground`/`text-destructive`).
 - No change to data fetching, states, resources, the server, or the live protocol.
@@ -36,6 +38,7 @@ this is a presentation-layer change only.
 ## 3. Setup
 
 ### 3.1 Tailwind v4 + Vite
+
 - Add deps: `tailwindcss`, `@tailwindcss/vite`, `tw-animate-css`, and shadcn runtime deps
   `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` (plus the `@radix-ui/*`
   packages the added components pull in transitively).
@@ -51,11 +54,13 @@ this is a presentation-layer change only.
   (The exact variable block is what `shadcn init` writes; use the CLI's output.)
 
 ### 3.2 Path alias
+
 - `tsconfig.app.json`: add `compilerOptions.baseUrl: "."` and `paths: { "@/*": ["./src/*"] }`.
 - `vite.config.ts`: `resolve.alias`. Both the client (`vite build`) and SSR (`vite build --ssr`)
   use this config, so `@/components/ui/*` resolves in both bundles.
 
 ### 3.3 shadcn CLI
+
 - Run via the project's runner (`pnpm dlx shadcn@latest`), per the shadcn skill.
 - `init` with the neutral base color, non-interactively where possible (e.g. accept the Vite
   detection; the CLI writes `components.json`, `src/lib/utils.ts`, and merges the theme into
@@ -64,6 +69,7 @@ this is a presentation-layer change only.
 - `add button card input textarea select badge separator` → source lands in `src/components/ui/`.
 
 ### 3.4 SSR compatibility
+
 - shadcn/Radix primitives are SSR-safe (`renderToPipeableStream`/`hydrateRoot`). No change to
   `entry-server.tsx` / `entry-client.tsx` logic. `entry-client` already imports `./styles.css`
   (now the Tailwind entry); `entry-server` imports no CSS.
@@ -76,19 +82,19 @@ this is a presentation-layer change only.
 Layout shell (`App.tsx`): `<main className="mx-auto max-w-2xl px-4 py-8 flex flex-col gap-6">`,
 header row (`flex items-center justify-between`) with the title link + `<ThemeToggle/>`.
 
-| Current | shadcn / Tailwind |
-|---|---|
-| `PostList` container | `flex flex-col gap-4`; maps `posts` → `<PostItem/>` |
-| `PostItem` `.post-card` | `Card`: `CardHeader`(`CardTitle`=title link, `CardDescription`=author), `CardContent`=excerpt, `CardFooter`=Edit/Delete `Button`s (`variant="outline"`/`variant="ghost"`) |
-| `UpdatesBadge` | `Button variant="secondary" size="sm"` with `<RefreshCw data-icon="inline-start" />` → `{n} new {noun}s · refresh`; hidden when `n<=0` |
-| `NewPostForm` | `Card` + `CardHeader`(title) + `CardContent`(`Select` author, `Input` title, `Textarea` body, submit `Button` with `Plus`) |
-| `EditPostForm` | inline `Card`/`div` with `Input` title, `Textarea` body, Save `Button` |
-| `AddCommentForm` | `Input` name + `Textarea` + `Button` |
-| `CommentItem` `.comment` | bordered row (`rounded-md border p-3 flex flex-col gap-1`): author `font-medium`, body `text-muted-foreground`, `Button variant="ghost" size="icon"` + `Trash2` |
-| `.post-meta` | `text-muted-foreground text-sm` |
-| loading slot | `<p className="text-muted-foreground">Loading…</p>` |
-| error slot | `<p className="text-destructive">Failed to load.</p>` + retry `Button variant="outline" size="sm"` |
-| back link (detail) | `Button variant="ghost" size="sm"` + `ArrowLeft` → `navigate("/")` |
+| Current                  | shadcn / Tailwind                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PostList` container     | `flex flex-col gap-4`; maps `posts` → `<PostItem/>`                                                                                                                       |
+| `PostItem` `.post-card`  | `Card`: `CardHeader`(`CardTitle`=title link, `CardDescription`=author), `CardContent`=excerpt, `CardFooter`=Edit/Delete `Button`s (`variant="outline"`/`variant="ghost"`) |
+| `UpdatesBadge`           | `Button variant="secondary" size="sm"` with `<RefreshCw data-icon="inline-start" />` → `{n} new {noun}s · refresh`; hidden when `n<=0`                                    |
+| `NewPostForm`            | `Card` + `CardHeader`(title) + `CardContent`(`Select` author, `Input` title, `Textarea` body, submit `Button` with `Plus`)                                                |
+| `EditPostForm`           | inline `Card`/`div` with `Input` title, `Textarea` body, Save `Button`                                                                                                    |
+| `AddCommentForm`         | `Input` name + `Textarea` + `Button`                                                                                                                                      |
+| `CommentItem` `.comment` | bordered row (`rounded-md border p-3 flex flex-col gap-1`): author `font-medium`, body `text-muted-foreground`, `Button variant="ghost" size="icon"` + `Trash2`           |
+| `.post-meta`             | `text-muted-foreground text-sm`                                                                                                                                           |
+| loading slot             | `<p className="text-muted-foreground">Loading…</p>`                                                                                                                       |
+| error slot               | `<p className="text-destructive">Failed to load.</p>` + retry `Button variant="outline" size="sm"`                                                                        |
+| back link (detail)       | `Button variant="ghost" size="sm"` + `ArrowLeft` → `navigate("/")`                                                                                                        |
 
 Rules honored: semantic color tokens only (`bg-background`, `text-muted-foreground`,
 `text-destructive`), `gap-*` (never `space-*`), `size-*` for square, `cn()` for conditional
@@ -124,6 +130,7 @@ export function ThemeToggle() {
 ```
 
 `index.html` `<head>` inline script (before the client entry):
+
 ```html
 <script>
   try {
@@ -140,7 +147,7 @@ export function ThemeToggle() {
   `tsconfig.app.json` (paths), `src/styles.css` (Tailwind + theme), `index.html` (theme script),
   and all 8 `src/components/*.tsx`.
 - **Create (by CLI):** `components.json`, `src/lib/utils.ts`, `src/components/ui/{button,card,input,
-  textarea,select,badge,separator}.tsx`.
+textarea,select,badge,separator}.tsx`.
 - **Create:** `src/components/ThemeToggle.tsx`.
 - **Unchanged:** `src/App.tsx` gets the header + toggle but keeps its router; everything under
   `src/blog/`, `src/routes.ts`, `src/live-singleton.ts`, `src/entry-*.tsx` (aside from CSS import

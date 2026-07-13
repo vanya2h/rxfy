@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript, Vite 6, React 19, rxfy/rxfy-react (workspace), zod 4, vitest 3, pnpm + turbo.
 
 **Conventions that matter here:**
+
 - Prettier: 120 print width, double quotes, semicolons, trailing commas.
 - Commit messages: plain conventional commits, **no Co-Authored-By or AI-attribution trailers**.
 - Templates have no eslint config (the existing `vite` template has none) — do not add one.
@@ -21,6 +22,7 @@
 The picker currently sorts alphabetically ([scaffold.ts:14](packages/create-rxfy-app/src/scaffold.ts#L14)), which would put future templates in the wrong order (`expo` first, `vite-spa` last). Add an optional numeric `order`; sort by `(order, name)` with missing `order` last.
 
 **Files:**
+
 - Modify: `packages/create-rxfy-app/src/scaffold.ts`
 - Modify: `packages/create-rxfy-app/src/scaffold.test.ts`
 - Modify: `templates/vite/template.json`
@@ -30,18 +32,18 @@ The picker currently sorts alphabetically ([scaffold.ts:14](packages/create-rxfy
 Add to the `describe("listTemplates", ...)` block in `packages/create-rxfy-app/src/scaffold.test.ts` (after the existing "orders templates by name" test):
 
 ```ts
-  it("sorts by order when present, name otherwise; missing order sorts last", () => {
-    const root = path.join(tmp, "ordered-templates");
-    const make = (name: string, meta: Record<string, unknown>) => {
-      fs.mkdirSync(path.join(root, name), { recursive: true });
-      fs.writeFileSync(path.join(root, name, "template.json"), JSON.stringify(meta));
-    };
-    make("zz-first", { display: "Z", description: "z", order: 1 });
-    make("mm-second", { display: "M", description: "m", order: 2 });
-    make("bb-unordered", { display: "B", description: "b" });
-    make("aa-unordered", { display: "A", description: "a" });
-    expect(listTemplates(root).map((t) => t.name)).toEqual(["zz-first", "mm-second", "aa-unordered", "bb-unordered"]);
-  });
+it("sorts by order when present, name otherwise; missing order sorts last", () => {
+  const root = path.join(tmp, "ordered-templates");
+  const make = (name: string, meta: Record<string, unknown>) => {
+    fs.mkdirSync(path.join(root, name), { recursive: true });
+    fs.writeFileSync(path.join(root, name, "template.json"), JSON.stringify(meta));
+  };
+  make("zz-first", { display: "Z", description: "z", order: 1 });
+  make("mm-second", { display: "M", description: "m", order: 2 });
+  make("bb-unordered", { display: "B", description: "b" });
+  make("aa-unordered", { display: "A", description: "a" });
+  expect(listTemplates(root).map((t) => t.name)).toEqual(["zz-first", "mm-second", "aa-unordered", "bb-unordered"]);
+});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -114,6 +116,7 @@ git commit -m "feat(create-rxfy-app): curated template picker order via template
 A client-only Vite React SPA — the "hello rxfy" entry point. One model, one state with a stub fetch, one mutation, one screen. No router, no server, no SSR.
 
 **Files (all Create):**
+
 - `templates/vite-spa/template.json`
 - `templates/vite-spa/package.json`
 - `templates/vite-spa/index.html`
@@ -429,7 +432,10 @@ createRoot(document.getElementById("root")!).render(
 ```css
 :root {
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 body {
@@ -493,13 +499,13 @@ pnpm dev
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Vite dev server |
-| `pnpm build` | Production bundle into `dist/` |
-| `pnpm preview` | Serve the production build |
-| `pnpm test` | Render smoke test |
-| `pnpm check-types` | Typecheck |
+| Script             | What it does                   |
+| ------------------ | ------------------------------ |
+| `pnpm dev`         | Vite dev server                |
+| `pnpm build`       | Production bundle into `dist/` |
+| `pnpm preview`     | Serve the production build     |
+| `pnpm test`        | Render smoke test              |
+| `pnpm check-types` | Typecheck                      |
 
 Docs: https://rxfy.vanya2h.me
 ````
@@ -553,6 +559,7 @@ git commit -m "feat(create-rxfy-app): vite-spa template — client-only rxfy sta
 ### Task 3: Bundle `vite-spa` into the CLI and verify end-to-end
 
 **Files:**
+
 - Modify: `packages/create-rxfy-app/package.json` (devDependencies)
 - Modify: `packages/create-rxfy-app/README.md` (templates table)
 
@@ -571,10 +578,10 @@ This mirrors how `rxfy-template-vite` is wired in so turbo's `^build`/`^test` gr
 In `packages/create-rxfy-app/README.md`, replace the Templates table with:
 
 ```markdown
-| Name | Stack |
-|---|---|
-| `vite-spa` | Client-only Vite + React SPA — one model, one state, no server |
-| `vite` | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy live updates over WebSocket |
+| Name       | Stack                                                                              |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `vite-spa` | Client-only Vite + React SPA — one model, one state, no server                     |
+| `vite`     | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy live updates over WebSocket |
 ```
 
 - [ ] **Step 3: Build the CLI and inspect the bundled templates**
@@ -623,6 +630,7 @@ git commit -m "feat(create-rxfy-app): bundle the vite-spa template"
 Per the spec's content policy, the live template keeps exactly one of everything. The only excess today is the About page.
 
 **Files:**
+
 - Delete: `templates/vite/src/pages/AboutPage.tsx`
 - Modify: `templates/vite/src/App.tsx`
 - Modify: `templates/vite/src/ssr.smoke.test.ts`
@@ -675,6 +683,7 @@ git commit -m "refactor(create-rxfy-app): slim vite template to one entity, one 
 ### Task 5: Changeset + full verification
 
 **Files:**
+
 - Modify: `.changeset/create-rxfy-app.md`
 
 - [ ] **Step 1: Update the pending changeset**

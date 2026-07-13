@@ -19,6 +19,7 @@ Stack: **Hono** (`@hono/node-ws`) + **Vite SSR** (buffered) + **PGlite** (in-pro
 ## 2. Scope
 
 ### In scope
+
 - Drizzle `pgTable`s for `users`, `posts`, `comments`; `defineResource` for each.
 - `createServer` (PGlite + in-memory hub + topic keyer); Hono REST endpoints that call
   `live.update`/`create`/`delete`.
@@ -31,6 +32,7 @@ Stack: **Hono** (`@hono/node-ws`) + **Vite SSR** (buffered) + **PGlite** (in-pro
 - Minimal, clean CSS in the style of the existing examples.
 
 ### Non-goals
+
 - Auth/users management (a small fixed set of seeded users; "author" picked for new posts).
 - Pagination (the list is small; `window` is unused here — channels are partition-only).
 - Streaming SSR (buffered only; streaming + late-chunk grants is a framework follow-up).
@@ -55,7 +57,7 @@ Stack: **Hono** (`@hono/node-ws`) + **Vite SSR** (buffered) + **PGlite** (in-pro
 ```
 
 One `hub`, one `live` server, one `createWsServer(hub)` at startup; `handleConnection` per WS
-connection. Per HTTP *render* request: a fresh rxfy `ModelRegistry`. The browser holds one
+connection. Per HTTP _render_ request: a fresh rxfy `ModelRegistry`. The browser holds one
 `registry` + one `liveClient` for the session.
 
 ## 4. Data model & resources
@@ -72,9 +74,9 @@ comments (id text pk, post_id text, author text, body text, created_at timestamp
 drizzle-orm/drizzle-zod but no DB driver):
 
 ```ts
-export const userResource    = defineResource({ table: users,    name: "user" });
-export const postResource     = defineResource({ table: posts,    name: "post" });
-export const commentResource  = defineResource({ table: comments, name: "comment" });
+export const userResource = defineResource({ table: users, name: "user" });
+export const postResource = defineResource({ table: posts, name: "post" });
+export const commentResource = defineResource({ table: comments, name: "comment" });
 export const resources = createResourceRegistry([userResource, postResource, commentResource]);
 ```
 
@@ -104,13 +106,13 @@ export const postDetailState = defineState({
 
 ## 6. Live behaviors → framework primitive
 
-| User action | Server endpoint | Framework call | Client effect |
-|---|---|---|---|
-| Edit post / comment | `PATCH /api/posts/:id`, `PATCH /api/comments/:id` | `live.update(res, id, patch)` | live **in-place** re-render (patch on `post:<id>` / `comment:<id>`) |
-| Create post | `POST /api/posts` | `live.create(postResource, values, { touch: [touch(postsState, {})] })` | **"N new posts"** badge |
-| Delete post | `DELETE /api/posts/:id` | `live.delete(postResource, id, { touch: [touch(postsState, {})] })` | badge |
-| Create comment on X | `POST /api/posts/:id/comments` | `live.create(commentResource, values, { touch: [touch(postDetailState, { postId: X })] })` | **"N new comments"** badge on X |
-| Delete comment on X | `DELETE /api/comments/:id` | `live.delete(commentResource, id, { touch: [touch(postDetailState, { postId: X })] })` | badge on X |
+| User action         | Server endpoint                                   | Framework call                                                                             | Client effect                                                       |
+| ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Edit post / comment | `PATCH /api/posts/:id`, `PATCH /api/comments/:id` | `live.update(res, id, patch)`                                                              | live **in-place** re-render (patch on `post:<id>` / `comment:<id>`) |
+| Create post         | `POST /api/posts`                                 | `live.create(postResource, values, { touch: [touch(postsState, {})] })`                    | **"N new posts"** badge                                             |
+| Delete post         | `DELETE /api/posts/:id`                           | `live.delete(postResource, id, { touch: [touch(postsState, {})] })`                        | badge                                                               |
+| Create comment on X | `POST /api/posts/:id/comments`                    | `live.create(commentResource, values, { touch: [touch(postDetailState, { postId: X })] })` | **"N new comments"** badge on X                                     |
+| Delete comment on X | `DELETE /api/comments/:id`                        | `live.delete(commentResource, id, { touch: [touch(postDetailState, { postId: X })] })`     | badge on X                                                          |
 
 `touch(state, params)` and `live.*` come from `rxfy-server`. Edits broadcast a `patch`;
 creates/deletes broadcast a bare `stale` on the touched channel.
@@ -123,7 +125,7 @@ creates/deletes broadcast a bare `stale` on the touched channel.
 - **`api.ts`** — Hono routes for posts/comments CRUD calling `live.*`; each returns the affected
   row. The list/detail GET endpoints (`GET /api/posts`, `GET /api/posts/:id`) return
   `{ data, grants }` where `grants = live.grant(perRequestRegistry, { entities, states })` — but
-  for client-side fetches the registry is the *response shape*, so these endpoints build a
+  for client-side fetches the registry is the _response shape_, so these endpoints build a
   throwaway registry, seed it, grant, and return ids+grants. (Detail below in the plan.)
 - **`ws.ts`** — `const wsServer = createWsServer(hub)` once; Hono `app.get("/live", upgradeWebSocket(() => { … }))` constructs a per-connection EventEmitter shim socket (`{ send: ws.send, on: emitter.on }`) in `onOpen`, calls `wsServer.handleConnection(socket)`, and forwards `onMessage`/`onClose` to the emitter. (The adapter is structural — `send` + `on` — so this is a ~15-line bridge.)
 - **`render.ts` + `entry-server.tsx`** — buffered `renderToPipeableStream` + `onAllReady`;
@@ -219,7 +221,7 @@ examples/vite-blog-framework/
   shapes mirror `waku-blog`; the live wiring uses the just-built `rxfy-server`/`rxfy-ws`/
   `createLiveClient`/`useStateData` counter exactly as designed.
 - **Ambiguity resolved:** client-side `fetchFn` grant delivery → endpoints return `{ data,
-  grants }`, merged via `liveClient.addGrants`; the live client is a module singleton so
+grants }`, merged via `liveClient.addGrants`; the live client is a module singleton so
   `fetchFn`s (which don't receive it as an arg) can reach it. SSR grant delivery → `readSsrGrants`
   from the hydration payload at bootstrap.
 - **Risk:** the Hono `@hono/node-ws` ↔ structural `ServerSocket` bridge is the one non-obvious

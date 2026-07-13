@@ -13,13 +13,13 @@ Open http://localhost:3000 in **two tabs**. Toggling a todo in one tab updates t
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Dev server (Vite middleware mode + SSR) on port 3000 |
-| `pnpm build` | Client + SSR production bundles into `dist/` |
-| `pnpm preview` | Run the production build |
-| `pnpm test` | Live-write + SSR smoke tests |
-| `pnpm check-types` | Typecheck client and server projects |
+| Script             | What it does                                         |
+| ------------------ | ---------------------------------------------------- |
+| `pnpm dev`         | Dev server (Vite middleware mode + SSR) on port 3000 |
+| `pnpm build`       | Client + SSR production bundles into `dist/`         |
+| `pnpm preview`     | Run the production build                             |
+| `pnpm test`        | Live-write + SSR smoke tests                         |
+| `pnpm check-types` | Typecheck client and server projects                 |
 
 ## Where things live
 

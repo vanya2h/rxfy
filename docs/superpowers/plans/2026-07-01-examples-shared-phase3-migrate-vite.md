@@ -11,6 +11,7 @@
 Spec: `docs/superpowers/specs/2026-07-01-examples-shared-design.md`. Phase 3 of 4. Depends on Phase 1 (`defineResource({ model })`, merged) and Phase 2 (`examples-shared`, merged). Reference map of vite's current code is in the conversation.
 
 ## Key decisions (documented)
+
 - **Client uses typed `hc<AppType>` RPC; SSR keeps the direct-DB read branch.** vite already reads the DB in-process during SSR via a dynamic `import("../../server/db.js")` guarded by `isServer`; that path is proven and grants are minted separately in `entry-server`. We upgrade only the CLIENT fetch from raw `fetch()` to typed `hc`. (next/rr7/waku will use `hc` on both sides over in-memory data in Phase 4.)
 - **DB field renames to match the shared model:** `posts.author_id` → `posts.user_id` (JS `userId`), `comments.author` → `comments.name`. `created_at` stays on both tables — the shared Zod model omits it, and `defineResource` is generic over the injected model's row (Phase 1), so extra columns are fine; the model's schema strips `createdAt` when normalizing into the store.
 - **Inline post-edit stays, via a stateful actions wrapper** rendered into the shared `PostItem`'s `actions` (footer) slot — no dialog, no change to the shared component.
@@ -21,6 +22,7 @@ Spec: `docs/superpowers/specs/2026-07-01-examples-shared-design.md`. Phase 3 of 
 ## File Structure
 
 **vite files DELETED** (now provided by `examples-shared`):
+
 ```
 src/components/PostList.tsx  PostDetail.tsx  PostItem.tsx  CommentItem.tsx  AddCommentForm.tsx  UpdatesBadge.tsx
 src/components/ui/           (whole dir)
@@ -28,7 +30,9 @@ src/lib/utils.ts             (and src/lib if empty)
 src/blog/states.ts           (use examples-shared/data)
 src/blog/types.ts            (use examples-shared/data)
 ```
+
 **vite files EDITED:**
+
 ```
 package.json                 add examples-shared dep
 vite.config.ts               ssr.noExternal + optimizeDeps for the source package
@@ -45,7 +49,9 @@ src/components/NewPostForm.tsx  ui from examples-shared/ui + userId
 src/components/EditPostForm.tsx ui from examples-shared/ui
 src/components/ThemeToggle.tsx  Button from examples-shared/ui
 ```
+
 **vite files CREATED:**
+
 ```
 src/components/PostActions.tsx    edit/delete for a post (renderItemActions slot)
 src/components/CommentActions.tsx delete for a comment (renderCommentActions slot)
@@ -60,6 +66,7 @@ src/components/CommentActions.tsx delete for a comment (renderCommentActions slo
 - [ ] **Step 1: add the dep** — in `examples/vite-blog-framework/package.json`, add to `devDependencies` (vite deps live in devDependencies here): `"examples-shared": "workspace:*"`. Keep alphabetical order among the workspace deps (next to `rxfy`/`rxfy-react`).
 
 - [ ] **Step 2: Vite must process the source package** — READ the current `vite.config.ts`. It has `resolve.alias` for `@`. Add (merge, don't clobber existing keys) an `ssr.noExternal` and `optimizeDeps.exclude` so Vite transforms `examples-shared`'s `.tsx` source (it exports source, not a built bundle) on both the SSR and client sides:
+
 ```ts
   ssr: {
     noExternal: ["examples-shared"],
@@ -68,12 +75,15 @@ src/components/CommentActions.tsx delete for a comment (renderCommentActions slo
     exclude: ["examples-shared"],
   },
 ```
+
 If `vite.config.ts` already has an `ssr` or `optimizeDeps` block, merge these keys into it. Leave the `@tailwindcss/vite` and react plugins and the `@` alias as-is.
 
 - [ ] **Step 3: Tailwind scans the shared package** — in `examples/vite-blog-framework/src/styles.css`, add one `@source` line immediately after the three `@import` lines at the top (before `@custom-variant`):
+
 ```css
 @source "../../example-shared/src/**/*.{ts,tsx}";
 ```
+
 (From `src/styles.css`, `../../example-shared/src` resolves to `examples/example-shared/src` — the shared package's real source dir, so the utility classes used by shared components get generated.) Do NOT otherwise change the theme.
 
 - [ ] **Step 4: install + verify boot** — from repo root:
@@ -82,10 +92,12 @@ If `vite.config.ts` already has an `ssr` or `optimizeDeps` block, merge these ke
   - `pnpm --filter vite-blog-framework exec vite build --outDir dist/client 2>&1 | tail -20` — the client build must succeed (proves Vite resolves the workspace dep and config is valid). If it fails on the shared package resolution, adjust `optimizeDeps`/`ssr.noExternal` and re-run.
 
 - [ ] **Step 5: commit**
+
 ```bash
 git add examples/vite-blog-framework/package.json examples/vite-blog-framework/vite.config.ts examples/vite-blog-framework/src/styles.css pnpm-lock.yaml
 git commit -m "chore(vite-blog): depend on examples-shared + tailwind @source"
 ```
+
 No `Co-Authored-By` trailer.
 
 ---
@@ -95,6 +107,7 @@ No `Co-Authored-By` trailer.
 **Files:** `src/db/schema.ts`, `server/db.ts`.
 
 - [ ] **Step 1: `src/db/schema.ts`** — rename columns so Drizzle's inferred rows match the shared Zod models (`Post.userId`, `Comment.name`):
+
 ```ts
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
@@ -126,6 +139,7 @@ export const comments = pgTable("comments", {
 - [ ] **Step 3: verify** — `pnpm --filter vite-blog-framework check-types` must exit 0. (Downstream code still references the old names in a few places; if check-types now flags them, that's expected — those files are fixed in Tasks 3–5. To keep this task green in isolation, run check-types and if the ONLY errors are `authorId`/`author` references in `server/api.ts`, `src/blog/api-client.ts`, or components, proceed — they're addressed next. If you prefer a clean gate, do a quick `grep -rn "authorId\|\.author\b" src server` and note the call sites for Tasks 3–5.) The schema/db files themselves must type-check.
 
 - [ ] **Step 4: commit**
+
 ```bash
 git add examples/vite-blog-framework/src/db/schema.ts examples/vite-blog-framework/server/db.ts
 git commit -m "refactor(vite-blog): rename DB fields to shared model convention (userId, name)"
@@ -140,6 +154,7 @@ git commit -m "refactor(vite-blog): rename DB fields to shared model convention 
 **Files:** `src/blog/resources.ts`, delete `src/blog/states.ts` + `src/blog/types.ts`, `src/routes.ts`, `server/api.ts`.
 
 - [ ] **Step 1: `src/blog/resources.ts`** — inject the shared models so the store + live routing use the shared `ModelDescriptor`s:
+
 ```ts
 import { commentModel, postModel, userModel } from "examples-shared/data";
 import { createResourceRegistry, defineResource } from "rxfy-server/browser";
@@ -153,6 +168,7 @@ export { commentModel, postModel, userModel };
 
 export const resources = createResourceRegistry([userResource, postResource, commentResource]);
 ```
+
 > Re-exporting the models keeps existing `import { postModel } from "./resources.js"` call sites working (e.g. the deleted local components imported them; the new `PostActions` will import from `examples-shared/data` directly, but re-exporting is harmless and convenient).
 
 - [ ] **Step 2: delete `src/blog/states.ts`** — the shared `postsState`/`postDetailState` replace it. `rm examples/vite-blog-framework/src/blog/states.ts`.
@@ -160,9 +176,11 @@ export const resources = createResourceRegistry([userResource, postResource, com
 - [ ] **Step 3: delete `src/blog/types.ts`** — shared `Post`/`User`/`Comment` types replace it. `rm examples/vite-blog-framework/src/blog/types.ts`.
 
 - [ ] **Step 4: `src/routes.ts`** — change the states import to the shared package:
+
 ```ts
 import { postDetailState, postsState } from "examples-shared/data";
 ```
+
 (only that import line changes; the rest of `routes.ts` is unchanged — `postsState`/`postDetailState` still expose `.fields` and cast to `StateChannelDescriptor` identically.)
 
 - [ ] **Step 5: `server/api.ts` — states import + `meta` + field renames** (this file is further rewritten in Task 4; here just make it consistent with shared states/fields):
@@ -180,6 +198,7 @@ import { postDetailState, postsState } from "examples-shared/data";
 - [ ] **Step 6: verify** — `pnpm --filter vite-blog-framework check-types`. Errors remaining should only be in `src/blog/api-client.ts` and the to-be-deleted components (Task 5) and `server/api.ts` mutation bodies (Task 4). The resources/routes/states wiring itself must type-check — in particular confirm `defineResource({ table: posts, model: postModel })` type-checks (Phase 1 made the row follow the injected model, so the table's extra `createdAt` column is fine).
 
 - [ ] **Step 7: commit**
+
 ```bash
 git add examples/vite-blog-framework/src/blog/resources.ts examples/vite-blog-framework/src/routes.ts examples/vite-blog-framework/server/api.ts
 git rm examples/vite-blog-framework/src/blog/states.ts examples/vite-blog-framework/src/blog/types.ts
@@ -193,6 +212,7 @@ git commit -m "refactor(vite-blog): bind resources to shared models + adopt shar
 **Files:** `server/api.ts`, `src/blog/api-client.ts`, and possibly `tsconfig.app.json`/`tsconfig.node.json` (to let the client type-import `AppType`).
 
 - [ ] **Step 1: refactor `server/api.ts` into a single fluent chain and export `AppType`** — Hono RPC requires the routes chained off one `new Hono()` so the type is inferred. Rewrite the route definitions as one chain (keeping all current behavior + the Task 3 `meta` and field renames):
+
 ```ts
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -241,7 +261,11 @@ export const api = new Hono()
   })
   .post("/posts", async (c) => {
     const { userId, title, body } = (await c.req.json()) as { userId: string; title: string; body: string };
-    const row = await live.create(postResource, { id: newId(), userId, title, body }, { touch: [touch(postsChannel, {})] });
+    const row = await live.create(
+      postResource,
+      { id: newId(), userId, title, body },
+      { touch: [touch(postsChannel, {})] },
+    );
     return c.json(row);
   })
   .patch("/posts/:id", async (c) => {
@@ -278,9 +302,11 @@ export const api = new Hono()
 
 export type AppType = typeof api;
 ```
+
 > `app.route("/api", api)` in `server/index.ts` is unchanged — the mount stays `/api`, so the RPC client bases at `/api` and calls `client.posts.$get()` etc.
 
 - [ ] **Step 2: rewrite `src/blog/api-client.ts`** — typed `hc` on the client, direct-DB on the server, with the shared return types and renamed fields:
+
 ```ts
 import { hc } from "hono/client";
 import type { PostDetailData, PostId, PostsData } from "examples-shared";
@@ -297,7 +323,11 @@ export async function fetchPosts(): Promise<PostsData> {
     const { db, posts, users } = await import("../../server/db.js");
     const rows = await db.select().from(posts);
     const authors = await db.select().from(users);
-    return { posts: rows, authors, meta: { total: rows.length, generatedAt: new Date().toISOString() } } as unknown as PostsData;
+    return {
+      posts: rows,
+      authors,
+      meta: { total: rows.length, generatedAt: new Date().toISOString() },
+    } as unknown as PostsData;
   }
   const res = await client.posts.$get();
   const body = (await res.json()) as { data: PostsData; grants: Grants };
@@ -331,6 +361,7 @@ export const addComment = (postId: string, p: { name: string; body: string }) =>
 export const deleteComment = (postId: string, id: string) =>
   client.posts[":postId"].comments[":id"].$delete({ param: { postId, id } });
 ```
+
 > The `import type { AppType }` is erased under `verbatimModuleSyntax`, so the Hono app (and its `node:crypto`/pglite deps) never enters the client bundle. `editComment` from the old client is dropped (unused by the UI); if a call site references it, re-add `export const editComment = (id, p) => client.comments[":id"].$patch({ param: { id }, json: p });`.
 
 - [ ] **Step 3: make `AppType` type-importable across the tsconfig projects** — `src/blog/api-client.ts` (app project) type-imports from `server/api.ts` (node project). READ `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`. Run `pnpm --filter vite-blog-framework check-types`. If it errors that `../../server/api.js` (or `AppType`) can't be found/resolved from the app project:
@@ -340,6 +371,7 @@ export const deleteComment = (postId: string, id: string) =>
 - [ ] **Step 4: verify** — `pnpm --filter vite-blog-framework check-types` (server routes + client RPC types resolve; remaining errors, if any, are only in the components deleted/rewritten in Task 5). Confirm the chained `api` still type-checks and `AppType` is exported.
 
 - [ ] **Step 5: commit**
+
 ```bash
 git add examples/vite-blog-framework/server/api.ts examples/vite-blog-framework/src/blog/api-client.ts examples/vite-blog-framework/tsconfig*.json
 git commit -m "feat(vite-blog): typed hc RPC client + chained AppType routes"
@@ -352,6 +384,7 @@ git commit -m "feat(vite-blog): typed hc RPC client + chained AppType routes"
 **Files:** create `src/components/PostActions.tsx`, `src/components/CommentActions.tsx`; edit `src/App.tsx`, `src/components/NewPostForm.tsx`, `src/components/EditPostForm.tsx`, `src/components/ThemeToggle.tsx`; delete the six duplicated components + `src/components/ui/` + `src/lib/utils.ts`.
 
 - [ ] **Step 1: delete the now-shared components + ui + lib**
+
 ```bash
 git rm examples/vite-blog-framework/src/components/PostList.tsx \
        examples/vite-blog-framework/src/components/PostDetail.tsx \
@@ -364,6 +397,7 @@ git rm -r examples/vite-blog-framework/src/components/ui
 ```
 
 - [ ] **Step 2: `src/components/PostActions.tsx`** (NEW) — the edit/delete controls for one post, rendered into the shared `PostItem`'s `actions` (footer) slot. It manages its own edit toggle and renders `EditPostForm` inline when editing:
+
 ```tsx
 import { useMemo, useState } from "react";
 import { Pending, useModelStore } from "rxfy-react";
@@ -380,9 +414,7 @@ export function PostActions({ id }: { id: PostId }) {
   if (editing) {
     return (
       <Pending value$={post$} pending={null}>
-        {(post) => (
-          <EditPostForm id={post.id} title={post.title} body={post.body} onDone={() => setEditing(false)} />
-        )}
+        {(post) => <EditPostForm id={post.id} title={post.title} body={post.body} onDone={() => setEditing(false)} />}
       </Pending>
     );
   }
@@ -401,6 +433,7 @@ export function PostActions({ id }: { id: PostId }) {
 ```
 
 - [ ] **Step 3: `src/components/CommentActions.tsx`** (NEW) — the delete control for one comment, rendered into the shared `CommentItem`'s `actions` slot:
+
 ```tsx
 import { Trash2 } from "lucide-react";
 import { type CommentId } from "examples-shared/data";
@@ -417,6 +450,7 @@ export function CommentActions({ postId, id }: { postId: string; id: CommentId }
 ```
 
 - [ ] **Step 4: `src/components/NewPostForm.tsx`** — update the ui imports to `examples-shared/ui/*` and send `userId` (was `authorId`). Change the import block to:
+
 ```tsx
 import { useState } from "react";
 import { Button } from "examples-shared/ui/button";
@@ -426,19 +460,23 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Textarea } from "examples-shared/ui/textarea";
 import { createPost } from "../blog/api-client.js";
 ```
+
 Keep the `AUTHORS = [{ id: "u1", name: "Alice Doe" }, ...]` list (vite's PGlite seed still uses `u1/u2/u3`). Rename the state var `authorId`→`userId` (and `setAuthorId`→`setUserId`) and the submit call to `createPost({ userId, title: title.trim(), body: body.trim() })`. The `<Select value={userId} onValueChange={setUserId}>` maps the selected author id to `userId`.
 
 - [ ] **Step 5: `src/components/EditPostForm.tsx`** — only change the ui imports to:
+
 ```tsx
 import { Button } from "examples-shared/ui/button";
 import { Input } from "examples-shared/ui/input";
 import { Textarea } from "examples-shared/ui/textarea";
 ```
+
 (the `import { useState } from "react"` and the `editPost` import from `../blog/api-client.js` stay; the component body is unchanged.)
 
 - [ ] **Step 6: `src/components/ThemeToggle.tsx`** — change `import { Button } from "@/components/ui/button";` → `import { Button } from "examples-shared/ui/button";`. Nothing else changes (the CSS-variant Sun/Moon toggle stays).
 
 - [ ] **Step 7: `src/App.tsx`** — render the shared components, wrap in `BlogProvider`, inject fetchers + slots:
+
 ```tsx
 import { useEffect, useState } from "react";
 import { BlogProvider, PostDetail, PostList } from "examples-shared";
@@ -473,7 +511,14 @@ export function App({ url }: { url: string }) {
     <BlogProvider value={blog}>
       <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
         <header className="flex items-center justify-between">
-          <a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }} className="text-xl font-semibold">
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/");
+            }}
+            className="text-xl font-semibold"
+          >
             rxfy live blog
           </a>
           <ThemeToggle />
@@ -498,11 +543,13 @@ export function App({ url }: { url: string }) {
   );
 }
 ```
+
 > Types: `route.postId` is a plain `string` (from `matchRoute`); `PostDetail`'s `postId` prop is `PostId` (branded). If check-types flags this, cast at the boundary: `postId={route.postId as PostId}` (import `type { PostId } from "examples-shared/data"`). Likewise `id` inside `renderCommentActions`/`renderItemActions` is already the branded `CommentId`/`PostId` from the shared component — matches `CommentActions`/`PostActions` props. Resolve any brand mismatch with a minimal cast and report it.
 
 - [ ] **Step 8: verify** — `pnpm --filter vite-blog-framework check-types` must now be **exit 0** (all references resolved). Then `pnpm --filter vite-blog-framework lint`: run `pnpm --filter vite-blog-framework exec eslint . --fix` first (import ordering), then the bare `pnpm --filter vite-blog-framework lint` and confirm **exit 0** — do NOT pipe lint through `tail`. Confirm no dangling imports of the deleted files: `grep -rn "components/PostList\|components/PostDetail\|components/PostItem\|components/CommentItem\|components/AddCommentForm\|components/UpdatesBadge\|components/ui/\|lib/utils\|blog/states\|blog/types" examples/vite-blog-framework/src examples/vite-blog-framework/server` → should be empty.
 
 - [ ] **Step 9: commit**
+
 ```bash
 git add examples/vite-blog-framework/src
 git commit -m "feat(vite-blog): render shared components via BlogProvider + slots"
@@ -525,24 +572,28 @@ git commit -m "feat(vite-blog): render shared components via BlogProvider + slot
 - [ ] **Step 4: build gate** — both Vite builds must succeed:
   - `pnpm --filter vite-blog-framework exec vite build --outDir dist/client` → success.
   - `pnpm --filter vite-blog-framework exec vite build --ssr src/entry-server.tsx --outDir dist/server` → success.
-  (Or `pnpm --filter vite-blog-framework build` which runs both.) A failure here most likely means Vite couldn't process `examples-shared` source — revisit Task 1's `ssr.noExternal`/`optimizeDeps`.
+    (Or `pnpm --filter vite-blog-framework build` which runs both.) A failure here most likely means Vite couldn't process `examples-shared` source — revisit Task 1's `ssr.noExternal`/`optimizeDeps`.
 
 - [ ] **Step 5: dev SSR + runtime smoke** — start the dev server in the background and probe it:
+
   ```bash
   (cd examples/vite-blog-framework && pnpm dev > /tmp/vite-blog-dev.log 2>&1 &) ; sleep 6
   curl -s http://localhost:5176/api/posts | head -c 400        # expect JSON with data.posts, data.meta.total, and grants
   curl -s http://localhost:5176/ | grep -o 'rxfy live blog'    # expect the SSR'd header text present
   curl -s http://localhost:5176/ | grep -oc 'Getting Started with rxfy'  # expect >=1 (a seeded post title rendered server-side)
   ```
+
   Confirm: `/api/posts` returns `data.meta` (proves the shared state's meta field is wired) and the seeded post title appears in server-rendered HTML (proves shared components render under SSR with the shared store). Check `/tmp/vite-blog-dev.log` for errors (hydration mismatch, missing Tailwind classes, unresolved `examples-shared`). Then stop the dev server: `pkill -f "tsx ./server/index.ts"` (or find and kill the pid). Report the curl outputs.
 
 - [ ] **Step 6: monorepo gate** — `pnpm turbo check-types lint build --filter=vite-blog-framework` → all pass. (No `test` target of substance here; `examples-shared` and library packages are unaffected. Optionally run `pnpm turbo check-types --filter=examples-shared` to confirm the shared package still type-checks — it should, unchanged.)
 
 - [ ] **Step 7: commit**
+
 ```bash
 git add examples/vite-blog-framework/src/entry-server.tsx examples/vite-blog-framework/src/entry-client.tsx
 git commit -m "chore(vite-blog): finalize shared-package migration + verify SSR/build" --allow-empty
 ```
+
 (`--allow-empty` in case the entries needed no edits — keeps a clean phase-closing commit; drop the flag if there are real changes.)
 
 ---

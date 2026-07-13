@@ -19,14 +19,14 @@ This skill covers the **store setup**: client state + SSR. (Real-time server pus
 
 ## Reference modules
 
-| Read | When working on |
-|---|---|
-| `references/models-states.md` | `createModel`, `defineState`, `array`/`single`, plain value fields |
-| `references/react-bindings.md` | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table |
-| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes |
-| `references/lens-atoms.md` | `createAtom`, `createLens`, `keyLens` nested state |
-| `references/ssr.md` | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
-| `references/common-mistakes.md` | debugging — check here first for known pitfalls |
+| Read                             | When working on                                                         |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| `references/models-states.md`    | `createModel`, `defineState`, `array`/`single`, plain value fields      |
+| `references/react-bindings.md`   | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table     |
+| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes               |
+| `references/lens-atoms.md`       | `createAtom`, `createLens`, `keyLens` nested state                      |
+| `references/ssr.md`              | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
+| `references/common-mistakes.md`  | debugging — check here first for known pitfalls                         |
 
 ## Minimal shape
 
@@ -35,5 +35,5 @@ const Todo = createModel({ schema: todoSchema, getKey: (t) => t.id, name: "todos
 const listState = defineState({ key: "todos", params: z.object({}), model: { todos: array(Todo) } });
 
 const { data$ } = useStateData({ state: listState, fetchFn, params });
-<Pending value$={data$}>{({ todos }) => todos.map((id) => <TodoItem key={id} id={id} />)}</Pending>
+<Pending value$={data$}>{({ todos }) => todos.map((id) => <TodoItem key={id} id={id} />)}</Pending>;
 ```

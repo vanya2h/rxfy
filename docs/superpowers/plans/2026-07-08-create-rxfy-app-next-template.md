@@ -11,11 +11,13 @@
 **Reference:** `examples/waku-blog` (`src/ssr.ts`, `src/components/HydrateSnapshot.tsx`) is the proven source of the `prefetch`/`HydrateSnapshot` helpers; `examples/next-blog` is the App Router config reference. Spec: `docs/superpowers/specs/2026-07-08-create-rxfy-app-next-template-design.md`.
 
 **Conventions:**
+
 - Prettier: 120 print width, double quotes, semicolons, trailing commas.
 - Commit messages: plain conventional commits, **no Co-Authored-By / AI-attribution trailers**.
 - Template source files use **relative imports** with **no import extensions** (Next/bundler resolution), unlike the `.js`/`.ts` extensions in the vite templates.
 
 **Next.js tooling decisions (important — these prevent CI/scaffold breakage):**
+
 - `next dev`/`next build` **generate** `next-env.d.ts` and `.next/`. Both are gitignored in the template and **skipped by `prepare-templates.ts`** so they never get bundled; the scaffolded user's first `next dev` regenerates `next-env.d.ts` for their Next version.
 - Because `next-env.d.ts` is not shipped, a committed `src/types/next.d.ts` shim supplies Next's global types so `pnpm check-types` works on a fresh scaffold before the first build.
 - `tsconfig.json` pre-includes the `.next/types` globs (harmless when absent) so `next build` does not mutate the committed tsconfig.
@@ -27,6 +29,7 @@
 `prepare-templates.ts` (CLI build) and `scaffold.ts` (scaffold time) copy template dirs. Next generates `.next/` (build output) and `next-env.d.ts`; neither should ever be bundled or scaffolded.
 
 **Files:**
+
 - Modify: `packages/create-rxfy-app/scripts/prepare-templates.ts`
 - Modify: `packages/create-rxfy-app/src/scaffold.ts`
 - Modify: `packages/create-rxfy-app/src/scaffold.test.ts`
@@ -36,15 +39,15 @@
 In `packages/create-rxfy-app/src/scaffold.test.ts`, extend the fixture and the scaffold assertions. First, in `fixtureTemplatesRoot()`, add these two lines just after the existing `fs.mkdirSync(path.join(dir, "dist"), ...)` line (inside the "junk that must never be copied" section):
 
 ```ts
-  fs.mkdirSync(path.join(dir, ".next", "cache"), { recursive: true });
-  fs.writeFileSync(path.join(dir, "next-env.d.ts"), "/// <reference types=\"next\" />\n");
+fs.mkdirSync(path.join(dir, ".next", "cache"), { recursive: true });
+fs.writeFileSync(path.join(dir, "next-env.d.ts"), '/// <reference types="next" />\n');
 ```
 
-Then, in the `scaffold` test ("copies files, renames _gitignore, rewrites the package name, drops junk"), add these two assertions next to the existing `expect(fs.existsSync(path.join(target, "dist"))).toBe(false);`:
+Then, in the `scaffold` test ("copies files, renames \_gitignore, rewrites the package name, drops junk"), add these two assertions next to the existing `expect(fs.existsSync(path.join(target, "dist"))).toBe(false);`:
 
 ```ts
-    expect(fs.existsSync(path.join(target, ".next"))).toBe(false);
-    expect(fs.existsSync(path.join(target, "next-env.d.ts"))).toBe(false);
+expect(fs.existsSync(path.join(target, ".next"))).toBe(false);
+expect(fs.existsSync(path.join(target, "next-env.d.ts"))).toBe(false);
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -129,6 +132,7 @@ git commit -m "feat(create-rxfy-app): skip .next and generated next-env.d.ts whe
 Create an installable, testable package: config files + the data layer (`store.ts`, `todos.ts`), the `prefetch` SSR helper (`ssr.ts`), and its vitest smoke test. TDD the smoke test. The React/Next app files come in Task 3.
 
 **Files (all Create):**
+
 - `templates/next/template.json`, `package.json`, `next.config.ts`, `tsconfig.json`, `vitest.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`, `.gitignore`, `turbo.json`
 - `templates/next/src/types/next.d.ts`
 - `templates/next/src/lib/store.ts`, `src/lib/todos.ts`, `src/lib/ssr.ts`
@@ -467,6 +471,7 @@ git commit -m "feat(create-rxfy-app): next template — data layer, SSR prefetch
 Add the Next app shell and the RSC/client component wiring on top of Task 2's data layer.
 
 **Files (all Create):**
+
 - `templates/next/src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
 - `templates/next/src/app/api/todos/route.ts`
 - `templates/next/src/providers.tsx`
@@ -522,7 +527,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 ```
 
@@ -709,14 +717,14 @@ Open http://localhost:3000. The todo list is server-rendered (view source — th
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Next dev server |
-| `pnpm build` | Production build |
-| `pnpm start` | Serve the production build |
-| `pnpm test` | SSR-prefetch smoke test |
-| `pnpm lint` | ESLint |
-| `pnpm check-types` | Typecheck |
+| Script             | What it does               |
+| ------------------ | -------------------------- |
+| `pnpm dev`         | Next dev server            |
+| `pnpm build`       | Production build           |
+| `pnpm start`       | Serve the production build |
+| `pnpm test`        | SSR-prefetch smoke test    |
+| `pnpm lint`        | ESLint                     |
+| `pnpm check-types` | Typecheck                  |
 
 Docs: https://rxfy.vanya2h.me
 ````
@@ -743,6 +751,7 @@ git commit -m "feat(create-rxfy-app): next template — App Router app with RSC 
 ### Task 4: Bundle `next` into the CLI and verify a scaffolded app builds
 
 **Files:**
+
 - Modify: `packages/create-rxfy-app/package.json` (devDependencies)
 - Modify: `packages/create-rxfy-app/README.md` (templates table)
 
@@ -761,11 +770,11 @@ Then run `pnpm install` from the repo root.
 In `packages/create-rxfy-app/README.md`, replace the Templates table with:
 
 ```markdown
-| Name | Stack |
-|---|---|
-| `vite-spa` | Client-only Vite + React SPA — one model, one state, no server |
-| `vite` | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy live updates over WebSocket |
-| `next` | Next.js App Router — SSR store via RSC prefetch + hydrate, isomorphic fetch, server actions |
+| Name       | Stack                                                                                       |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| `vite-spa` | Client-only Vite + React SPA — one model, one state, no server                              |
+| `vite`     | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy live updates over WebSocket          |
+| `next`     | Next.js App Router — SSR store via RSC prefetch + hydrate, isomorphic fetch, server actions |
 ```
 
 - [ ] **Step 3: Build the CLI and inspect the bundled template**
@@ -774,6 +783,7 @@ Run: `pnpm --filter create-rxfy-app build`
 Expected: output includes `prepared template: vite`, `prepared template: vite-spa`, and `prepared template: next`.
 
 Verify the bundled `next` template:
+
 - `cat packages/create-rxfy-app/dist/templates/next/package.json` — `rxfy` and `rxfy-react` are real semver (not `workspace:*`).
 - `ls packages/create-rxfy-app/dist/templates/next/_gitignore` — exists.
 - `ls packages/create-rxfy-app/dist/templates/next/next-env.d.ts 2>/dev/null; echo "exit: $?"` — must NOT exist (skipped); expect exit 2 / "No such file".
@@ -834,6 +844,7 @@ git commit -m "feat(create-rxfy-app): bundle the next template"
 ### Task 5: Changeset + full verification
 
 **Files:**
+
 - Modify: `.changeset/create-rxfy-app.md`
 
 - [ ] **Step 1: Extend the pending changeset**

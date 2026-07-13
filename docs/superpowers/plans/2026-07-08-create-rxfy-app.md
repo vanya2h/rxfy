@@ -74,6 +74,7 @@ apps/docs/src/pages/examples.mdx                    # modify: monorepo-only note
 ### Task 1: Workspace plumbing
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml`
 - Modify: `.changeset/config.json`
 
@@ -111,6 +112,7 @@ git commit -m "chore: add templates/* workspace glob and changeset ignore"
 ### Task 2: templates/vite — project shell
 
 **Files:**
+
 - Create: `templates/vite/template.json`, `templates/vite/package.json`, `templates/vite/.gitignore`, `templates/vite/index.html`, `templates/vite/vite.config.ts`, `templates/vite/vitest.config.ts`, `templates/vite/tsconfig.json`, `templates/vite/tsconfig.app.json`, `templates/vite/tsconfig.node.json`, `templates/vite/src/styles.css`, `templates/vite/src/vite-env.d.ts`, `templates/vite/README.md`
 
 - [ ] **Step 1: `templates/vite/template.json`**
@@ -309,7 +311,10 @@ Note: `src/ssr.smoke.test.ts` lives in `src` (tsconfig.app), NOT `server` — it
 ```css
 :root {
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 body {
@@ -396,7 +401,7 @@ li label {
 
 - [ ] **Step 10: `templates/vite/README.md`**
 
-```markdown
+````markdown
 # rxfy live app
 
 A fully server-side-rendered live app: [rxfy](https://rxfy.vanya2h.me) normalized stores on the client, a [Hono](https://hono.dev) server that owns writes through `rxfy-server`, and real-time updates pushed over WebSocket. The database is [PGlite](https://pglite.dev) (embedded Postgres) via [Drizzle](https://orm.drizzle.team) — zero setup, swap in a real Postgres when ready.
@@ -407,18 +412,19 @@ A fully server-side-rendered live app: [rxfy](https://rxfy.vanya2h.me) normalize
 pnpm install
 pnpm dev
 ```
+````
 
 Open http://localhost:3000 in **two tabs**. Toggling a todo in one tab updates the other instantly (a live `patch`); adding a todo shows a "1 new — refresh" badge in the other tab (a `stale` invalidation — lists never mutate themselves).
 
 ## Scripts
 
-| Script | What it does |
-|---|---|
-| `pnpm dev` | Dev server (Vite middleware mode + SSR) on port 3000 |
-| `pnpm build` | Client + SSR production bundles into `dist/` |
-| `pnpm preview` | Run the production build |
-| `pnpm test` | Live-write + SSR smoke tests |
-| `pnpm check-types` | Typecheck client and server projects |
+| Script             | What it does                                         |
+| ------------------ | ---------------------------------------------------- |
+| `pnpm dev`         | Dev server (Vite middleware mode + SSR) on port 3000 |
+| `pnpm build`       | Client + SSR production bundles into `dist/`         |
+| `pnpm preview`     | Run the production build                             |
+| `pnpm test`        | Live-write + SSR smoke tests                         |
+| `pnpm check-types` | Typecheck client and server projects                 |
 
 ## Where things live
 
@@ -429,7 +435,8 @@ Open http://localhost:3000 in **two tabs**. Toggling a todo in one tab updates t
 - `src/entry-server.tsx` / `src/entry-client.tsx` — SSR dehydrate → hydrate loop
 
 Docs: https://rxfy.vanya2h.me/getting-started/framework
-```
+
+````
 
 - [ ] **Step 11: Install and commit**
 
@@ -437,7 +444,7 @@ Docs: https://rxfy.vanya2h.me/getting-started/framework
 pnpm install
 git add templates/vite pnpm-lock.yaml
 git commit -m "feat(templates): add vite template shell (config, html, styles)"
-```
+````
 
 Expected: install succeeds; `templates/vite` appears as workspace package `rxfy-template-vite`.
 
@@ -446,6 +453,7 @@ Expected: install succeeds; `templates/vite` appears as workspace package `rxfy-
 ### Task 3: templates/vite — data layer
 
 **Files:**
+
 - Create: `templates/vite/src/db/schema.ts`, `templates/vite/src/todos.ts`, `templates/vite/src/resources.ts`, `templates/vite/src/live-singleton.ts`, `templates/vite/src/api-client.ts`, `templates/vite/server/db.ts`
 
 - [ ] **Step 1: `templates/vite/src/db/schema.ts`**
@@ -607,6 +615,7 @@ git commit -m "feat(templates): vite template data layer (schema, model, state, 
 ### Task 4: templates/vite — server
 
 **Files:**
+
 - Create: `templates/vite/server/live.ts`, `templates/vite/server/api.ts`, `templates/vite/server/ws.ts`, `templates/vite/server/render.ts`, `templates/vite/server/index.ts`
 
 - [ ] **Step 1: `templates/vite/server/live.ts`**
@@ -818,6 +827,7 @@ git commit -m "feat(templates): vite template server (hono, live writes, ws, ssr
 ### Task 5: templates/vite — UI, routing, entries
 
 **Files:**
+
 - Create: `templates/vite/src/routes.ts`, `templates/vite/src/App.tsx`, `templates/vite/src/pages/TodosPage.tsx`, `templates/vite/src/pages/AboutPage.tsx`, `templates/vite/src/entry-client.tsx`, `templates/vite/src/entry-server.tsx`
 
 - [ ] **Step 1: `templates/vite/src/routes.ts`**
@@ -827,7 +837,9 @@ import type { StateChannelDescriptor } from "rxfy-server";
 import { todosState } from "./todos.js";
 
 /** The state instances a pathname renders — used to mint live-grant channels during SSR. */
-export function routeStates(pathname: string): Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }> {
+export function routeStates(
+  pathname: string,
+): Array<{ state: StateChannelDescriptor; params: Record<string, unknown> }> {
   if (pathname === "/") return [{ state: todosState as unknown as StateChannelDescriptor, params: {} }];
   return [];
 }
@@ -932,8 +944,8 @@ export function AboutPage() {
     <section>
       <h1>About this template</h1>
       <p>
-        This page exists to prove direct-URL server rendering: load <code>/about</code> with JavaScript disabled and
-        the content is already in the HTML.
+        This page exists to prove direct-URL server rendering: load <code>/about</code> with JavaScript disabled and the
+        content is already in the HTML.
       </p>
       <p>
         The stack: Vite SSR, React Router, Hono, Drizzle on PGlite, and rxfy for normalized client state with live
@@ -1049,6 +1061,7 @@ git commit -m "feat(templates): vite template UI, react-router routing, SSR entr
 ### Task 6: templates/vite — smoke tests + manual verification
 
 **Files:**
+
 - Create: `templates/vite/server/live.smoke.test.ts`
 - Create: `templates/vite/src/ssr.smoke.test.ts`
 
@@ -1175,11 +1188,12 @@ pnpm --filter rxfy-template-vite dev
 ```
 
 Open http://localhost:3000 in two tabs and verify:
+
 1. First paint shows the three seeded todos (view-source contains them — SSR, not client fetch).
 2. Toggling a checkbox in tab A updates tab B instantly (patch flow).
 3. Adding a todo in tab A shows "1 new — refresh" in tab B; clicking it reveals the todo (stale flow).
 4. http://localhost:3000/about direct-loads with content (non-root SSR).
-Stop the server afterwards.
+   Stop the server afterwards.
 
 - [ ] **Step 5: Full turbo pass over the template, then commit**
 
@@ -1194,6 +1208,7 @@ git commit -m "feat(templates): vite template live + SSR smoke tests"
 ### Task 7: create-rxfy-app — package shell + scaffold logic (TDD)
 
 **Files:**
+
 - Create: `packages/create-rxfy-app/package.json`, `tsconfig.json`, `tsup.config.ts`, `vitest.config.ts`, `eslint.config.ts`
 - Create: `packages/create-rxfy-app/src/scaffold.ts`, `src/scaffold.test.ts`
 
@@ -1221,11 +1236,7 @@ git commit -m "feat(templates): vite template live + SSR smoke tests"
   "bin": {
     "create-rxfy-app": "./dist/index.js"
   },
-  "files": [
-    "dist",
-    "package.json",
-    "README.md"
-  ],
+  "files": ["dist", "package.json", "README.md"],
   "scripts": {
     "build": "tsup && tsx ./scripts/prepare-templates.ts",
     "check-types": "tsc --noEmit",
@@ -1241,8 +1252,8 @@ git commit -m "feat(templates): vite template live + SSR smoke tests"
   },
   "devDependencies": {
     "@types/node": "^22.15.29",
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "eslint": "^9.27.0",
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",
@@ -1405,9 +1416,10 @@ export function listTemplates(templatesRoot: string): TemplateMeta[] {
     .readdirSync(templatesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(templatesRoot, entry.name, "template.json")))
     .map((entry) => {
-      const meta = JSON.parse(
-        fs.readFileSync(path.join(templatesRoot, entry.name, "template.json"), "utf8"),
-      ) as Omit<TemplateMeta, "name">;
+      const meta = JSON.parse(fs.readFileSync(path.join(templatesRoot, entry.name, "template.json"), "utf8")) as Omit<
+        TemplateMeta,
+        "name"
+      >;
       return { name: entry.name, ...meta };
     });
 }
@@ -1451,6 +1463,7 @@ git commit -m "feat(create-rxfy-app): package shell and scaffold logic"
 ### Task 8: create-rxfy-app — template bundling build step (TDD)
 
 **Files:**
+
 - Create: `packages/create-rxfy-app/src/prepare.ts`, `src/prepare.test.ts`, `scripts/prepare-templates.ts`
 
 - [ ] **Step 1: Write the failing test `packages/create-rxfy-app/src/prepare.test.ts`**
@@ -1601,6 +1614,7 @@ git commit -m "feat(create-rxfy-app): bundle templates into dist with version re
 ### Task 9: create-rxfy-app — CLI entry
 
 **Files:**
+
 - Create: `packages/create-rxfy-app/src/index.ts`
 - Create: `packages/create-rxfy-app/README.md`
 
@@ -1716,7 +1730,7 @@ await main();
 
 - [ ] **Step 2: `packages/create-rxfy-app/README.md`**
 
-```markdown
+````markdown
 # create-rxfy-app
 
 Scaffold a standalone [rxfy](https://rxfy.vanya2h.me) app from an official template.
@@ -1726,11 +1740,12 @@ pnpm create rxfy-app my-app
 # or: npm create rxfy-app@latest my-app
 # or: yarn create rxfy-app my-app
 ```
+````
 
 ## Templates
 
-| Name | Stack |
-|---|---|
+| Name   | Stack                                                                              |
+| ------ | ---------------------------------------------------------------------------------- |
 | `vite` | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy live updates over WebSocket |
 
 Pick non-interactively with `--template`:
@@ -1740,7 +1755,8 @@ pnpm create rxfy-app my-app --template vite
 ```
 
 Templates are bundled with each release and pinned to the matching rxfy versions.
-```
+
+````
 
 - [ ] **Step 3: Build and verify end to end against the real bundle**
 
@@ -1752,7 +1768,7 @@ grep '"name"' /tmp/scaffold-check/package.json
 grep '"rxfy"' /tmp/scaffold-check/package.json
 ls /tmp/scaffold-check/.gitignore
 cd /Users/vanya2h/Repos/rxfy
-```
+````
 
 Expected: full template tree copied; `"name": "scaffold-check"`; `"rxfy": "^2.0.0"` (no workspace ranges); `.gitignore` present; no `template.json`. (Optional, needs network: `cd /tmp/scaffold-check && pnpm install && pnpm test` — this installs the published rxfy packages from npm.)
 
@@ -1769,6 +1785,7 @@ git commit -m "feat(create-rxfy-app): interactive CLI entry"
 ### Task 10: Docs, changeset, final verification
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/getting-started/framework.mdx`
 - Modify: `apps/docs/src/pages/examples.mdx`
 - Create: `.changeset/create-rxfy-app.md`
@@ -1777,7 +1794,7 @@ git commit -m "feat(create-rxfy-app): interactive CLI entry"
 
 In `apps/docs/src/pages/getting-started/framework.mdx`, insert directly before the `## Install` heading:
 
-```mdx
+````mdx
 ## Scaffold a new app
 
 The fastest start is the official scaffolder. It creates a standalone, fully server-rendered
@@ -1789,6 +1806,7 @@ live app — Vite SSR, React Router, a Hono server, Drizzle on embedded Postgres
 ```bash [npm]
 npm create rxfy-app@latest my-app
 ```
+````
 
 ```bash [pnpm]
 pnpm create rxfy-app my-app
@@ -1811,7 +1829,8 @@ pnpm dev
 Open http://localhost:3000 in two tabs and toggle a todo — the other tab updates instantly.
 Everything below explains what the scaffold wired up; read on to understand it or to add
 the framework to an existing app by hand.
-```
+
+````
 
 - [ ] **Step 2: Add the monorepo-only note to the examples page**
 
@@ -1824,7 +1843,7 @@ clone of the [rxfy repository](https://github.com/vanya2h/rxfy), and the `pnpm -
 commands below run from its repo root. They will do nothing in your own project. To start a
 standalone app, use [`pnpm create rxfy-app`](/getting-started/framework#scaffold-a-new-app).
 :::
-```
+````
 
 - [ ] **Step 3: Create `.changeset/create-rxfy-app.md`**
 
@@ -1873,4 +1892,7 @@ git commit -m "docs: lead framework quickstart with create-rxfy-app; note monore
 - React Router library-mode routing: Task 5 (StaticRouter server / BrowserRouter client)
 - Docs lead with the scaffolder + examples caveat: Task 10
 - Changeset (minor, new package): Task 10 step 3
+
+```
+
 ```

@@ -24,11 +24,11 @@ Revision history: v1 of this spec auto-derived grants but kept them in HTTP resp
 
 Grants exist for exactly one reason: entity `patch` messages carry the full row ([packages/rxfy-server/src/server.ts](../../../packages/rxfy-server/src/server.ts) `publishEntity`), so a subscription is data access, so subscriptions needed a gate — an unguessable token minted per served topic. Everything else in the grant flow (keyer windows, token expiry, `addGrants`, the four places application code declares grant inputs) is ceremony serving that gate.
 
-Inverting control removes the need for the gate: if the server writes the subscription table itself at serve time, the client holds no capability and requests nothing. The hub already keeps exactly this table — `hub.subscribe(conn, ids)` / `hub.publish(id, message)` — today populated by client frames carrying granted tokens. This design changes only *who writes it* and keys it by session instead of raw socket.
+Inverting control removes the need for the gate: if the server writes the subscription table itself at serve time, the client holds no capability and requests nothing. The hub already keeps exactly this table — `hub.subscribe(conn, ids)` / `hub.publish(id, message)` — today populated by client frames carrying granted tokens. This design changes only _who writes it_ and keys it by session instead of raw socket.
 
 Two supporting facts from the current code:
 
-- The client's subscription *intent* was already fully derivable (`registry.added$`, `stateChannel`) — grants were only a token lookup. Dropping client subscriptions loses nothing.
+- The client's subscription _intent_ was already fully derivable (`registry.added$`, `stateChannel`) — grants were only a token lookup. Dropping client subscriptions loses nothing.
 - The client never unsubscribes today ([packages/rxfy-react/src/live/live-client.ts](../../../packages/rxfy-react/src/live/live-client.ts) only grows its sets), so per-session accumulation server-side is not a regression — the same set moves to where TTLs and caps can actually be enforced.
 
 The channel derivation is currently duplicated (`rxfy-react/src/live/channel.ts`, `rxfy-server/src/state-channel.ts`) with "MUST stay identical" comments; this design also consolidates it.
@@ -56,9 +56,9 @@ Session-id security: the id is a bearer correlator — whoever presents it recei
 The hub keeps its shape but is re-keyed and gains lifecycle:
 
 ```ts
-export type SessionId = string;                       // replaces ConnId (number)
+export type SessionId = string; // replaces ConnId (number)
 export type Hub = {
-  subscribe: (session: SessionId, ids: string[]) => void;   // called by the SERVE path, not by WS frames
+  subscribe: (session: SessionId, ids: string[]) => void; // called by the SERVE path, not by WS frames
   unsubscribe: (session: SessionId, ids: string[]) => void;
   publish: (id: string, message: ServerMessage) => void;
   onPublish: (sink: (session: SessionId, message: ServerMessage) => void) => void;
@@ -67,7 +67,7 @@ export type Hub = {
   release: (session: SessionId) => void;
   drop: (session: SessionId) => void;
 };
-export function createInMemoryHub(options?: { ttlMs?: number }): Hub;   // default ttl: 5 minutes
+export function createInMemoryHub(options?: { ttlMs?: number }): Hub; // default ttl: 5 minutes
 ```
 
 - Subscription ids are raw names, internally prefixed to keep the namespaces disjoint: entities `e:${name}:${id}`, channels `c:${channel}` (prefixing is invisible outside the hub/server).
@@ -79,11 +79,11 @@ export function createInMemoryHub(options?: { ttlMs?: number }): Hub;   // defau
 
 ```ts
 serve: <TParams, TShape>(
-  req: string | { headers: { get(name: string): string | null } },   // session id, or a fetch-API Request
+  req: string | { headers: { get(name: string): string | null } }, // session id, or a fetch-API Request
   state: StateDescriptor<TParams, TShape, any, any, any>,
   params: TParams,
   data: TShape,
-) => TShape;                                    // returns data unchanged
+) => TShape; // returns data unchanged
 
 hydration: (registry: IModelRegistry) => string; // mints a session, records the render, returns the hydration script
 ```
@@ -101,7 +101,7 @@ const rows = await db.select().from(todos).orderBy(...);
 return c.json(live.serve(c.req.raw, todosState, {}, { todos: rows }));
 ```
 
-`hydration` behavior: mint `session = crypto.randomUUID()`, derive names from the *render* registry (entities from stores matched to resources, channels from the registry's channel log), `hub.subscribe(session, names)`, return `hydrationScript({ ...dehydrate(registry), session })`. The hydration payload's `grants` field is replaced by `session?: string` (`rxfy` core).
+`hydration` behavior: mint `session = crypto.randomUUID()`, derive names from the _render_ registry (entities from stores matched to resources, channels from the registry's channel log), `hub.subscribe(session, names)`, return `hydrationScript({ ...dehydrate(registry), session })`. The hydration payload's `grants` field is replaced by `session?: string` (`rxfy` core).
 
 Publishing (`publishEntity`, `applyTouch`) drops the keyer loop and publishes once on the raw prefixed name. `touch` and `invalidationChannel` survive unchanged; `state-channel.ts` becomes a thin wrapper over the core `stateChannel` (section 5). **Deleted:** `grant`, `GrantSpec`, `Grants`, `createTopicKeyer`, the keyer module.
 
@@ -139,16 +139,16 @@ createLiveClient({ registry, transport, session }): LiveClient   // grants optio
 
 ### 7. Template simplification (`templates/vite`)
 
-| File | Change |
-| --- | --- |
-| `src/session.ts` (new) | `export const sessionId = readSsrSession() ?? crypto.randomUUID()` — SSR-adopted or self-generated, one per page load. |
-| `src/api-client.ts` | `hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } })`. `fetchTodos` client branch becomes a plain `return res.json()`; the `{ data, grants }` cast and `addGrants` call are deleted. SSR branch (direct DB read) unchanged. |
-| `src/live-singleton.ts` | **Deleted.** |
-| `src/entry-client.tsx` | `createLiveClient({ registry, transport, session: sessionId })`. |
-| `src/entry-server.tsx` | `resolve({ html, state: live.hydration(registry) })`; drop `routeStates`, `todoResource`, `dehydrate`, `hydrationScript` imports and the unused `pathname`. |
-| `src/routes.ts` | Delete `routeStates`. Keep `todosChannel` (still used by `touch` targets). |
-| `server/live.ts` | `createServer({ db, resources, hub })` — keyer and `RXFY_SECRET` gone. |
-| `server/api.ts` | GET `/todos`: `return c.json(live.serve(c.req.raw, todosState, {}, { todos: rows }))`. Write endpoints (`touch(todosChannel, {})`) unchanged. |
+| File                    | Change                                                                                                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/session.ts` (new)  | `export const sessionId = readSsrSession() ?? crypto.randomUUID()` — SSR-adopted or self-generated, one per page load.                                                                                                                         |
+| `src/api-client.ts`     | `hc<AppType>("/api", { headers: { [RXFY_SESSION_HEADER]: sessionId } })`. `fetchTodos` client branch becomes a plain `return res.json()`; the `{ data, grants }` cast and `addGrants` call are deleted. SSR branch (direct DB read) unchanged. |
+| `src/live-singleton.ts` | **Deleted.**                                                                                                                                                                                                                                   |
+| `src/entry-client.tsx`  | `createLiveClient({ registry, transport, session: sessionId })`.                                                                                                                                                                               |
+| `src/entry-server.tsx`  | `resolve({ html, state: live.hydration(registry) })`; drop `routeStates`, `todoResource`, `dehydrate`, `hydrationScript` imports and the unused `pathname`.                                                                                    |
+| `src/routes.ts`         | Delete `routeStates`. Keep `todosChannel` (still used by `touch` targets).                                                                                                                                                                     |
+| `server/live.ts`        | `createServer({ db, resources, hub })` — keyer and `RXFY_SECRET` gone.                                                                                                                                                                         |
+| `server/api.ts`         | GET `/todos`: `return c.json(live.serve(c.req.raw, todosState, {}, { todos: rows }))`. Write endpoints (`touch(todosChannel, {})`) unchanged.                                                                                                  |
 
 What deliberately survives in app code:
 
@@ -161,7 +161,7 @@ What deliberately survives in app code:
 ## Edge cases
 
 - **Fetch completes before the WS connects** — the hub record exists regardless of socket state; pushes begin once `hello` binds. No ordering requirement.
-- **Reconnect** — re-`hello` rebinds; records survived (TTL), pushes resume. Updates published *while disconnected* are lost — same as today's behavior; recovery remains refetch (`reload`/`applyUpdates`). A catch-up/resync protocol is an explicit follow-up, out of scope.
+- **Reconnect** — re-`hello` rebinds; records survived (TTL), pushes resume. Updates published _while disconnected_ are lost — same as today's behavior; recovery remains refetch (`reload`/`applyUpdates`). A catch-up/resync protocol is an explicit follow-up, out of scope.
 - **SSR session never claimed** — client JS disabled or navigation abandoned: the unbound session's records expire after `ttlMs`.
 - **Request without a session header** — `serve` returns data untouched, records nothing.
 - **Keyless states** — `stateChannel` returns `undefined`; no channel recorded (matches current behavior).

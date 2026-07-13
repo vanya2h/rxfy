@@ -6,10 +6,10 @@ rxfy's states and stores are serializable, so SSR is first-class: rxfy captures 
 
 Two fields are required for SSR to work:
 
-| What | Field | Why |
-|------|-------|-----|
+| What                                           | Field  | Why                                     |
+| ---------------------------------------------- | ------ | --------------------------------------- |
 | `createModel({ schema, getKey, name: "..." })` | `name` | Stable key for entity store dehydration |
-| `defineState({ key: "...", ... })` | `key` | Stable key for the query cache |
+| `defineState({ key: "...", ... })`             | `key`  | Stable key for the query cache          |
 
 Both are required by the types — `createModel` will not compile without `name`, nor `defineState` without `key`. Plain value fields (bare zod schemas in a state's `model`) need no `name` — they ride inside the keyed state's dehydrated value, so keep them JSON-serializable.
 
@@ -98,11 +98,11 @@ const html = renderToString(
 
 ## StoreProvider SSR Props
 
-| Prop | Type | Purpose |
-|------|------|---------|
-| `ssr` | `boolean` | Enables server-side fetch-and-suspend in `useStateData`. Pass `true` on both server and client. |
-| `registry` | `IModelRegistry` | The registry to use. Server: a fresh per-request instance — the same one you call `dehydrate` on. Client: usually omitted (StoreProvider creates one); pass your own when other code needs a reference to it. |
-| `dehydratedState` | `DehydratedState` | Prop-based hydration for two-pass mode. |
+| Prop              | Type              | Purpose                                                                                                                                                                                                       |
+| ----------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ssr`             | `boolean`         | Enables server-side fetch-and-suspend in `useStateData`. Pass `true` on both server and client.                                                                                                               |
+| `registry`        | `IModelRegistry`  | The registry to use. Server: a fresh per-request instance — the same one you call `dehydrate` on. Client: usually omitted (StoreProvider creates one); pass your own when other code needs a reference to it. |
+| `dehydratedState` | `DehydratedState` | Prop-based hydration for two-pass mode.                                                                                                                                                                       |
 
 ## SSR APIs
 

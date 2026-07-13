@@ -21,6 +21,7 @@
 ### Task 1: Scaffold the package
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/package.json`
 - Create: `examples/vite-realtime-todos/.gitignore`
 
@@ -50,7 +51,7 @@
     "@types/better-sqlite3": "^7.6.11",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vanya2h/eslint-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
     "@vitejs/plugin-react": "^5.2.0",
     "better-sqlite3": "^11.8.0",
     "cross-env": "^7.0.3",
@@ -97,6 +98,7 @@ git commit -m "chore(example): scaffold realtime-todos package"
 ### Task 2: TypeScript + lint + Vite config
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/tsconfig.json`
 - Create: `examples/vite-realtime-todos/tsconfig.app.json`
 - Create: `examples/vite-realtime-todos/tsconfig.node.json`
@@ -210,6 +212,7 @@ git commit -m "chore(example): add tsconfig, eslint, vite config"
 ### Task 3: Shared schema
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/shared/todo.ts`
 
 - [ ] **Step 1: Create `shared/todo.ts`**
@@ -238,6 +241,7 @@ git commit -m "feat(example): shared todo schema"
 ### Task 4: Server database (Drizzle + SQLite)
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/server/db.ts`
 
 - [ ] **Step 1: Create `server/db.ts`**
@@ -289,6 +293,7 @@ git commit -m "feat(example): drizzle sqlite schema and seed"
 ### Task 5: Dependency hub
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/server/hub.ts`
 
 - [ ] **Step 1: Create `server/hub.ts`**
@@ -340,6 +345,7 @@ git commit -m "feat(example): per-connection dependency hub"
 ### Task 6: Server entrypoint (SSR + API + WS)
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/server/index.ts`
 
 - [ ] **Step 1: Create `server/index.ts`**
@@ -481,6 +487,7 @@ git commit -m "feat(example): hono server with SSR, REST API, and websocket"
 ### Task 7: Client models
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/src/models.ts`
 
 - [ ] **Step 1: Create `src/models.ts`**
@@ -553,6 +560,7 @@ git commit -m "feat(example): client model, state, and api helpers"
 ### Task 8: Live primitives (client)
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/src/live/liveClient.ts`
 - Create: `examples/vite-realtime-todos/src/live/LiveProvider.tsx`
 - Create: `examples/vite-realtime-todos/src/live/useLiveQuery.ts`
@@ -577,8 +585,14 @@ export function createLiveClient(socket: WebSocket) {
 
   const reconcile = () => {
     const next = desired();
-    send("add", [...next].filter((t) => !active.has(t)));
-    send("remove", [...active].filter((t) => !next.has(t)));
+    send(
+      "add",
+      [...next].filter((t) => !active.has(t)),
+    );
+    send(
+      "remove",
+      [...active].filter((t) => !next.has(t)),
+    );
     active = next;
   };
 
@@ -620,7 +634,10 @@ export function useLiveClient(): LiveClient | null {
 
 export function LiveProvider({ children }: { children: ReactNode }) {
   // WebSocket only exists in the browser — stay inert during SSR.
-  const socket = useMemo(() => (typeof window === "undefined" ? null : new WebSocket(`ws://${window.location.host}/ws`)), []);
+  const socket = useMemo(
+    () => (typeof window === "undefined" ? null : new WebSocket(`ws://${window.location.host}/ws`)),
+    [],
+  );
   const client = useMemo(() => (socket ? createLiveClient(socket) : null), [socket]);
 
   useLiveEntities(todoModel, socket); // ingest pushes — one line per live model
@@ -691,6 +708,7 @@ git commit -m "feat(example): client live primitives (client, provider, hooks)"
 ### Task 9: App component + styles
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/src/App.tsx`
 - Create: `examples/vite-realtime-todos/src/App.css`
 - Create: `examples/vite-realtime-todos/src/index.css`
@@ -968,6 +986,7 @@ git commit -m "feat(example): app component and styles"
 ### Task 10: SSR entries + HTML
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/index.html`
 - Create: `examples/vite-realtime-todos/src/entry-server.tsx`
 - Create: `examples/vite-realtime-todos/src/entry-client.tsx`
@@ -1177,11 +1196,12 @@ Expected: both pass.
 ### Task 13: README
 
 **Files:**
+
 - Create: `examples/vite-realtime-todos/README.md`
 
 - [ ] **Step 1: Create `README.md`**
 
-```markdown
+````markdown
 # rxfy — realtime todos
 
 Normalized rxfy state driven by **server-pushed updates over WebSockets**, with targeted
@@ -1196,6 +1216,7 @@ pnpm install            # from the repo root
 pnpm --filter rxfy-example-realtime-todos dev
 # open http://localhost:5175 in TWO browser tabs
 ```
+````
 
 Toggle a todo's checkbox or double-click its title to rename it in one tab — it updates in the
 other **instantly**, with no list refetch. The server pushes that entity only to the
@@ -1220,14 +1241,15 @@ A push updates an entity's **value** (toggle, rename) and reaches every subscrib
   the REST write) and **other tabs pick it up on Reload**.
 - Live cross-tab list membership would need a separate list-level message; the per-entity
   socket here is the deliberate sweet spot.
-```
+
+````
 
 - [ ] **Step 2: Commit**
 
 ```bash
 git add examples/vite-realtime-todos/README.md
 git commit -m "docs(example): realtime-todos README"
-```
+````
 
 ---
 

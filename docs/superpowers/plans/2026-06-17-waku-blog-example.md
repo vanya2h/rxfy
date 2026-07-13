@@ -50,6 +50,7 @@ examples/waku-blog/
 ## Task 1: Scaffold the package
 
 **Files:**
+
 - Create: `examples/waku-blog/package.json`
 - Create: `examples/waku-blog/tsconfig.json`
 - Create: `examples/waku-blog/turbo.json`
@@ -88,7 +89,7 @@ examples/waku-blog/
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vanya2h/eslint-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
     "eslint": "^9.27.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.8.3"
@@ -167,12 +168,14 @@ git commit -m "chore: scaffold waku-blog example package"
 The domain is identical to `next-blog` — copy it verbatim so the integration is comparable.
 
 **Files:**
+
 - Create: `examples/waku-blog/src/blog.ts`
 - Create: `examples/waku-blog/src/db.ts`
 
 - [ ] **Step 1: Copy `blog.ts` and `db.ts` from next-blog**
 
 Run:
+
 ```bash
 cp examples/next-blog/src/blog.ts examples/waku-blog/src/blog.ts
 cp examples/next-blog/src/db.ts examples/waku-blog/src/db.ts
@@ -199,6 +202,7 @@ git commit -m "feat: port blog domain + seed data into waku-blog"
 The non-React server-side seed: run the fetcher, normalize into a fresh registry, set the query-cache entry under the same `${key}:${stableStringify(params)}` key `useStateData` uses, and dehydrate.
 
 **Files:**
+
 - Create: `examples/waku-blog/src/ssr.ts`
 
 - [ ] **Step 1: Write `ssr.ts`**
@@ -252,6 +256,7 @@ git commit -m "feat: add example-local prefetch helper for waku SSR"
 `RxfyProvider` owns the single persistent registry (in the layout). `HydrateSnapshot` merges each page's snapshot into that registry once, on both server render and client mount, so the store persists across client navigations.
 
 **Files:**
+
 - Create: `examples/waku-blog/src/providers.tsx`
 - Create: `examples/waku-blog/src/components/HydrateSnapshot.tsx`
 
@@ -308,6 +313,7 @@ git commit -m "feat: add RxfyProvider + HydrateSnapshot for waku-blog"
 ## Task 5: Add styles and the root layout
 
 **Files:**
+
 - Create: `examples/waku-blog/src/styles.css`
 - Create: `examples/waku-blog/src/pages/_layout.tsx`
 
@@ -365,6 +371,7 @@ git commit -m "feat: add waku-blog root layout + styles"
 Port `PostList`, `PostDetail`, `AddCommentForm` from `next-blog`, replacing `next/link` with Waku's `Link` (`href` → `to`). Everything else (rxfy hooks, nested `<Pending>`, mutation wiring) is unchanged.
 
 **Files:**
+
 - Create: `examples/waku-blog/src/components/PostList.tsx`
 - Create: `examples/waku-blog/src/components/PostDetail.tsx`
 - Create: `examples/waku-blog/src/components/AddCommentForm.tsx`
@@ -372,6 +379,7 @@ Port `PostList`, `PostDetail`, `AddCommentForm` from `next-blog`, replacing `nex
 - [ ] **Step 1: Copy the three components**
 
 Run:
+
 ```bash
 cp examples/next-blog/src/components/PostList.tsx examples/waku-blog/src/components/PostList.tsx
 cp examples/next-blog/src/components/PostDetail.tsx examples/waku-blog/src/components/PostDetail.tsx
@@ -381,49 +389,65 @@ cp examples/next-blog/src/components/AddCommentForm.tsx examples/waku-blog/src/c
 - [ ] **Step 2: In `PostList.tsx`, swap the Next link for Waku's**
 
 Replace the import line:
+
 ```tsx
 import Link from "next/link";
 ```
+
 with:
+
 ```tsx
 import { Link } from "waku";
 ```
+
 and change the post link element from:
+
 ```tsx
 <Link href={`/posts/${post.id}`}>
   <h2>{post.title}</h2>
 </Link>
 ```
+
 to:
+
 ```tsx
 <Link to={`/posts/${post.id}`}>
   <h2>{post.title}</h2>
 </Link>
 ```
+
 Leave the import path for `../blog` and all rxfy hooks (`useStateData`, `useModelStore`, `Pending`) unchanged.
 
 - [ ] **Step 3: In `PostDetail.tsx`, swap the Next link for Waku's**
 
 Replace:
+
 ```tsx
 import Link from "next/link";
 ```
+
 with:
+
 ```tsx
 import { Link } from "waku";
 ```
+
 and change the back link from:
+
 ```tsx
 <Link className="back-link" href="/">
   ← All posts
 </Link>
 ```
+
 to:
+
 ```tsx
 <Link className="back-link" to="/">
   ← All posts
 </Link>
 ```
+
 Leave everything else — `combineLatest` usage, nested `<Pending>`, `mutations.addComment` wiring — unchanged. (Note: the existing code uses nested `<Pending>` for entities and `combineLatest` only inside one already-resolved boundary; keep as-is since detail is request-time SSR.)
 
 - [ ] **Step 4: `AddCommentForm.tsx` needs no edits**
@@ -447,6 +471,7 @@ git commit -m "feat: port blog client components to waku-blog"
 ## Task 7: Add the pages (static home + dynamic detail)
 
 **Files:**
+
 - Create: `examples/waku-blog/src/pages/index.tsx`
 - Create: `examples/waku-blog/src/pages/posts/[slug].tsx`
 
@@ -515,6 +540,7 @@ git commit -m "feat: add waku-blog static home + dynamic post pages"
 ## Task 8: Build, README, and full verification
 
 **Files:**
+
 - Create: `examples/waku-blog/README.md`
 
 - [ ] **Step 1: Build the example**
@@ -526,15 +552,16 @@ Expected: `waku build` succeeds — SSG of `/` is emitted and the dynamic `/post
 
 Run: `pnpm --filter rxfy-example-waku-blog dev` (then open the served URL), or after build `pnpm --filter rxfy-example-waku-blog start`.
 Verify:
+
 1. `/` renders the posts list with **no loading flash / no client fetch** on first paint (check the Network tab — the data is in the initial HTML).
 2. Clicking a post navigates to `/posts/<id>` and renders the article + comments.
 3. Navigating back to `/` and into another post does **not** show a loading state for already-seen entities (shared store persists).
 4. The add-comment form appends a comment reactively.
-Stop the dev server when done.
+   Stop the dev server when done.
 
 - [ ] **Step 3: Write `README.md`**
 
-```markdown
+````markdown
 # rxfy + Waku blog example
 
 A [Waku](https://waku.gg) (minimal React framework, RSC-based) blog using **rxfy** for
@@ -554,7 +581,7 @@ and `rr7-blog` (React Router 7) examples — same domain, three frameworks.
 
 Waku is RSC-based and exposes no script-injection seam (unlike Next's `useServerInsertedHTML`,
 which `rxfy-react/next`'s `HydrationStream` relies on, or React Router's custom `entry.server`).
-So instead of injecting a snapshot *after* render, each page **prefetches before render**:
+So instead of injecting a snapshot _after_ render, each page **prefetches before render**:
 
 1. The page (a Server Component) calls a rxfy fetcher into a fresh `ModelRegistry`, then
    `dehydrate`s it — see `src/ssr.ts`.
@@ -573,7 +600,9 @@ pnpm --filter rxfy-example-waku-blog dev     # http://localhost:3000
 pnpm --filter rxfy-example-waku-blog build
 pnpm --filter rxfy-example-waku-blog start
 ```
-```
+````
+
+````
 
 (Confirm the dev port Waku prints and update the README URL if it differs from `3000`.)
 
@@ -587,13 +616,14 @@ Expected: all PASS, including the new `rxfy-example-waku-blog` package.
 ```bash
 git add examples/waku-blog/README.md
 git commit -m "docs: add waku-blog README"
-```
+````
 
 ---
 
 ## Self-Review (completed)
 
 **Spec coverage:**
+
 - Package/structure → Task 1, 5, 7. ✓
 - Ported blog domain + seed data → Task 2. ✓
 - Example-local `prefetch()` from public exports, no library change/changeset → Task 3. ✓
@@ -607,4 +637,7 @@ git commit -m "docs: add waku-blog README"
 **Placeholder scan:** No TBD/TODO; every code step shows full content. The few "if the installed Waku version differs, adjust" notes are deliberate version-guards, not missing content.
 
 **Type consistency:** `prefetch(state, fetchFn, params)` (Task 3) is called with matching argument order in Task 7. `HydrateSnapshot({ snapshot })` (Task 4) matches its call sites (Task 7). `RxfyProvider` takes only `children` (Task 4) and is used that way in `_layout.tsx` (Task 5). `DehydratedState` is the shared snapshot type across `ssr.ts`, `HydrateSnapshot`, and the pages.
+
+```
+
 ```

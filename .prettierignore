@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+out
+coverage
+.turbo
+.next
+.react-router
+.vocs
+.cache
+.vercel
+.wrangler
+pnpm-lock.yaml
+*.min.js

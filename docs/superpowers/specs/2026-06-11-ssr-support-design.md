@@ -23,7 +23,7 @@ flash, no re-fetch, no hydration mismatch.
   re-renders the boundary when data settles. No `prefetch` API exists or is needed.
 - `dehydrate(registry)` serializes the query cache (ids) and the model stores (entities) to JSON;
   the client rehydrates both, and `useStateData` cache hits emit synchronously.
-- `data$` becomes **normalized**: it emits entity *ids* only. Entity data is readable exclusively
+- `data$` becomes **normalized**: it emits entity _ids_ only. Entity data is readable exclusively
   through model stores. This is a breaking change and the core consistency guarantee.
 - Mutations and `set()` keep accepting **full entities** (the v0.2 mental model): the hook
   denormalizes current ids into entities (via the model stores' sync value maps), runs the
@@ -35,10 +35,10 @@ flash, no re-fetch, no hydration mismatch.
 
 ### Two layers, two questions
 
-| Layer | Holds | Answers | Updated by |
-|---|---|---|---|
-| Query state (`data$`) | entity **ids** (membership, order, shape) | "which entities are in this view" | fetch settle, mutations, `set()`, `reload()` |
-| Model stores | entity **values** | "what is this entity right now" | `normalize()` on fetch settle / mutation / `set()`, hydration ingest, direct `store.set()` (e.g., websocket events) |
+| Layer                 | Holds                                     | Answers                           | Updated by                                                                                                          |
+| --------------------- | ----------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Query state (`data$`) | entity **ids** (membership, order, shape) | "which entities are in this view" | fetch settle, mutations, `set()`, `reload()`                                                                        |
+| Model stores          | entity **values**                         | "what is this entity right now"   | `normalize()` on fetch settle / mutation / `set()`, hydration ingest, direct `store.set()` (e.g., websocket events) |
 
 Components render `ids.map(id => <Item id={id} />)`; each item subscribes to its model store.
 Because `data$` carries no entity fields, reading stale entity data off a query snapshot is
@@ -125,13 +125,17 @@ Each layer serializes exactly what it holds — nothing is serialized twice:
 
 ```ts
 type DehydratedState = {
-  queries: { [cacheKey: string]: { status: "fulfilled"; value: unknown } | { status: "rejected"; error: { name: string; message: string } } };
+  queries: {
+    [cacheKey: string]:
+      | { status: "fulfilled"; value: unknown }
+      | { status: "rejected"; error: { name: string; message: string } };
+  };
   models: { [modelName: string]: { [entityKey: string]: unknown } };
 };
 ```
 
 - `dehydrate(registry): DehydratedState` — exported from `rxfy`.
-- Hydration ingest (a *write*): `models` entries → `store.set()` per entity; `queries` entries →
+- Hydration ingest (a _write_): `models` entries → `store.set()` per entity; `queries` entries →
   query cache.
 - Because model stores dehydrate wholesale, entities written server-side via direct `store.set()`
   outside any fetch (e.g., seeded data) survive to the client.
@@ -150,16 +154,16 @@ Two small core changes enable this:
 Signature unchanged: `useStateData(state, fetchFn, params)`. `fetchFn` runs on the server during
 SSR and on the client for misses/reloads — consumers must write it to work in both environments.
 
-| Environment | Cache state | Behavior |
-|---|---|---|
-| Server, `ssr: false` (default) | — | Current behavior: `data$` pending. Backward compatible. |
-| Server, `ssr: true` | Miss | Call `fetchFn`, store in-flight promise in cache, **throw promise** (Suspense). |
-| Server, `ssr: true` | In-flight | Throw the same promise — request deduplication across components. |
-| Server, `ssr: true` | Hit | `data$` emits cached ids synchronously; rejected entry → `data$` errors synchronously. |
-| Client | Hit | Synchronous emission; no fetch. (Model stores were already filled at hydration ingest.) |
-| Client | Miss | Current behavior: fetch with AbortSignal. |
-| Client, `reload()` | Any | Delete entry → fetch → write result back to cache (+ normalize). |
-| Client, mutation / `set()` | Any | Denormalize → reduce → normalize; update subject **and** write ids through to cache entry. |
+| Environment                    | Cache state | Behavior                                                                                   |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------ |
+| Server, `ssr: false` (default) | —           | Current behavior: `data$` pending. Backward compatible.                                    |
+| Server, `ssr: true`            | Miss        | Call `fetchFn`, store in-flight promise in cache, **throw promise** (Suspense).            |
+| Server, `ssr: true`            | In-flight   | Throw the same promise — request deduplication across components.                          |
+| Server, `ssr: true`            | Hit         | `data$` emits cached ids synchronously; rejected entry → `data$` errors synchronously.     |
+| Client                         | Hit         | Synchronous emission; no fetch. (Model stores were already filled at hydration ingest.)    |
+| Client                         | Miss        | Current behavior: fetch with AbortSignal.                                                  |
+| Client, `reload()`             | Any         | Delete entry → fetch → write result back to cache (+ normalize).                           |
+| Client, mutation / `set()`     | Any         | Denormalize → reduce → normalize; update subject **and** write ids through to cache entry. |
 
 Non-goal (documented): two components mounted with the same `(state, params)` still have separate
 subjects; they share initial values via the cache but do not share live mutation streams.
@@ -194,11 +198,11 @@ seeded model-store subscriptions, making server HTML and first client paint byte
 
 ### Supported SSR modes
 
-| Mode | Renderer | How data gets to HTML |
-|---|---|---|
-| Streaming (Next.js App Router) | `renderToPipeableStream` (streamed) | `<HydrationStream />` script-tag deltas per flush |
+| Mode                                | Renderer                                | How data gets to HTML                                |
+| ----------------------------------- | --------------------------------------- | ---------------------------------------------------- |
+| Streaming (Next.js App Router)      | `renderToPipeableStream` (streamed)     | `<HydrationStream />` script-tag deltas per flush    |
 | Buffered (plain Express, vite-todo) | `renderToPipeableStream` + `onAllReady` | one `dehydrate(registry)` → single inline `<script>` |
-| Two-pass | `renderToString` via `collectStateData` | same single inline `<script>` |
+| Two-pass                            | `renderToString` via `collectStateData` | same single inline `<script>`                        |
 
 Single-pass `renderToString` without the helper cannot wait for data (a React limitation);
 suspended boundaries render fallbacks — same as today, documented.
