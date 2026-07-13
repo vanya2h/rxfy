@@ -1,15 +1,16 @@
 # rxfy-server
 
-Binds Drizzle ORM tables to rxfy models, runs database writes through the server, and publishes live update messages via a hub. Server-side only; `rxfy-server/browser` re-exports the client-safe subset (`defineResource`, `createResourceRegistry`, `invalidationChannel`, and their types) for shared code.
+Runs writes through a storage adapter and publishes live update messages via a hub. Core `rxfy-server` is storage-agnostic; the Drizzle binding lives in **`rxfy-server-drizzle`** (`defineResource`, `drizzleStorage`, `type DrizzleBinding`) and an in-memory binding in **`rxfy-server-memory`** (`defineCollection`, `memoryStorage`, `type MemoryBinding`). Everything else — the hub API, `createResourceRegistry`, `signGrant`/`verifyGrant`, `grantsHydration`, `stateChannel`/`touch`, `createGrantIssuer`, `createLive`, and `type Live`/`LiveStorage`/`Resource` — imports from the single `rxfy-server` entry. There are no `rxfy-server/browser` or `rxfy-server/hub` subpaths.
 
 ## defineResource
 
-`defineResource({ table, model })` ties a Drizzle `PgTable` to an rxfy `ModelDescriptor`:
+`defineResource({ table, model })` — from `rxfy-server-drizzle` — ties a Drizzle `PgTable` to an rxfy `ModelDescriptor`. (An app without Drizzle uses `defineCollection({ name, model, seed? })` from `rxfy-server-memory`, which returns a resource whose binding is an in-memory `Map` with `.all()`/`.get(id)`.)
 
 ```ts
 // src/blog/resources.ts
 import { commentModel, postModel, userModel } from "examples-shared/data";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { createResourceRegistry } from "rxfy-server";
+import { defineResource } from "rxfy-server-drizzle";
 import { comments, posts, users } from "../db/schema.js";
 
 export const userResource = defineResource({ table: users, model: userModel });
@@ -22,19 +23,22 @@ export const resources = createResourceRegistry([userResource, postResource, com
 - Resource `name` defaults to `model.name` (falls back to the SQL table name). It is the live topic namespace (`"posts:uuid-..."`) and **must match the client model's `name`** so `patch` messages land in the right store.
 - Single-column primary keys only: `primaryKeyColumn(table)` throws on composite or missing PKs.
 
-`createResourceRegistry([...])` indexes resources by name, rejects duplicates, and exposes `byName(name)`, `model(name)`, `all()`.
+`createResourceRegistry([...])` — from core `rxfy-server` — indexes resources by name, rejects duplicates, and exposes `byName(name)`, `model(name)`, `all()`. It is a neutral convenience lookup; `createLive` does not require it (the writers take a resource directly).
 
-## createServer
+## createLive
 
-`createServer({ db, resources, hub, secret })` returns a `Live` object with typed write methods plus
-the grant-signing calls `serve`, `hydration`, and `renew`. `secret` is REQUIRED — it is the HMAC key
-used to sign and verify channel grants, and it MUST be the same secret passed to the WS server.
-Optional: `grantTtlMs` (default 15 min), `renewGraceMs` (default 5 min):
+`createLive({ storage, hub, secret })` returns a `Live` object with typed write methods plus
+the grant-signing calls `serve`, `hydration`, and `renew`. `storage` is a `LiveStorage` adapter —
+`drizzleStorage(db)` from `rxfy-server-drizzle` or `memoryStorage()` from `rxfy-server-memory`; the
+writers delegate create/update/delete to it. `secret` is REQUIRED — it is the HMAC key used to sign
+and verify channel grants, and it MUST be the same secret passed to the WS server. Optional:
+`grantTtlMs` (default 15 min), `renewGraceMs` (default 5 min). `Live` is generic over the adapter's
+binding: `Live<DrizzleBinding>` / `Live<MemoryBinding>`.
 
 ```ts
 // server/live.ts
-import { createInMemoryHub, createServer } from "rxfy-server";
-import { resources } from "../src/blog/resources.js";
+import { createInMemoryHub, createLive } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 // The hub holds socket-keyed live subscriptions, so there must be exactly ONE instance. entry-server's
@@ -45,10 +49,8 @@ import { db } from "./db.js";
 export const hub = createInMemoryHub();
 
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
-export const live = createServer({ db, resources, hub, secret: SECRET });
+export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
-
-`live.db` exposes the raw Drizzle instance for reads outside of writes.
 
 ## Writes
 

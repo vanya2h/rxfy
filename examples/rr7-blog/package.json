@@ -44,6 +44,7 @@
     "rxfy-protocol": "workspace:*",
     "rxfy-react": "workspace:*",
     "rxfy-server": "workspace:*",
+    "rxfy-server-memory": "workspace:*",
     "rxfy-ws": "workspace:*",
     "rxjs": "^7.8.2",
     "shadcn": "^4.12.0",

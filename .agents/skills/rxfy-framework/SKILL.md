@@ -45,7 +45,7 @@ live.serve(state, params, data) signs $grant / live.hydration(registry) signs gr
 
 | Read | When working on |
 |---|---|
-| `references/framework-server.md` | `defineResource`, `createServer`, `live.create/update/delete/serve/hydration`, hub |
+| `references/framework-server.md` | `defineResource` (rxfy-server-drizzle), `createLive`, storage adapters, `live.create/update/delete/serve/hydration`, hub |
 | `references/framework-protocol.md` | patch/stale/subscribe wire format, codec, `PROTOCOL_VERSION` |
 | `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect |
 | `references/live-client.md` | `createLiveClient` (from `rxfy-client`), `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop |

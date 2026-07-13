@@ -3,7 +3,8 @@ import { createModelRegistry, normalizeResult, stateChannel } from "rxfy";
 import type { LiveClient } from "rxfy-client";
 import { createLiveClient } from "rxfy-client";
 import type { Hub, PublishSink } from "rxfy-server";
-import { createInMemoryHub, createServer, touch } from "rxfy-server";
+import { createInMemoryHub, createLive, touch } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import type { WebSocketLike } from "rxfy-ws/client";
 import { createWsClient } from "rxfy-ws/client";
 import { createWsServer } from "rxfy-ws";
@@ -69,7 +70,7 @@ describe("live server", () => {
   it("create persists and touches the todos channel with a bare stale", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const live = createServer({ db, resources, hub, secret: SECRET });
+    const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
 
     const received: ServerMessage[] = [];
     hub.onPublish((_conn, msg) => received.push(msg));
@@ -87,7 +88,7 @@ describe("live server", () => {
   it("update broadcasts a patch on the entity topic", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const live = createServer({ db, resources, hub, secret: SECRET });
+    const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
     await live.create(todoResource, { id: "t1", title: "Hi", done: false });
 
     const received: ServerMessage[] = [];
@@ -112,7 +113,7 @@ describe("live end-to-end over the grant/WebSocket path", () => {
   it("serve → $grant lift → subscribe → live.update patches the client's model store", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const live = createServer({ db, resources, hub, secret: SECRET });
+    const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
     await live.create(todoResource, { id: "t1", title: "Hi", done: false });
 
     const registry = createModelRegistry(todoModel);
@@ -139,7 +140,7 @@ describe("live end-to-end over the grant/WebSocket path", () => {
   it("serve → $grant lift → subscribe → touch bumps the client's channel counter (stale)", async () => {
     const db = await freshDb();
     const hub = createInMemoryHub();
-    const live = createServer({ db, resources, hub, secret: SECRET });
+    const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
     await live.create(todoResource, { id: "t1", title: "Hi", done: false });
 
     const registry = createModelRegistry(todoModel);

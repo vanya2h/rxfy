@@ -64,22 +64,22 @@ along as an internal dependency.
 :::code-group
 
 ```bash [npm]
-npm install rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
+npm install rxfy rxfy-client rxfy-react rxfy-server rxfy-server-drizzle rxfy-ws
 npm install rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [pnpm]
-pnpm add rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
+pnpm add rxfy rxfy-client rxfy-react rxfy-server rxfy-server-drizzle rxfy-ws
 pnpm add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [yarn]
-yarn add rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
+yarn add rxfy rxfy-client rxfy-react rxfy-server rxfy-server-drizzle rxfy-ws
 yarn add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
 ```bash [bun]
-bun add rxfy rxfy-client rxfy-react rxfy-server rxfy-ws
+bun add rxfy rxfy-client rxfy-react rxfy-server rxfy-server-drizzle rxfy-ws
 bun add rxjs zod lodash drizzle-orm drizzle-zod ws
 ```
 
@@ -92,28 +92,28 @@ becomes the live topic namespace, and its `getKey` locates the primary key. The 
 gives the server one object to route events through:
 
 ```ts [src/resources.ts]
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { defineResource } from "rxfy-server-drizzle";
 import { postModel } from "./models.js";
 import { posts } from "./db/schema.js";
 
 export const postResource = defineResource({ table: posts, model: postModel });
-export const resources = createResourceRegistry([postResource]);
 ```
 
 ## Stand up the live server
 
-`createServer` wires the database, the resources, a pub/sub hub, and a signing `secret` into
-the `live` object your API routes will call:
+`createLive` wires a storage adapter, a pub/sub hub, and a signing `secret` into the `live`
+object your API routes will call. `drizzleStorage(db)` (from `rxfy-server-drizzle`) is the
+adapter for a Drizzle-backed app:
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer } from "rxfy-server";
-import { resources } from "../src/resources.js";
+import { createInMemoryHub, createLive } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 export const hub = createInMemoryHub();
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 
-export const live = createServer({ db, resources, hub, secret: SECRET });
+export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
 
 - `createInMemoryHub` — the pub/sub backbone for one process, keyed by **socket**; swap it
@@ -265,7 +265,7 @@ lists aren't updated in place — are covered in [Live messages](/framework/serv
 Go deeper on the concepts and each piece of the loop:
 
 - [Live messages](/framework/server/messages): `patch` vs `stale`, and what travels on the wire.
-- [rxfy-server](/framework/server): `defineResource`, `createServer`, writes, and `live.serve` /
+- [rxfy-server](/framework/server): `defineResource`, `createLive`, writes, and `live.serve` /
   `live.hydration` in full.
 - [rxfy-ws](/framework/ws): the WebSocket transport on both sides, and bringing your own.
 - [Grants](/framework/server/grants): how the server signs a grant for exactly what it served,

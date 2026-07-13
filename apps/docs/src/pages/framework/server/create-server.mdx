@@ -1,18 +1,19 @@
-# createServer [Wire db, resources, hub, and secret into a Live object]
+# createLive [Wire a storage adapter, hub, and secret into a Live object]
 
-`createServer` wires together the database, resource registry, hub, and signing secret into a
+`createLive` wires together a storage adapter, hub, and signing secret into a
 `Live` object with typed write methods plus the grant calls `serve`, `renew`, and `hydration`.
 
-`resources` is the registry from [`defineResource`](/framework/server/define-resource), `db` is
-any Drizzle instance, and `secret` is the HMAC key used to sign and verify
-[channel grants](/framework/server/grants) — share it with the WebSocket server. The tabs below
-show them:
+`storage` is a `LiveStorage` adapter — `drizzleStorage(db)` from `rxfy-server-drizzle` for a
+Drizzle-backed app, or `memoryStorage()` from `rxfy-server-memory` for an in-memory one — and
+`secret` is the HMAC key used to sign and verify [channel grants](/framework/server/grants) —
+share it with the WebSocket server. The writers (`create` / `update` / `delete`) delegate to the
+adapter, so core `rxfy-server` never imports Drizzle. The tabs below show them:
 
 :::code-group
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createServer } from "rxfy-server";
-import { resources } from "../src/blog/resources.js";
+import { createInMemoryHub, createLive } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 // The hub holds live socket subscriptions, so there must be exactly ONE instance. entry-server
@@ -23,18 +24,16 @@ export const hub = createInMemoryHub();
 // Signs/verifies channel grants — shared with the WebSocket server. Override via RXFY_SECRET.
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 
-export const live = createServer({ db, resources, hub, secret: SECRET });
+export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
 
 ```ts [src/blog/resources.ts]
 import { postModel, userModel } from "./models.js";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { defineResource } from "rxfy-server-drizzle";
 import { posts, users } from "../db/schema.js";
 
 export const userResource = defineResource({ table: users, model: userModel });
 export const postResource = defineResource({ table: posts, model: postModel });
-
-export const resources = createResourceRegistry([userResource, postResource]);
 ```
 
 ```ts [server/db.ts]
@@ -64,12 +63,13 @@ The returned `Live` object exposes:
 - [`live.hydration(registry)`](/framework/server/grants) — one-call SSR payload: signs one grant
   per channel the render logged, embeds them as `grants: string[]`, and returns the
   `hydrationScript` string.
-- `live.db` — the raw Drizzle database instance if you need it outside of writes.
+`createLive` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
+(how long past expiry a grant still renews, default 5 minutes). `Live` is generic over the
+adapter's binding — `Live<DrizzleBinding>` for `drizzleStorage`, `Live<MemoryBinding>` for
+`memoryStorage`.
 
-`createServer` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
-(how long past expiry a grant still renews, default 5 minutes).
-
-Its collaborators each have their own article: the resource registry comes from
-[`createResourceRegistry`](/framework/server/define-resource), and the hub from
+Its collaborators each have their own article: resources come from
+[`defineResource`](/framework/server/define-resource) (Drizzle) or `defineCollection`
+(`rxfy-server-memory`), and the hub from
 [`createInMemoryHub`](/framework/server/hub) — it holds per-socket subscriptions, so there must be
 exactly one instance per process.

@@ -50,6 +50,7 @@
     "rxfy-client": "workspace:*",
     "rxfy-protocol": "workspace:*",
     "rxfy-server": "workspace:*",
+    "rxfy-server-memory": "workspace:*",
     "rxfy-ws": "workspace:*",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4",

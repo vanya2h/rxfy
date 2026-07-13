@@ -98,13 +98,13 @@ grant or an error.
 
 ## The signing secret
 
-`createServer` requires a `secret` — the HMAC key it signs grants with. The WebSocket server
+`createLive` requires a `secret` — the HMAC key it signs grants with. The WebSocket server
 ([`createWsServer`](/framework/ws/server)) verifies grants with the **same** secret, so the two
 must share it:
 
 ```ts [server/live.ts]
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
-export const live = createServer({ db, resources, hub, secret: SECRET });
+export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
 
 Rotating the secret invalidates every outstanding grant at once: renewals fail, clients degrade to
@@ -134,7 +134,7 @@ capability** — a token that keeps pushing updates until it expires.
 - One `live.serve` per read endpoint — the server can't see what a plain Drizzle read served.
 - One mounted `renew` route — behind your own auth.
 
-See [`createServer`](/framework/server/create-server) for `live.serve` / `live.renew` /
+See [`createLive`](/framework/server/create-server) for `live.serve` / `live.renew` /
 `live.hydration` in the full `Live` object, [`createInMemoryHub`](/framework/server/hub) for the
 socket-keyed hub, and [Live client](/react/live-client) for `createLiveClient` and `readSsrGrants`
 on the browser side.
