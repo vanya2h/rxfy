@@ -76,7 +76,7 @@ export const comments = pgTable("comments", {
 :::
 
 **Name resolution** — `name` defaults to `model.name` when a model is supplied, then falls back to
-the SQL table name. It becomes the topic namespace used for live routing (`"posts:uuid-..."`) and
+the SQL table name. It becomes the topic namespace used for sync routing (`"posts:uuid-..."`) and
 must match the rxfy model's own `name` so `patch` messages land in the right client store.
 
 **`primaryKeyColumn`** — `defineResource` calls `primaryKeyColumn(table)` internally to locate the

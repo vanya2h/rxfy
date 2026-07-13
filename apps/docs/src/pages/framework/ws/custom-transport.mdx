@@ -10,7 +10,7 @@ type ClientTransport = {
   send: (message: ClientMessage) => void;
   /** Single-slot inbound handler — a later call replaces the previous one. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
-  /** Fired on every (re)connect; the live client replays its grant set from here. */
+  /** Fired on every (re)connect; the Sync Client replays its grant set from here. */
   onOpen: (handler: () => void) => void;
   close: () => void;
 };
@@ -38,4 +38,4 @@ type WebSocketLike = {
 ```
 
 The messages a custom transport must produce and consume are described in
-[Live messages](/framework/server/messages).
+[Sync messages](/framework/server/messages).

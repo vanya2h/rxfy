@@ -16,7 +16,7 @@ import { createInMemoryHub, createLive } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-// The hub holds live socket subscriptions, so there must be exactly ONE instance. entry-server
+// The hub holds sync socket subscriptions, so there must be exactly ONE instance. entry-server
 // receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
 // graph never instantiates a second hub.
 export const hub = createInMemoryHub();
@@ -53,7 +53,7 @@ export { posts, users };
 The returned `Live` object exposes:
 
 - [`live.create` / `live.update` / `live.delete` / `live.touch`](/framework/server/writes) —
-  typed writes that publish live messages.
+  typed writes that publish sync messages.
 - [`live.serve(state, params, data)`](/framework/server/grants) — read-endpoint wrapper; parses
   `data` (the state's input shape — raw DB rows work as-is) through the state's schemas, signs a
   grant for the state's channel, and returns the parsed shape with the grant attached as `$grant`.

@@ -1,12 +1,10 @@
-# Store quickstart [Normalized reactive state in a client-only app]
+# Create Store [Normalized reactive state in a client-only app]
 
 The store path is rxfy with no server: typed models, normalized entities, and reactive
 subscriptions in a plain React app. The idea in one paragraph: rxfy stores each entity
 **once**, in a shared store keyed by its id. A query holds only ids and resolves entities
 from the store, so when you write an entity — from a refetch, a mutation, or a websocket
-push — every component showing it updates, and nothing else re-renders.
-
-This page takes you from install to that behavior on screen, in one file.
+push — every component that is subscribed to this entity updates automatically.
 
 ## Install
 
@@ -161,10 +159,9 @@ Go deeper on the concepts and API you just used:
 Then build something bigger: the [Tutorial: Build a Todo app](/guides/todo-app) adds
 mutations, forms with `Atom` and `Lens`, and a multi-component app on this same store.
 
-:::tip
-Starting a new real-time app instead? That's the other path from
-[Getting Started](/getting-started): the [Framework quickstart](/getting-started/framework)
-builds on these same store concepts and adds full-stack framework with server-side rendering and live updates — the
-server writes and publishes changes, the client subscribes and applies them. To add SSR
-alone to the store path, see [Server-Side Rendering](/core-concepts/ssr).
+:::tip[Next rung: SSR]
+Your store works on the client. The next step up the ladder is
+[Add SSR](/getting-started/add-ssr): render the first paint on the server and hydrate it
+with no refetch — same models, same components, no server push yet. After that,
+[Add Sync Client](/getting-started/add-sync-client) turns on real-time sync.
 :::

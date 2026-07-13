@@ -1,6 +1,6 @@
 # Grants [The server signs what it serves; the client subscribes with the token]
 
-Live subscriptions ride **stateless signed channel grants**. The server records nothing at serve
+Sync subscriptions ride **stateless signed channel grants**. The server records nothing at serve
 time — it _signs_. `live.serve` returns the parsed payload plus a reserved `$grant` field: a JWT
 whose claims are the state's channel and an expiry. The client lifts that grant automatically,
 subscribes with it over the WebSocket, and renews it before it expires. There is no session, no
@@ -50,7 +50,7 @@ in-process.
 
 Because the grant rides the data, the client needs **zero plumbing** — no session header, no fetch
 wrapping. `useStateData` already returns the payload to the framework; after `fetchFn` resolves the
-live client strips `$grant`, normalizes the rest, and sends one `subscribe` frame carrying just the
+Sync Client strips `$grant`, normalizes the rest, and sends one `subscribe` frame carrying just the
 grant. The grant's claims authorize both the channel and the exact entity topics it was signed for,
 so the server subscribes the socket to precisely those. SSR grants take the same path via
 [`readSsrGrants`](/react/live-client).
@@ -81,7 +81,7 @@ is no ordering requirement and no correlator race.
 Grants expire (default TTL 15 minutes). The client runs one renewal timer: shortly before the
 soonest expiry it POSTs the expiring grants to `renewUrl` and replaces them. Mount that endpoint
 **behind the app's own auth middleware** — this is where revocation actually bites. A user whose
-access was withdrawn fails the middleware, the reissue never happens, and their live updates end at
+access was withdrawn fails the middleware, the reissue never happens, and their real-time sync ends at
 `exp`. `live.renew` verifies each grant (accepting tokens expired within a grace window, default 5
 minutes) and reissues it, or returns `null` when denied:
 
@@ -123,7 +123,7 @@ WebSocket `permessage-deflate` in production — a JWT of repeated `name:id` str
 
 :::warning[Cache-Control on state endpoints]
 Endpoints that return `$grant` should send `Cache-Control: private, no-store`. A cached
-personalized response already leaks a data snapshot; with grants it would also leak a **live
+personalized response already leaks a data snapshot; with grants it would also leak a **sync
 capability** — a token that keeps pushing updates until it expires.
 :::
 
@@ -136,5 +136,5 @@ capability** — a token that keeps pushing updates until it expires.
 
 See [`createLive`](/framework/server/create-server) for `live.serve` / `live.renew` /
 `live.hydration` in the full `Live` object, [`createInMemoryHub`](/framework/server/hub) for the
-socket-keyed hub, and [Live client](/react/live-client) for `createLiveClient` and `readSsrGrants`
+socket-keyed hub, and [Sync Client](/react/live-client) for `createLiveClient` and `readSsrGrants`
 on the browser side.

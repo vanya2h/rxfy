@@ -1,7 +1,7 @@
-# Live blog [Build a real-time blog: SSR, then live patches and stale badges]
+# Sync blog [Build a real-time blog: SSR, then sync patches and stale badges]
 
 This tutorial walks through `examples/vite-blog-framework` in the order you would build it: define
-the schema and resources, stand up a live server, wire WebSockets, write through the API, SSR with
+the schema and resources, stand up a sync server, wire WebSockets, write through the API, SSR with
 grants, and finally hydrate on the client. By the end you have a blog where edits propagate to every
 open tab in real time and new or deleted posts show a "click to refresh" badge.
 
@@ -12,7 +12,7 @@ each step before moving on to the next.
 
 ## What you'll build
 
-A server-rendered blog with three entity types — users, posts, comments — and two live behaviors:
+A server-rendered blog with three entity types — users, posts, comments — and two sync behaviors:
 
 - **Patch** — editing a post or comment body pushes the change silently to every connected tab;
   no spinner, no reload.
@@ -67,8 +67,8 @@ export const resources = createResourceRegistry([userResource, postResource, com
 ```
 
 `defineResource` pairs a Drizzle table with the rxfy model that governs it — the model's `getKey`
-tells the live server which column is the primary key, and its schema validates incoming rows.
-`createResourceRegistry` collects all three so the server has a single object to route live events
+tells the sync server which column is the primary key, and its schema validates incoming rows.
+`createResourceRegistry` collects all three so the server has a single object to route sync events
 through.
 
 The Drizzle schema itself is ordinary Drizzle — three `pgTable` definitions (users, posts,
@@ -80,9 +80,9 @@ subscribes a socket to only those — so any id scheme works, including serial i
 still a fine default for other reasons.)
 :::
 
-### Stand up the live server
+### Stand up the sync server
 
-The live server owns the database connection and the in-memory pub/sub hub, which keys
+The sync server owns the database connection and the in-memory pub/sub hub, which keys
 subscriptions by **socket**. Create it once and export it:
 
 ```ts [server/live.ts]
@@ -90,7 +90,7 @@ import { createInMemoryHub, createLive } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-// The hub holds live socket subscriptions, so there must be exactly ONE instance. entry-server
+// The hub holds sync socket subscriptions, so there must be exactly ONE instance. entry-server
 // receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
 // graph never instantiates a second hub.
 export const hub = createInMemoryHub();
@@ -151,7 +151,7 @@ adapts Hono's callback API to the `on("message")` / `on("close")` interface rxfy
 ### Write through the server
 
 All mutations go through `live.create`, `live.update`, and `live.delete`. Each method writes to the
-database **and** broadcasts the appropriate live event to subscribed clients.
+database **and** broadcasts the appropriate sync event to subscribed clients.
 
 :::code-group
 
@@ -168,7 +168,7 @@ import { live } from "./live.js";
 // POST /posts — create a post, mark the posts list as stale
 const row = await live.create(postResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
 
-// PATCH /posts/:id — update fields, push a live patch to every reader
+// PATCH /posts/:id — update fields, push a sync patch to every reader
 const row = await live.update(postResource, c.req.param("id"), patch);
 
 // DELETE /posts/:id — delete the row, mark the posts list as stale
@@ -227,7 +227,7 @@ export function createApiClient(serverFetch?: ApiFetch) {
 }
 ```
 
-- **Browser** — no argument: the client targets `/api` over the network, plain. Live
+- **Browser** — no argument: the client targets `/api` over the network, plain. Sync
   subscriptions ride the `$grant` in each response payload, so the fetch client carries nothing.
 - **SSR** — the server entry passes hono's in-process `app.request`, so requests to the
   `http://ssr.internal` base are answered by the same routes without ever touching the network —
@@ -351,10 +351,10 @@ A plain API read endpoint signs the grant for its own response the same way, per
 })
 ```
 
-### Hydrate and go live
+### Hydrate and turn on sync
 
-On the client, create the WebSocket transport and live client — the SSR-signed grants are lifted
-automatically — then pass the live client to `StoreProvider`:
+On the client, create the WebSocket transport and Sync Client — the SSR-signed grants are lifted
+automatically — then pass the Sync Client to `StoreProvider`:
 
 ```tsx [src/entry-client.tsx]
 import { StrictMode } from "react";
@@ -395,14 +395,14 @@ hydrateRoot(
   it reissues each with `live.renew` behind the app's own auth.
 - `ApiProvider client={apiClient}` — hands the browser API client to every `useApi` call site,
   mirroring what the server entry did with the in-process client during SSR.
-- `StoreProvider liveClient={liveClient}` — makes the live client available to all hooks so that
+- `StoreProvider liveClient={liveClient}` — makes the Sync Client available to all hooks so that
   `useStateData` and `useModelStore` calls can receive stale notifications.
 
-See [Live client](/react/live-client) for the full client API.
+See [Sync Client](/react/live-client) for the full client API.
 
 ::::
 
-## See it live
+## Watch it sync
 
 1. Open the app in two browser tabs.
 2. **Edit a post body in tab A.** Tab B silently updates — no spinner, no reload. The body field
@@ -427,16 +427,16 @@ database setup is required.
 ## What you built
 
 - A **resource registry** that pairs Drizzle tables with rxfy models.
-- A **live server** (`rxfy-server`) that writes to the database and broadcasts events through an
+- A **sync server** (`rxfy-server`) that writes to the database and broadcasts events through an
   in-memory hub.
 - A **WebSocket endpoint** (`rxfy-ws`) bridged to Hono's WS adapter.
-- API routes that distinguish between `patch` (edit) and `stale` (create/delete) live events by
+- API routes that distinguish between `patch` (edit) and `stale` (create/delete) sync events by
   using `live.update` vs `live.create`/`live.delete` with `touch`.
 - A **single typed API client** (`createApiClient` / `useApi`) over those routes, consumed
   in-process during SSR (hono's `app.request`) and over the network in the browser.
 - **Channel grants** signed by `live.serve` and `live.hydration` and delivered in the payload, so
   the client subscribes for exactly what it was served.
-- A **live client** on the browser that lifts grants, subscribes, renews, and applies patches in
+- A **Sync Client** on the browser that lifts grants, subscribes, renews, and applies patches in
   place while surfacing stale badges.
 
 ## Where to go next
@@ -444,5 +444,5 @@ database setup is required.
 - [rxfy-server](/framework/server) — full API for `createLive`, `defineResource`, `createInMemoryHub`.
 - [rxfy-ws](/framework/ws) — WebSocket transport reference.
 - [Grants](/framework/server/grants) — how the server signs a grant for exactly what it served.
-- [Live client](/react/live-client) — `createLiveClient`, grant renewal, and stale handling in React.
-- [Server-Side Rendering](/core-concepts/ssr) — `dehydrate`, `hydrate`, and `hydrationScript` for non-live SSR.
+- [Sync Client](/react/live-client) — `createLiveClient`, grant renewal, and stale handling in React.
+- [Server-Side Rendering](/core-concepts/ssr) — `dehydrate`, `hydrate`, and `hydrationScript` for SSR without sync.

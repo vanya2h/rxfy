@@ -2,7 +2,7 @@
 
 `rxfy-ws` ships two entry points: `rxfy-ws` for the server-side adapter and
 `rxfy-ws/client` for the browser. Both speak the
-[live message protocol](/framework/server/messages) and wire into `rxfy-server`'s `Hub`.
+[sync message protocol](/framework/server/messages) and wire into `rxfy-server`'s `Hub`.
 
 - [`createWsServer`](/framework/ws/server) — attach a `Hub` to WebSocket connections,
   including the adapter pattern for frameworks that wrap the socket (Hono, Bun).

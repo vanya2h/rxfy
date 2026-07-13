@@ -1,6 +1,6 @@
-# rxfy-server [Bind Drizzle tables, write, and publish live updates]
+# rxfy-server [Bind Drizzle tables, write, and publish sync updates]
 
-`rxfy-server` runs writes through a storage adapter and publishes live update messages through a
+`rxfy-server` runs writes through a storage adapter and publishes sync messages through a
 hub. Core `rxfy-server` is storage-agnostic: the Drizzle binding lives in
 `rxfy-server-drizzle` (`defineResource`, `drizzleStorage`) and an in-memory binding in
 `rxfy-server-memory` (`defineCollection`, `memoryStorage`). Everything else — the hub API,
@@ -22,4 +22,4 @@ entry.
 
 Start with [`defineResource`](/framework/server/define-resource) and
 [`createLive`](/framework/server/create-server); for an end-to-end walkthrough see the
-[Live blog guide](/guides/live-blog).
+[Sync blog guide](/guides/sync-blog).
