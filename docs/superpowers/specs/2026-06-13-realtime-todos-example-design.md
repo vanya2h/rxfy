@@ -33,11 +33,11 @@ the connections that fetched it.
 
 ## Decisions (from brainstorming)
 
-| Decision | Choice | Why |
-|---|---|---|
-| Database | SQLite via `better-sqlite3` + `drizzle-orm/better-sqlite3` | Zero external setup; table created + seeded at boot. |
-| Rendering | SSR (Vite middleware mode, like `vite-todo`) | Demonstrates no-loading-flash first paint feeding into live updates. |
-| Process model | Single Hono Node server, one port, SSR + API + WS | User chose single-process. |
+| Decision             | Choice                                                                                                                                                                | Why                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Database             | SQLite via `better-sqlite3` + `drizzle-orm/better-sqlite3`                                                                                                            | Zero external setup; table created + seeded at boot.                                                                                                   |
+| Rendering            | SSR (Vite middleware mode, like `vite-todo`)                                                                                                                          | Demonstrates no-loading-flash first paint feeding into live updates.                                                                                   |
+| Process model        | Single Hono Node server, one port, SSR + API + WS                                                                                                                     | User chose single-process.                                                                                                                             |
 | Dev server technique | Hono Node server owning the `http.Server`, Vite in middleware mode bridged via `@hono/node-server`'s `getRequestListener`; **not** the `@hono/vite-dev-server` plugin | Owning the Node server is what makes `@hono/node-ws`'s WebSocket upgrade reliable alongside Vite's HMR socket. Same single-process / one-port outcome. |
 
 ## Architecture
@@ -79,7 +79,7 @@ the connections that fetched it.
 
 - **`models.ts`** — `todoModel = createModel(TodoSchema, { getKey, name: "todo" })`,
   `useTodoStore`, `todosState = defineState({ key, params, model, mutations: { addTodo,
-  removeTodo } })`, and `fetchTodos(params, signal)` hitting `GET /api/todos`.
+removeTodo } })`, and `fetchTodos(params, signal)` hitting `GET /api/todos`.
 - **`live/liveClient.ts`** — `createLiveClient(socket)`: ref-counted slices, sends `add`/`remove`
   topic deltas, replays full set on reconnect. Exactly the guide's implementation.
 - **`live/useLiveQuery.ts`** — `useLiveQuery(model, ids)`: registers the query's ids as a slice
@@ -108,20 +108,20 @@ the connections that fetched it.
 2. Client hydrates, `LiveProvider` opens `ws://…/ws`, `useLiveQuery` subscribes to the fetched
    ids (`add` deltas → server stores them in this connection's dependency set).
 3. Tab A toggles todo `u1` → `POST /api/todos/u1/toggle` → server persists → `publish("todo",
-   "u1", row)` → every connection whose dependency set has `todo:u1` (Tabs A and B) receives
+"u1", row)` → every connection whose dependency set has `todo:u1` (Tabs A and B) receives
    the push → `store.setMany` writes the cell → every subscriber re-renders. Tabs without `u1`
    get nothing.
 
 ## API
 
-| Method + path | Body | Effect |
-|---|---|---|
-| `GET /api/todos` | — | `{ todos: Todo[] }` (initial fetch for `useStateData`) |
-| `POST /api/todos` | `{ title }` | insert; returns the new `Todo` (acting client adds via mutation) |
-| `POST /api/todos/:id/toggle` | — | flip `done`, persist, `publish` |
-| `PATCH /api/todos/:id` | `{ title }` | rename, persist, `publish` |
-| `DELETE /api/todos/:id` | — | delete (acting client removes via mutation) |
-| `GET /ws` | — | WebSocket; `{ type: "add" \| "remove", topics }` messages |
+| Method + path                | Body        | Effect                                                           |
+| ---------------------------- | ----------- | ---------------------------------------------------------------- |
+| `GET /api/todos`             | —           | `{ todos: Todo[] }` (initial fetch for `useStateData`)           |
+| `POST /api/todos`            | `{ title }` | insert; returns the new `Todo` (acting client adds via mutation) |
+| `POST /api/todos/:id/toggle` | —           | flip `done`, persist, `publish`                                  |
+| `PATCH /api/todos/:id`       | `{ title }` | rename, persist, `publish`                                       |
+| `DELETE /api/todos/:id`      | —           | delete (acting client removes via mutation)                      |
+| `GET /ws`                    | —           | WebSocket; `{ type: "add" \| "remove", topics }` messages        |
 
 ## Build & run
 

@@ -1,11 +1,8 @@
 import { createModel, defineState, single } from "rxfy";
-import { useModelStore } from "rxfy-react";
 import { z } from "zod";
 import { UserSchema } from "../shared/users.ts";
 
 export const userModel = createModel({ schema: UserSchema, getKey: (u) => u.id, name: "user" });
-
-export const useUserStore = () => useModelStore(userModel);
 
 /**
  * Header state — mixes a single normalized entity (topUser → id in query shape)

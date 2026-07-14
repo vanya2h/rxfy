@@ -1,32 +1,32 @@
-# Live messages [What travels between server and client]
+# Sync messages [What travels between server and client]
 
-The live stack speaks a small message protocol. You never construct or parse these messages
+The sync stack speaks a small message protocol. You never construct or parse these messages
 yourself — `rxfy-server` publishes them from [writes](/framework/server/writes), `rxfy-ws`
-carries them, and the live client applies them — but knowing their shape helps when debugging
+carries them, and the Sync Client applies them — but knowing their shape helps when debugging
 the wire or [bringing your own transport](/framework/ws/custom-transport).
 
 All messages carry a `v` field (protocol version) and a `kind` discriminant.
 
 ## Server → client
 
-| Type | `kind` | Fields | Description |
-|---|---|---|---|
-| `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Live entity update. Holders of `name:id` apply it in place. `data` is validated against the model schema on the client. |
-| `StaleMessage` | `"stale"` | `v`, `kind`, `channel` | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch. |
+| Type           | `kind`    | Fields                            | Description                                                                                                             |
+| -------------- | --------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Sync entity update. Holders of `name:id` apply it in place. `data` is validated against the model schema on the client. |
+| `StaleMessage` | `"stale"` | `v`, `kind`, `channel`            | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch.     |
 
-`live.update` publishes a `patch` on the entity topic; `live.create` / `live.delete` /
-`live.touch` publish `stale` on the touched channels — see
+`sync.update` publishes a `patch` on the entity topic; `sync.create` / `sync.delete` /
+`sync.touch` publish `stale` on the touched channels — see
 [Writes](/framework/server/writes) for the full behaviour.
 
 ## Client → server
 
-| Type | `kind` | Fields | Description |
-|---|---|---|---|
-| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `ids` | Request live updates for the given ids (`string[]`). |
-| `UnsubscribeMessage` | `"unsubscribe"` | `v`, `kind`, `ids` | Cancel subscriptions for the given ids (`string[]`). |
+| Type               | `kind`        | Fields                           | Description                                                                                                                                                                                                                          |
+| ------------------ | ------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SubscribeMessage` | `"subscribe"` | `v`, `kind`, `grant`, `entities` | Present a signed channel [grant](/framework/server/grants) plus the raw `name:id` entity topics the payload normalized into. The channel is authorized by the grant; entity topics are accepted alongside any currently-valid grant. |
 
-The `ids` on the wire are the opaque grant values (HMAC topic ids from
-[`live.grant`](/framework/server/grants)), never raw `"name:id"` topics.
+`subscribe` is the client's **only** outbound frame. The client sends one per served state (lifted
+from the payload's `$grant`) and replays its whole grant set on reconnect — see
+[Grants](/framework/server/grants).
 
 ## Wire encoding
 
@@ -43,7 +43,8 @@ upgrade of the server and all clients before traffic resumes.
 
 :::info[The `rxfy-protocol` package]
 The message types and codec live in [`rxfy-protocol`](https://www.npmjs.com/package/rxfy-protocol),
-a dependency of `rxfy-server`, `rxfy-ws`, and `rxfy-react` that installs automatically with them.
+a dependency of `rxfy-server`, `rxfy-ws`, `rxfy-client`, and `rxfy-react` that installs
+automatically with them.
 You rarely import it directly — its main direct use is building a
 [custom transport](/framework/ws/custom-transport) or a non-JS client against the wire contract.
 :::

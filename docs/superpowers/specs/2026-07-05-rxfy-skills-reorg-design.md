@@ -44,10 +44,10 @@ The two skills are **mutually exclusive installs**. A user installs the one matc
 setup, never both. Because they can't assume the other is present, they do not cross-reference
 each other — `rxfy-framework` is a **superset** of `rxfy`.
 
-| Skill | Install for | Contents |
-|---|---|---|
-| `rxfy` | Store-only setup | Store + React + SSR. Fully self-contained, client + serialization, no real-time. |
-| `rxfy-framework` | Live-app setup | **Everything in `rxfy`** (store + React + SSR, re-taught, not referenced) **plus** the real-time layer (server, protocol, ws, live-client, grants/live-hydration). |
+| Skill            | Install for      | Contents                                                                                                                                                           |
+| ---------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `rxfy`           | Store-only setup | Store + React + SSR. Fully self-contained, client + serialization, no real-time.                                                                                   |
+| `rxfy-framework` | Live-app setup   | **Everything in `rxfy`** (store + React + SSR, re-taught, not referenced) **plus** the real-time layer (server, protocol, ws, live-client, grants/live-hydration). |
 
 Consequences:
 
@@ -66,24 +66,24 @@ bundles (no build step). Duplication is file-level, so drift is easy to diff and
 
 **Shared store modules** (identical in both bundles):
 
-| File | Content |
-|---|---|
-| `references/models-states.md` | `createModel`, `defineState`, `array`/`single`, plain value fields |
-| `references/react-bindings.md` | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table |
-| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination (`useStatePagedData`) |
-| `references/lens-atoms.md` | `createAtom`, `createLens`, `keyLens` |
-| `references/ssr.md` | dehydrate/hydrate, buffered/streaming/two-pass, `StoreProvider` SSR props |
-| `references/common-mistakes.md` | the pitfalls table |
+| File                             | Content                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `references/models-states.md`    | `createModel`, `defineState`, `array`/`single`, plain value fields        |
+| `references/react-bindings.md`   | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table       |
+| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination (`useStatePagedData`)            |
+| `references/lens-atoms.md`       | `createAtom`, `createLens`, `keyLens`                                     |
+| `references/ssr.md`              | dehydrate/hydrate, buffered/streaming/two-pass, `StoreProvider` SSR props |
+| `references/common-mistakes.md`  | the pitfalls table                                                        |
 
 **Framework-only modules** (`rxfy-framework` bundle only):
 
-| File | Content |
-|---|---|
-| `references/framework-server.md` | `defineResource`, `createResourceRegistry`, `createServer`, `live.create/update/delete`, `createInMemoryHub`, `createTopicKeyer` |
-| `references/framework-protocol.md` | patch vs stale, `serialize`/`parseServerMessage`/`parseClientMessage`, `PROTOCOL_VERSION` |
-| `references/framework-transport.md` | `createWsServer`, `createWsClient` |
-| `references/live-client.md` | `createLiveClient`, `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `StoreProvider liveClient` prop |
-| `references/grants-hydration.md` | `live.grant`, `readSsrGrants`, SSR grant injection — the framework+SSR seam |
+| File                                | Content                                                                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `references/framework-server.md`    | `defineResource`, `createResourceRegistry`, `createServer`, `live.create/update/delete`, `createInMemoryHub`, `createTopicKeyer` |
+| `references/framework-protocol.md`  | patch vs stale, `serialize`/`parseServerMessage`/`parseClientMessage`, `PROTOCOL_VERSION`                                        |
+| `references/framework-transport.md` | `createWsServer`, `createWsClient`                                                                                               |
+| `references/live-client.md`         | `createLiveClient`, `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `StoreProvider liveClient` prop                         |
+| `references/grants-hydration.md`    | `live.grant`, `readSsrGrants`, SSR grant injection — the framework+SSR seam                                                      |
 
 ### The two SKILL.md routers
 

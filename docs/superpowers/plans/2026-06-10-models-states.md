@@ -14,48 +14,49 @@
 
 ### packages/rxfy
 
-| Action | Path |
-|--------|------|
-| Create | `src/model/model.ts` |
-| Create | `src/model/model.test.ts` |
-| Create | `src/model/model-store.ts` |
-| Create | `src/model/model-store.test.ts` |
-| Create | `src/state/state.ts` |
-| Create | `src/state/state.test.ts` |
-| Modify | `src/index.ts` |
-| Delete | `src/store/store.ts` |
-| Delete | `src/store/store.test.ts` |
+| Action             | Path                                                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Create             | `src/model/model.ts`                                                                                                 |
+| Create             | `src/model/model.test.ts`                                                                                            |
+| Create             | `src/model/model-store.ts`                                                                                           |
+| Create             | `src/model/model-store.test.ts`                                                                                      |
+| Create             | `src/state/state.ts`                                                                                                 |
+| Create             | `src/state/state.test.ts`                                                                                            |
+| Modify             | `src/index.ts`                                                                                                       |
+| Delete             | `src/store/store.ts`                                                                                                 |
+| Delete             | `src/store/store.test.ts`                                                                                            |
 | Delete (untracked) | `src/store/cache.ts`, `src/store/example.ts`, `src/store/example.test.ts`, `src/store/json.ts`, `src/store/ssss.tsx` |
 
 ### packages/rxfy-react
 
-| Action | Path |
-|--------|------|
-| Create | `src/registry-context.ts` |
-| Create | `src/registry-context.test.tsx` |
-| Create | `src/StoreProvider.tsx` |
-| Create | `src/StoreProvider.test.tsx` |
-| Create | `src/useModelStore.ts` |
-| Create | `src/render.ts` |
-| Create | `src/useObservable.ts` |
-| Create | `src/usePending.ts` |
-| Create | `src/Pending.tsx` |
-| Create | `src/Pending.test.tsx` |
-| Create | `src/useStateData.ts` |
-| Create | `src/useStateData.test.tsx` |
-| Modify | `src/index.tsx` |
-| Rewrite | `src/index.test.tsx` |
-| Modify | `tsup.config.ts` |
-| Modify | `package.json` |
-| Delete | `src/withData.tsx` |
-| Delete | `src/ssr.ts` |
-| Delete | `src/ssr.test.tsx` |
+| Action  | Path                            |
+| ------- | ------------------------------- |
+| Create  | `src/registry-context.ts`       |
+| Create  | `src/registry-context.test.tsx` |
+| Create  | `src/StoreProvider.tsx`         |
+| Create  | `src/StoreProvider.test.tsx`    |
+| Create  | `src/useModelStore.ts`          |
+| Create  | `src/render.ts`                 |
+| Create  | `src/useObservable.ts`          |
+| Create  | `src/usePending.ts`             |
+| Create  | `src/Pending.tsx`               |
+| Create  | `src/Pending.test.tsx`          |
+| Create  | `src/useStateData.ts`           |
+| Create  | `src/useStateData.test.tsx`     |
+| Modify  | `src/index.tsx`                 |
+| Rewrite | `src/index.test.tsx`            |
+| Modify  | `tsup.config.ts`                |
+| Modify  | `package.json`                  |
+| Delete  | `src/withData.tsx`              |
+| Delete  | `src/ssr.ts`                    |
+| Delete  | `src/ssr.test.tsx`              |
 
 ---
 
 ## Task 1: ModelDescriptor, array, single
 
 **Files:**
+
 - Create: `packages/rxfy/src/model/model.ts`
 - Create: `packages/rxfy/src/model/model.test.ts`
 
@@ -131,10 +132,7 @@ export type FieldDescriptor<TShape> = {
   readonly model: ModelDescriptor<any>;
 };
 
-export function createModel<T>(
-  schema: z.ZodType<T>,
-  opts: { getKey: (item: T) => string },
-): ModelDescriptor<T> {
+export function createModel<T>(schema: z.ZodType<T>, opts: { getKey: (item: T) => string }): ModelDescriptor<T> {
   return { _key: Symbol(), schema, getKey: opts.getKey };
 }
 
@@ -167,6 +165,7 @@ git commit -m "feat(rxfy): add ModelDescriptor, array, single helpers"
 ## Task 2: ModelStore and ModelRegistry
 
 **Files:**
+
 - Create: `packages/rxfy/src/model/model-store.ts`
 - Create: `packages/rxfy/src/model/model-store.test.ts`
 
@@ -180,10 +179,7 @@ import { z } from "zod";
 import { createModel } from "./model.js";
 import { createModelRegistry, createModelStore } from "./model-store.js";
 
-const postModel = createModel(
-  z.object({ id: z.string(), title: z.string() }),
-  { getKey: (x) => x.id },
-);
+const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
 
 describe("createModelStore", () => {
   it("emits value after set", async () => {
@@ -326,6 +322,7 @@ git commit -m "feat(rxfy): add ModelStore and ModelRegistry"
 ## Task 3: StateDescriptor
 
 **Files:**
+
 - Create: `packages/rxfy/src/state/state.ts`
 - Create: `packages/rxfy/src/state/state.test.ts`
 
@@ -431,6 +428,7 @@ git commit -m "feat(rxfy): add StateDescriptor and defineState"
 ## Task 4: Update rxfy exports, delete store files
 
 **Files:**
+
 - Modify: `packages/rxfy/src/index.ts`
 - Delete: `packages/rxfy/src/store/store.ts`
 - Delete: `packages/rxfy/src/store/store.test.ts`
@@ -495,6 +493,7 @@ git commit -m "feat(rxfy): expose model/state exports, remove store.ts"
 ## Task 5: registry-context
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/registry-context.ts`
 - Create: `packages/rxfy-react/src/registry-context.test.tsx`
 
@@ -516,9 +515,7 @@ describe("useModelRegistry", () => {
     const registry = createModelRegistry();
     const { result } = renderHook(() => useModelRegistry(), {
       wrapper: ({ children }) => (
-        <ModelRegistryContext.Provider value={registry}>
-          {children}
-        </ModelRegistryContext.Provider>
+        <ModelRegistryContext.Provider value={registry}>{children}</ModelRegistryContext.Provider>
       ),
     });
     expect(result.current).toBe(registry);
@@ -570,6 +567,7 @@ git commit -m "feat(rxfy-react): add ModelRegistryContext and useModelRegistry"
 ## Task 6: StoreProvider and useModelStore
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/StoreProvider.tsx`
 - Create: `packages/rxfy-react/src/useModelStore.ts`
 - Create: `packages/rxfy-react/src/StoreProvider.test.tsx`
@@ -585,14 +583,9 @@ import { z } from "zod";
 import { StoreProvider } from "./StoreProvider.js";
 import { useModelStore } from "./useModelStore.js";
 
-const testModel = createModel(
-  z.object({ id: z.string() }),
-  { getKey: (x) => x.id },
-);
+const testModel = createModel(z.object({ id: z.string() }), { getKey: (x) => x.id });
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <StoreProvider>{children}</StoreProvider>
-);
+const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 describe("StoreProvider", () => {
   it("provides an isolated registry per mount", () => {
@@ -641,11 +634,7 @@ import { ModelRegistryContext } from "./registry-context.js";
 
 export function StoreProvider({ children }: PropsWithChildren) {
   const [registry] = useState(() => createModelRegistry());
-  return (
-    <ModelRegistryContext.Provider value={registry}>
-      {children}
-    </ModelRegistryContext.Provider>
-  );
+  return <ModelRegistryContext.Provider value={registry}>{children}</ModelRegistryContext.Provider>;
 }
 ```
 
@@ -684,6 +673,7 @@ git commit -m "feat(rxfy-react): add StoreProvider and useModelStore"
 ## Task 7: render.ts and useObservable.ts
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/render.ts`
 - Create: `packages/rxfy-react/src/useObservable.ts`
 
@@ -748,6 +738,7 @@ git commit -m "feat(rxfy-react): add render helper and useObservable"
 ## Task 8: usePending and Pending
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/usePending.ts`
 - Create: `packages/rxfy-react/src/Pending.tsx`
 - Create: `packages/rxfy-react/src/Pending.test.tsx`
@@ -828,10 +819,7 @@ export function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () =
   );
 
   const initialState = useMemo<IPendingStatus<T>>(
-    () =>
-      getDefaultValue
-        ? { status: "fulfilled", value: getDefaultValue() }
-        : { status: "pending" },
+    () => (getDefaultValue ? { status: "fulfilled", value: getDefaultValue() } : { status: "pending" }),
     [getDefaultValue],
   );
 
@@ -893,7 +881,11 @@ export function BehaviorSubjectRender<T>({ value$, children }: IBehaviorSubjectR
 
   useEffect(() => {
     const sub = value$
-      .pipe(skip(1), distinctUntilChanged(), tap((x) => setState(x)))
+      .pipe(
+        skip(1),
+        distinctUntilChanged(),
+        tap((x) => setState(x)),
+      )
       .subscribe(noop);
     return () => sub.unsubscribe();
   }, [value$]);
@@ -968,6 +960,7 @@ git commit -m "feat(rxfy-react): add usePending and Pending component"
 ## Task 9: useStateData
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/useStateData.ts`
 - Create: `packages/rxfy-react/src/useStateData.test.tsx`
 
@@ -984,14 +977,8 @@ import { StoreProvider } from "./StoreProvider.js";
 import { useStateData } from "./useStateData.js";
 import { useModelStore } from "./useModelStore.js";
 
-const postModel = createModel(
-  z.object({ id: z.string(), title: z.string() }),
-  { getKey: (x) => x.id },
-);
-const userModel = createModel(
-  z.object({ id: z.string(), name: z.string() }),
-  { getKey: (x) => x.id },
-);
+const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
+const userModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (x) => x.id });
 
 const pageState = defineState({
   params: z.object({ page: z.number() }),
@@ -1003,9 +990,7 @@ const singleState = defineState({
   model: { user: single(userModel) },
 });
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <StoreProvider>{children}</StoreProvider>
-);
+const wrapper = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 describe("useStateData", () => {
   it("emits fetched data", async () => {
@@ -1016,10 +1001,7 @@ describe("useStateData", () => {
       ],
     });
 
-    const { result } = renderHook(
-      () => useStateData(pageState, fetchFn, { page: 0 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     const data = await firstValueFrom(result.current);
     expect(data.posts).toEqual([
@@ -1034,10 +1016,10 @@ describe("useStateData", () => {
     const params0 = { page: 0 };
     const params1 = { page: 1 };
 
-    const { result, rerender } = renderHook(
-      ({ params }) => useStateData(pageState, fetchFn, params),
-      { wrapper, initialProps: { params: params0 } },
-    );
+    const { result, rerender } = renderHook(({ params }) => useStateData(pageState, fetchFn, params), {
+      wrapper,
+      initialProps: { params: params0 },
+    });
 
     const first = result.current;
     rerender({ params: params1 });
@@ -1048,10 +1030,7 @@ describe("useStateData", () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
     const params = { page: 0 };
 
-    const { result, rerender } = renderHook(
-      () => useStateData(pageState, fetchFn, params),
-      { wrapper },
-    );
+    const { result, rerender } = renderHook(() => useStateData(pageState, fetchFn, params), { wrapper });
 
     const first = result.current;
     rerender();
@@ -1104,10 +1083,7 @@ describe("useStateData", () => {
   it("handles empty array field", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
 
-    const { result } = renderHook(
-      () => useStateData(pageState, fetchFn, { page: 0 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     const data = await firstValueFrom(result.current);
     expect(data.posts).toEqual([]);
@@ -1118,10 +1094,7 @@ describe("useStateData", () => {
       user: { id: "u1", name: "Alice" },
     });
 
-    const { result } = renderHook(
-      () => useStateData(singleState, fetchFn, { id: "u1" }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(singleState, fetchFn, { id: "u1" }), { wrapper });
 
     const data = await firstValueFrom(result.current);
     expect(data.user).toEqual({ id: "u1", name: "Alice" });
@@ -1130,10 +1103,7 @@ describe("useStateData", () => {
   it("propagates fetch rejection as observable error", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(
-      () => useStateData(pageState, fetchFn, { page: 0 }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData(pageState, fetchFn, { page: 0 }), { wrapper });
 
     await expect(firstValueFrom(result.current)).rejects.toThrow("Network error");
   });
@@ -1250,6 +1220,7 @@ git commit -m "feat(rxfy-react): add useStateData hook"
 ## Task 10: Cleanup and wire index.tsx
 
 **Files:**
+
 - Delete: `packages/rxfy-react/src/withData.tsx`
 - Delete: `packages/rxfy-react/src/ssr.ts`
 - Delete: `packages/rxfy-react/src/ssr.test.tsx`
@@ -1285,11 +1256,7 @@ describe("Edge", () => {
     const edge = createEdge(state$, queue, () => of({ id: "test" }));
 
     render(
-      <Edge
-        edge={edge}
-        pending={<div data-testid="pending" />}
-        rejected={() => <div data-testid="rejected" />}
-      >
+      <Edge edge={edge} pending={<div data-testid="pending" />} rejected={() => <div data-testid="rejected" />}>
         {(x) => <div data-testid="fulfilled">{x.id}</div>}
       </Edge>,
     );

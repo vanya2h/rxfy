@@ -11,6 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-07-05-rxfy-skills-reorg-design.md`
 
 **Verified facts (do not re-derive):**
+
 - `createModel({ schema, getKey, name })` takes a single config object (see `packages/rxfy/src/model/model.ts:30`). The `.agents/skills/rxfy/SKILL.md` copy is correct; the `.claude/skills/rxfy/SKILL.md` copy (`createModel(schema, {...})`) is the drifted one.
 - `rxfy-ws` client entry is the `rxfy-ws/client` subpath; server entry is `rxfy-ws`.
 - `rxfy-server/browser` re-exports the client-safe subset (`defineResource`, `createResourceRegistry`).
@@ -23,6 +24,7 @@
 ### Task 1: Extract the 6 shared store modules into `.agents/skills/rxfy/references/`
 
 **Files:**
+
 - Create: `.agents/skills/rxfy/references/models-states.md`
 - Create: `.agents/skills/rxfy/references/react-bindings.md`
 - Create: `.agents/skills/rxfy/references/mutations-writes.md`
@@ -49,7 +51,7 @@ Title `# React Bindings (rxfy-react)`. Content: lines 28–66 of `.agents/skills
 
 Title `# Mutations, Writes & Pagination`. Content: lines 67–120 of `.agents/skills/rxfy/SKILL.md` verbatim (Mutations, `set` vs `setRaw`, Pagination sections), then append a trimmed replacement for the old "Live / external updates" section (lines 122–137) — keep only the store-primitive core, drop the hand-rolled socket wiring:
 
-```markdown
+````markdown
 ## External writes
 
 Any out-of-band source can push entities straight into a store — every `store.get(id)` subscriber re-renders, no refetch:
@@ -60,9 +62,9 @@ store.setMany(rows.map((row) => todoModel.schema.parse(row))); // validate, then
 
 // React to entities entering ANY store:
 const registry = useModelRegistry();
-registry.added$.subscribe(({ name, key }) => {/* track what's on screen */});
+registry.added$.subscribe(({ name, key }) => {/_ track what's on screen _/});
 ​```
-```
+````
 
 (Remove the zero-width characters around the backticks when writing the actual file — they are only there to nest the fence in this plan.)
 
@@ -98,6 +100,7 @@ git commit -m "docs(skills): extract shared store modules into rxfy references"
 ### Task 2: Rewrite `rxfy/SKILL.md` as the store-cohort router
 
 **Files:**
+
 - Modify: `.agents/skills/rxfy/SKILL.md` (full replacement)
 
 - [ ] **Step 1: Replace SKILL.md with the router**
@@ -126,14 +129,14 @@ This skill covers the **store setup**: client state + SSR. (Real-time server pus
 
 ## Reference modules
 
-| Read | When working on |
-|---|---|
-| `references/models-states.md` | `createModel`, `defineState`, `array`/`single`, plain value fields |
-| `references/react-bindings.md` | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table |
-| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes |
-| `references/lens-atoms.md` | `createAtom`, `createLens`, `keyLens` nested state |
-| `references/ssr.md` | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
-| `references/common-mistakes.md` | debugging — check here first for known pitfalls |
+| Read                             | When working on                                                         |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| `references/models-states.md`    | `createModel`, `defineState`, `array`/`single`, plain value fields      |
+| `references/react-bindings.md`   | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table     |
+| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes               |
+| `references/lens-atoms.md`       | `createAtom`, `createLens`, `keyLens` nested state                      |
+| `references/ssr.md`              | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
+| `references/common-mistakes.md`  | debugging — check here first for known pitfalls                         |
 
 ## Minimal shape
 
@@ -142,7 +145,7 @@ const Todo = createModel({ schema: todoSchema, getKey: (t) => t.id, name: "todos
 const listState = defineState({ key: "todos", params: z.object({}), model: { todos: array(Todo) } });
 
 const { data$ } = useStateData({ state: listState, fetchFn, params });
-<Pending value$={data$}>{({ todos }) => todos.map((id) => <TodoItem key={id} id={id} />)}</Pending>
+<Pending value$={data$}>{({ todos }) => todos.map((id) => <TodoItem key={id} id={id} />)}</Pending>;
 ```
 ````
 
@@ -163,6 +166,7 @@ git commit -m "docs(skills): rewrite rxfy SKILL.md as store-cohort router"
 ### Task 3: Author the framework transport-layer modules (server, protocol, ws)
 
 **Files:**
+
 - Create: `.agents/skills/rxfy-framework/references/framework-server.md`
 - Create: `.agents/skills/rxfy-framework/references/framework-protocol.md`
 - Create: `.agents/skills/rxfy-framework/references/framework-transport.md`
@@ -178,12 +182,12 @@ Title `# rxfy-server`. Cover, in this order, condensing from `apps/docs/src/page
 4. `createServer({ db, resources, hub, keyer })` → `Live` — include the `server/live.ts` snippet from the docs page verbatim.
 5. Writes table:
 
-| Call | SQL | Publishes |
-|---|---|---|
-| `live.update(resource, id, patch)` | UPDATE … RETURNING | `patch` on `"<name>:<id>"` topic + `stale` on touched channels |
-| `live.create(resource, row, { touch })` | INSERT | `stale` on touched channels only (no patch) |
-| `live.delete(resource, id, { touch })` | DELETE | `stale` on touched channels only |
-| `live.touch(...targets)` | none | `stale` out of band |
+| Call                                    | SQL                | Publishes                                                      |
+| --------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `live.update(resource, id, patch)`      | UPDATE … RETURNING | `patch` on `"<name>:<id>"` topic + `stale` on touched channels |
+| `live.create(resource, row, { touch })` | INSERT             | `stale` on touched channels only (no patch)                    |
+| `live.delete(resource, id, { touch })`  | DELETE             | `stale` on touched channels only                               |
+| `live.touch(...targets)`                | none               | `stale` out of band                                            |
 
 6. `touch(stateDescriptor, params)` builds a `TouchTarget`; window dims (`state.window`) are stripped so all pages of a partition share one channel.
 7. `createTopicKeyer({ secret, windowMs })` — HMAC time-windowed topic ids; `current(topic)` for grants, `forPublish(topic)` returns `[current, previous]` to cover window rollover. Warning: rotating `secret` invalidates all outstanding grants.
@@ -225,6 +229,7 @@ git commit -m "docs(skills): author framework server/protocol/transport modules"
 ### Task 4: Author the framework client-side modules (live-client, grants)
 
 **Files:**
+
 - Create: `.agents/skills/rxfy-framework/references/live-client.md`
 - Create: `.agents/skills/rxfy-framework/references/grants-hydration.md`
 - Source material: `apps/docs/src/pages/react/live-client.mdx`, `apps/docs/src/pages/framework/grants.mdx`, `packages/rxfy-react/src/live/*.ts`
@@ -265,6 +270,7 @@ git commit -m "docs(skills): author live-client and grants-hydration modules"
 ### Task 5: Copy shared modules + write `rxfy-framework/SKILL.md` router
 
 **Files:**
+
 - Create: `.agents/skills/rxfy-framework/references/{models-states,react-bindings,mutations-writes,lens-atoms,ssr,common-mistakes}.md` (byte-for-byte copies)
 - Create: `.agents/skills/rxfy-framework/SKILL.md`
 
@@ -312,24 +318,24 @@ live.create/delete + touch() → hub.publish(stale) → channel counter → "N n
 
 **Store layer** (client state + SSR):
 
-| Read | When working on |
-|---|---|
-| `references/models-states.md` | `createModel`, `defineState`, `array`/`single`, plain value fields |
-| `references/react-bindings.md` | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table |
-| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes |
-| `references/lens-atoms.md` | `createAtom`, `createLens`, `keyLens` nested state |
-| `references/ssr.md` | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
-| `references/common-mistakes.md` | debugging — check here first for known pitfalls |
+| Read                             | When working on                                                         |
+| -------------------------------- | ----------------------------------------------------------------------- |
+| `references/models-states.md`    | `createModel`, `defineState`, `array`/`single`, plain value fields      |
+| `references/react-bindings.md`   | `useStateData`, `useModelStore`, `useAtom`, `<Pending>`, hook table     |
+| `references/mutations-writes.md` | mutations, `set` vs `setRaw`, pagination, external writes               |
+| `references/lens-atoms.md`       | `createAtom`, `createLens`, `keyLens` nested state                      |
+| `references/ssr.md`              | dehydrate/hydrate, buffered/streaming/two-pass SSR, StoreProvider props |
+| `references/common-mistakes.md`  | debugging — check here first for known pitfalls                         |
 
 **Real-time layer:**
 
-| Read | When working on |
-|---|---|
-| `references/framework-server.md` | `defineResource`, `createServer`, `live.create/update/delete`, hub, topic keyer |
-| `references/framework-protocol.md` | patch/stale wire format, codec, `PROTOCOL_VERSION` |
-| `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect |
-| `references/live-client.md` | `createLiveClient`, `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop |
-| `references/grants-hydration.md` | `live.grant`, `readSsrGrants`, SSR grant injection, state channels |
+| Read                                | When working on                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `references/framework-server.md`    | `defineResource`, `createServer`, `live.create/update/delete`, hub, topic keyer            |
+| `references/framework-protocol.md`  | patch/stale wire format, codec, `PROTOCOL_VERSION`                                         |
+| `references/framework-transport.md` | `createWsServer`, `createWsClient`, socket adapters, reconnect                             |
+| `references/live-client.md`         | `createLiveClient`, `useLiveClient`, `updatesAvailable$`/`applyUpdates`, `liveClient` prop |
+| `references/grants-hydration.md`    | `live.grant`, `readSsrGrants`, SSR grant injection, state channels                         |
 ````
 
 - [ ] **Step 3: Verify copies are identical**
@@ -349,6 +355,7 @@ git commit -m "docs(skills): add rxfy-framework skill bundle"
 ### Task 6: Delete `rxfy-ssr`, fix `.claude/skills` symlinks
 
 **Files:**
+
 - Delete: `.agents/skills/rxfy-ssr/`, `.claude/skills/rxfy-ssr/`
 - Replace with symlinks: `.claude/skills/rxfy`, add `.claude/skills/rxfy-framework`
 
@@ -382,6 +389,7 @@ git commit -m "docs(skills): remove rxfy-ssr, symlink .claude skills to .agents"
 ### Task 7: Drift-check script
 
 **Files:**
+
 - Create: `scripts/check-skills-drift.sh`
 - Modify: `package.json` (root — add script)
 
@@ -431,6 +439,7 @@ git commit -m "chore: add skills shared-module drift check"
 ### Task 8: Rewrite `agent-skills.mdx`
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/agent-skills.mdx` (full replacement)
 
 - [ ] **Step 1: Replace the page**
@@ -448,9 +457,9 @@ Without a skill an agent has only its training data: it may invent hook signatur
 
 The two skills mirror the two [getting-started paths](/getting-started). Each is fully self-contained; install the one matching your setup:
 
-| Your setup | Install |
-|---|---|
-| Client-only store — `rxfy` + `rxfy-react`, with or without SSR | `rxfy` |
+| Your setup                                                          | Install          |
+| ------------------------------------------------------------------- | ---------------- |
+| Client-only store — `rxfy` + `rxfy-react`, with or without SSR      | `rxfy`           |
 | Live app — the framework packages (`rxfy-server`, `rxfy-ws`) on top | `rxfy-framework` |
 
 `rxfy-framework` already contains everything in `rxfy`, so installing both only duplicates context and confuses skill routing.

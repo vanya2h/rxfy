@@ -2643,6 +2643,7 @@ git commit -m "feat(rxfy-react): add rxfy-react/next subpath with HydrationStrea
 The example migrates to the id-shaped `data$`, single-call mutations, and the buffered `renderToPipeableStream` + `onAllReady` + `dehydrate` SSR mode. After this task, vite-todo is the working SSR demo: view-source shows rendered todos, the client does not re-fetch on load.
 
 **Files:**
+
 - Modify: `examples/vite-todo/src/todos.ts`
 - Modify: `examples/vite-todo/src/App.tsx`
 - Modify: `examples/vite-todo/src/entry-server.tsx`
@@ -2710,13 +2711,13 @@ function TodoList({ data$ }: TodoListProps) {
 Replace `handleAdd` in `App` — the mutation now writes the entity to the model store automatically, so the manual `store.set` two-step disappears (remove the `useTodoStore` import/usage from `App`; `TodoItem` keeps its own):
 
 ```tsx
-  const handleAdd = (title: string) => {
-    const todo = createTodo(title);
-    // Newly added todos are active — don't add to the "done" filtered view
-    if (filter !== "done") {
-      mutations.addTodo(todo);
-    }
-  };
+const handleAdd = (title: string) => {
+  const todo = createTodo(title);
+  // Newly added todos are active — don't add to the "done" filtered view
+  if (filter !== "done") {
+    mutations.addTodo(todo);
+  }
+};
 ```
 
 Also remove the now-unused `Todo` type import and the `const store = useTodoStore();` line from `App` (keep them in `TodoItem`).
@@ -2795,42 +2796,40 @@ In `examples/vite-todo/index.html`, add the state placeholder before the entry s
 
 ```html
 <body>
-    <div id="root"><!--app-html--></div>
-    <!--app-state-->
-    <script type="module" src="/src/entry-client.tsx"></script>
+  <div id="root"><!--app-html--></div>
+  <!--app-state-->
+  <script type="module" src="/src/entry-client.tsx"></script>
 </body>
 ```
 
 In `examples/vite-todo/server.ts`, the render call is already awaited indirectly — update the typing and template replacement. Replace:
 
 ```ts
-    let render: (url: string) => { html: string; head?: string };
+let render: (url: string) => { html: string; head?: string };
 ```
 
 with:
 
 ```ts
-    let render: (url: string) => Promise<{ html: string; state: string }>;
+let render: (url: string) => Promise<{ html: string; state: string }>;
 ```
 
 and replace:
 
 ```ts
-    const rendered = render(url);
+const rendered = render(url);
 
-    const html = template
-      .replace(`<!--app-head-->`, rendered.head ?? "")
-      .replace(`<!--app-html-->`, rendered.html ?? "");
+const html = template.replace(`<!--app-head-->`, rendered.head ?? "").replace(`<!--app-html-->`, rendered.html ?? "");
 ```
 
 with:
 
 ```ts
-    const rendered = await render(url);
+const rendered = await render(url);
 
-    const html = template
-      .replace(`<!--app-html-->`, rendered.html)
-      .replace(`<!--app-state-->`, `<script>window.__RXFY_STATE__=${rendered.state}</script>`);
+const html = template
+  .replace(`<!--app-html-->`, rendered.html)
+  .replace(`<!--app-state-->`, `<script>window.__RXFY_STATE__=${rendered.state}</script>`);
 ```
 
 (The `<!--app-head-->` replacement can be dropped — nothing produces `head` anymore. Leave the comment in `index.html`; it renders as an HTML comment.)
@@ -2842,6 +2841,7 @@ pnpm --filter rxfy build && pnpm --filter rxfy-react build
 pnpm --filter rxfy-example-todo-app check-types
 pnpm --filter rxfy-example-todo-app build
 ```
+
 Expected: all succeed.
 
 Then start the dev server and verify SSR:
@@ -2853,6 +2853,7 @@ curl -s http://localhost:5173/ | grep -o "Buy groceries"
 curl -s http://localhost:5173/ | grep -o "__RXFY_STATE__"
 kill %1
 ```
+
 Expected: `Buy groceries` appears in the raw HTML (SSR-rendered todo), and the `__RXFY_STATE__` payload is present. In a browser: no loading flash, no fetch on first load (network tab), checkboxes and add-todo work.
 
 - [ ] **Step 7: Run example lint**
@@ -2872,6 +2873,7 @@ git commit -m "feat(example)!: migrate vite-todo to normalized state with buffer
 ### Task 19: Changeset + full-repo verification
 
 **Files:**
+
 - Create: `.changeset/ssr-support.md`
 
 - [ ] **Step 1: Write the changeset**
@@ -2899,6 +2901,7 @@ BREAKING: `data$` now emits normalized query state — entity **ids** (`string`/
 ```bash
 pnpm build && pnpm test && pnpm lint && pnpm check-types
 ```
+
 Expected: all green across rxfy, rxfy-react, utils, and the example.
 
 - [ ] **Step 3: Commit**

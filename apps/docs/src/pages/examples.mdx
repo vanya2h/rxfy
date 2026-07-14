@@ -1,22 +1,15 @@
-# Examples [Runnable apps, from client-only to fully live]
+# Examples [Runnable apps, from client-only to fully synced]
 
-Runnable example apps in the [rxfy repository](https://github.com/vanya2h/rxfy/tree/main/examples), arranged the way the docs teach rxfy: start client-only, add SSR, then go live.
+Runnable example apps in the [rxfy repository](https://github.com/vanya2h/rxfy/tree/main/examples), arranged the way the docs teach rxfy: start with SSR, then turn on sync.
 
-## Tier 1 · Client-only store
+:::note
+The examples are workspace apps — their `workspace:*` dependencies only resolve inside a
+clone of the [rxfy repository](https://github.com/vanya2h/rxfy), and the `pnpm --filter … dev`
+commands below run from its repo root. They will do nothing in your own project. To start a
+standalone app, use [`pnpm create rxfy-app`](/getting-started).
+:::
 
-### vite-todo
-
-**[examples/vite-todo](https://github.com/vanya2h/rxfy/tree/main/examples/vite-todo)**
-
-A classic Todo app built with Vite SSR. Covers the full rxfy loop: define a model, fetch with `useStateData`, render with `<Pending>`, subscribe to individual entities with `useModelStore`. SSR gives zero-flash first paint via `dehydrate` + `hydrationScript`.
-
-```bash
-pnpm --filter rxfy-example-todo-app dev
-```
-
-Companion guide: [Build a Todo app](/guides/todo-app)
-
-## Tier 2 · Server-side rendering
+## Tier 1 · Server-side rendering
 
 ### vite-ssr-pagination
 
@@ -61,17 +54,18 @@ The same blog domain as `next-blog` and `rr7-blog`, on [Waku](https://waku.gg) (
 pnpm --filter rxfy-example-waku-blog dev
 ```
 
-## Tier 3 · Live (the framework)
+## Tier 2 · Sync (the framework)
 
 ### vite-blog-framework
 
 **[examples/vite-blog-framework](https://github.com/vanya2h/rxfy/tree/main/examples/vite-blog-framework)**
 
-A live blog: server-rendered first paint, then real-time updates over WebSockets. Edits apply instantly across tabs (a `patch` on the entity topic); new posts/comments and deletes surface a "click to refresh" badge (a `stale` on the state channel). Built with Vite SSR · Hono · Hono WebSocket · PGlite (in-memory Postgres) · Drizzle · `rxfy-server` · `rxfy-ws`. SSR mints HMAC **grants** so a client may only subscribe to the topics on its page.
+A sync blog: server-rendered first paint, then real-time sync over WebSockets. Edits apply instantly across tabs (a `patch` on the entity topic); new posts/comments and deletes surface a "click to refresh" badge (a `stale` on the state channel). Built with Vite SSR · Hono · Hono WebSocket · PGlite (in-memory Postgres) · Drizzle · `rxfy-server` · `rxfy-ws` · `rxfy-client`. SSR signs channel **grants** for exactly what the page rendered; the client subscribes with them over the WebSocket.
 
 ```bash
 pnpm --filter vite-blog-framework dev
 # open in two tabs — edit a post in one, watch it change live in the other
 ```
 
-Companion guide: [Live blog](/guides/live-blog)
+This is the exact stack that [Add Sync Client](/getting-started/add-sync-client) builds by hand,
+scaled up to three related entity types.

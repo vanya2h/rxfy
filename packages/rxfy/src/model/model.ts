@@ -1,46 +1,53 @@
 import type { z } from "zod";
 
 /** Extracts the key type from an entity's `id` field; falls back to `string` for plain string IDs. */
-export type EntityKey<T> = T extends { id: infer TKey extends string } ? TKey : string;
+export type EntityKey<TEntity> = TEntity extends { id: infer TKey extends string } ? TKey : string;
 
-export type ModelDescriptor<T, TKey extends string = string> = {
+export type ModelDescriptor<TEntity, TKey extends string = string, TInput = TEntity, TName extends string = string> = {
   readonly _key: symbol;
-  /** Stable string identity for SSR dehydration — symbols cannot cross the server/client boundary. */
-  readonly name?: string;
+  /** Stable string identity for SSR dehydration and live topics — symbols cannot cross the server/client boundary. Carried as a literal type so registries can key typed lookups by name. */
+  readonly name: TName;
   // Input is `any` so schemas whose Input differs from Output (e.g. branded ids) stay assignable.
-  readonly schema: z.ZodType<T, any>;
-  readonly getKey: (item: T) => TKey;
+  readonly schema: z.ZodType<TEntity, any>;
+  readonly getKey: (item: TEntity) => TKey;
+  /** Phantom carrier — never set at runtime — so the schema's Input type (e.g. unbranded rows) survives on the descriptor. Function-typed to keep TInput contravariant, as an input should be. */
+  readonly _input?: (input: TInput) => void;
 };
 
-// _shape is a phantom type — never set at runtime, exists only for TypeScript inference
-export type FieldDescriptor<TShape> = {
+// _shape/_input are phantom types — never set at runtime, they exist only for TypeScript inference
+export type FieldDescriptor<TShape, TInput = TShape> = {
   readonly _shape?: TShape;
+  readonly _input?: (input: TInput) => void;
   readonly kind: "single" | "array";
   readonly model: ModelDescriptor<any, any>;
 };
 
-export type CreateModelConfig<TOutput, TKey extends string, TInput = TOutput> = {
-  schema: z.ZodType<TOutput, TInput>;
-  getKey: (item: TOutput) => TKey;
-  name?: string;
+export type CreateModelConfig<TEntity, TKey extends string, TInput = TEntity, TName extends string = string> = {
+  schema: z.ZodType<TEntity, TInput>;
+  getKey: (item: TEntity) => TKey;
+  name: TName;
 };
 
-// Both Zod generics are inferred so T comes from Output and TInput from Input —
-// z.ZodType<T> alone would unify both positions and widen branded types away.
-export function createModel<TOutput, TKey extends string, TInput = TOutput>({
+// Both Zod generics are inferred so TEntity comes from Output and TInput from Input —
+// z.ZodType<TEntity> alone would unify both positions and widen branded types away.
+export function createModel<TEntity, TKey extends string, TInput = TEntity, TName extends string = string>({
   schema,
   getKey,
   name,
-}: CreateModelConfig<TOutput, TKey, TInput>): ModelDescriptor<TOutput, TKey> {
+}: CreateModelConfig<TEntity, TKey, TInput, TName>): ModelDescriptor<TEntity, TKey, TInput, TName> {
   return { _key: Symbol(), name, schema, getKey };
 }
 
-export function array<T, TKey extends string>(model: ModelDescriptor<T, TKey>): FieldDescriptor<T[]> {
-  return { kind: "array", model } as FieldDescriptor<T[]>;
+export function array<TEntity, TKey extends string, TInput = TEntity>(
+  model: ModelDescriptor<TEntity, TKey, TInput>,
+): FieldDescriptor<TEntity[], TInput[]> {
+  return { kind: "array", model } as FieldDescriptor<TEntity[], TInput[]>;
 }
 
-export function single<T, TKey extends string>(model: ModelDescriptor<T, TKey>): FieldDescriptor<T> {
-  return { kind: "single", model } as FieldDescriptor<T>;
+export function single<TEntity, TKey extends string, TInput = TEntity>(
+  model: ModelDescriptor<TEntity, TKey, TInput>,
+): FieldDescriptor<TEntity, TInput> {
+  return { kind: "single", model } as FieldDescriptor<TEntity, TInput>;
 }
 
 /** True when a field entry is an entity descriptor (`array`/`single`) rather than a bare zod schema. */

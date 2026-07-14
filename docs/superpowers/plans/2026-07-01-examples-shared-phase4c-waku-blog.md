@@ -11,6 +11,7 @@
 Spec: `docs/superpowers/specs/2026-07-01-examples-shared-design.md`. Phase 4c of 4. Depends on Phases 1–3 + 4a + 4b (merged). waku-blog current-state map + a Waku-Hono-mount investigation are in the conversation. Package `--filter` name: `rxfy-example-waku-blog`. Deps live in `dependencies` (not devDependencies) here (Waku bundles them for RSC).
 
 ## Key decisions
+
 - **Hono mounted via `src/middleware/api.ts`** (Waku auto-loads `src/middleware/*.ts` as Hono middleware in dev AND build — no custom server entry). It delegates `/api/*` to a Hono app (`basePath("/api")`, `AppType`), giving the same typed `hc<AppType>("/")` → `client.api.posts.$get()` pattern as next/rr7. **Fallback:** if auto-load doesn't work in this beta, use a `src/waku.server.tsx` custom entry with `adapter(fsRouter(...), { middlewareFns: [...] })` (verified early in Task 2).
 - **Waku's `_api/` file convention is NOT used** — it strips the `_api` prefix (→ `/posts`, colliding with page routes) and yields no Hono `AppType` for typed RPC.
 - **RSC prefetch handoff preserved** (`src/ssr.ts` `prefetch` + `HydrateSnapshot` stay); the `"use client"` view wrappers solve the fetcher-prop boundary.
@@ -24,6 +25,7 @@ Spec: `docs/superpowers/specs/2026-07-01-examples-shared-design.md`. Phase 4c of
 **Files:** `examples/waku-blog/package.json`, `postcss.config.mjs` (new), `src/styles.css`.
 
 - [ ] **Step 1: dependencies** — READ `examples/waku-blog/package.json` (runtime deps live in `dependencies`). Add these to `dependencies` (alphabetical), matching the EXACT versions from `examples/vite-blog-framework/package.json` where they overlap (read it — `hono`, `tailwindcss`, and all shadcn runtime deps) and next-blog's `@tailwindcss/postcss` version:
+
 ```
 "examples-shared": "workspace:*",
 "hono": "^4.7.0",
@@ -38,9 +40,11 @@ Spec: `docs/superpowers/specs/2026-07-01-examples-shared-design.md`. Phase 4c of
 "tailwindcss": "^4.3.2",
 "tw-animate-css": "^1.4.0"
 ```
+
 (shadcn runtime deps must be direct deps because `examples-shared` is consumed as source and Waku/Vite resolves its imports from waku-blog's tree.)
 
 - [ ] **Step 2: PostCSS config** — create `examples/waku-blog/postcss.config.mjs`:
+
 ```js
 export default {
   plugins: {
@@ -54,10 +58,12 @@ export default {
 - [ ] **Step 4: install + verify** — `pnpm install`; `pnpm --filter rxfy-example-waku-blog check-types` → exit 0 (nothing consumes the shared package yet). Do NOT build yet.
 
 - [ ] **Step 5: commit**
+
 ```bash
 git add examples/waku-blog/package.json examples/waku-blog/postcss.config.mjs examples/waku-blog/src/styles.css pnpm-lock.yaml
 git commit -m "chore(waku-blog): depend on examples-shared + tailwind v4/shadcn theme"
 ```
+
 No `Co-Authored-By` trailer.
 
 ---
@@ -67,6 +73,7 @@ No `Co-Authored-By` trailer.
 **Files (new):** `src/server/store.ts`, `src/server/app.ts`, `src/middleware/api.ts`.
 
 - [ ] **Step 1: `src/server/store.ts`** — identical to next-blog/rr7 but a distinct global key. Use EXTENSIONLESS relative imports (the shared package convention; Vite/Waku resolve them):
+
 ```ts
 import {
   type Comment,
@@ -105,13 +112,19 @@ export function getPostDetail(postId: PostId): { post: Post; author: User; comme
 }
 
 export function addComment(postId: PostId, input: { name: string; body: string }): Comment {
-  const comment: Comment = { id: String(store.nextCommentId++) as CommentId, postId, name: input.name, body: input.body };
+  const comment: Comment = {
+    id: String(store.nextCommentId++) as CommentId,
+    postId,
+    name: input.name,
+    body: input.body,
+  };
   store.comments = [...store.comments, comment];
   return comment;
 }
 ```
 
 - [ ] **Step 2: `src/server/app.ts`** — Hono app (basePath `/api`) + `AppType`, `hono/validator` on the comment route (mirror vite/next/rr7):
+
 ```ts
 import { type PostId } from "examples-shared/data";
 import { Hono } from "hono";
@@ -140,6 +153,7 @@ export type AppType = typeof app;
 ```
 
 - [ ] **Step 3: `src/middleware/api.ts`** — Waku auto-loads `src/middleware/*.ts` (default export = `() => MiddlewareHandler`). Delegate `/api/*` to the Hono app:
+
 ```ts
 import type { MiddlewareHandler } from "hono";
 import { app } from "../server/app";
@@ -153,9 +167,11 @@ const apiMiddleware = (): MiddlewareHandler => async (c, next) => {
 
 export default apiMiddleware;
 ```
+
 > Verify the exact expected signature by reading `node_modules/waku/dist` for how `src/middleware/*` is loaded (the investigation found default-export `() => MiddlewareHandler`). If Waku's middleware loader expects a different shape (e.g. a named export, or a `(options) => MiddlewareHandler` receiving config), match it.
 
 - [ ] **Step 4: DE-RISK — verify the mount works in dev BEFORE building the rest.** check-types first (`pnpm --filter rxfy-example-waku-blog check-types` → exit 0 for these files), then boot dev and probe `/api`:
+
 ```bash
 cd /Users/vanya2h/Repos/rxfy/examples/waku-blog
 pnpm dev > /tmp/waku-blog-dev.log 2>&1 &
@@ -165,9 +181,12 @@ echo "=== /api/posts ==="; curl -s "http://localhost:$PORT/api/posts" | head -c 
 echo; echo "=== log tail ==="; tail -20 /tmp/waku-blog-dev.log
 pkill -f "waku dev" || true
 ```
-EXPECT `/api/posts` to return JSON with `posts`/`authors`/`meta`. 
+
+EXPECT `/api/posts` to return JSON with `posts`/`authors`/`meta`.
+
 - If it returns the JSON → the middleware mount works; proceed.
 - **If it 404s / returns HTML / the middleware didn't load** → switch to the FALLBACK mount: delete `src/middleware/api.ts` and instead create `src/waku.server.tsx`:
+
   ```tsx
   import { fsRouter } from "waku";
   import adapter from "waku/adapters/node";
@@ -182,12 +201,15 @@ EXPECT `/api/posts` to return JSON with `posts`/`authors`/`meta`.
     middlewareFns: [apiMiddleware],
   });
   ```
+
   Read `node_modules/waku/dist/adapters/node.d.ts` to confirm the `adapter` default export signature, the `middlewareFns` option name, and the `fsRouter` import path/signature; adjust the code to the real types (avoid `any` if the real `Context`/`Next` types are importable). Re-run the dev probe. Report which mount mechanism ended up working and the exact final code.
 
 - [ ] **Step 5: commit** (commit whichever mount worked)
+
 ```bash
 git add examples/waku-blog/src/server examples/waku-blog/src/middleware examples/waku-blog/src/waku.server.tsx 2>/dev/null; git commit -m "feat(waku-blog): in-memory store + Hono app mounted at /api"
 ```
+
 (only the files that exist will be added.)
 
 ---
@@ -197,6 +219,7 @@ git add examples/waku-blog/src/server examples/waku-blog/src/middleware examples
 **Files (new):** `src/blog/fetchers.ts`.
 
 - [ ] **Step 1: `src/blog/fetchers.ts`** — typed `hc` client + `isServer` store read (used by RSC `prefetch`) + add-comment RPC (same shapes as next/rr7):
+
 ```ts
 import { type Comment, type CommentId, type PostDetailData, type PostId, type PostsData } from "examples-shared";
 import { hc } from "hono/client";
@@ -232,9 +255,11 @@ export async function addCommentRpc(postId: string, input: { name: string; body:
   return { id: created.id as CommentId, postId: created.postId as PostId, name: created.name, body: created.body };
 }
 ```
+
 > The RSC `prefetch()` calls `fetchPosts`/`fetchPostDetail` server-side → the `isServer` branch reads the store directly. `import type { AppType }` is erased. Correct the `hc` accessor shape if `AppType` infers differently (should match next/rr7).
 
 - [ ] **Step 2: verify + commit** — `pnpm --filter rxfy-example-waku-blog check-types` (server/fetcher files type-check; old components/pages may still error until Task 4). Commit:
+
 ```bash
 git add examples/waku-blog/src/blog
 git commit -m "feat(waku-blog): typed hc RPC client + fetchers"
@@ -247,6 +272,7 @@ git commit -m "feat(waku-blog): typed hc RPC client + fetchers"
 **Files:** rewrite `src/providers.tsx`; new `src/components/HomeView.tsx`, `src/components/PostView.tsx`; rewrite `src/pages/index.tsx`, `src/pages/posts/[slug].tsx`; delete `src/blog.ts`, `src/db.ts`, `src/components/PostList.tsx`, `src/components/PostDetail.tsx`, `src/components/AddCommentForm.tsx`. KEEP `src/ssr.ts` and `src/components/HydrateSnapshot.tsx`.
 
 - [ ] **Step 1: rewrite `src/providers.tsx`** — wrap in `BlogProvider` (navigate via Waku's router, onAddComment via RPC). FIRST verify Waku's client router API: check `node_modules/waku` exports for `useRouter` (likely `import { useRouter } from "waku"` returning `{ push(to), ... }`, or from `waku/router/client`). Use the real export.
+
 ```tsx
 "use client";
 import { useMemo } from "react";
@@ -271,9 +297,11 @@ export function RxfyProvider({ children }: { children: React.ReactNode }) {
   );
 }
 ```
+
 > If `useRouter` isn't exported from `"waku"`, find the correct import (`waku/router/client`) and/or the method name (`push` vs `navigate`) from the installed types and adjust. If Waku exposes no imperative router hook usable here, fall back to `navigate: (path) => { window.location.href = path; }` (full-page nav) and report — but prefer the client router.
 
 - [ ] **Step 2: `src/components/HomeView.tsx`** (client wrapper):
+
 ```tsx
 "use client";
 import { PostList } from "examples-shared";
@@ -285,6 +313,7 @@ export function HomeView() {
 ```
 
 - [ ] **Step 3: `src/components/PostView.tsx`** (client wrapper):
+
 ```tsx
 "use client";
 import { PostDetail } from "examples-shared";
@@ -297,6 +326,7 @@ export function PostView({ postId }: { postId: PostId }) {
 ```
 
 - [ ] **Step 4: rewrite `src/pages/index.tsx`** (RSC — keep prefetch + HydrateSnapshot, render the client wrapper):
+
 ```tsx
 import { postsState } from "examples-shared/data";
 import { fetchPosts } from "../blog/fetchers";
@@ -320,6 +350,7 @@ export const getConfig = async () => {
 ```
 
 - [ ] **Step 5: rewrite `src/pages/posts/[slug].tsx`** (RSC):
+
 ```tsx
 import type { PageProps } from "waku/router";
 import { postDetailState, type PostId } from "examples-shared/data";
@@ -345,17 +376,20 @@ export const getConfig = async () => {
 ```
 
 - [ ] **Step 6: delete the now-shared locals**
+
 ```bash
 git rm examples/waku-blog/src/blog.ts examples/waku-blog/src/db.ts \
        examples/waku-blog/src/components/PostList.tsx \
        examples/waku-blog/src/components/PostDetail.tsx \
        examples/waku-blog/src/components/AddCommentForm.tsx
 ```
+
 Then confirm `src/ssr.ts` and `src/components/HydrateSnapshot.tsx` are UNTOUCHED and still valid (they import only from `rxfy`/`rxfy-react`, not from the deleted `./blog`). READ `src/pages/_layout.tsx` — it imports `RxfyProvider` from `../providers` (still valid) + `../styles.css` (still valid) + `Link` from `waku`; leave it unchanged unless it references a deleted module.
 
 - [ ] **Step 7: verify (hard gate)** — `pnpm --filter rxfy-example-waku-blog check-types` → exit 0. `pnpm --filter rxfy-example-waku-blog exec eslint . --fix` then `pnpm --filter rxfy-example-waku-blog lint` → exit 0 (bare; verify real exit code, don't pipe through `tail`). No dangling refs: `grep -rn "from \"../blog\"\|from \"../../blog\"\|from \"./blog\"\|from \"../db\"\|from \"./db\"\|components/PostList\|components/PostDetail\|components/AddCommentForm" examples/waku-blog/src` → EMPTY except the new `../blog/fetchers` / `../../blog/fetchers` imports.
 
 - [ ] **Step 8: commit**
+
 ```bash
 git add examples/waku-blog/src
 git commit -m "feat(waku-blog): render shared components via BlogProvider + view wrappers"
@@ -371,6 +405,7 @@ git commit -m "feat(waku-blog): render shared components via BlogProvider + view
   - `pnpm --filter rxfy-example-waku-blog build` → the Waku production build (`waku build`) must succeed. This is the key RSC integration gate: it exercises Waku/Vite processing the `examples-shared` source (incl. `"use client"` boundaries), Tailwind via PostCSS scanning the shared package, and bundling the Hono middleware. Capture the result / exact error. If it fails on `"use client"`/RSC boundary handling of the shared components, or on resolving the shadcn runtime deps, report the exact error.
 
 - [ ] **Step 2: runtime SSR smoke (dev)** — boot dev and probe:
+
 ```bash
 cd /Users/vanya2h/Repos/rxfy/examples/waku-blog
 pnpm dev > /tmp/waku-blog-dev.log 2>&1 &
@@ -383,15 +418,18 @@ echo "=== home SSR: shadcn class present? ==="; curl -s "http://localhost:$PORT/
 echo "=== dev log tail ==="; tail -40 /tmp/waku-blog-dev.log
 pkill -f "waku dev" || true
 ```
+
 Assert and REPORT actual values:
+
 - `/api/posts` returns JSON with `posts`, `authors`, `meta.total` (the Hono middleware mount works).
 - Home `/` SSR HTML contains the seeded title `Getting Started with rxfy` ≥1 (RSC prefetch + `HydrateSnapshot` + shared `PostList` render — the crux).
 - `/posts/1` SSR HTML contains the post title (shared `PostDetail` via prefetch).
 - A shadcn class (`text-muted-foreground`, or note other clearly-present shadcn/Tailwind classes) appears (Tailwind scanned the shared package).
 - Dev log clean (no RSC `"use client"` errors, unresolved-module, `examples-shared` resolution failures, or hydration mismatches).
-Then confirm the dev server stopped (port free). If the seeded title is absent from SSR HTML, inspect the log and report verbatim.
+  Then confirm the dev server stopped (port free). If the seeded title is absent from SSR HTML, inspect the log and report verbatim.
 
 - [ ] **Step 3: production start smoke (optional but recommended for RSC)** — since Waku's dev and build paths differ, also verify the built app serves: `pnpm --filter rxfy-example-waku-blog build` (from Step 1) then start it and probe once:
+
 ```bash
 cd /Users/vanya2h/Repos/rxfy/examples/waku-blog
 pnpm start > /tmp/waku-blog-start.log 2>&1 &
@@ -402,11 +440,13 @@ echo; curl -s "http://localhost:$PORT/posts/1" | grep -oc 'Getting Started with 
 tail -15 /tmp/waku-blog-start.log
 pkill -f "waku start" || true
 ```
+
 Report whether the production server also serves `/api/posts` + renders the shared components. If `waku start` behaves differently from dev (e.g. the middleware mount only worked in dev), report it — that would indicate the mount mechanism needs the `waku.server.tsx` fallback for production. (If `waku start` is flaky/unsupported in this beta in the sandbox, note that and rely on the dev smoke + successful build.)
 
 - [ ] **Step 4: monorepo gate + no-regression** — `pnpm turbo check-types lint build --filter=rxfy-example-waku-blog` → all pass. Also `pnpm turbo check-types --filter=examples-shared` and quick `check-types` on `rxfy-example-next-blog` + `rxfy-example-rr7-blog` (Phases 4a/4b unaffected).
 
 - [ ] **Step 5: commit** (empty phase-closer if nothing else changed)
+
 ```bash
 git commit --allow-empty -m "chore(waku-blog): finalize shared-package migration + verify build/SSR"
 ```

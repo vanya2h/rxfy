@@ -1,33 +1,44 @@
 # rxfy [Typed, normalized, reactive state — built on RxJS]
 
-**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your React app: declare typed models, states, and normalized stores, and scale from a client-only store to a fully live app with server-side rendering and real-time updates via websockets. It's built for consistency and granular RxJS-based reactivity at no extra cost.
+**rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your React app: declare typed models, states, and normalized stores, and scale from a client-only store to a fully synced app with server-side rendering and real-time sync via websockets. It's built for consistency and granular RxJS-based reactivity at no extra cost.
 
-```bash
+:::code-group
+
+```bash [npm]
 npm install rxfy rxfy-react
 ```
 
+```bash [pnpm]
+pnpm add rxfy rxfy-react
+```
+
+```bash [yarn]
+yarn add rxfy rxfy-react
+```
+
+:::
+
 **[Get started →](/getting-started)**
 
-## The problem it solves
+## The problem
 
-Keeping every view of your data in agreement is hard. Doing it across many connected clients,
-in real time, is way harder.
+Keeping every view of your data in agreement is a difficult excercise. Doing it across many connected clients,
+in real time, is even harder.
 
-Rename one todo from its detail view. The list, the sidebar counter, the search results: every
-one of them now has to show the new title. Most apps refetch the list (a round-trip for data
+Update one entity (post, comment and etc.). The list, the sidebar counter, the search results: every
+one of them now has to show the latest of version of this entity. Most apps refetch the list (a round-trip for data
 you already have), patch the cache in place (two copies that drift apart), or invalidate caches
 by hand (miss one and the UI goes stale). Now add a second client: Bob still sees the old title
-that Alice just changed. SSR compounds it — after server-rendering the page, the rehydration
-wiring is usually left to you.
+that. Many frameworks leave it to you.
 
-## The insight
+## The solution
 
 All three fixes are workarounds for the same root cause: your app holds multiple copies of the
-same entity. The list has one copy, the detail view fetched another, the cache may hold a
+same entity. The list has one copy, the entity page view fetched another, the cache may hold a
 third, and every write has to find and update all of them. Remove the copies and the
 workarounds become unnecessary.
 
-rxfy stores each entity **once**, in a normalized store keyed by its id. The state holds only
+rxfy stores each entity **once**, in a normalized and composable store keyed by its id. The state holds only
 references to stored entities by id; components don't hold data — they subscribe to the exact
 entities they render, so one write reaches every subscriber. The same model carries SSR: the
 server fills the store and serializes it, and the client restores the snapshot and skips what
@@ -58,17 +69,15 @@ The insight above unfolds into the four principles rxfy is built on:
 - **Every entity lives in one normalized store.** A model declares the entity's schema; every entity lands in a single slot keyed by id. Writing to the slot
   is the only write path — you can't fork a copy — so an update reaches every subscriber
   automatically.
-- **Each page declares its own state over those stores.** A state bundles the fetch params,
-  data shape, and mutation logic into one declaration, and it carries only ids, resolved
-  against the shared stores. Components are the granular consumers — each subscribes to the
-  entity it reads and re-renders only when that entity changes, nothing else.
-- **Values unwrap as late as possible.** The data is wrapped, and only the leaf
-  component that renders a value unwraps it. A write skips unwrapping entirely: it lands in the
-  store whether or not any query has settled. The narrower the unwrap, the narrower the
+- **Each page declares its own state over those stores.** A state composes the fetch params,
+  state shape, and mutation logic into one declaration that references data in shared normalized stores.
+  Components are the granular consumers — use id references from the store and unwrap it in your component. Each [`Pending`](/react/pending) component re-renders only when that entity changes, nothing else.
+- **Values unwrap as late as possible.** The data from normalized store is wrapped in [`Atom`](/rxfy/create-atom), and only the leaf
+  component that renders a value unwraps it. A write skips propagates to all subscribers automatically. The narrower the unwrap, the narrower the
   re-render — see [Late Unwrapping](/core-concepts/late-unwrapping).
 - **States and stores are serializable.** The same declaration the client renders from, the
   server fills and serializes; the client restores the snapshot and skips what it already
-  fetched. [SSR](/core-concepts/ssr) is first-class and works well with frameworks
+  fetched on server. [SSR](/core-concepts/ssr) has first-class support and works well with frameworks
   like Next.js or React Router v7.
 
 ## RxJS as a reactivity engine
@@ -84,17 +93,17 @@ That single decision pays off everywhere:
   entities and states. Combine and transform any kind of data streams.
 - **Push-based, granular delivery.** A write to the store pushes the new value to exactly that
   cell's subscribers. No re-running selectors: delivery is the Observable contract itself.
-- **Live data fits natively.** A websocket push is already a stream, so server updates flow
+- **Synced data fits natively.** A websocket push is already a stream, so server updates flow
   into the same normalized cells without an adapter layer. The
-  [live framework](/getting-started/framework) is built on exactly this.
+  [Sync Client](/getting-started/add-sync-client) is built on exactly this.
 - **Values can stay wrapped.** Because data travels as Observables, nothing unwraps until the
   leaf component that renders it subscribes — see
   [Late Unwrapping](/core-concepts/late-unwrapping).
 
 ## Continue with
 
-- [Getting Started](/getting-started) — install rxfy and choose your path: a client-only store or the full live-app stack.
-- [Using rxfy with agent skills](/agent-skills) — give your AI coding assistant accurate rxfy context.
+- [Getting Started](/getting-started) — install rxfy and add levels as you need them: a client-only store, then SSR, then a fully synced app.
+- [Using rxfy with the agent skill](/agent-skills) — give your AI coding assistant accurate rxfy context.
 - [Comparison with other libraries](/comparison) — how rxfy relates to TanStack Query and other libraries.
 
 ## Useful links

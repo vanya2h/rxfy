@@ -8,18 +8,19 @@ import {
   type WritableQueryShapeFromFields,
 } from "./state.js";
 
-const postModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
-const userModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
+const postModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "post" });
+const userModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "user" });
 
 describe("defineState", () => {
   it("stores paramsSchema", () => {
     const params = z.object({ page: z.number() });
-    const state = defineState({ params, model: { posts: array(postModel) } });
+    const state = defineState({ key: "posts", params, model: { posts: array(postModel) } });
     expect(state.paramsSchema).toBe(params);
   });
 
   it("stores array field descriptor", () => {
     const state = defineState({
+      key: "posts",
       params: z.object({ page: z.number() }),
       model: { posts: array(postModel) },
     });
@@ -28,6 +29,7 @@ describe("defineState", () => {
 
   it("stores single field descriptor", () => {
     const state = defineState({
+      key: "user",
       params: z.object({ id: z.string() }),
       model: { user: single(userModel) },
     });
@@ -36,6 +38,7 @@ describe("defineState", () => {
 
   it("supports multiple fields", () => {
     const state = defineState({
+      key: "page",
       params: z.object({ page: z.number() }),
       model: { posts: array(postModel), user: single(userModel) },
     });
@@ -44,12 +47,10 @@ describe("defineState", () => {
 });
 
 describe("defineState key option", () => {
-  it("stores the optional key on the descriptor", () => {
-    const model = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
+  it("stores the key on the descriptor", () => {
+    const model = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "item" });
     const keyed = defineState({ key: "items", params: z.object({}), model: { items: array(model) } });
     expect(keyed.key).toBe("items");
-    const unkeyed = defineState({ params: z.object({}), model: { items: array(model) } });
-    expect(unkeyed.key).toBeUndefined();
   });
 });
 
@@ -75,6 +76,17 @@ describe("defineState window", () => {
     const s = defineState({ key: "posts", params: z.object({ orgId: z.string() }), model: { isOpen: z.boolean() } });
     expect(s.window).toBeUndefined();
   });
+
+  it("rejects window entries that are not param names (type-level)", () => {
+    const s = defineState({
+      key: "posts",
+      params: z.object({ orgId: z.string(), page: z.number() }),
+      // @ts-expect-error — "sort" is not a declared param
+      window: ["page", "sort"],
+      model: { isOpen: z.boolean() },
+    });
+    expect(s.key).toBe("posts");
+  });
 });
 
 describe("plain value fields", () => {
@@ -86,7 +98,7 @@ describe("plain value fields", () => {
   };
 
   it("stores a zod schema field entry verbatim", () => {
-    const state = defineState({ params: z.object({}), model: fields });
+    const state = defineState({ key: "plain", params: z.object({}), model: fields });
     expect(state.fields.isOpen).toBe(fields.isOpen);
     expect(state.fields.filters).toBe(fields.filters);
   });
@@ -108,7 +120,7 @@ describe("plain value fields", () => {
   });
 
   it("infers data$ shape on the descriptor (type-level)", () => {
-    const _state = defineState({ params: z.object({}), model: fields });
+    const _state = defineState({ key: "plain", params: z.object({}), model: fields });
     type Query = NonNullable<(typeof _state)["_query"]>;
     expectTypeOf<Query>().toEqualTypeOf<{ posts: string[]; isOpen: boolean; filters: { q: string } }>();
   });

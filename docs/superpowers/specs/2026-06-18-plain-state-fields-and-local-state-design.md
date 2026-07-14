@@ -47,9 +47,9 @@ const dashboardState = defineState({
   key: "dashboard",
   params: z.object({ id: z.string() }),
   model: {
-    todos: array(Todo),                                          // normalized → id[]
-    owner: single(User),                                         // normalized → id
-    isOpen: z.boolean(),                                          // plain → boolean
+    todos: array(Todo), // normalized → id[]
+    owner: single(User), // normalized → id
+    isOpen: z.boolean(), // plain → boolean
     filters: z.object({ q: z.string(), tab: z.enum(["a", "b"]) }), // plain → { q, tab }
   },
   mutations: {
@@ -76,9 +76,7 @@ const dashboardState = defineState({
 
   ```ts
   export type ShapeFromFields<T extends FieldsMap> = {
-    [K in keyof T]: T[K] extends FieldDescriptor<infer S> ? S
-      : T[K] extends z.ZodType<infer O, any> ? O
-      : never;
+    [K in keyof T]: T[K] extends FieldDescriptor<infer S> ? S : T[K] extends z.ZodType<infer O, any> ? O : never;
   };
   ```
 
@@ -87,9 +85,12 @@ const dashboardState = defineState({
   ```ts
   export type QueryShapeFromFields<T extends FieldsMap> = {
     [K in keyof T]: T[K] extends FieldDescriptor<infer S>
-      ? (S extends readonly (infer Item)[] ? EntityKey<Item>[] : EntityKey<S>)
-      : T[K] extends z.ZodType<infer O, any> ? O
-      : never;
+      ? S extends readonly (infer Item)[]
+        ? EntityKey<Item>[]
+        : EntityKey<S>
+      : T[K] extends z.ZodType<infer O, any>
+        ? O
+        : never;
   };
   ```
 
@@ -106,7 +107,9 @@ const dashboardState = defineState({
     TMutations extends MutationDefs<TShape> = Record<never, never>,
     TQuery = QueryShapeOf<TShape>,
     TWritable = WritableQueryShapeOf<TShape>,
-  > = { /* …, fields, mutations */ };
+  > = {
+    /* …, fields, mutations */
+  };
   ```
 
   `defineState` fills `TQuery`/`TWritable` with the precise fields-driven types:
@@ -118,7 +121,7 @@ const dashboardState = defineState({
     TMutations,
     QueryShapeFromFields<TFields>,
     WritableQueryShapeFromFields<TFields>
-  >
+  >;
   ```
 
 - New runtime helper `isFieldDescriptor(x): x is FieldDescriptor<any>` in `model.ts`
@@ -175,7 +178,7 @@ const { data$, set, mutations, reload } = useStateData({
 
 ```ts
 type RemoteStateConfig<TParams, TShape, TMutations> = {
-  state: StateDescriptor<TParams, TShape, TMutations, /* … */>;
+  state: StateDescriptor<TParams, TShape, TMutations /* … */>;
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>;
   params: TParams;
   defaultData?: TShape;
@@ -183,7 +186,7 @@ type RemoteStateConfig<TParams, TShape, TMutations> = {
 };
 
 type LocalStateConfig<TParams, TShape, TMutations> = {
-  state: StateDescriptor<TParams, TShape, TMutations, /* … */>;
+  state: StateDescriptor<TParams, TShape, TMutations /* … */>;
   initial: TShape;
   fetchFn?: never;
   params?: never;

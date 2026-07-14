@@ -9,7 +9,7 @@ metadata:
 
 ## Goal
 
-Add a `/why` page to the rxfy docs that answers the question developers ask before reading further: *why does this library exist, and why should I use it instead of something I already know?*
+Add a `/why` page to the rxfy docs that answers the question developers ask before reading further: _why does this library exist, and why should I use it instead of something I already know?_
 
 It is distinct from the existing `/comparison` page (which is a feature table + "when to reach for X" guide). This page earns the comparison by building from first principles.
 
@@ -32,6 +32,7 @@ A single framing sentence: rxfy exists because the common patterns for managing 
 Concrete scenario: a list of entities (e.g. todos), and the moment one changes.
 
 Three bad options developers reach for:
+
 - **Refetch the list** — correct, but wastes a round-trip for data already in hand
 - **Patch in-place** — works until a second component renders the same entity independently and diverges
 - **Manual cache coordination** — invalidation, `setQueryData`, `staleTime`; large surface area, easy to get wrong
@@ -45,6 +46,7 @@ No code. The reader should feel the friction, not study an API.
 One paragraph: these problems share a root cause — **the same entity living in more than one place**.
 
 If every entity lives in exactly one slot, keyed by its id:
+
 - A single write reaches every subscriber. No list refetch. No manual invalidation.
 - Server and client share the same slot model. Hydration becomes a snapshot restore, not a coordination problem.
 
@@ -70,10 +72,10 @@ Between "Introduction" and "Getting Started" in `vocs.config.tsx`:
 
 ## Files to create / modify
 
-| File | Change |
-|---|---|
-| `apps/docs/src/pages/why.mdx` | New page |
-| `apps/docs/vocs.config.tsx` | Add sidebar entry after Introduction |
+| File                          | Change                               |
+| ----------------------------- | ------------------------------------ |
+| `apps/docs/src/pages/why.mdx` | New page                             |
+| `apps/docs/vocs.config.tsx`   | Add sidebar entry after Introduction |
 
 ## Out of scope
 

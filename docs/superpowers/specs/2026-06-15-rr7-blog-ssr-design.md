@@ -7,18 +7,18 @@
 
 Build an example app demonstrating React Router v7 (framework mode) with SSR, where
 **rxfy is the single data layer** and React Router is the **router + SSR shell only**.
-The example answers the open question: *how do we idiomatically handle server-side
-loaders alongside `useStateData`?* — by having rxfy own all domain-data fetching
+The example answers the open question: _how do we idiomatically handle server-side
+loaders alongside `useStateData`?_ — by having rxfy own all domain-data fetching
 (server and client) and reserving RR loaders for routing concerns.
 
 ## Architecture & Data Ownership
 
-| Concern | Owner |
-|---|---|
-| Fetching domain data (server *and* client) | rxfy `useStateData` + `fetchFn` |
-| Normalization, caching, dehydrate/hydrate | rxfy `ModelRegistry` |
-| Routing, URL params, redirects, 404s, auth guards | RR7 `loader()` (no data fetching) |
-| HTML shell, render, client bundle | RR7 `entry.server` / `entry.client` |
+| Concern                                           | Owner                               |
+| ------------------------------------------------- | ----------------------------------- |
+| Fetching domain data (server _and_ client)        | rxfy `useStateData` + `fetchFn`     |
+| Normalization, caching, dehydrate/hydrate         | rxfy `ModelRegistry`                |
+| Routing, URL params, redirects, 404s, auth guards | RR7 `loader()` (no data fetching)   |
+| HTML shell, render, client bundle                 | RR7 `entry.server` / `entry.client` |
 
 Key decisions (from brainstorming):
 
@@ -49,7 +49,7 @@ Key decisions (from brainstorming):
 ### Client-navigation flow
 
 Navigating list → detail has no RR loader fetching data, so the detail component's
-`useStateData` fetches client-side on subscribe — *except* entities already normalized by
+`useStateData` fetches client-side on subscribe — _except_ entities already normalized by
 the list (the post + author) are `ModelStore` cache hits, so only the missing slice
 (comments) is genuinely fetched.
 
@@ -107,7 +107,7 @@ This is an example app, so the bar is "demonstrably works," not unit-test covera
 - **No hydration mismatch / no client refetch:** load in a browser, confirm no React
   hydration warning and no data fetch in the network tab for the already-SSR'd route.
 - Short `README.md` explaining the architecture and the loader/rxfy division of labor —
-  this *is* the deliverable of an example.
+  this _is_ the deliverable of an example.
 
 No new tests added to `rxfy`/`rxfy-react`; this exercises existing public APIs. Per
 CLAUDE.md, **no changeset is needed** (examples are private / never published).
@@ -115,7 +115,7 @@ CLAUDE.md, **no changeset is needed** (examples are private / never published).
 ## Risks
 
 1. **Script injection ordering** — `hydrationScript` must populate `window.__RXFY_SSR__`
-   *before* RR7's client module runs `hydrateRoot`. Buffered injection before `</body>`
+   _before_ RR7's client module runs `hydrateRoot`. Buffered injection before `</body>`
    satisfies this; the `curl` check catches regressions. Most likely spot to need iteration.
 2. **`onAllReady` vs RR7 defaults** — RR7's stock `entry.server` branches between
    `onShellReady` and `onAllReady`; we deliberately always use `onAllReady` (buffered),

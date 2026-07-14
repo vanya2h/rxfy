@@ -1,0 +1,109 @@
+# Add SSR [Render the first paint on the server, hydrate with no refetch]
+
+This is the second level. You have a working store from
+[Create Store](/getting-started/create-store); now render it on the server so the first
+paint arrives already fulfilled — no loading flash, no refetch, no hydration mismatch. There
+is still **no server yet pushing updates**; that is the next level,
+[Add Sync Client](/getting-started/add-sync-client).
+
+Nothing in your components changes. They declare data with [`useStateData`](/react/use-state-data) exactly as before;
+all the data is fetched on server and can be cached with any logic you might need, the result is captured in the
+registry, serialized into the HTML, and ingested on the client.
+
+:::info[Requirements]
+Models carry a `name` and states a `key` (both required by their types), and `fetchFn` must
+run in **both** environments — it fetches on the server during SSR and on the client for
+reloads. See [Server-Side Rendering](/core-concepts/ssr) for the full requirements.
+:::
+
+## Render on the server
+
+`onAllReady` waits for every Suspense boundary, then you dehydrate the now-complete registry
+into a snapshot and return it alongside the HTML. One registry per request — never shared:
+
+```tsx [entry-server.tsx]
+import { PassThrough } from "node:stream";
+import { StrictMode, Suspense } from "react";
+import { renderToPipeableStream } from "react-dom/server";
+import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
+
+export function render(url: string): Promise<{ html: string; state: string }> {
+  const registry = createModelRegistry(); // one registry per request — never shared
+
+  return new Promise((resolve, reject) => {
+    const { pipe } = renderToPipeableStream(
+      <StrictMode>
+        <StoreProvider registry={registry} ssr>
+          <Suspense fallback={null}>
+            <App url={url} />
+          </Suspense>
+        </StoreProvider>
+      </StrictMode>,
+      {
+        // Fires once every fetch has settled and the registry is fully populated.
+        onAllReady() {
+          const sink = new PassThrough();
+          let html = "";
+          sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
+          sink.on("end", () => {
+            resolve({ html, state: hydrationScript(dehydrate(registry)) });
+          });
+          pipe(sink);
+        },
+        onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
+      },
+    );
+  });
+}
+```
+
+## Inject the snapshot
+
+Your HTTP handler drops the rendered markup and the dehydrated `<script>` into an
+`index.html` template with two placeholders:
+
+```ts [server.ts]
+import { readFileSync } from "node:fs";
+import { render } from "./entry-server";
+
+// index.html carries two placeholders: <!--app-html--> and <!--app-state-->
+const template = readFileSync("./index.html", "utf-8");
+
+// Express / Hono / plain node:http — whatever serves your HTML.
+app.get("*", async (req, res) => {
+  const { html, state } = await render(req.url);
+  const page = template
+    .replace("<!--app-html-->", html) // the rendered markup
+    .replace("<!--app-state-->", state); // the hydrationScript <script> tag
+  res.status(200).setHeader("Content-Type", "text/html").end(page);
+});
+```
+
+## Hydrate on the client
+
+The injected `<script>` populated `window.__RXFY_SSR__`; `StoreProvider ssr` ingests it, so
+the first paint is already fulfilled:
+
+```tsx [client.tsx]
+import { hydrateRoot } from "react-dom/client";
+import { StoreProvider } from "rxfy-react";
+import { App } from "./App";
+
+hydrateRoot(
+  document.getElementById("root")!,
+  <StoreProvider ssr>
+    <App url={window.location.pathname} />
+  </StoreProvider>,
+);
+```
+
+Reload the page with the network throttled: the content is in the initial HTML, and the
+client hydrates it without a second fetch.
+
+## Next: Add Sync Client
+
+Your store now survives a page load. The last level is
+[Add Sync Client](/getting-started/add-sync-client) — a server that writes and publishes, and
+a client that subscribes and applies real-time updates.

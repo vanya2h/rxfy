@@ -42,6 +42,7 @@
 ### Task 1: Scaffold the hook — page 0 through `fetchPage` + `merge`
 
 **Files:**
+
 - Create: `packages/rxfy-react/src/useStatePagedData.ts`
 - Test: `packages/rxfy-react/src/useStatePagedData.test.tsx`
 
@@ -117,15 +118,17 @@ import { normalizeResult } from "rxfy";
 import { useModelRegistry } from "./registry-context.js";
 import { useStateData, type StateHandle } from "./useStateData.js";
 
-export type PagedStateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> =
-  StateHandle<TShape, TMutations> & {
-    /** Fetch and append the next page. No-op while a load is in flight or once `hasMore` is false. */
-    readonly loadMore: () => void;
-    /** True while a `loadMore` fetch is in flight. */
-    readonly isLoading: boolean;
-    /** False once `config.hasMore` reports the list is exhausted (always true if `hasMore` is omitted). */
-    readonly hasMore: boolean;
-  };
+export type PagedStateHandle<TShape, TMutations extends MutationDefs<TShape> = Record<never, never>> = StateHandle<
+  TShape,
+  TMutations
+> & {
+  /** Fetch and append the next page. No-op while a load is in flight or once `hasMore` is false. */
+  readonly loadMore: () => void;
+  /** True while a `loadMore` fetch is in flight. */
+  readonly isLoading: boolean;
+  /** False once `config.hasMore` reports the list is exhausted (always true if `hasMore` is omitted). */
+  readonly hasMore: boolean;
+};
 
 export type UseStatePagedDataConfig<TParams, TShape, TPage, TCursor, TMutations extends MutationDefs<TShape>> = {
   state: StateDescriptor<TParams, TShape, TMutations>;
@@ -186,10 +189,7 @@ export function useStatePagedData<TParams, TShape, TPage, TCursor, TMutations ex
     void handle; // loadMore is wired in a later task
   }, [handle]);
 
-  return useMemo(
-    () => ({ ...handle, loadMore, isLoading, hasMore }),
-    [handle, loadMore, isLoading, hasMore],
-  );
+  return useMemo(() => ({ ...handle, loadMore, isLoading, hasMore }), [handle, loadMore, isLoading, hasMore]);
 }
 ```
 
@@ -210,6 +210,7 @@ git commit -m "feat(rxfy-react): scaffold useStatePagedData with page-0 fetch"
 ### Task 2: Implement `loadMore` — append pages, guard concurrency, expose `isLoading`
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStatePagedData.ts`
 - Test: `packages/rxfy-react/src/useStatePagedData.test.tsx`
 
@@ -218,66 +219,66 @@ git commit -m "feat(rxfy-react): scaffold useStatePagedData with page-0 fetch"
 Append these tests inside the `describe("useStatePagedData", …)` block in `useStatePagedData.test.tsx`:
 
 ```tsx
-  it("loadMore appends the next page and advances the cursor", async () => {
-    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
-    const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
-      { wrapper },
-    );
-    await firstValueFrom(result.current.data$); // page 0 → ids "0","1"
+it("loadMore appends the next page and advances the cursor", async () => {
+  const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
+  const { result } = renderHook(
+    () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+    { wrapper },
+  );
+  await firstValueFrom(result.current.data$); // page 0 → ids "0","1"
 
-    await act(async () => {
-      result.current.loadMore();
-    });
-    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
-
-    const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual(["0", "1", "2", "3"]);
-    // cursor for page 1 = number of loaded ids (offset-based getCursor)
-    expect(fetchPage).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 2 }));
+  await act(async () => {
+    result.current.loadMore();
   });
+  await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
 
-  it("ignores a second loadMore while one is in flight", async () => {
-    let resolveSecond!: (p: PostPage) => void;
-    const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
-      cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
-    );
-    const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
-      { wrapper },
-    );
-    await firstValueFrom(result.current.data$);
+  const data = await firstValueFrom(result.current.data$);
+  expect(data.posts).toEqual(["0", "1", "2", "3"]);
+  // cursor for page 1 = number of loaded ids (offset-based getCursor)
+  expect(fetchPage).toHaveBeenNthCalledWith(2, expect.objectContaining({ cursor: 2 }));
+});
 
-    act(() => {
-      result.current.loadMore();
-      result.current.loadMore(); // guarded — the first is still in flight
-    });
-    expect(fetchPage).toHaveBeenCalledTimes(2); // page 0 + exactly one loadMore
+it("ignores a second loadMore while one is in flight", async () => {
+  let resolveSecond!: (p: PostPage) => void;
+  const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
+    cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
+  );
+  const { result } = renderHook(
+    () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+    { wrapper },
+  );
+  await firstValueFrom(result.current.data$);
 
-    await act(async () => {
-      resolveSecond(page(2, 2));
-    });
+  act(() => {
+    result.current.loadMore();
+    result.current.loadMore(); // guarded — the first is still in flight
   });
+  expect(fetchPage).toHaveBeenCalledTimes(2); // page 0 + exactly one loadMore
 
-  it("flips isLoading around a loadMore", async () => {
-    let resolveSecond!: (p: PostPage) => void;
-    const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
-      cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
-    );
-    const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
-      { wrapper },
-    );
-    await firstValueFrom(result.current.data$);
-
-    act(() => result.current.loadMore());
-    expect(result.current.isLoading).toBe(true);
-
-    await act(async () => {
-      resolveSecond(page(2, 2));
-    });
-    expect(result.current.isLoading).toBe(false);
+  await act(async () => {
+    resolveSecond(page(2, 2));
   });
+});
+
+it("flips isLoading around a loadMore", async () => {
+  let resolveSecond!: (p: PostPage) => void;
+  const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
+    cursor === 0 ? Promise.resolve(page(0, 2)) : new Promise<PostPage>((r) => (resolveSecond = r)),
+  );
+  const { result } = renderHook(
+    () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+    { wrapper },
+  );
+  await firstValueFrom(result.current.data$);
+
+  act(() => result.current.loadMore());
+  expect(result.current.isLoading).toBe(true);
+
+  await act(async () => {
+    resolveSecond(page(2, 2));
+  });
+  expect(result.current.isLoading).toBe(false);
+});
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -290,40 +291,40 @@ Expected: FAIL — `loadMore appends…` expects `fetchPage` called twice but it
 In `packages/rxfy-react/src/useStatePagedData.ts`, replace the placeholder `loadMore` (the `useCallback` whose body is `void handle;`) with the real implementation, and add a subscription effect that keeps `idsRef` current. The relevant region becomes:
 
 ```tsx
-  const handle = useStateData(state, fetchFirst, params);
+const handle = useStateData(state, fetchFirst, params);
 
-  // Mirror the latest normalized ids so loadMore's getCursor can read them synchronously.
-  useEffect(() => {
-    const sub = handle.data$.subscribe({
-      next: (ids) => {
-        idsRef.current = ids as QueryShapeOf<TShape>;
-      },
-      error: () => {},
+// Mirror the latest normalized ids so loadMore's getCursor can read them synchronously.
+useEffect(() => {
+  const sub = handle.data$.subscribe({
+    next: (ids) => {
+      idsRef.current = ids as QueryShapeOf<TShape>;
+    },
+    error: () => {},
+  });
+  return () => sub.unsubscribe();
+}, [handle.data$]);
+
+const loadMore = useCallback(() => {
+  if (loadingRef.current || !hasMoreRef.current) return;
+  loadingRef.current = true;
+  setIsLoading(true);
+  const { fetchPage, getCursor, merge, hasMore: hasMoreFn } = cfgRef.current;
+  const cursor = getCursor({ ids: idsRef.current, pageIndex: pageIndexRef.current });
+  fetchPage({ cursor, params, signal: new AbortController().signal })
+    .then((page) => {
+      hasMoreRef.current = hasMoreFn ? hasMoreFn({ page }) : true;
+      pageIndexRef.current += 1;
+      handle.set((prev) => merge({ prev, page }));
+      setHasMoreState(hasMoreRef.current);
+    })
+    .catch(() => {
+      // Leave the list as-is and allow a retry; the finally clears the in-flight guard.
+    })
+    .finally(() => {
+      loadingRef.current = false;
+      setIsLoading(false);
     });
-    return () => sub.unsubscribe();
-  }, [handle.data$]);
-
-  const loadMore = useCallback(() => {
-    if (loadingRef.current || !hasMoreRef.current) return;
-    loadingRef.current = true;
-    setIsLoading(true);
-    const { fetchPage, getCursor, merge, hasMore: hasMoreFn } = cfgRef.current;
-    const cursor = getCursor({ ids: idsRef.current, pageIndex: pageIndexRef.current });
-    fetchPage({ cursor, params, signal: new AbortController().signal })
-      .then((page) => {
-        hasMoreRef.current = hasMoreFn ? hasMoreFn({ page }) : true;
-        pageIndexRef.current += 1;
-        handle.set((prev) => merge({ prev, page }));
-        setHasMoreState(hasMoreRef.current);
-      })
-      .catch(() => {
-        // Leave the list as-is and allow a retry; the finally clears the in-flight guard.
-      })
-      .finally(() => {
-        loadingRef.current = false;
-        setIsLoading(false);
-      });
-  }, [handle, params]);
+}, [handle, params]);
 ```
 
 (Keep the existing `return useMemo(() => ({ ...handle, loadMore, isLoading, hasMore }), [handle, loadMore, isLoading, hasMore]);`.)
@@ -345,6 +346,7 @@ git commit -m "feat(rxfy-react): implement loadMore with concurrency guard and i
 ### Task 3: End-of-list — expose `hasMore` and stop paging
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStatePagedData.ts`
 - Test: `packages/rxfy-react/src/useStatePagedData.test.tsx`
 
@@ -353,28 +355,26 @@ git commit -m "feat(rxfy-react): implement loadMore with concurrency guard and i
 Append to the `describe` block in `useStatePagedData.test.tsx`:
 
 ```tsx
-  it("stops paging once hasMore returns false", async () => {
-    const hasMore = ({ page }: { page: PostPage }) => page.items.length === 2;
-    // page 0 → 2 items (hasMore true); page 1 → 1 item (hasMore false).
-    const fetchPage = vi.fn(({ cursor }: { cursor: number }) =>
-      Promise.resolve(cursor === 0 ? page(0, 2) : page(2, 1)),
-    );
-    const { result } = renderHook(
-      () =>
-        useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge, hasMore }),
-      { wrapper },
-    );
-    await firstValueFrom(result.current.data$);
-    expect(result.current.hasMore).toBe(true);
+it("stops paging once hasMore returns false", async () => {
+  const hasMore = ({ page }: { page: PostPage }) => page.items.length === 2;
+  // page 0 → 2 items (hasMore true); page 1 → 1 item (hasMore false).
+  const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(cursor === 0 ? page(0, 2) : page(2, 1)));
+  const { result } = renderHook(
+    () =>
+      useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge, hasMore }),
+    { wrapper },
+  );
+  await firstValueFrom(result.current.data$);
+  expect(result.current.hasMore).toBe(true);
 
-    await act(async () => {
-      result.current.loadMore();
-    });
-    await waitFor(() => expect(result.current.hasMore).toBe(false));
-
-    result.current.loadMore(); // guarded by hasMore — no fetch
-    expect(fetchPage).toHaveBeenCalledTimes(2); // page 0 + one loadMore only
+  await act(async () => {
+    result.current.loadMore();
   });
+  await waitFor(() => expect(result.current.hasMore).toBe(false));
+
+  result.current.loadMore(); // guarded by hasMore — no fetch
+  expect(fetchPage).toHaveBeenCalledTimes(2); // page 0 + one loadMore only
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -389,16 +389,16 @@ Expected: FAIL — `result.current.hasMore` stays `true` after the terminal page
 In `packages/rxfy-react/src/useStatePagedData.ts`, extend the existing `data$` subscription effect's `next` handler to also mirror `hasMoreRef` into render state (React bails out when the value is unchanged):
 
 ```tsx
-  useEffect(() => {
-    const sub = handle.data$.subscribe({
-      next: (ids) => {
-        idsRef.current = ids as QueryShapeOf<TShape>;
-        setHasMoreState(hasMoreRef.current);
-      },
-      error: () => {},
-    });
-    return () => sub.unsubscribe();
-  }, [handle.data$]);
+useEffect(() => {
+  const sub = handle.data$.subscribe({
+    next: (ids) => {
+      idsRef.current = ids as QueryShapeOf<TShape>;
+      setHasMoreState(hasMoreRef.current);
+    },
+    error: () => {},
+  });
+  return () => sub.unsubscribe();
+}, [handle.data$]);
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -418,6 +418,7 @@ git commit -m "feat(rxfy-react): expose hasMore and stop paging at end of list"
 ### Task 4: Reset pagination on reload / params change
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStatePagedData.ts`
 - Test: `packages/rxfy-react/src/useStatePagedData.test.tsx`
 
@@ -426,26 +427,26 @@ git commit -m "feat(rxfy-react): expose hasMore and stop paging at end of list"
 Append to the `describe` block in `useStatePagedData.test.tsx`:
 
 ```tsx
-  it("reload refetches page 0 and resets the cursor", async () => {
-    const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
-    const { result } = renderHook(
-      () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
-      { wrapper },
-    );
-    await firstValueFrom(result.current.data$);
-    await act(async () => {
-      result.current.loadMore();
-    });
-    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2)); // cursor 0, then 2
-
-    act(() => result.current.reload());
-    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
-
-    // reload cleared the keyed cache; pageIndex/ids reset → page 0 refetched at cursor 0
-    expect(fetchPage).toHaveBeenNthCalledWith(3, expect.objectContaining({ cursor: 0 }));
-    const data = await firstValueFrom(result.current.data$);
-    expect(data.posts).toEqual(["0", "1"]);
+it("reload refetches page 0 and resets the cursor", async () => {
+  const fetchPage = vi.fn(({ cursor }: { cursor: number }) => Promise.resolve(page(cursor, 2)));
+  const { result } = renderHook(
+    () => useStatePagedData({ state: pagedState, params: PARAMS, initial: INITIAL, fetchPage, getCursor, merge }),
+    { wrapper },
+  );
+  await firstValueFrom(result.current.data$);
+  await act(async () => {
+    result.current.loadMore();
   });
+  await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2)); // cursor 0, then 2
+
+  act(() => result.current.reload());
+  await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
+
+  // reload cleared the keyed cache; pageIndex/ids reset → page 0 refetched at cursor 0
+  expect(fetchPage).toHaveBeenNthCalledWith(3, expect.objectContaining({ cursor: 0 }));
+  const data = await firstValueFrom(result.current.data$);
+  expect(data.posts).toEqual(["0", "1"]);
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -460,15 +461,15 @@ Expected: FAIL — the 3rd call's cursor is `4` (stale `idsRef` from the pre-rel
 In `packages/rxfy-react/src/useStatePagedData.ts`, add this effect immediately **after** `const handle = useStateData(state, fetchFirst, params);` and **before** the `data$` subscription effect (declaration order matters: reset must run before the re-subscription's first emission):
 
 ```tsx
-  // A new handle means params changed or reload() ran — start pagination over.
-  useEffect(() => {
-    loadingRef.current = false;
-    hasMoreRef.current = true;
-    pageIndexRef.current = 1;
-    idsRef.current = emptyIds;
-    setIsLoading(false);
-    setHasMoreState(true);
-  }, [handle, emptyIds]);
+// A new handle means params changed or reload() ran — start pagination over.
+useEffect(() => {
+  loadingRef.current = false;
+  hasMoreRef.current = true;
+  pageIndexRef.current = 1;
+  idsRef.current = emptyIds;
+  setIsLoading(false);
+  setHasMoreState(true);
+}, [handle, emptyIds]);
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -493,6 +494,7 @@ git commit -m "feat(rxfy-react): reset pagination on reload and params change"
 ### Task 5: Export the hook
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/index.tsx`
 
 - [ ] **Step 1: Add the exports**
@@ -521,6 +523,7 @@ git commit -m "feat(rxfy-react): export useStatePagedData"
 ### Task 6: Adopt the hook in the example
 
 **Files:**
+
 - Modify: `examples/vite-ssr-pagination/src/Users.tsx`
 
 - [ ] **Step 1: Rewrite `Users.tsx` to use the hook**
@@ -611,6 +614,7 @@ git commit -m "refactor(example): use useStatePagedData for vite-ssr-pagination"
 ### Task 7: Changeset + full verification
 
 **Files:**
+
 - Create: `.changeset/<generated-name>.md`
 
 - [ ] **Step 1: Create the changeset**

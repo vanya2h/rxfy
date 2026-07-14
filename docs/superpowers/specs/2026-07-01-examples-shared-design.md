@@ -14,6 +14,7 @@ only its framework glue (routing, SSR seeding, `"use client"` boundaries, Hono m
 — the Drizzle/live backend).
 
 Locked decisions:
+
 - **All four** unify on **shadcn/ui + Tailwind v4**.
 - **`examples-shared` holds UI only** — components + shadcn UI + theme + the shared Zod
   **models/states/types + canonical seed content** (the shape/content the components are typed against).
@@ -29,6 +30,7 @@ Locked decisions:
 ## 2. Scope
 
 ### In scope
+
 - `rxfy-server` addition: `defineResource` accepts an optional pre-made `model`. Changeset + tests.
 - `examples/example-shared`: shadcn UI (monorepo pattern) + theme CSS; shared Zod models/states/types +
   canonical seed arrays; shared read components + `BlogProvider`; `UpdatesBadge` (inert without a live
@@ -39,6 +41,7 @@ Locked decisions:
   blog/components/CSS + in-memory-fetcher modules (replaced by Hono handlers + RPC).
 
 ### Non-goals
+
 - No shared API/backend package (per-example Hono, by decision).
 - No Drizzle/DB for next/rr7/waku (plain in-memory behind Hono).
 - No full create/edit/delete parity for the three (shared read UI + add-comment; vite keeps extras).
@@ -87,6 +90,7 @@ export function defineResource<TTable extends PgTable>(config: {
   model?: ModelDescriptor<InferSelectModel<TTable>>; // NEW — use instead of deriving
 }): Resource<TTable> { … }
 ```
+
 - `model` provided → `resource.model = config.model`; `resource.name = config.name ?? model.name ?? tableName`; PK still from the table.
 - Omitted → unchanged (derive via drizzle-zod).
 
@@ -102,14 +106,29 @@ The Zod layer is the single source (convention `userId`, comment `name`, `meta` 
 ```ts
 // models.ts — branded ids + createModel("user"|"post"|"comment")
 export const PostSchema = z.object({ id: PostIdSchema, userId: UserIdSchema, title: z.string(), body: z.string() });
-export const CommentSchema = z.object({ id: CommentIdSchema, postId: PostIdSchema, name: z.string(), body: z.string() });
+export const CommentSchema = z.object({
+  id: CommentIdSchema,
+  postId: PostIdSchema,
+  name: z.string(),
+  body: z.string(),
+});
 export const postModel = createModel({ schema: PostSchema, getKey: (x) => x.id, name: "post" }); // + user, comment
 
 // states.ts
-export const postsState = defineState({ key: "posts", params: z.object({}),
-  model: { posts: array(postModel), authors: array(userModel), meta: z.object({ total: z.number(), generatedAt: z.string() }) } });
-export const postDetailState = defineState({ key: "post-detail", params: z.object({ postId: PostIdSchema }),
-  model: { post: single(postModel), author: single(userModel), comments: array(commentModel) } });
+export const postsState = defineState({
+  key: "posts",
+  params: z.object({}),
+  model: {
+    posts: array(postModel),
+    authors: array(userModel),
+    meta: z.object({ total: z.number(), generatedAt: z.string() }),
+  },
+});
+export const postDetailState = defineState({
+  key: "post-detail",
+  params: z.object({ postId: PostIdSchema }),
+  model: { post: single(postModel), author: single(userModel), comments: array(commentModel) },
+});
 
 // types.ts — User, Post, Comment (z.infer)
 // seed.ts — canonical arrays (5 posts, 3 users, comments) so every example shows identical content
@@ -162,6 +181,7 @@ client refetches (or applies the state's `addComment` mutation optimistically) s
 - **vite-blog-framework:** swap local `blog/`+`components/` for shared; `defineResource({ model })`; RPC-type its Hono routes + switch `api-client` to `hc`; inject `NewPostForm`/edit/delete via slots; keep entries/ws/live.
 
 ## 9. Testing & gates
+
 - **examples-shared:** a light Vitest test that the models/states normalize the seed shape (and
   `postsState`/`postDetailState` query shapes are as expected). `check-types` + `lint` (+ `build` if built).
 - **rxfy-server:** unit tests for `defineResource({ model })`.
@@ -170,6 +190,7 @@ client refetches (or applies the state's `addComment` mutation optimistically) s
   the identical shadcn UI.
 
 ## 10. Phasing (each phase green)
+
 1. **`rxfy-server` `defineResource({ model })`** + tests + changeset.
 2. **`examples/example-shared`** — scaffold (shadcn + theme + models/states/types/seed + components +
    `BlogProvider`) + data-shape test. Standalone-lintable/typecheckable.
@@ -179,14 +200,15 @@ client refetches (or applies the state's `addComment` mutation optimistically) s
    in-memory db + `hc` client, render shared components via `BlogProvider`, keep SSR/routing glue. Each green.
 
 ## 11. Self-review notes
-- **Interpretation flagged:** "UI only" is read as *components + shadcn UI + theme + the shared
-  models/states/types + canonical seed content*; **fetch/RPC/DB logic is per-example**. Seed content is
+
+- **Interpretation flagged:** "UI only" is read as _components + shadcn UI + theme + the shared
+  models/states/types + canonical seed content_; **fetch/RPC/DB logic is per-example**. Seed content is
   shared so all four show identical posts (core to "look the same"). If the user wants seed per-example too,
   move `seed.ts` out.
 - **Consistency:** single Zod data source; one shadcn theme; one component set; uniform Hono-RPC transport
   with per-example servers; `defineResource({ model })` lets vite's live backend use the shared model.
 - **Risks:** (a) mounting Hono in three different frameworks (Next route handler / RR resource route / Waku
-  API seam) — the biggest new surface; the plan pins each and they're independent. (b) shadcn *source*
+  API seam) — the biggest new surface; the plan pins each and they're independent. (b) shadcn _source_
   package + Tailwind `@source` across four bundlers, `@/`-alias not leaking into apps — pinned fallback:
   rewrite the shared package's `@/` imports to relative. (c) RSC `"use client"` in shared source — validated
   during next/waku migration.

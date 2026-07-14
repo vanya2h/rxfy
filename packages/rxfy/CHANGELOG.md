@@ -1,5 +1,161 @@
 # rxfy
 
+## 3.0.0-rc.1
+
+### Major Changes
+
+- f4cf59f: Entity grants: the signed grant now names the exact entity topics it authorizes.
+
+  `live.serve` extracts the served payload's `name:id` topics and signs them into the grant claims;
+  the `subscribe` frame drops its `entities` field (the client forwards only the grant); the WS server
+  subscribes to `channel + claims.entities` alone. Entity ids no longer need to be unguessable — a grant
+  authorizes a fixed, signed set. SSR reuses the served grant verbatim (`grantsHydration` no longer signs;
+  its `secret`/`ttlMs` options are removed). New `collectShapeTopics` export in `rxfy`.
+
+- 630ab6f: Automatic live subscriptions via signed channel grants — the declared-grant flow is removed.
+
+  `live.serve(state, params, data)` signs a per-state JWT grant (channel + expiry) and attaches it
+  to the parsed payload as `$grant`; `useStateData` lifts it automatically and subscribes with the
+  payload's entity topics. Nothing to declare, no keyer, no fetch-client wiring.
+
+  - `rxfy`: hydration payload carries `grants: string[]`; new `collectEntityTopics`.
+  - `rxfy-protocol`: v2 — `subscribe { grant, entities }` is the only client frame; hashed-token
+    subscribe/unsubscribe frames are gone.
+  - `rxfy-server`: `createServer` requires `secret`; `serve` returns the parsed shape + `$grant`;
+    new `renew`; hub is socket-keyed with grant expiry; `createTopicKeyer`, `grant`, `GrantSpec`,
+    `Grants` are removed.
+  - `rxfy-ws`: the server verifies grants on `subscribe`; the client transport is `send`/`onOpen`.
+  - `rxfy-react`: `useStateData` lifts `$grant`; `addGrants` and grant props are removed.
+
+  SECURITY: the grant authorizes both the channel and the exact entity topics it was signed for (see
+  the entity-grants changeset), so entity ids need not be unguessable. Keep `Cache-Control: private,
+no-store` on state endpoints as ordinary response hygiene (the payload carries a bearer grant).
+
+- 02995d1: `createModel` now requires `name` (and `ModelDescriptor.name` is non-optional). The name is the model's stable string identity for SSR dehydration and live topics, and making it mandatory removes every unnamed-model fallback path:
+
+  - `dehydrate` no longer skips stores (and the "model store holds data but has no name" dev warning is gone) — every store serializes.
+  - `modelTopic` no longer throws for unnamed models.
+  - The registry's `added# rxfy covers every store; the "unnamed stores are skipped" carve-out is gone.
+  - Error messages always carry the real model name (no more `<unnamed>`).
+
+  Migration: add `name: "..."` to any `createModel` call that omitted it. Names must be unique per app — duplicates still trigger the registry's dev warning since their entities would mix in `dehydrate` output.
+
+- 02995d1: `defineState` now requires `key`, and `StateDescriptor.key` is a required `string`. Every state participates in the SSR query cache and derives a live invalidation channel; the keyless opt-out is gone. Keyed descriptors are now directly assignable to key-requiring inputs such as rxfy-server's `StateChannelDescriptor`, so `touch(postsState, params)` works without a cast. `useStateData` drops the keyless code paths (private per-mount query atom and the SSR "cannot be fetched" warning). A `_shape` phantom carrier was added to `StateDescriptor` so `TShape` is structurally inferable from a descriptor value.
+
+  Migration: add a unique `key` to any `defineState` call that omitted one.
+
+- 02995d1: BREAKING: `ModelStore.get(key)` now returns a writable `IAtom<T>` (the former `entity(key)` handle) instead of a filtering `Observable<T>`, and `ModelStore.entity` is removed. Accessing a key that has never been `set` **throws** instead of returning an observable that waits silently — ids are expected to come from fulfilled states, which always normalize their entities into the store before handing out ids, so an unloaded access is a programming error surfaced early.
+
+  - `get(id)` reads synchronously (`.get()`), subscribes reactively (it is still an `Observable`), and writes back (`.set()` / `.modify()`), exactly like `entity(id)` did.
+  - `get(id)` returns the entity's cell itself — a stable identity across calls, with no per-call wrapper allocation. Store cells are only created on `set`, so a cell existing means its entity is loaded.
+  - `get()` results are no longer sync-marked — no `usePending`/`<Pending>` probe is involved; entity reads carry no async status at all.
+
+  Migration:
+
+  - `store.entity(id)` → `store.get(id)` (same semantics).
+  - `<Pending value$={store.get(id)}>{(x) => …}</Pending>` → `const [x] = useAtom(useMemo(() => store.get(id), [store, id]))` and render directly.
+  - `combineLatest({ a: storeA.get(ia), b: storeB.get(ib) })` → two `useAtom` reads.
+  - To probe for presence without throwing, use `store.getValue(id)`.
+
+### Minor Changes
+
+- 9984591: `live.serve(state, params, data)` now accepts the state's _input_ shape and parses it through the field schemas instead of passing data through untouched. Raw DB rows — unbranded ids, extra columns like `createdAt` — go in with no casts; the returned payload has ids branded and unknown keys stripped. This changes `serve`'s behavior: the result is a new parsed object (not the same reference), and invalid data now throws.
+
+  To support this, rxfy threads the zod Input type through the descriptors: `ModelDescriptor`, `FieldDescriptor`, and `StateDescriptor` gain a trailing input type parameter (defaulted, non-breaking), `defineState` derives it via the new `InputShapeFromFields`, and the new `parseShape(fields, input)` helper performs the parse.
+
+- 02995d1: `IModelRegistry` is now generic over its registered models, accumulated as a name-keyed record: `createModelRegistry(postModel).add(commentModel)` types the registry as `IModelRegistry<{ post: typeof postModel; comment: typeof commentModel }>`. On a typed registry:
+
+  - `registry.store("post")` is a typed lookup returning `ModelStore<Post>` (new method; throws if the store was never materialized).
+  - `registry.model(descriptor)` only accepts registered descriptors at compile time.
+  - `registry.stashHydration(name, entities)` checks the name against registered models and the entities against that model's entity type.
+  - `registry.namedStores()` keys are the registered model names, and its values the union of the registered stores (use `store(name)` for a per-name type).
+
+  The closed set is a compile-time guard only — runtime behavior is unchanged, and `.add()` just materializes the store (idempotent) and returns the same registry. Bare `IModelRegistry` and no-arg `createModelRegistry()` remain the open registry: any descriptor is accepted lazily exactly as before, and typed registries are assignable wherever `IModelRegistry` is expected, so no consuming signatures change.
+
+  To support name-keyed typing, `createModel` now captures `name` as a literal type via a trailing `TName extends string = string` generic on `ModelDescriptor`/`CreateModelConfig` (non-breaking). Also exports `AnyModelDescriptor` and `ModelsShape`.
+
+### Patch Changes
+
+- 02995d1: `defineState`'s `window` option (and `StateDescriptor.window`) is now typed as `readonly (keyof TParams & string)[]` instead of `readonly string[]`, so window entries must name declared params — a typo'd entry is a compile error instead of a silently ignored dimension.
+
+## 3.0.0-rc.0
+
+### Major Changes
+
+- f4cf59f: Entity grants: the signed grant now names the exact entity topics it authorizes.
+
+  `live.serve` extracts the served payload's `name:id` topics and signs them into the grant claims;
+  the `subscribe` frame drops its `entities` field (the client forwards only the grant); the WS server
+  subscribes to `channel + claims.entities` alone. Entity ids no longer need to be unguessable — a grant
+  authorizes a fixed, signed set. SSR reuses the served grant verbatim (`grantsHydration` no longer signs;
+  its `secret`/`ttlMs` options are removed). New `collectShapeTopics` export in `rxfy`.
+
+- 630ab6f: Automatic live subscriptions via signed channel grants — the declared-grant flow is removed.
+
+  `live.serve(state, params, data)` signs a per-state JWT grant (channel + expiry) and attaches it
+  to the parsed payload as `$grant`; `useStateData` lifts it automatically and subscribes with the
+  payload's entity topics. Nothing to declare, no keyer, no fetch-client wiring.
+
+  - `rxfy`: hydration payload carries `grants: string[]`; new `collectEntityTopics`.
+  - `rxfy-protocol`: v2 — `subscribe { grant, entities }` is the only client frame; hashed-token
+    subscribe/unsubscribe frames are gone.
+  - `rxfy-server`: `createServer` requires `secret`; `serve` returns the parsed shape + `$grant`;
+    new `renew`; hub is socket-keyed with grant expiry; `createTopicKeyer`, `grant`, `GrantSpec`,
+    `Grants` are removed.
+  - `rxfy-ws`: the server verifies grants on `subscribe`; the client transport is `send`/`onOpen`.
+  - `rxfy-react`: `useStateData` lifts `$grant`; `addGrants` and grant props are removed.
+
+  SECURITY: the grant authorizes both the channel and the exact entity topics it was signed for (see
+  the entity-grants changeset), so entity ids need not be unguessable. Keep `Cache-Control: private,
+no-store` on state endpoints as ordinary response hygiene (the payload carries a bearer grant).
+
+- 02995d1: `createModel` now requires `name` (and `ModelDescriptor.name` is non-optional). The name is the model's stable string identity for SSR dehydration and live topics, and making it mandatory removes every unnamed-model fallback path:
+
+  - `dehydrate` no longer skips stores (and the "model store holds data but has no name" dev warning is gone) — every store serializes.
+  - `modelTopic` no longer throws for unnamed models.
+  - The registry's `added# rxfy covers every store; the "unnamed stores are skipped" carve-out is gone.
+  - Error messages always carry the real model name (no more `<unnamed>`).
+
+  Migration: add `name: "..."` to any `createModel` call that omitted it. Names must be unique per app — duplicates still trigger the registry's dev warning since their entities would mix in `dehydrate` output.
+
+- 02995d1: `defineState` now requires `key`, and `StateDescriptor.key` is a required `string`. Every state participates in the SSR query cache and derives a live invalidation channel; the keyless opt-out is gone. Keyed descriptors are now directly assignable to key-requiring inputs such as rxfy-server's `StateChannelDescriptor`, so `touch(postsState, params)` works without a cast. `useStateData` drops the keyless code paths (private per-mount query atom and the SSR "cannot be fetched" warning). A `_shape` phantom carrier was added to `StateDescriptor` so `TShape` is structurally inferable from a descriptor value.
+
+  Migration: add a unique `key` to any `defineState` call that omitted one.
+
+- 02995d1: BREAKING: `ModelStore.get(key)` now returns a writable `IAtom<T>` (the former `entity(key)` handle) instead of a filtering `Observable<T>`, and `ModelStore.entity` is removed. Accessing a key that has never been `set` **throws** instead of returning an observable that waits silently — ids are expected to come from fulfilled states, which always normalize their entities into the store before handing out ids, so an unloaded access is a programming error surfaced early.
+
+  - `get(id)` reads synchronously (`.get()`), subscribes reactively (it is still an `Observable`), and writes back (`.set()` / `.modify()`), exactly like `entity(id)` did.
+  - `get(id)` returns the entity's cell itself — a stable identity across calls, with no per-call wrapper allocation. Store cells are only created on `set`, so a cell existing means its entity is loaded.
+  - `get()` results are no longer sync-marked — no `usePending`/`<Pending>` probe is involved; entity reads carry no async status at all.
+
+  Migration:
+
+  - `store.entity(id)` → `store.get(id)` (same semantics).
+  - `<Pending value$={store.get(id)}>{(x) => …}</Pending>` → `const [x] = useAtom(useMemo(() => store.get(id), [store, id]))` and render directly.
+  - `combineLatest({ a: storeA.get(ia), b: storeB.get(ib) })` → two `useAtom` reads.
+  - To probe for presence without throwing, use `store.getValue(id)`.
+
+### Minor Changes
+
+- 9984591: `live.serve(state, params, data)` now accepts the state's _input_ shape and parses it through the field schemas instead of passing data through untouched. Raw DB rows — unbranded ids, extra columns like `createdAt` — go in with no casts; the returned payload has ids branded and unknown keys stripped. This changes `serve`'s behavior: the result is a new parsed object (not the same reference), and invalid data now throws.
+
+  To support this, rxfy threads the zod Input type through the descriptors: `ModelDescriptor`, `FieldDescriptor`, and `StateDescriptor` gain a trailing input type parameter (defaulted, non-breaking), `defineState` derives it via the new `InputShapeFromFields`, and the new `parseShape(fields, input)` helper performs the parse.
+
+- 02995d1: `IModelRegistry` is now generic over its registered models, accumulated as a name-keyed record: `createModelRegistry(postModel).add(commentModel)` types the registry as `IModelRegistry<{ post: typeof postModel; comment: typeof commentModel }>`. On a typed registry:
+
+  - `registry.store("post")` is a typed lookup returning `ModelStore<Post>` (new method; throws if the store was never materialized).
+  - `registry.model(descriptor)` only accepts registered descriptors at compile time.
+  - `registry.stashHydration(name, entities)` checks the name against registered models and the entities against that model's entity type.
+  - `registry.namedStores()` keys are the registered model names, and its values the union of the registered stores (use `store(name)` for a per-name type).
+
+  The closed set is a compile-time guard only — runtime behavior is unchanged, and `.add()` just materializes the store (idempotent) and returns the same registry. Bare `IModelRegistry` and no-arg `createModelRegistry()` remain the open registry: any descriptor is accepted lazily exactly as before, and typed registries are assignable wherever `IModelRegistry` is expected, so no consuming signatures change.
+
+  To support name-keyed typing, `createModel` now captures `name` as a literal type via a trailing `TName extends string = string` generic on `ModelDescriptor`/`CreateModelConfig` (non-breaking). Also exports `AnyModelDescriptor` and `ModelsShape`.
+
+### Patch Changes
+
+- 02995d1: `defineState`'s `window` option (and `StateDescriptor.window`) is now typed as `readonly (keyof TParams & string)[]` instead of `readonly string[]`, so window entries must name declared params — a typo'd entry is a compile error instead of a silently ignored dimension.
+
 ## 2.0.0
 
 ### Minor Changes

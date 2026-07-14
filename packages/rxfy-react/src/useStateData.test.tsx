@@ -31,6 +31,7 @@ const pageState = defineState({
 });
 
 const singleState = defineState({
+  key: "single",
   params: z.object({ id: z.string() }),
   model: { user: single(userModel) },
 });
@@ -134,6 +135,7 @@ describe("useStateData", () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [{ id: "1", title: "Original" }] });
     let seenTitle = "";
     const spyState = defineState({
+      key: "spy",
       params: z.object({}),
       model: { posts: array(postModel) },
       mutations: {

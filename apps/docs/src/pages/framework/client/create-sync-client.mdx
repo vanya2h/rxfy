@@ -1,0 +1,45 @@
+# createSyncClient [Connect a transport and drive the sync loop]
+
+`createSyncClient` connects a WebSocket [transport](/framework/ws) to a `ModelRegistry` so inbound
+server pushes land in the normalized stores and per-state update counters tick up. In React you pass
+the result to [`StoreProvider`'s `syncClient` prop](/react/sync-client); elsewhere you drive it
+directly.
+
+```ts
+import { createSyncClient } from "rxfy-client";
+
+const syncClient = createSyncClient({
+  registry, // IModelRegistry — the same one your store / StoreProvider uses
+  transport, // SyncTransport — e.g. createWsClient() from rxfy-ws/client
+  renewUrl, // optional — the app's grant-renewal endpoint, e.g. "/api/live/renew"
+  renewLeadMs, // optional — how far before expiry to renew (default 60_000 ms)
+});
+```
+
+There is no `session` option: the client never carries a session id. Each grant is a stateless signed
+capability the client presents on the wire; the server verifies it rather than looking up a session it
+minted (see [Grants](/framework/server/grants)).
+
+**What `createSyncClient` does:**
+
+- Records each lifted `$grant` together with the entity topics its payload normalized into, and sends
+  a `subscribe` frame carrying the grant plus those topics — the client's entire outbound protocol.
+- Calls `transport.onMessage` once. Incoming `"patch"` messages are applied directly to the named
+  model store (`registry.namedStores().get(name)?.set(id, data)`); incoming `"stale"` messages
+  increment the matching channel counter.
+- Renews grants near their expiry by POSTing the expiring grants to `renewUrl` (which runs the app's
+  own auth) and re-subscribing with the reissued grants. A denied renewal drops the entry, and that
+  state goes static until a refetch mints a fresh grant.
+- Replays its full grant set on reconnect, via the transport's `onOpen` handler.
+- Exposes `subscribe(grant, entities)` and `channel(name)` — the latter returns a `ChannelCounter`
+  (`{ available$: Observable<number>, reset: () => void }`).
+- Exposes `stop()` — completes all channel counters and stops the renewal loop.
+
+## Types
+
+- `SyncClient` — what `createSyncClient` returns (`subscribe`, `channel`, `stop`, …).
+- `SyncClientConfig` — the config object above.
+- `SyncTransport` — the structural transport interface (`onMessage`, `onOpen`, `send`);
+  [`rxfy-ws`](/framework/ws) provides one (`ClientTransport`), or
+  [bring your own](/framework/ws/custom-transport).
+- `ChannelCounter` — `{ available$: Observable<number>, reset: () => void }`, one per state channel.

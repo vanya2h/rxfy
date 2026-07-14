@@ -5,9 +5,9 @@
 
 **rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your React app: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization), and scale from a client-only store to a fully live app with server-side rendering and real-time updates via websockets. It's built for consistency and granular RxJS-based reactivity at no extra cost.
 
-Keeping every view of your data in agreement is hard. Doing it across many connected clients, in real time, is way harder. Rename one todo and the list, the sidebar counter, and the search results all have to show the new title; the usual fixes — refetch the list, patch the cache in place, invalidate caches by hand — are workarounds for one root cause: your app holds multiple copies of the same entity.
+Keeping every view of your data in agreement is a difficult exercise. Doing it across many connected clients, in real time, is even harder. Update one entity and the list, the sidebar counter, and the search results all have to show its latest version; the usual fixes — refetch the list, patch the cache in place, invalidate caches by hand — are workarounds for one root cause: your app holds multiple copies of the same entity.
 
-rxfy removes the copies. Each entity is stored **once**, in a normalized store keyed by its id; states hold only references by id, and components subscribe to the exact entities they render, so one write reaches every subscriber. The server serializes the filled stores and the client restores them, which makes SSR first-class. With websockets on top, the write crosses the network too: the server persists it and publishes it to every connected client.
+rxfy removes the copies. Each entity is stored **once**, in a normalized and composable store keyed by its id; states hold only references by id, and components subscribe to the exact entities they render, so one write reaches every subscriber. The server serializes the filled stores and the client restores them, which makes SSR first-class. With websockets on top, the write crosses the network too: the server persists it and publishes it to every connected client.
 
 rxfy is built on four principles:
 
@@ -23,14 +23,14 @@ rxfy doesn't invent a reactivity system — it's built on [RxJS](https://rxjs.de
 ## Agent skills
 
 ```bash
-# client-only store setup
-npx skills add vanya2h/rxfy --skill rxfy
+# getting rxfy into a project (template or add-to-existing-app)
+npx skills add vanya2h/rxfy --skill rxfy-setup
 
-# live-app (framework) setup
-npx skills add vanya2h/rxfy --skill rxfy-framework
+# working in a project that already has rxfy
+npx skills add vanya2h/rxfy --skill rxfy
 ```
 
-Installs one of two agent skills for AI coding assistants — `rxfy` (store + React + SSR) or `rxfy-framework` (everything in `rxfy` plus the real-time layer). Install the one matching your setup — never both. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
+Two agent skills for AI coding assistants: `rxfy-setup` (scaffold a `create-rxfy-app` template or add rxfy to an existing app at a chosen depth) and `rxfy` (a task-indexed reference library for the whole framework — store, React, SSR, real-time sync). Setup records the chosen variant so usage never re-detects the project type. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
 
 ## Install
 
@@ -46,15 +46,14 @@ npm install rxfy
 - [State](https://rxfy.vanya2h.me/rxfy/define-state) — `defineState`, plain value fields, mutations
 - [Atom](https://rxfy.vanya2h.me/rxfy/create-atom) — `createAtom`
 - [Lens](https://rxfy.vanya2h.me/rxfy/create-lens) — `createLens`, `keyLens`
+- [Observables](https://rxfy.vanya2h.me/core-concepts/observables) — the value-over-time model behind `Atom` and `data$`
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — `dehydrate`, `hydrate`, `hydrationScript`
 - [rxfy-react](../rxfy-react/README.md) — React bindings
 
 ## Guides
 
-- [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live blog guide](https://rxfy.vanya2h.me/guides/live-blog)
 
 ## License
 

@@ -1,6 +1,11 @@
 import { PostList } from "examples-shared";
-import { fetchPosts } from "../blog/fetchers";
+import { postsState } from "examples-shared/data";
+import { parseResponse } from "hono/client";
+import { useStateData } from "rxfy-react";
+import { useApi } from "../blog/api-client";
 
 export default function PostsRoute() {
-  return <PostList fetchPosts={fetchPosts} />;
+  const api = useApi();
+  const posts = useStateData({ state: postsState, fetchFn: () => parseResponse(api.posts.$get()), params: {} });
+  return <PostList posts={posts} />;
 }

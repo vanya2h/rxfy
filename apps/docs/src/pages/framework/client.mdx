@@ -1,0 +1,25 @@
+# rxfy-client [The framework-agnostic browser sync runtime]
+
+`rxfy-client` is the browser half of the sync stack: it connects a WebSocket
+[transport](/framework/ws) to a `ModelRegistry` so inbound server pushes land in the normalized
+stores — it applies `patch` messages to entities and tracks `stale` counters per state channel.
+Nothing in it is React-specific, so it runs from vanilla JS, Vue, or Svelte too.
+
+`rxfy-react` depends on it and re-exports `createSyncClient` / `readSsrGrants`, so a React app imports
+them from `rxfy-react`; everyone else imports from `rxfy-client`. For the React wiring
+(`StoreProvider`'s `syncClient` prop, `useSyncClient`, and the update handles), see
+[Sync Client in React](/react/sync-client).
+
+## Install
+
+```bash
+npm install rxfy-client
+# peer deps: rxfy rxjs
+```
+
+## API
+
+- [`createSyncClient`](/framework/client/create-sync-client) — connect a transport to a registry;
+  subscribe with lifted grants, apply `patch` / `stale` messages, and renew grants before expiry.
+- [`readSsrGrants`](/framework/client/read-ssr-grants) — lift the grants the SSR render embedded, so
+  the first paint stays in sync without a round trip.

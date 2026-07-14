@@ -5,12 +5,12 @@ layer** and React Router handles **routing only**.
 
 ## The idea
 
-| Concern | Owner |
-|---|---|
-| Fetching domain data (server *and* client) | rxfy `useStateData` + `fetchFn` |
-| Normalization, caching, dehydrate/hydrate | rxfy `ModelRegistry` |
-| Routing, URL params, redirects, 404s | RR7 `loader()` (no data fetching) |
-| HTML shell, render, client bundle | RR7 `entry.server` / `entry.client` |
+| Concern                                    | Owner                               |
+| ------------------------------------------ | ----------------------------------- |
+| Fetching domain data (server _and_ client) | rxfy `useStateData` + `fetchFn`     |
+| Normalization, caching, dehydrate/hydrate  | rxfy `ModelRegistry`                |
+| Routing, URL params, redirects, 404s       | RR7 `loader()` (no data fetching)   |
+| HTML shell, render, client bundle          | RR7 `entry.server` / `entry.client` |
 
 There is **no `loader → useLoaderData` data transport and no `defaultData` hand-off**.
 rxfy fetches inside render on both the server and the client.
@@ -22,42 +22,52 @@ rxfy fetches inside render on both the server and the client.
    **`onAllReady`** (buffered).
 2. `useStateData` suspends on each uncached query; `onAllReady` fires once every fetch has
    settled.
-3. The full HTML is buffered and `hydrationScript(dehydrate(registry))` is injected before
-   `</body>`.
-4. `app/entry.client.tsx` wraps `<HydratedRouter>` in `<StoreProvider ssr>`, which drains
-   the snapshot synchronously → **no client refetch on first paint**.
+3. The full HTML is buffered and `hydration(registry)` is injected before `</body>` — one call
+   that signs a channel grant for every channel the render logged and embeds the grants alongside
+   the dehydrated registry in the snapshot script.
+4. `app/entry.client.tsx` wraps `<HydratedRouter>` in `<StoreProvider ssr registry syncClient>`,
+   which drains the snapshot synchronously → **no client refetch on first paint** — and the live
+   client lifts the SSR grants and subscribes them on its own socket.
 
 `StoreProvider` lives in the **entry points** (not `root.tsx`) because the per-request
 registry must be created server-side in `entry.server.tsx` so it can be dehydrated.
+
+## Sync updates
+
+`server.mts` is a custom hono server (`react-router-serve` can't host a WebSocket): vite
+middleware + the RR request handler for pages, `/live` upgraded to the rxfy WebSocket. Reads are
+stateless — each api response attaches a signed channel grant as `$grant` (`serve`), and SSR
+embeds the same grants via `hydration`. The client lifts each grant and subscribes it on its own
+socket; the WebSocket server verifies the grant against the shared `SECRET`. `createSyncClient`
+renews grants nearing expiry against `POST /api/live/renew` (`renew`). Posting a comment
+`touchState`s the post-detail channel: every socket subscribed to that channel gets a `stale`
+push and shows the "new comment — refresh" badge.
 
 ## What each piece demonstrates
 
 - **`routes/_index.tsx`** — a routing-only loader that `redirect`s `/` → `/posts`.
 - **`routes/posts.tsx`** — list route; SSR'd via suspend + dehydrate.
-- **`routes/posts.$postId.tsx`** — detail route. Its loader validates the URL-param *shape*
+- **`routes/posts.$postId.tsx`** — detail route. Its loader validates the URL-param _shape_
   (404 on a non-numeric id) while rxfy owns the actual fetch and the existence check
   (`fetchPostDetail` throws → the `Pending` rejected branch). The post + author entities are
   reused from the list's `ModelStore` (only comments are freshly fetched on client
   navigation). Includes the `addComment` optimistic mutation.
 
-## SSR gotcha: keep entity reads on sync-marked observables
+## SSR gotcha: keep the query on the sync-marked `data$`
 
-Under buffered single-pass SSR, `Pending` resolves a value at render time by *synchronously
-probing* its source observable — and only rxfy-owned observables (the query `data$` and
-`store.get(id)`) are marked as safe to probe. Combining them with an operator such as
-`combineLatest` produces a **fresh, unmarked** observable, so the probe returns nothing and
-the subtree renders its pending fallback (i.e. it never appears in the SSR HTML).
+Under buffered single-pass SSR, `Pending` resolves a value at render time by _synchronously
+probing_ its source observable — and only rxfy-owned observables (the query `data$`) are
+marked as safe to probe. Piping `data$` through an operator such as `map` or `combineLatest`
+produces a **fresh, unmarked** observable, so the probe returns nothing and the subtree
+renders its pending fallback (i.e. it never appears in the SSR HTML).
 
-So in `PostDetail.tsx` the post and author are read with **nested `Pending`s** on the
-sync-marked `store.get(id)` observables rather than a single `combineLatest`:
+Entity reads don't involve probing at all: `store.get(id)` is a synchronous `IAtom` handle
+read with `useAtom`, so entities referenced by a fulfilled query are always present in the
+SSR HTML:
 
 ```tsx
-<Pending value$={post$}>{(post) => (
-  <Pending value$={author$}>{(author) => <Article post={post} author={author} />}</Pending>
-)}</Pending>
+const [post] = useAtom(store.get(id)); // the entity's cell — stable identity, no useMemo needed
 ```
-
-This is the same pattern `PostList.tsx` uses, and it keeps the article server-rendered.
 
 ## Run it
 

@@ -35,6 +35,7 @@ Rewrite the three public-facing README files (`README.md`, `packages/rxfy/README
 ### High-level API (Models/States layer — recommended)
 
 #### `defineState`
+
 Defines a typed state shape with optional params, model fields, and mutations.
 
 ```ts
@@ -42,84 +43,85 @@ function defineState<TParams, TFields, TMutations>(def: {
   params: z.ZodType<TParams>;
   model: TFields;
   mutations?: TMutations;
-}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>
+}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>;
 ```
 
 Example: a `todosState` with a `filter` param, a `todos` array field, and an `addTodo` mutation.
 
 #### `createModel`
+
 Creates a typed model descriptor used to normalize and share data across state slices.
 
 ```ts
-function createModel<T>(
-  schema: z.ZodType<T>,
-  opts: { getKey: (item: T) => string }
-): ModelDescriptor<T>
+function createModel<T>(schema: z.ZodType<T>, opts: { getKey: (item: T) => string }): ModelDescriptor<T>;
 ```
 
 #### `array` / `single`
+
 Field descriptor helpers — declare whether a `defineState` model field holds an array or a single item.
 
 ```ts
-function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>
-function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>
+function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>;
+function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>;
 ```
 
 #### `createModelRegistry` / `createModelStore`
+
 Low-level normalized storage. In React apps these are wired automatically by `StoreProvider`; use directly for non-React or custom setups.
 
 ```ts
-function createModelRegistry(): IModelRegistry
-function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+function createModelRegistry(): IModelRegistry;
+function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>;
 ```
 
 ### Primitive API (low-level building blocks)
 
 #### `Atom` / `createAtom`
+
 Reactive cell extending `Observable`. Synchronous `get/set/modify` on top of a `BehaviorSubject`.
 
 ```ts
-function createAtom<T>(value: T): Atom<T>
+function createAtom<T>(value: T): Atom<T>;
 // Atom<T> implements IAtom<T>: get(), set(val), modify(fn)
 ```
 
 Example: `createAtom(0)` counter with `modify`.
 
 #### `Lens` / `createLens` / `keyLens`
+
 Focused view into an Atom. Reads and writes propagate bidirectionally; uses `lodash.isEqual` for change detection.
 
 ```ts
-function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>
-function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
+function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>;
+function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>;
 ```
 
 Example: `keyLens("name")` on a user atom.
 
 #### `Edge` / `createEdge`
+
 Manages an async data load lifecycle. Queues the load via `p-queue`, tracks `IDLE → PENDING → FULFILLED | REJECTED` state in an Atom.
 
 ```ts
-function createEdge<T>(
-  state$: IAtom<IEdgeState<T>>,
-  queue: PQueue,
-  loader: () => Observable<T>
-): IEdge<T>
+function createEdge<T>(state$: IAtom<IEdgeState<T>>, queue: PQueue, loader: () => Observable<T>): IEdge<T>;
 // IEdge<T>: { subject$, toObservable(), next() }
 ```
 
 Example: loading a user by ID with `.next()` for refresh.
 
 #### `IWrapped` / `StatusEnum` / helpers
+
 Discriminated union for async state. Used internally by Edge; available for custom async primitives.
 
-| Helper | Returns |
-|---|---|
-| `createIdle()` | `{ type: "IDLE" }` |
-| `createPending()` | `{ type: "PENDING" }` |
+| Helper                   | Returns                        |
+| ------------------------ | ------------------------------ |
+| `createIdle()`           | `{ type: "IDLE" }`             |
+| `createPending()`        | `{ type: "PENDING" }`          |
 | `createFulfilled(value)` | `{ type: "FULFILLED", value }` |
-| `createRejected(error)` | `{ type: "REJECTED", error }` |
+| `createRejected(error)`  | `{ type: "REJECTED", error }`  |
 
 ### See also
+
 - `rxfy-react` — React bindings
 - `examples/vite-todo` — full working example
 
@@ -136,23 +138,25 @@ Discriminated union for async state. Used internally by Edge; available for cust
 ### Setup
 
 #### `StoreProvider`
+
 Must wrap the app (or subtree) to provide the model registry context. Uses `createModelRegistry` internally.
 
 ```tsx
-function StoreProvider({ children }: PropsWithChildren): JSX.Element
+function StoreProvider({ children }: PropsWithChildren): JSX.Element;
 ```
 
 ### High-level hooks (recommended path)
 
 #### `useStateData`
+
 Fetches data, normalizes it into the model registry, and returns a `StateHandle` for reactive access, optimistic updates, and mutations.
 
 ```ts
 function useStateData<TParams, TShape, TMutations>(
   state: StateDescriptor<TParams, TShape, TMutations>,
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
-  params: TParams
-): StateHandle<TShape, TMutations>
+  params: TParams,
+): StateHandle<TShape, TMutations>;
 
 // StateHandle: { data$, set(valueOrUpdater), reload(), mutations }
 ```
@@ -160,10 +164,11 @@ function useStateData<TParams, TShape, TMutations>(
 Example: `useStateData(todosState, fetchTodos, { filter })` returning `{ data$, mutations }`.
 
 #### `useModelStore`
+
 Returns the `ModelStore` for a descriptor — lets a component subscribe to a single normalized item reactively.
 
 ```ts
-function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>;
 // ModelStore<T>: { get(key): Observable<T>, set(key, val), setMany(items) }
 ```
 
@@ -172,6 +177,7 @@ Example: `store.get(id)` passed to `<Pending>` for per-item live updates.
 ### Rendering helpers
 
 #### `Pending`
+
 Renders a pending/rejected/fulfilled UI from any `Observable` (or plain value). `rejected` receives `{ status, error, onReload }`.
 
 ```tsx
@@ -181,31 +187,27 @@ function Pending<T>(props: {
   rejected?: IRenderable<IPendingStatus<T, "rejected">>;
   children: IRenderable<T>;
   getDefaultValue?: () => T;
-}): JSX.Element
+}): JSX.Element;
 ```
 
 Example: wrapping a `data$` Observable from `useStateData`.
 
 #### `BehaviorSubjectRender`
+
 Renders from a `BehaviorSubject`, subscribing after mount and re-rendering on each new value.
 
 ```tsx
-function BehaviorSubjectRender<T>(props: {
-  value$: BehaviorSubject<T>;
-  children: IRenderable<T>;
-}): JSX.Element
+function BehaviorSubjectRender<T>(props: { value$: BehaviorSubject<T>; children: IRenderable<T> }): JSX.Element;
 ```
 
 ### Low-level hooks (advanced use)
 
 #### `usePending`
+
 Tracks any `ObservableLike<T>` and returns `IPendingStatus<T>` — the hook powering `<Pending>`.
 
 ```ts
-function usePending<T>(
-  source$: ObservableLike<T>,
-  getDefaultValue?: () => T
-): IPendingStatus<T>
+function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IPendingStatus<T>;
 
 // IPendingStatus<T>:
 //   { status: "pending" }
@@ -214,10 +216,11 @@ function usePending<T>(
 ```
 
 #### `useEdge` + `Edge`
+
 `IEdge`-based async loading. For new code, prefer `usePending` with `useStateData`.
 
 ```ts
-function useEdge<T>(edge: IEdge<T>): IEdgeState<T>
+function useEdge<T>(edge: IEdge<T>): IEdgeState<T>;
 ```
 
 ```tsx
@@ -226,27 +229,30 @@ function Edge<T>(props: {
   children: IRenderFn<T>;
   rejected?: IRenderFn<unknown>;
   pending?: React.ReactNode;
-}): JSX.Element
+}): JSX.Element;
 ```
 
 #### `useObservable`
+
 Low-level hook that subscribes to any `Observable<T>` via `useSyncExternalStore`.
 
 ```ts
-function useObservable<T>(observable: Observable<T>, initialValue: T): T
-function useObservable<T>(observable: Observable<T>): T | undefined
+function useObservable<T>(observable: Observable<T>, initialValue: T): T;
+function useObservable<T>(observable: Observable<T>): T | undefined;
 ```
 
 ### Context / registry internals
 
 #### `ModelRegistryContext` / `useModelRegistry`
+
 The React context holding the `IModelRegistry`. Use directly only when building custom providers or bypassing `StoreProvider`.
 
 ```ts
-const ModelRegistryContext: React.Context<IModelRegistry | null>
-function useModelRegistry(): IModelRegistry  // throws if no StoreProvider above
+const ModelRegistryContext: React.Context<IModelRegistry | null>;
+function useModelRegistry(): IModelRegistry; // throws if no StoreProvider above
 ```
 
 ### See also
+
 - `rxfy` — core library
 - `examples/vite-todo` — full working example

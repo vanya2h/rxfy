@@ -25,6 +25,7 @@
 ### Task 1: `WritableQueryShapeOf` type + `normalizeWritable` helper (rxfy)
 
 **Files:**
+
 - Modify: `packages/rxfy/src/state/state.ts` (after `QueryShapeOf`, around line 13)
 - Modify: `packages/rxfy/src/state/normalize.ts`
 - Test: `packages/rxfy/src/state/normalize.test.ts`
@@ -204,6 +205,7 @@ git commit -m "feat(rxfy): add normalizeWritable and WritableQueryShapeOf"
 ### Task 2: Widen `setRaw` to accept entities (rxfy-react)
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStateData.ts` (`StateHandle.setRaw` type ~line 40; `setRaw` impl ~lines 200-208; imports lines 2 & 3-15)
 - Test: `packages/rxfy-react/src/useStateData.test.tsx`
 
@@ -232,10 +234,7 @@ it("setRaw accepts entity objects, writing them to the store and appending ids",
     <StoreProvider registry={registry}>{children}</StoreProvider>
   );
 
-  const { result } = renderHook(
-    () => useStateData({ state: feedState, fetchFn: fetchFeed, params: {} }),
-    { wrapper },
-  );
+  const { result } = renderHook(() => useStateData({ state: feedState, fetchFn: fetchFeed, params: {} }), { wrapper });
 
   // wait for the initial fetch to settle (item "1" loaded)
   await waitFor(() => expect(getEmitted(result.current.data$)).toEqual({ items: ["1"] }));
@@ -256,10 +255,7 @@ it("setRaw with an id-only value still works unchanged", async () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <StoreProvider registry={registry}>{children}</StoreProvider>
   );
-  const { result } = renderHook(
-    () => useStateData({ state: feedState, fetchFn: fetchFeed, params: {} }),
-    { wrapper },
-  );
+  const { result } = renderHook(() => useStateData({ state: feedState, fetchFn: fetchFeed, params: {} }), { wrapper });
   await waitFor(() => expect(getEmitted(result.current.data$)).toEqual({ items: ["1"] }));
 
   act(() => {
@@ -281,7 +277,15 @@ Expected: FAIL — the entity-object test fails type-check/at runtime because `s
 In `packages/rxfy-react/src/useStateData.ts`, add `WritableQueryShapeOf` to the type import on line 2:
 
 ```ts
-import type { Atom, FieldsMap, IWrapped, MutationDefs, QueryShapeOf, StateDescriptor, WritableQueryShapeOf } from "rxfy";
+import type {
+  Atom,
+  FieldsMap,
+  IWrapped,
+  MutationDefs,
+  QueryShapeOf,
+  StateDescriptor,
+  WritableQueryShapeOf,
+} from "rxfy";
 ```
 
 Add `normalizeWritable` to the value import (the `from "rxfy"` block, lines 3-15):
@@ -314,19 +318,17 @@ Replace the `setRaw` field on `StateHandle` (around line 33-40) so its value acc
 Replace the `setRaw` implementation (around lines 200-208):
 
 ```ts
-    const setRaw = (
-      idsOrUpdater:
-        | WritableQueryShapeOf<TShape>
-        | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
-    ) => {
-      if (typeof idsOrUpdater === "function") {
-        const current = atom$.get();
-        if (current.type !== StatusEnum.FULFILLED) return;
-        writeThrough(normalizeWritable(registry, fields, idsOrUpdater(current.value)));
-      } else {
-        writeThrough(normalizeWritable(registry, fields, idsOrUpdater));
-      }
-    };
+const setRaw = (
+  idsOrUpdater: WritableQueryShapeOf<TShape> | ((prev: QueryShapeOf<TShape>) => WritableQueryShapeOf<TShape>),
+) => {
+  if (typeof idsOrUpdater === "function") {
+    const current = atom$.get();
+    if (current.type !== StatusEnum.FULFILLED) return;
+    writeThrough(normalizeWritable(registry, fields, idsOrUpdater(current.value)));
+  } else {
+    writeThrough(normalizeWritable(registry, fields, idsOrUpdater));
+  }
+};
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -351,6 +353,7 @@ git commit -m "feat(rxfy-react): setRaw accepts denormalized entities"
 ### Task 3: Changeset
 
 **Files:**
+
 - Create: `.changeset/setraw-auto-normalize.md`
 
 - [ ] **Step 1: Write the changeset**
@@ -380,6 +383,7 @@ git commit -m "chore: changeset for setRaw auto-normalization"
 ### Task 4: Docs
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/react/use-state-data.mdx`
 
 - [ ] **Step 1: Simplify the `useAppendPage` example**
@@ -449,6 +453,7 @@ git commit -m "docs: setRaw accepts denormalized entities"
 ## Self-Review
 
 **Spec coverage:**
+
 - Type change (§1) → Task 1 Step 3 (`WritableQueryShapeOf`) + Task 2 Step 3 (`setRaw` signature). ✓
 - Tolerant normalize (§2) → Task 1 Step 4 (`normalizeWritable`, `typeof` branch, dev `safeParse`). ✓
 - Wiring (§3) → Task 2 Step 4. ✓

@@ -1,39 +1,34 @@
-import { firstValueFrom } from "rxjs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
 import { createLens, keyLens } from "../lens/lens.js";
-import { isSyncMarked } from "../ssr/sync-marker.js";
 import { createModel } from "./model.js";
-import { createModelRegistry, createModelStore } from "./model-store.js";
+import { createModelRegistry, createModelStore, type ModelStore } from "./model-store.js";
 
-const postModel = createModel({ schema: z.object({ id: z.string(), title: z.string() }), getKey: (x) => x.id });
+const postModel = createModel({
+  schema: z.object({ id: z.string(), title: z.string() }),
+  getKey: (x) => x.id,
+  name: "post",
+});
 
 describe("createModelStore", () => {
-  it("emits value after set", async () => {
-    const store = createModelStore(postModel);
-    const promise = firstValueFrom(store.get("1"));
-    store.set("1", { id: "1", title: "Hello" });
-    expect(await promise).toEqual({ id: "1", title: "Hello" });
-  });
-
-  it("replays last value to new subscribers", async () => {
+  it("get() reads the value synchronously after set", () => {
     const store = createModelStore(postModel);
     store.set("1", { id: "1", title: "Hello" });
-    expect(await firstValueFrom(store.get("1"))).toEqual({ id: "1", title: "Hello" });
+    expect(store.get("1").get()).toEqual({ id: "1", title: "Hello" });
   });
 
-  it("replaces existing value on set", async () => {
+  it("replaces existing value on set", () => {
     const store = createModelStore(postModel);
     store.set("1", { id: "1", title: "Old" });
     store.set("1", { id: "1", title: "New" });
-    expect(await firstValueFrom(store.get("1"))).toEqual({ id: "1", title: "New" });
+    expect(store.get("1").get()).toEqual({ id: "1", title: "New" });
   });
 
-  it("emits updated value to existing subscribers", async () => {
+  it("emits updated values to existing subscribers", () => {
     const store = createModelStore(postModel);
+    store.set("1", { id: "1", title: "v1" });
     const values: Array<{ id: string; title: string }> = [];
     const sub = store.get("1").subscribe((v) => values.push(v));
-    store.set("1", { id: "1", title: "v1" });
     store.set("1", { id: "1", title: "v2" });
     sub.unsubscribe();
     expect(values).toEqual([
@@ -42,14 +37,19 @@ describe("createModelStore", () => {
     ]);
   });
 
-  it("setMany stores each item by key from descriptor.getKey", async () => {
+  it("setMany stores each item by key from descriptor.getKey", () => {
     const store = createModelStore(postModel);
     store.setMany([
       { id: "1", title: "A" },
       { id: "2", title: "B" },
     ]);
-    expect(await firstValueFrom(store.get("1"))).toEqual({ id: "1", title: "A" });
-    expect(await firstValueFrom(store.get("2"))).toEqual({ id: "2", title: "B" });
+    expect(store.get("1").get()).toEqual({ id: "1", title: "A" });
+    expect(store.get("2").get()).toEqual({ id: "2", title: "B" });
+  });
+
+  it("get() throws when the entity is not loaded", () => {
+    const store = createModelStore(postModel);
+    expect(() => store.get("ghost")).toThrow(/entity "ghost" for model "post" is not loaded/);
   });
 });
 
@@ -95,11 +95,11 @@ describe("createModelStore added$", () => {
     expect(keys).toEqual(["1", "2", "3"]);
   });
 
-  it("does not emit for keys merely subscribed to via get() but never set", () => {
+  it("does not emit for unloaded keys accessed via get() (which throws)", () => {
     const store = createModelStore(postModel);
     const keys: string[] = [];
     store.added$.subscribe((k) => keys.push(k));
-    store.get("ghost").subscribe();
+    expect(() => store.get("ghost")).toThrow();
     expect(keys).toEqual([]);
   });
 });
@@ -112,7 +112,7 @@ describe("createModelRegistry", () => {
 
   it("returns different ModelStores for different descriptors", () => {
     const registry = createModelRegistry();
-    const otherModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
+    const otherModel = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "other" });
     expect(registry.model(postModel)).not.toBe(registry.model(otherModel));
   });
 
@@ -124,7 +124,11 @@ describe("createModelRegistry", () => {
 });
 
 describe("model store sync value access", () => {
-  const model = createModel({ schema: z.object({ id: z.string(), title: z.string() }), getKey: (x) => x.id });
+  const model = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
+    getKey: (x) => x.id,
+    name: "sync-model",
+  });
 
   it("getValue returns the latest value synchronously", () => {
     const store = createModelStore(model);
@@ -153,11 +157,6 @@ describe("model store sync value access", () => {
       ["2", { id: "2", title: "B" }],
     ]);
   });
-
-  it("get() observables are sync-marked for usePending's render-time probe", () => {
-    const store = createModelStore(model);
-    expect(isSyncMarked(store.get("1"))).toBe(true);
-  });
 });
 
 describe("createModelStore cell semantics", () => {
@@ -165,16 +164,6 @@ describe("createModelStore cell semantics", () => {
     schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (p) => p.id,
     name: "post-cell-test",
-  });
-
-  it("get() emits nothing before the first set, then the value", () => {
-    const store = createModelStore(Post);
-    const emissions: unknown[] = [];
-    const sub = store.get("p1").subscribe((v) => emissions.push(v));
-    expect(emissions).toEqual([]); // no undefined leaks out
-    store.set("p1", { id: "p1", title: "Hello" });
-    expect(emissions).toEqual([{ id: "p1", title: "Hello" }]);
-    sub.unsubscribe();
   });
 
   it("getValue() reads synchronously and returns undefined for unknown keys", () => {
@@ -186,13 +175,13 @@ describe("createModelStore cell semantics", () => {
 
   it("valueEntries() lists only set entries", () => {
     const store = createModelStore(Post);
-    store.get("subscribed-but-unset").subscribe();
+    expect(() => store.get("accessed-but-unset")).toThrow();
     store.set("p1", { id: "p1", title: "A" });
     expect(store.valueEntries()).toEqual([["p1", { id: "p1", title: "A" }]]);
   });
 });
 
-describe("ModelStore.entity", () => {
+describe("ModelStore.get as writable IAtom", () => {
   const Post = createModel({
     schema: z.object({ id: z.string(), title: z.string() }),
     getKey: (p) => p.id,
@@ -202,7 +191,7 @@ describe("ModelStore.entity", () => {
   it("exposes a writable IAtom over an entity; writes reach the store", () => {
     const store = createModelStore(Post);
     store.set("p1", { id: "p1", title: "Old" });
-    const post$ = store.entity("p1");
+    const post$ = store.get("p1");
     expect(post$.get()).toEqual({ id: "p1", title: "Old" });
     post$.set({ id: "p1", title: "New" });
     expect(store.getValue("p1")).toEqual({ id: "p1", title: "New" });
@@ -211,7 +200,7 @@ describe("ModelStore.entity", () => {
   it("a field Lens over the entity round-trips to the store", () => {
     const store = createModelStore(Post);
     store.set("p1", { id: "p1", title: "Old" });
-    const title$ = createLens(store.entity("p1"), keyLens<{ id: string; title: string }, "title">("title"));
+    const title$ = createLens(store.get("p1"), keyLens<{ id: string; title: string }, "title">("title"));
     title$.set("Edited");
     expect(store.getValue("p1")).toEqual({ id: "p1", title: "Edited" });
   });
@@ -257,6 +246,85 @@ describe("registry SSR extensions", () => {
   });
 });
 
+describe("typed registry (createModelRegistry(seed).add(...))", () => {
+  const Post = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
+    getKey: (p) => p.id,
+    name: "post",
+  });
+  const Comment = createModel({
+    schema: z.object({ id: z.string(), body: z.string() }),
+    getKey: (c) => c.id,
+    name: "comment",
+  });
+  const Stray = createModel({
+    schema: z.object({ id: z.string(), what: z.string() }),
+    getKey: (s) => s.id,
+    name: "stray",
+  });
+
+  it("createModel captures the name as a literal type", () => {
+    expectTypeOf(Post.name).toEqualTypeOf<"post">();
+  });
+
+  it("add() returns the same registry with the store materialized", () => {
+    const registry = createModelRegistry(Post);
+    const chained = registry.add(Comment);
+    expect(chained).toBe(registry);
+    expect(chained.namedStores().get("post")).toBeDefined();
+    expect(chained.namedStores().get("comment")).toBeDefined();
+  });
+
+  it("store(name) resolves the same store as model(descriptor)", () => {
+    const registry = createModelRegistry(Post).add(Comment);
+    expect(registry.store("post")).toBe(registry.model(Post));
+    expect(registry.store("comment")).toBe(registry.model(Comment));
+  });
+
+  it("store(name) is typed by the named model's entity", () => {
+    const registry = createModelRegistry(Post).add(Comment);
+    expectTypeOf(registry.store("post")).toEqualTypeOf<ModelStore<{ id: string; title: string }>>();
+    expectTypeOf(registry.store("comment")).toEqualTypeOf<ModelStore<{ id: string; body: string }>>();
+    expect(() =>
+      // @ts-expect-error — "nope" is not a registered model name
+      registry.store("nope"),
+    ).toThrow(/no store named "nope"/);
+  });
+
+  it("model() only accepts registered descriptors on a typed registry", () => {
+    const registry = createModelRegistry(Post).add(Comment);
+    expectTypeOf(registry.model(Post)).toEqualTypeOf<ModelStore<{ id: string; title: string }>>();
+    // @ts-expect-error — Stray was never added to this registry
+    registry.model(Stray);
+  });
+
+  it("stashHydration checks the name and entity shape on a typed registry", () => {
+    const registry = createModelRegistry(Post).add(Comment);
+    registry.stashHydration("post", { "1": { id: "1", title: "typed" } });
+    expect(registry.store("post").getValue("1")).toEqual({ id: "1", title: "typed" });
+    // @ts-expect-error — "ghost" is not a registered model name
+    registry.stashHydration("ghost", {});
+    // @ts-expect-error — comment entities have body, not title
+    registry.stashHydration("comment", { "1": { id: "1", title: "wrong shape" } });
+  });
+
+  it("namedStores() keys are the registered model names", () => {
+    const registry = createModelRegistry(Post).add(Comment);
+    expectTypeOf(registry.namedStores()).toEqualTypeOf<
+      ReadonlyMap<
+        "post" | "comment",
+        ModelStore<{ id: string; title: string }> | ModelStore<{ id: string; body: string }>
+      >
+    >();
+  });
+
+  it("the no-arg registry stays open: any descriptor, typed store result", () => {
+    const registry = createModelRegistry();
+    expectTypeOf(registry.model(Stray)).toEqualTypeOf<ModelStore<{ id: string; what: string }>>();
+    expect(registry.model(Stray)).toBeDefined();
+  });
+});
+
 describe("registry added$", () => {
   const Todo = createModel({
     schema: z.object({ id: z.string(), title: z.string() }),
@@ -268,7 +336,6 @@ describe("registry added$", () => {
     getKey: (x) => x.id,
     name: "user",
   });
-  const Anon = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
 
   it("emits { name, key } for entities added to a named store", () => {
     const registry = createModelRegistry();
@@ -300,13 +367,5 @@ describe("registry added$", () => {
       { name: "todo", key: "t1" },
       { name: "todo", key: "t2" },
     ]);
-  });
-
-  it("ignores stores without a name (no topic to address them by)", () => {
-    const registry = createModelRegistry();
-    const events: Array<{ name: string; key: string }> = [];
-    registry.added$.subscribe((e) => events.push(e));
-    registry.model(Anon).set("x", { id: "x" });
-    expect(events).toEqual([]);
   });
 });

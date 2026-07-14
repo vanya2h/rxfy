@@ -1,8 +1,9 @@
 import { Button } from "examples-shared/ui/button";
 import { Input } from "examples-shared/ui/input";
 import { Textarea } from "examples-shared/ui/textarea";
+import { parseResponse } from "hono/client";
 import { useState } from "react";
-import { editPost } from "../blog/api-client.js";
+import { useApi } from "../blog/api-client.js";
 
 export function EditPostForm({
   id,
@@ -15,12 +16,13 @@ export function EditPostForm({
   body: string;
   onDone: () => void;
 }) {
+  const api = useApi();
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
 
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
-    await editPost(id, { title: title.trim(), body: body.trim() });
+    await parseResponse(api.posts[":id"].$patch({ param: { id }, json: { title: title.trim(), body: body.trim() } }));
     onDone();
   };
 

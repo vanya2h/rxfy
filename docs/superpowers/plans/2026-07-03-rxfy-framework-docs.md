@@ -11,6 +11,7 @@
 **Source of truth for the design:** `docs/superpowers/specs/2026-07-03-rxfy-framework-docs-design.md`.
 
 **Reference material for writing package/guide content** — read these before authoring the Framework pages and the Live blog guide:
+
 - `packages/rxfy-server/src/{resource,resource-registry,server,state-channel,topic-key,hub}.ts`
 - `packages/rxfy-protocol/src/{messages,codec}.ts`
 - `packages/rxfy-ws/src/{server,client}.ts`
@@ -35,6 +36,7 @@
 ### Task 1: Delete the `vite-realtime-todos` example
 
 **Files:**
+
 - Delete: `examples/vite-realtime-todos/` (whole directory)
 
 - [ ] **Step 1: Confirm the current reference set**
@@ -69,6 +71,7 @@ git commit -m "chore(examples): remove vite-realtime-todos, superseded by vite-b
 ### Task 2: Delete the stale hand-rolled live guide
 
 **Files:**
+
 - Delete: `apps/docs/src/pages/guides/live-updates-websockets.mdx`
 
 > Its "how it works underneath" content (topics; the subscription set = the ids a client holds; patch-into-store) is salvaged into `/framework` in Task 6. Read it now and copy the two explanatory paragraphs into a scratch note for Task 6 before deleting.
@@ -94,6 +97,7 @@ git commit -m "docs: remove hand-rolled live-updates-websockets guide (replaced 
 ### Task 3: Rewrite the sidebar and scrub `README.md` references
 
 **Files:**
+
 - Modify: `apps/docs/vocs.config.ts:9-54`
 - Modify: `README.md` (packages table ~28-31; links ~58-79)
 
@@ -212,13 +216,14 @@ git commit -m "docs: restructure sidebar (fork Getting Started, add Framework se
 ### Task 4: Regroup the Examples page by tier
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/examples.mdx`
 
 - [ ] **Step 1: Rewrite the page with tier headings**
 
 Replace the whole file with a version organized by the three tiers. Keep the existing per-example descriptions verbatim for `vite-todo`, `vite-ssr-pagination`, `next-blog`, `rr7-blog`, `waku-blog`; **remove** the `vite-realtime-todos` section; **add** a `vite-blog-framework` section under a new "Live" tier. Use this structure:
 
-```markdown
+````markdown
 # Examples [Runnable apps, from client-only to fully live]
 
 Runnable example apps in the [rxfy repository](https://github.com/vanya2h/rxfy/tree/main/examples), arranged the way the docs teach rxfy: start client-only, add SSR, then go live.
@@ -226,20 +231,25 @@ Runnable example apps in the [rxfy repository](https://github.com/vanya2h/rxfy/t
 ## Tier 1 · Client-only store
 
 ### vite-todo
+
 <!-- keep existing vite-todo section body verbatim -->
 
 ## Tier 2 · Server-side rendering
 
 ### vite-ssr-pagination
+
 <!-- keep existing body verbatim -->
 
 ### next-blog
+
 <!-- keep existing body verbatim -->
 
 ### rr7-blog
+
 <!-- keep existing body verbatim -->
 
 ### waku-blog
+
 <!-- keep existing body verbatim -->
 
 ## Tier 3 · Live (the framework)
@@ -252,11 +262,13 @@ A live blog: server-rendered first paint, then real-time updates over WebSockets
 
 ​```bash
 pnpm --filter vite-blog-framework dev
+
 # open in two tabs — edit a post in one, watch it change live in the other
+
 ​```
 
 Companion guide: [Live blog](/guides/live-blog)
-```
+````
 
 > Note: replace the `​` zero-width placeholders around the bash fence with a normal triple backtick fence when authoring — shown here only to nest inside this plan.
 
@@ -277,6 +289,7 @@ git commit -m "docs: regroup Examples by tier; add vite-blog-framework, drop rea
 ### Task 5: Create package READMEs and the changeset
 
 **Files:**
+
 - Create: `packages/rxfy-server/README.md`
 - Create: `packages/rxfy-protocol/README.md`
 - Create: `packages/rxfy-ws/README.md`
@@ -287,7 +300,7 @@ git commit -m "docs: regroup Examples by tier; add vite-blog-framework, drop rea
 
 - [ ] **Step 1: Write `packages/rxfy-server/README.md`**
 
-```markdown
+````markdown
 # rxfy-server
 
 Server-side live data for [rxfy](https://rxfy.vanya2h.me). Bind [Drizzle](https://orm.drizzle.team) tables to rxfy models, write through the server, and publish live updates to subscribers.
@@ -296,7 +309,9 @@ Server-side live data for [rxfy](https://rxfy.vanya2h.me). Bind [Drizzle](https:
 
 ​```bash
 npm install rxfy-server
+
 # peer deps: rxfy drizzle-orm drizzle-zod zod
+
 ​```
 
 ## What it gives you
@@ -309,7 +324,7 @@ npm install rxfy-server
 - `live.grant` — mint the subscription grants a client is allowed to use (typically at SSR time).
 
 See the [Framework docs](https://rxfy.vanya2h.me/framework) for the full walkthrough.
-```
+````
 
 (Replace `​` with real backticks when authoring.)
 
@@ -336,7 +351,7 @@ See the [Framework docs](https://rxfy.vanya2h.me/framework/protocol).
 
 - [ ] **Step 3: Write `packages/rxfy-ws/README.md`**
 
-```markdown
+````markdown
 # rxfy-ws
 
 The default WebSocket transport for [rxfy](https://rxfy.vanya2h.me) live updates. Bridges a `rxfy-server` hub to WebSocket connections on the server, and rxfy stores to a socket on the client.
@@ -345,7 +360,9 @@ The default WebSocket transport for [rxfy](https://rxfy.vanya2h.me) live updates
 
 ​```bash
 npm install rxfy-ws
+
 # server peer dep: rxfy-server, ws
+
 ​```
 
 ## API
@@ -354,7 +371,7 @@ npm install rxfy-ws
 - `createWsClient({ url })` — returns a transport with `subscribe` / `unsubscribe` / `onMessage` / `close`, auto-reconnecting and re-subscribing.
 
 Works with the Node `ws` package or the browser `WebSocket`. See the [Framework docs](https://rxfy.vanya2h.me/framework/ws).
-```
+````
 
 - [ ] **Step 4: Add `README.md` to each package's `files` array**
 
@@ -400,6 +417,7 @@ git commit -m "docs(packages): add READMEs for rxfy-server, rxfy-protocol, rxfy-
 ### Task 6: `/framework` overview page
 
 **Files:**
+
 - Create: `apps/docs/src/pages/framework.mdx`
 
 - [ ] **Step 1: Write the page**
@@ -407,6 +425,7 @@ git commit -m "docs(packages): add READMEs for rxfy-server, rxfy-protocol, rxfy-
 Title: `# Framework (Real-time) [Server-driven live updates over normalized stores]`
 
 Required sections:
+
 1. **When you need this** — you have an rxfy app and want changes to appear live across clients without refetch. If you only need normalized client state, you do not need these packages (link back to `/getting-started/store`).
 2. **The three packages** — one line each: `rxfy-server` (write + publish), `rxfy-protocol` (wire contract), `rxfy-ws` (transport). Link to each subpage.
 3. **How it works underneath** — salvaged from the deleted guide (Task 2): every entity lives in one keyed cell, so a server push doesn't need to know who renders what; the subscription set is exactly the ids a client holds; a `patch` writes the new entity value into the store and every subscriber re-renders. Contrast `patch` (entity changed → applies silently) vs `stale` (a list/state channel changed → surfaces a refresh affordance).
@@ -430,6 +449,7 @@ git commit -m "docs(framework): add overview page"
 ### Task 7: `/framework/server` — rxfy-server reference
 
 **Files:**
+
 - Create: `apps/docs/src/pages/framework/server.mdx`
 
 - [ ] **Step 1: Write the page**
@@ -437,6 +457,7 @@ git commit -m "docs(framework): add overview page"
 Title: `# rxfy-server [Bind Drizzle tables, write, and publish live updates]`
 
 Required sections, each with a real snippet from the reference files:
+
 1. **defineResource** — from `examples/vite-blog-framework/src/blog/resources.ts`: `defineResource({ table, model })` and `createResourceRegistry([...])`. Explain `name`/`getKey`/`primaryKeyColumn` derivation and the composite-key limitation (v1: single PK only, per `packages/rxfy-server/src/resource.ts`).
 2. **createServer** — from `examples/vite-blog-framework/server/live.ts`: `createServer({ db, resources, hub, keyer })` returning `live`.
 3. **Writes** — `live.create` / `live.update` / `live.delete` and the `{ touch: [...] }` option, from `examples/vite-blog-framework/server/api.ts`. Explain: `update` auto-publishes a `patch` on the entity topic; `create`/`delete` publish `stale` on the state channels you `touch`.
@@ -461,6 +482,7 @@ git commit -m "docs(framework): add rxfy-server reference"
 ### Task 8: `/framework/protocol` — rxfy-protocol reference
 
 **Files:**
+
 - Create: `apps/docs/src/pages/framework/protocol.mdx`
 
 - [ ] **Step 1: Write the page**
@@ -468,6 +490,7 @@ git commit -m "docs(framework): add rxfy-server reference"
 Title: `# rxfy-protocol [The wire contract for live updates]`
 
 Required sections (source: `packages/rxfy-protocol/src/messages.ts` and `codec.ts`):
+
 1. **You rarely import this** — `rxfy-server` and `rxfy-ws` use it; documented so custom transports/servers can conform.
 2. **Messages** — a table of the four message kinds with their fields: `patch { v, kind, name, id, data }`, `stale { v, kind, channel }`, `subscribe { v, kind, ids }`, `unsubscribe { v, kind, ids }`. Note the server→client vs client→server direction.
 3. **Codec** — `serialize`, `parseServerMessage`, `parseClientMessage`, `ProtocolError`, `PROTOCOL_VERSION`; note superjson (so `Date` survives).
@@ -490,6 +513,7 @@ git commit -m "docs(framework): add rxfy-protocol reference"
 ### Task 9: `/framework/ws` — rxfy-ws reference
 
 **Files:**
+
 - Create: `apps/docs/src/pages/framework/ws.mdx`
 
 - [ ] **Step 1: Write the page**
@@ -497,6 +521,7 @@ git commit -m "docs(framework): add rxfy-protocol reference"
 Title: `# rxfy-ws [The default WebSocket transport]`
 
 Required sections (source: `packages/rxfy-ws/src/{server,client}.ts` and `examples/vite-blog-framework/server/ws.ts`, `src/entry-client.tsx`):
+
 1. **Server** — `createWsServer(hub)` → `{ handleConnection(socket) }`; the `ServerSocket` shape (`send`, `on`); the Hono-WS bridge example from `server/ws.ts`.
 2. **Client** — `createWsClient({ url, WebSocketImpl?, reconnectDelayMs? })` → `{ subscribe, unsubscribe, onMessage, close }`; auto-reconnect and re-subscribe behavior.
 3. **Bring your own transport** — the client only needs a `WebSocketLike`; the transport is swappable (forward-link to `/framework/protocol` for the contract a custom transport must honor).
@@ -518,6 +543,7 @@ git commit -m "docs(framework): add rxfy-ws reference"
 ### Task 10: `/framework/grants` — grants & live hydration
 
 **Files:**
+
 - Create: `apps/docs/src/pages/framework/grants.mdx`
 - Modify: `apps/docs/src/pages/ssr.mdx` (add one cross-link)
 
@@ -526,6 +552,7 @@ git commit -m "docs(framework): add rxfy-ws reference"
 Title: `# Grants & live hydration [Hand off an SSR render to a live client]`
 
 Required sections (source: `examples/vite-blog-framework/src/{entry-server,entry-client}.tsx`, `packages/rxfy-server/src/{server,state-channel}.ts`):
+
 1. **The problem** — a client may only subscribe to topics it is allowed to. Grants are the server's minted allow-list.
 2. **On the server** — `live.grant(registry, { entities, states })` at `onAllReady`, then `hydrationScript({ ...dehydrate(registry), grants })` (snippet from `entry-server.tsx`).
 3. **On the client** — `readSsrGrants()` + `createLiveClient({ registry, transport, grants })` + `<StoreProvider registry ssr liveClient>` (snippet from `entry-client.tsx`). Forward-link `createLiveClient` details to `/react/live-client`.
@@ -561,6 +588,7 @@ git commit -m "docs(framework): add grants & live hydration; link from SSR"
 ### Task 11: `/react/live-client` — React live glue reference
 
 **Files:**
+
 - Create: `apps/docs/src/pages/react/live-client.mdx`
 - Modify: `apps/docs/src/pages/react.mdx` (add a bullet)
 
@@ -573,6 +601,7 @@ git commit -m "docs(framework): add grants & live hydration; link from SSR"
 Title: `# Live client [Wire a WebSocket transport into StoreProvider]`
 
 Required sections (source: `packages/rxfy-react/src` per the grep, and `examples/vite-blog-framework/src/entry-client.tsx`):
+
 1. **createLiveClient** — `createLiveClient({ registry, transport, grants })`; what it subscribes to and how patches reach the store.
 2. **StoreProvider `liveClient` prop** — passing the live client into the provider.
 3. **updatesAvailable$** — how a component reads the "N new — click to refresh" signal and calls the refresh/apply action (as used in the blog).
@@ -607,6 +636,7 @@ git commit -m "docs(react): add live client reference"
 ### Task 12: `/guides/live-blog` tutorial
 
 **Files:**
+
 - Create: `apps/docs/src/pages/guides/live-blog.mdx`
 
 - [ ] **Step 1: Write the guide**
@@ -614,6 +644,7 @@ git commit -m "docs(react): add live client reference"
 Title: `# Live blog [Build a real-time blog: SSR, then live patches and stale badges]`
 
 A walkthrough of `vite-blog-framework`, in the order a reader builds it. Required sections, each grounded in the example's real files:
+
 1. **What you'll build** — one screenshot-in-words: edits apply live across tabs; new posts/comments show a refresh badge.
 2. **Define resources** — `src/blog/resources.ts` (`defineResource`, `createResourceRegistry`).
 3. **Stand up the live server** — `server/live.ts` (`createInMemoryHub`, `createTopicKeyer`, `createServer`).
@@ -641,6 +672,7 @@ git commit -m "docs(guides): add live blog tutorial"
 ### Task 13: Fork Getting Started into intro + two quickstarts
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/getting-started.mdx` (becomes the intro + fork hub)
 - Create: `apps/docs/src/pages/getting-started/store.mdx`
 - Create: `apps/docs/src/pages/getting-started/framework.mdx`
@@ -695,6 +727,7 @@ That's it — you have normalized reactive state. Need it on a server or live?
 Title: `# Framework quickstart [Install the full stack for a live app]`
 
 Sections:
+
 1. **Install** — `rxfy rxfy-react rxfy-server rxfy-ws` plus peer deps (`rxjs zod lodash drizzle-orm drizzle-zod`), using the `:::code-group` npm/pnpm/yarn/bun pattern from the old getting-started.
 2. **The shape of a live app** — three bullets linking the pieces: resources + server (`/framework/server`), transport (`/framework/ws`), SSR grants (`/framework/grants`).
 3. **Follow the tutorial** — link to [`/guides/live-blog`] as the end-to-end build, backed by the [`vite-blog-framework`](/examples) example.
@@ -717,6 +750,7 @@ git commit -m "docs: fork Getting Started into Store and Framework quickstarts"
 ### Task 14: Introduction callout + Comparison real-time row
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/index.mdx` (one-line path callout)
 - Modify: `apps/docs/src/pages/comparison.mdx` (table row + prose)
 
@@ -736,7 +770,7 @@ Building a live app with SSR and real-time updates? → [Framework quickstart](/
 In `apps/docs/src/pages/comparison.mdx`, add a row to the "At a glance" table (after the `SSR` row):
 
 ```markdown
-| **Real-time**     | ✅ live framework                        | ➖ manual                         | ❌                        | ➖ manual        | ➖ manual                   |
+| **Real-time** | ✅ live framework | ➖ manual | ❌ | ➖ manual | ➖ manual |
 ```
 
 And add one sentence to the intro paragraph noting that rxfy offers a first-party live-update framework (`rxfy-server`/`-ws`), linking `/framework`.

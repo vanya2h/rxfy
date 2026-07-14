@@ -10,14 +10,14 @@ Official React bindings for [rxfy](../rxfy/README.md). Subscribe components to n
 ## Agent skills
 
 ```bash
-# client-only store setup
-npx skills add vanya2h/rxfy --skill rxfy
+# getting rxfy into a project (template or add-to-existing-app)
+npx skills add vanya2h/rxfy --skill rxfy-setup
 
-# live-app (framework) setup
-npx skills add vanya2h/rxfy --skill rxfy-framework
+# working in a project that already has rxfy
+npx skills add vanya2h/rxfy --skill rxfy
 ```
 
-Installs one of two agent skills for AI coding assistants — `rxfy` (store + React + SSR) or `rxfy-framework` (everything in `rxfy` plus the real-time layer). Install the one matching your setup — never both. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
+Two agent skills for AI coding assistants: `rxfy-setup` (scaffold a `create-rxfy-app` template or add rxfy to an existing app at a chosen depth) and `rxfy` (a task-indexed reference library for the whole framework — store, React, SSR, real-time sync). Setup records the chosen variant so usage never re-detects the project type. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
 
 ## Install
 
@@ -29,16 +29,14 @@ npm install rxfy rxfy-react
 ## Links
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started) — `StoreProvider` setup
-- [React Bindings](https://rxfy.vanya2h.me/react) — `useStateData` (remote fetch or local `initial`), `useStatePagedData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
-- [Live client](https://rxfy.vanya2h.me/react/live-client) — `createLiveClient`, `StoreProvider`'s `liveClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`, `readSsrGrants`
+- [rxfy-react](https://rxfy.vanya2h.me/react) — `useStateData` (remote fetch or local `initial`), `useStatePagedData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
+- [Sync Client (React)](https://rxfy.vanya2h.me/react/sync-client) — `createSyncClient`, `StoreProvider`'s `syncClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`; `createSyncClient` and `readSsrGrants` are re-exported from their framework-agnostic home, [`rxfy-client`](https://rxfy.vanya2h.me/framework/client)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — buffered, streaming (Next.js App Router), two-pass
 - [rxfy](../rxfy/README.md) — core library
 
 ## Guides
 
-- [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live blog guide](https://rxfy.vanya2h.me/guides/live-blog)
 
 ## License
 

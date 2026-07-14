@@ -1,6 +1,6 @@
 {
   "name": "rxfy",
-  "version": "2.0.0",
+  "version": "3.0.0-rc.1",
   "description": "Reactive data-flow layer for your UI: typed models, states, and normalized stores as RxJS Observables",
   "keywords": [
     "rxjs",
@@ -66,8 +66,8 @@
     "jiti": "^2.4.2",
     "lodash": "^4.17.21",
     "rimraf": "^6.0.1",
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "rxjs": "^7.8.2",
     "tsup": "^8.5.0",
     "vitest": "^3.1.4",

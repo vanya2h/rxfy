@@ -1,0 +1,101 @@
+# Observables [A value that changes over time, that you can subscribe to]
+
+Everything reactive in rxfy is an **observable**. You don't need to learn RxJS to use rxfy, but
+one idea makes the rest of the docs click — and you already half-know it if you already familiar with concept of Promises in javascript
+
+:::note[Mental model]
+An observable is a value-over-time · subscribe once and you get the current value now, then
+every change after · rxfy's `Atom` and `data$` are observables, so everything downstream just
+subscribes to these streams of data
+:::
+
+## You already know Promises
+
+A Promise represents a value that isn't ready yet. You `await` it, or attach `.then`, and when it
+resolves you get the value — **once**. After that the Promise is done; it never resolves again.
+
+```ts
+const user = await fetchUser(); // resolves one time, then it's over
+```
+
+But most values a UI cares about don't resolve once and stop. A counter goes up. The user changes its name. New post is publushed or list of posts is reordered.
+These are values that keep changing, and you want to be told **every time** one does.
+
+An observable is the shape you'd get if a Promise could resolve again and again:
+
+|                       | Promise                | Observable                                |
+| --------------------- | ---------------------- | ----------------------------------------- |
+| **How many values**   | exactly one            | zero, one, or many, over time             |
+| **When you get them** | once, when it resolves | now, then on every change                 |
+| **How you listen**    | `await` / `.then`      | `.subscribe(fn)`                          |
+| **When it's done**    | after it resolves      | with zero subscribers or any custom logic |
+
+Where a Promise is a value you wait for, an observable is a value you **watch**.
+
+## You subscribe to it
+
+You listen to an observable by subscribing. Your function runs with the current value right away,
+then again for every value written after that. When you stop caring, you unsubscribe.
+
+```ts
+import { createAtom } from "rxfy";
+
+const count = createAtom(0); // an Atom is an observable
+
+const sub = count.subscribe((n) => console.log(n)); // logs 0 immediately
+count.set(1); // logs 1
+count.set(2); // logs 2
+
+sub.unsubscribe(); // stop listening; further writes won't log
+```
+
+That "current value now, then every change after" behaviour is the whole point. A new subscriber
+never has to ask "what's the value?" and wait — it's handed the latest value the instant it
+subscribes, and stays in sync from there.
+
+## It always has a current value
+
+A bare event stream — think a DOM `click` — only tells you when something _happens_. Show up late
+and you've missed everything; there's no "current click." The observables rxfy hands you are
+different: they always hold their **latest value**, and you can read it synchronously without
+subscribing at all.
+
+```ts
+const count = createAtom(5);
+
+count.get(); // 5 — read the current value right now, no subscription
+count.set(6);
+count.get(); // 6
+```
+
+This is exactly what an **Atom** is. Every `createAtom` above returned an observable — but not a
+bare one. An Atom is an observable that _also_ holds its latest value, readable synchronously with
+`get()`. That pairing — a value you can read at any moment _and_ a stream you can subscribe to for
+changes — is the distinction the rest of the docs lean on: an Atom is a **state cell**, not a
+pipeline that only streams events once you subscribe.
+
+## Where you meet them in rxfy
+
+You rarely type `.subscribe` by hand. rxfy gives you observables and React hooks subscribe to them
+for you, re-rendering only when the value changes:
+
+- [`createAtom`](/rxfy/create-atom) — a single reactive cell; the fundamental observable.
+- [`data$`](/react/use-state-data) — a state's query result, an observable of ids.
+- [`createLens`](/rxfy/create-lens) — a view onto part of another observable that is itself one.
+
+In React you subscribe through [`useAtom`](/react/use-atom),
+[`useObservable`](/react/use-observable), and [`Pending`](/react/pending) rather than calling
+`subscribe` yourself. Each one takes an observable and keeps your component in sync with it.
+
+## Why it matters
+
+Observables invert who does the work. Instead of your code **pulling** — polling, re-fetching,
+re-reading to find out whether a value changed — the value **pushes**: it notifies every subscriber
+the moment it changes. One value can have many subscribers, and a single write reaches all of them
+automatically.
+
+That push-based, many-subscribers-per-value model is the machinery the rest of rxfy stands on: it's
+what lets one shared entity update everywhere at once ([Normalization](/core-concepts/normalization)),
+and what lets async status ride inside a value until the leaf that renders it
+([Late Unwrapping](/core-concepts/late-unwrapping)). Start with
+[Normalization](/core-concepts/normalization) next.

@@ -1,110 +1,109 @@
 /* eslint-disable turbo/no-undeclared-env-vars */
 import fs from "node:fs/promises";
-import { Transform } from "node:stream";
-import express from "express";
-import type { RenderToPipeableStreamOptions } from "react-dom/server";
-import { getUsersPage } from "./shared/generate.ts";
+import { createServer as createHttpServer } from "node:http";
+import path from "node:path";
+import { PassThrough, Readable, Transform } from "node:stream";
+import { pathToFileURL } from "node:url";
+import { getRequestListener } from "@hono/node-server";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
+import type { ViteDevServer } from "vite";
+import { api } from "./server/api.ts";
 
-type RenderResult = {
-  pipe: ReturnType<typeof import("react-dom/server").renderToPipeableStream>["pipe"];
-  abort: () => void;
-  getState: () => string;
-};
-type Render = (url: string, options?: RenderToPipeableStreamOptions) => RenderResult;
+/** The SSR entry module, typed straight off the source — `render`'s signature can never drift. */
+type EntryServer = typeof import("./src/entry-server.tsx");
 
 const isProduction = process.env.NODE_ENV === "production";
 const port = process.env.PORT || 5176;
-const base = process.env.BASE || "/";
 const ABORT_DELAY = 10000;
 
-const templateHtml = isProduction ? await fs.readFile("./dist/client/index.html", "utf-8") : "";
+const app = new Hono();
 
-const app = express();
+app.route("/api", api);
 
-let vite: import("vite").ViteDevServer | undefined;
+let vite: ViteDevServer | undefined;
 if (!isProduction) {
   const { createServer } = await import("vite");
-  vite = await createServer({ server: { middlewareMode: true }, appType: "custom", base });
-  app.use(vite.middlewares);
+  vite = await createServer({ server: { middlewareMode: true }, appType: "custom" });
 } else {
-  const compression = (await import("compression")).default;
-  const sirv = (await import("sirv")).default;
-  app.use(compression());
-  app.use(base, sirv("./dist/client", { extensions: [] }));
+  app.use("/assets/*", serveStatic({ root: "./dist/client" }));
+  app.use("/favicon.svg", serveStatic({ root: "./dist/client" }));
 }
 
-// Pagination API — the browser hits this for pages after the first.
-app.get("/api/users", (req, res) => {
-  const cursor = typeof req.query.cursor === "string" ? req.query.cursor : null;
-  res.json(getUsersPage(cursor));
-});
+/** Load the html template + SSR entry for the current environment. */
+async function loadEntry(url: string): Promise<{ template: string; render: EntryServer["render"] }> {
+  if (!isProduction) {
+    const template = await vite!.transformIndexHtml(url, await fs.readFile("./index.html", "utf-8"));
+    const { render } = (await vite!.ssrLoadModule("/src/entry-server.tsx")) as EntryServer;
+    return { template, render };
+  }
+  const template = await fs.readFile("./dist/client/index.html", "utf-8");
+  const entryUrl = pathToFileURL(path.resolve(process.cwd(), "dist/server/entry-server.js")).href;
+  const { render } = (await import(entryUrl)) as EntryServer;
+  return { template, render };
+}
 
-// Header API — used by the client to fetch the header state (topUser + meta).
-app.get("/api/users-header", (_req, res) => {
-  const total = 1000;
-  const { items } = getUsersPage(null);
-  res.json({ topUser: items[0], meta: { total, generatedAt: new Date().toISOString() } });
-});
-
-app.use("*all", async (req, res) => {
+app.get("*", async (c) => {
+  const url = c.req.path;
   try {
-    const url = req.originalUrl.replace(base, "");
+    const { template, render } = await loadEntry(url);
+    const [htmlStart, rest] = template.split("<!--app-html-->");
+    const [htmlMiddle, htmlEnd] = rest!.split("<!--app-state-->");
 
-    let template: string;
-    let render: Render;
-    if (!isProduction) {
-      template = await fs.readFile("./index.html", "utf-8");
-      template = await vite!.transformIndexHtml(url, template);
-      render = (await vite!.ssrLoadModule("/src/entry-server.tsx")).render as Render;
-    } else {
-      template = templateHtml;
-      // @ts-expect-error — dist artifact has no .d.ts
-      render = ((await import("./dist/server/entry-server.js")) as { render: Render }).render;
-    }
+    return await new Promise<Response>((resolve) => {
+      let didError = false;
+      // SSR data fetching goes through the server's own endpoints, in-process (`api.request`).
+      const { pipe, abort, getState } = render(url, api.request, {
+        onShellError(error) {
+          console.error(error);
+          resolve(c.html("<h1>Something went wrong</h1>", 500));
+        },
+        // Pipe once ALL suspended data has settled — React then emits the resolved markup in
+        // place, with no hidden late chunks or inline reveal scripts, so the page renders fully
+        // even with JavaScript disabled (progressive `onShellReady` streaming needs JS to swap
+        // each boundary's content in).
+        onAllReady() {
+          const body = new PassThrough();
+          body.write(htmlStart);
 
-    let didError = false;
-    const { pipe, abort, getState } = render(url, {
-      onShellError() {
-        res.status(500).set({ "Content-Type": "text/html" }).send("<h1>Something went wrong</h1>");
-      },
-      onShellReady() {
-        res.status(didError ? 500 : 200).set({ "Content-Type": "text/html" });
+          const reactStream = new Transform({
+            transform(chunk, encoding, callback) {
+              body.write(chunk, encoding);
+              callback();
+            },
+          });
+          reactStream.on("finish", () => {
+            // snapshot script goes after the app markup, before the client bootstrap script
+            body.write(htmlMiddle);
+            body.write(getState());
+            body.end(htmlEnd);
+          });
+          pipe(reactStream);
 
-        const [htmlStart, rest] = template.split("<!--app-html-->");
-        const [htmlMiddle, htmlEnd] = rest.split("<!--app-state-->");
-
-        const transformStream = new Transform({
-          transform(chunk, encoding, callback) {
-            res.write(chunk, encoding);
-            callback();
-          },
-        });
-        transformStream.on("finish", () => {
-          // snapshot script goes after the app markup, before the client bootstrap script
-          res.write(htmlMiddle);
-          res.write(getState());
-          res.write(htmlEnd);
-          res.end();
-        });
-
-        res.write(htmlStart);
-        pipe(transformStream);
-      },
-      onError(error) {
-        didError = true;
-        console.error(error);
-      },
+          resolve(
+            c.body(Readable.toWeb(body) as unknown as ReadableStream, didError ? 500 : 200, {
+              "Content-Type": "text/html",
+            }),
+          );
+        },
+        onError(error) {
+          didError = true;
+          console.error(error);
+        },
+      });
+      setTimeout(() => abort(), ABORT_DELAY);
     });
-
-    setTimeout(() => abort(), ABORT_DELAY);
   } catch (e) {
     const err = e instanceof Error ? e : new Error(String(e));
     vite?.ssrFixStacktrace(err);
-    console.log(err.stack);
-    res.status(500).end(err.stack);
+    console.error(err.stack);
+    return c.text(err.stack ?? String(err), 500);
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server started at http://localhost:${port}`);
+const honoListener = getRequestListener(app.fetch);
+const server = createHttpServer((req, res) => {
+  if (vite) vite.middlewares(req, res, () => honoListener(req, res));
+  else honoListener(req, res);
 });
+server.listen(port, () => console.log(`Server started at http://localhost:${port}`));

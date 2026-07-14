@@ -11,6 +11,7 @@
 This is Plan 6 (final) of the rxfy live framework. It implements design spec §5.2 (`window`), §5.8 (live client), §5.9 (`useStateData` counter), §5.10 (SSR grants). Branch `feat/rxfy-server-framework` (has the complete rxfy-protocol + rxfy-server + rxfy-ws).
 
 > **Exact integration points** (verified against current source):
+>
 > - `defineState`/`StateDescriptor` in `packages/rxfy/src/state/state.ts` (descriptor return ~lines 126–131; `key`→`key`, `params`→`paramsSchema`, `model`→`fields`, `mutations`→`mutations`).
 > - `useStateData` in `packages/rxfy-react/src/useStateData.ts`: registry via `useModelRegistry()` (line 75), `cacheKey`/`paramsKey` (lines 86–87), the `settle` fulfilled branch (line ~117) is the single fetch-success point, `reload` (lines 236–243), return (line 247).
 > - `StoreProvider` in `packages/rxfy-react/src/StoreProvider.tsx`: props (lines 15–22), provider JSX (lines 40–44), `SsrContext` pattern (line 6), `hydrate(registry, chunk)` call sites (lines 47–50, 56–74).
@@ -22,19 +23,19 @@ This is Plan 6 (final) of the rxfy live framework. It implements design spec §5
 
 ## File Structure
 
-| File | Change |
-|---|---|
-| `packages/rxfy/src/state/state.ts` | add `window?: readonly string[]` to descriptor + `defineState` |
-| `packages/rxfy-react/package.json` | add `rxfy-protocol` dependency |
-| `packages/rxfy-react/src/live/live-client.ts` | NEW — `createLiveClient`, `LiveClient`, `LiveTransport`, `Grants` |
-| `packages/rxfy-react/src/live/live-client.test.ts` | NEW — live client tests |
-| `packages/rxfy-react/src/live/channel.ts` | NEW — `stateChannel(state, params)` (window-aware) |
-| `packages/rxfy-react/src/live/channel.test.ts` | NEW — channel derivation tests |
-| `packages/rxfy-react/src/live-context.ts` | NEW — `LiveClientContext`, `useLiveClient` |
-| `packages/rxfy-react/src/StoreProvider.tsx` | add `liveClient` prop + provider |
-| `packages/rxfy-react/src/useStateData.ts` | add `updatesAvailable$` + `applyUpdates` |
-| `packages/rxfy/src/ssr/hydration.ts` | add `grants` to `DehydratedState` + stash on hydrate |
-| `packages/rxfy-react/src/index.tsx` | export the new live surface |
+| File                                               | Change                                                            |
+| -------------------------------------------------- | ----------------------------------------------------------------- |
+| `packages/rxfy/src/state/state.ts`                 | add `window?: readonly string[]` to descriptor + `defineState`    |
+| `packages/rxfy-react/package.json`                 | add `rxfy-protocol` dependency                                    |
+| `packages/rxfy-react/src/live/live-client.ts`      | NEW — `createLiveClient`, `LiveClient`, `LiveTransport`, `Grants` |
+| `packages/rxfy-react/src/live/live-client.test.ts` | NEW — live client tests                                           |
+| `packages/rxfy-react/src/live/channel.ts`          | NEW — `stateChannel(state, params)` (window-aware)                |
+| `packages/rxfy-react/src/live/channel.test.ts`     | NEW — channel derivation tests                                    |
+| `packages/rxfy-react/src/live-context.ts`          | NEW — `LiveClientContext`, `useLiveClient`                        |
+| `packages/rxfy-react/src/StoreProvider.tsx`        | add `liveClient` prop + provider                                  |
+| `packages/rxfy-react/src/useStateData.ts`          | add `updatesAvailable$` + `applyUpdates`                          |
+| `packages/rxfy/src/ssr/hydration.ts`               | add `grants` to `DehydratedState` + stash on hydrate              |
+| `packages/rxfy-react/src/index.tsx`                | export the new live surface                                       |
 
 ---
 
@@ -45,6 +46,7 @@ This is Plan 6 (final) of the rxfy live framework. It implements design spec §5
 - [ ] **Step 1: read the current file** to confirm the three `defineState` overloads + impl and the descriptor return object (around lines 55–131).
 
 - [ ] **Step 2: add `window` to the `StateDescriptor` type.** In the `StateDescriptor` type, after the `key` field, add:
+
 ```ts
   /** Param names that slice *within* a dataset (page, cursor, sort) — excluded from the live invalidation channel. */
   readonly window?: readonly string[];
@@ -55,6 +57,7 @@ This is Plan 6 (final) of the rxfy live framework. It implements design spec §5
 - [ ] **Step 4: thread it into the returned descriptor.** In the implementation's `return { key: def.key, paramsSchema: def.params, fields: ..., mutations: ... }`, add `window: def.window,`.
 
 - [ ] **Step 5: add a test.** In the existing state test file (find it: `packages/rxfy/src/state/state.test.ts` if present, else create `state.window.test.ts`), add:
+
 ```ts
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
@@ -77,9 +80,11 @@ describe("defineState window", () => {
   });
 });
 ```
+
 > If `model: {}` is rejected (empty FieldsMap), use a minimal valid field, e.g. `model: { open: z.boolean() }`, and adjust the assertions to keep them about `window` only.
 
 - [ ] **Step 6: verify + commit.** `pnpm --filter rxfy test && pnpm --filter rxfy check-types && pnpm --filter rxfy lint` (lint:fix if needed).
+
 ```bash
 git add packages/rxfy/src/state/state.ts packages/rxfy/src/state/*.test.ts
 git commit -m "feat(rxfy): add window field to defineState for live invalidation channels"
@@ -94,6 +99,7 @@ git commit -m "feat(rxfy): add window field to defineState for live invalidation
 - [ ] **Step 1: add `rxfy-protocol` dependency** to `packages/rxfy-react/package.json` — add a `"dependencies": { "rxfy-protocol": "workspace:*" }` block (before `devDependencies`); also add `"rxfy-protocol": "workspace:*"` to `devDependencies` if the repo pattern requires the workspace dep for tests (mirror how `rxfy` is listed). Run `pnpm install`.
 
 - [ ] **Step 2: channel derivation `src/live/channel.ts`** (the client-side twin of rxfy-server's `invalidationChannel`, kept local to avoid a server dep). Write the failing test `src/live/channel.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { stateChannel } from "./channel.js";
@@ -119,7 +125,9 @@ describe("stateChannel", () => {
   });
 });
 ```
+
 Then implement `src/live/channel.ts`:
+
 ```ts
 export type ChannelStateDescriptor = { key?: string; window?: readonly string[] };
 
@@ -129,10 +137,7 @@ const encode = (value: unknown): string =>
     : JSON.stringify(value);
 
 /** Window-independent invalidation channel for a state instance; `undefined` for keyless states. */
-export function stateChannel(
-  state: ChannelStateDescriptor,
-  params: Record<string, unknown>,
-): string | undefined {
+export function stateChannel(state: ChannelStateDescriptor, params: Record<string, unknown>): string | undefined {
   if (!state.key) return undefined;
   const windowKeys = new Set<string>(state.window ?? []);
   const suffix = Object.keys(params)
@@ -143,9 +148,11 @@ export function stateChannel(
   return suffix ? `${state.key}:${suffix}` : state.key;
 }
 ```
+
 > This mirrors rxfy-server's `invalidationChannel` (window/partition split, primitive encoding) but returns `undefined` for keyless states. Keep them behaviorally identical for shared topics — same encoding.
 
 - [ ] **Step 3: live client `src/live/live-client.ts`** — write the failing test `src/live/live-client.test.ts`:
+
 ```ts
 import { createModel, createModelRegistry } from "rxfy";
 import { patch, stale, type ServerMessage } from "rxfy-protocol";
@@ -193,7 +200,11 @@ describe("createLiveClient", () => {
   it("counts stale signals per channel and resets", () => {
     const registry = createModelRegistry();
     const { transport, subscribed, deliver } = fakeTransport();
-    const live = createLiveClient({ registry, transport, grants: { entities: {}, channels: { "posts:orgId=A": "cid" } } });
+    const live = createLiveClient({
+      registry,
+      transport,
+      grants: { entities: {}, channels: { "posts:orgId=A": "cid" } },
+    });
     const ch = live.channel("posts:orgId=A");
     expect(subscribed).toContain("cid");
     const seen: number[] = [];
@@ -222,7 +233,9 @@ describe("createLiveClient", () => {
   });
 });
 ```
+
 Then implement `src/live/live-client.ts`:
+
 ```ts
 import { BehaviorSubject, type Observable, type Subscription } from "rxjs";
 import type { IModelRegistry } from "rxfy";
@@ -317,6 +330,7 @@ export function createLiveClient({ registry, transport, grants }: LiveClientConf
 ```
 
 - [ ] **Step 4: run both test files → pass; lint + check-types; commit.**
+
 ```bash
 git add packages/rxfy-react/package.json pnpm-lock.yaml packages/rxfy-react/src/live
 git commit -m "feat(rxfy-react): add createLiveClient and state channel derivation"
@@ -329,6 +343,7 @@ git commit -m "feat(rxfy-react): add createLiveClient and state channel derivati
 **Files:** `packages/rxfy-react/src/live-context.ts` (new), `packages/rxfy-react/src/StoreProvider.tsx`.
 
 - [ ] **Step 1: `src/live-context.ts`** (mirror the `registry-context.ts` pattern, but nullable + no throw — live updates are optional):
+
 ```ts
 import { createContext, useContext } from "react";
 import type { LiveClient } from "./live/live-client.js";
@@ -342,6 +357,7 @@ export function useLiveClient(): LiveClient | null {
 ```
 
 - [ ] **Step 2: `StoreProvider.tsx`** — add the prop + provider. Change the props type to add `liveClient?: LiveClient;`, destructure it, and wrap the children with `<LiveClientContext.Provider value={liveClient ?? null}>`:
+
 ```tsx
 // add import:
 import { LiveClientContext } from "./live-context.js";
@@ -367,6 +383,7 @@ export type StoreProviderProps = PropsWithChildren<{
 - [ ] **Step 3: test** `packages/rxfy-react/src/live-context.test.tsx` — render a `StoreProvider` with a stub `liveClient` and assert a child `useLiveClient()` returns it; with no prop, returns null. Use `@testing-library/react` if already a dev dep (check `packages/rxfy-react/package.json`); otherwise test the context with a minimal `react-test-renderer` or a direct `useContext` harness. If no React test tooling exists in the package, SKIP the render test and instead unit-test that `LiveClientContext`'s default is `null` and `useLiveClient` reads context (export-shape test), and note the gap.
 
 - [ ] **Step 4: verify + commit.**
+
 ```bash
 git add packages/rxfy-react/src/live-context.ts packages/rxfy-react/src/StoreProvider.tsx packages/rxfy-react/src/live-context.test.tsx
 git commit -m "feat(rxfy-react): add LiveClientContext and StoreProvider liveClient prop"
@@ -381,6 +398,7 @@ git commit -m "feat(rxfy-react): add LiveClientContext and StoreProvider liveCli
 - [ ] **Step 1: read the full current file** to confirm line refs (registry at 75, `paramsKey`/`cacheKey` at 86–87, `settle` fulfilled branch at ~117, `reload` at 236–243, return at 247, memo deps).
 
 - [ ] **Step 2: extend `StateHandle`** with:
+
 ```ts
   readonly updatesAvailable$: Observable<number>;
   readonly applyUpdates: () => void;
@@ -398,6 +416,7 @@ git commit -m "feat(rxfy-react): add LiveClientContext and StoreProvider liveCli
 - [ ] **Step 6: test.** Add to the existing `useStateData` test (or a new `useStateData.live.test.tsx`): with a stub live client (whose `channel()` returns a controllable `available$`) provided via context, assert `handle.updatesAvailable$` reflects the channel counter and `applyUpdates()` calls reset + refetch. If React-hook testing tooling is absent, test the channel-derivation + reset wiring at the unit level and note the integration-test gap. Confirm the no-live-client path returns `of(0)` and `applyUpdates === reload`-equivalent.
 
 - [ ] **Step 7: verify + commit.** `pnpm --filter rxfy-react test check-types lint`.
+
 ```bash
 git add packages/rxfy-react/src/useStateData.ts packages/rxfy-react/src/*.test.tsx
 git commit -m "feat(rxfy-react): integrate live updates counter into useStateData"
@@ -410,6 +429,7 @@ git commit -m "feat(rxfy-react): integrate live updates counter into useStateDat
 **Files:** `packages/rxfy/src/ssr/hydration.ts`, `packages/rxfy-react/src/StoreProvider.tsx` (or a small consumer).
 
 - [ ] **Step 1: extend `DehydratedState`** in `hydration.ts`:
+
 ```ts
 export type DehydratedState = {
   queries: Record<string, SerializedWrapped>;
@@ -417,9 +437,11 @@ export type DehydratedState = {
   grants?: { entities: Record<string, string>; channels: Record<string, string> };
 };
 ```
+
 `dehydrate` currently returns `{ queries, models }`. Leave `dehydrate` producing those two; grants are attached by the caller (the server composes `hydrationScript({ ...dehydrate(registry), grants })` per design §5.10), so no change to `dehydrate` is required — but ensure the type allows the extra field (it now does).
 
 - [ ] **Step 2: surface grants on the client.** The cleanest seam: since each `window.__RXFY_SSR__` chunk is a `DehydratedState`, expose the merged grants so the app can feed them to `createLiveClient`. Add a tiny helper in rxfy-react (e.g. `src/live/read-grants.ts`):
+
 ```ts
 import type { Grants } from "./live-client.js";
 
@@ -435,11 +457,13 @@ export function readSsrGrants(): Grants {
   return { entities, channels };
 }
 ```
+
 > The app wires it: `createLiveClient({ registry, transport, grants: readSsrGrants() })`, then `liveClient.addGrants(...)` on each client-side fetch. Streaming late chunks: the app can re-read or call `addGrants` as chunks arrive (the StoreProvider already patches `queue.push`; a follow-up can hook grants there — out of scope for v1).
 
 - [ ] **Step 3: test** `readSsrGrants` by setting `globalThis.__RXFY_SSR__` to a couple of chunks and asserting the merge (last-writer-wins). Confirm `DehydratedState` with `grants` round-trips through `serializeForHtml`/parse (extend an existing hydration test).
 
 - [ ] **Step 4: verify + commit.**
+
 ```bash
 git add packages/rxfy/src/ssr/hydration.ts packages/rxfy-react/src/live/read-grants.ts packages/rxfy/src/ssr/*.test.ts packages/rxfy-react/src/live/*.test.ts
 git commit -m "feat: carry live-update grants in the SSR hydration payload"
@@ -452,6 +476,7 @@ git commit -m "feat: carry live-update grants in the SSR hydration payload"
 **Files:** `packages/rxfy-react/src/index.tsx`, changesets.
 
 - [ ] **Step 1: export the live surface** from `packages/rxfy-react/src/index.tsx` (alphabetical among existing lines):
+
 ```ts
 export { createLiveClient } from "./live/live-client.js";
 export type { ChannelCounter, Grants, LiveClient, LiveTransport } from "./live/live-client.js";
@@ -459,9 +484,11 @@ export { stateChannel } from "./live/channel.js";
 export { readSsrGrants } from "./live/read-grants.js";
 export { LiveClientContext, useLiveClient } from "./live-context.js";
 ```
+
 (rxfy core already exports `defineState`/`StateDescriptor`; the `window` field rides along automatically.)
 
 - [ ] **Step 2: changesets.** Create `.changeset/rxfy-core-window.md`:
+
 ```md
 ---
 "rxfy": minor
@@ -469,7 +496,9 @@ export { LiveClientContext, useLiveClient } from "./live-context.js";
 
 Add the optional `window` field to `defineState` (names the pagination/slice params excluded from a state's live invalidation channel), and carry live-update `grants` in the SSR hydration payload.
 ```
+
 And `.changeset/rxfy-react-live.md`:
+
 ```md
 ---
 "rxfy-react": minor
@@ -479,10 +508,11 @@ Add the client live layer: `createLiveClient` (applies inbound entity patches to
 ```
 
 - [ ] **Step 3: full verification across affected packages.**
-Run: `pnpm turbo build test lint check-types --filter=rxfy --filter=rxfy-react`
-Expected: all green. Run `pnpm changeset status` (lists rxfy + rxfy-react minor).
+      Run: `pnpm turbo build test lint check-types --filter=rxfy --filter=rxfy-react`
+      Expected: all green. Run `pnpm changeset status` (lists rxfy + rxfy-react minor).
 
 - [ ] **Step 4: commit.**
+
 ```bash
 git add packages/rxfy-react/src/index.tsx .changeset/rxfy-core-window.md .changeset/rxfy-react-live.md
 git commit -m "feat(rxfy-react): export live client surface; add changesets"

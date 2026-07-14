@@ -8,7 +8,7 @@
 
 **Tech Stack:** Hono 4, `@hono/node-server`, `@hono/node-ws`, Vite 6 (SSR), `@electric-sql/pglite`, drizzle-orm (pg-core), React 19, RxJS, Zod, and workspace `rxfy`/`rxfy-react`/`rxfy-server`/`rxfy-ws`. PGlite verified facts: `new PGlite()` in-memory, `drizzle(client)`, tables via `client.exec(CREATE TABLE …)` (snake_case columns), `.returning()`, timestamp→Date.
 
-This is the example plan from `docs/superpowers/specs/2026-07-01-vite-blog-framework-design.md`. The framework packages (rxfy-protocol/server/ws + rxfy/rxfy-react live additions) are complete on branch `feat/rxfy-server-framework`. **Reference templates** (copy & adapt — do not import from them): `examples/vite-realtime-todos` (server/index.ts, entry-server.tsx, entry-client.tsx, vite.config.ts, tsconfig*.json, index.html, eslint.config.ts) and `examples/waku-blog` (component shapes, seed data).
+This is the example plan from `docs/superpowers/specs/2026-07-01-vite-blog-framework-design.md`. The framework packages (rxfy-protocol/server/ws + rxfy/rxfy-react live additions) are complete on branch `feat/rxfy-server-framework`. **Reference templates** (copy & adapt — do not import from them): `examples/vite-realtime-todos` (server/index.ts, entry-server.tsx, entry-client.tsx, vite.config.ts, tsconfig\*.json, index.html, eslint.config.ts) and `examples/waku-blog` (component shapes, seed data).
 
 ---
 
@@ -78,7 +78,7 @@ examples/vite-blog-framework/
     "@hono/node-ws": "^1.1.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vanya2h/eslint-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
     "@vitejs/plugin-react": "^5.2.0",
     "cross-env": "^7.0.3",
     "drizzle-orm": "^0.45.2",
@@ -106,6 +106,7 @@ examples/vite-blog-framework/
   - `tsconfig.app.json` and `tsconfig.node.json`: copy byte-for-byte from `examples/vite-realtime-todos/tsconfig.app.json` / `tsconfig.node.json` (read them and reproduce). They use `moduleResolution: bundler`, `verbatimModuleSyntax`, `strict`, `noUnusedLocals/Parameters`. The app config `include`s `["src", "shared"]` — change to `["src"]`. The node config `include`s `["server", "shared", "vite.config.ts", "eslint.config.ts"]` — change to `["server", "vite.config.ts", "eslint.config.ts"]`.
 
 - [ ] **Step 3: `vite.config.ts`**
+
 ```ts
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -116,6 +117,7 @@ export default defineConfig({
 ```
 
 - [ ] **Step 4: `eslint.config.ts`** (same as the todos example)
+
 ```ts
 import { config } from "@vanya2h/eslint-config/react";
 import { Linter } from "eslint";
@@ -129,6 +131,7 @@ export default [
 ```
 
 - [ ] **Step 5: `index.html`**
+
 ```html
 <!doctype html>
 <html lang="en">
@@ -151,9 +154,10 @@ export default [
 - [ ] **Step 7: `src/styles.css`** — a small, clean stylesheet (≈80 lines): body font/max-width, `.post-list`, `.post-card`, `.badge-button` (a pill button), `.form` inputs, `.comment-list`, `.status`/`.error`. Keep it simple; mirror the tone of `examples/waku-blog`'s CSS. (No functional requirement — just legible.)
 
 - [ ] **Step 8: install + verify scaffolding**
-Run: `pnpm install` then `pnpm --filter vite-blog-framework check-types` (expect 0 errors — no source yet beyond env.d.ts) and `pnpm --filter vite-blog-framework lint` (clean).
+      Run: `pnpm install` then `pnpm --filter vite-blog-framework check-types` (expect 0 errors — no source yet beyond env.d.ts) and `pnpm --filter vite-blog-framework lint` (clean).
 
 - [ ] **Step 9: commit**
+
 ```bash
 git add examples/vite-blog-framework pnpm-lock.yaml
 git commit -m "chore(example): scaffold vite-blog-framework"
@@ -166,6 +170,7 @@ git commit -m "chore(example): scaffold vite-blog-framework"
 **Files:** `src/db/schema.ts`, `src/blog/types.ts`, `server/db.ts`.
 
 - [ ] **Step 1: `src/db/schema.ts`** — Drizzle pgTables (snake_case columns):
+
 ```ts
 import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
@@ -193,6 +198,7 @@ export const comments = pgTable("comments", {
 ```
 
 - [ ] **Step 2: `src/blog/types.ts`** — row types from the tables:
+
 ```ts
 import type { InferSelectModel } from "drizzle-orm";
 import type { comments, posts, users } from "../db/schema.js";
@@ -201,9 +207,11 @@ export type User = InferSelectModel<typeof users>;
 export type Post = InferSelectModel<typeof posts>;
 export type Comment = InferSelectModel<typeof comments>;
 ```
+
 > Use `.js` import specifiers (Vite/ESM). The schema file is imported by both server and client (client type-imports it; the table objects are isomorphic and pull no DB driver).
 
 - [ ] **Step 3: `server/db.ts`** — PGlite + drizzle + DDL + seed:
+
 ```ts
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -237,9 +245,24 @@ export function initDb(): Promise<void> {
         { id: "u3", name: "Carol Lee", email: "carol@example.com" },
       ]);
       await db.insert(posts).values([
-        { id: "p1", authorId: "u1", title: "Getting Started with rxfy", body: "rxfy is a stream-based, normalized state library built on RxJS…" },
-        { id: "p2", authorId: "u2", title: "RxJS Patterns in 2025", body: "Reactive programming has evolved; clean operator chains and minimal subscriptions win…" },
-        { id: "p3", authorId: "u3", title: "Zod for Runtime Type Safety", body: "TypeScript is compile-time; Zod fills the runtime gap with a chainable schema API…" },
+        {
+          id: "p1",
+          authorId: "u1",
+          title: "Getting Started with rxfy",
+          body: "rxfy is a stream-based, normalized state library built on RxJS…",
+        },
+        {
+          id: "p2",
+          authorId: "u2",
+          title: "RxJS Patterns in 2025",
+          body: "Reactive programming has evolved; clean operator chains and minimal subscriptions win…",
+        },
+        {
+          id: "p3",
+          authorId: "u3",
+          title: "Zod for Runtime Type Safety",
+          body: "TypeScript is compile-time; Zod fills the runtime gap with a chainable schema API…",
+        },
       ]);
       await db.insert(comments).values([
         { id: "c1", postId: "p1", author: "Bob Smith", body: "Great intro!" },
@@ -254,7 +277,8 @@ export { comments, posts, users };
 ```
 
 - [ ] **Step 4: verify + commit**
-Run: `pnpm --filter vite-blog-framework check-types` (0 errors). 
+      Run: `pnpm --filter vite-blog-framework check-types` (0 errors).
+
 ```bash
 git add examples/vite-blog-framework/src/db examples/vite-blog-framework/src/blog/types.ts examples/vite-blog-framework/server/db.ts
 git commit -m "feat(example): add Drizzle schema, row types, and PGlite db with seed"
@@ -267,6 +291,7 @@ git commit -m "feat(example): add Drizzle schema, row types, and PGlite db with 
 **Files:** `src/blog/resources.ts`, `src/blog/states.ts`, `src/routes.ts`.
 
 - [ ] **Step 1: `src/blog/resources.ts`**
+
 ```ts
 import { createResourceRegistry, defineResource } from "rxfy-server";
 import { comments, posts, users } from "../db/schema.js";
@@ -281,9 +306,11 @@ export const commentModel = commentResource.model;
 
 export const resources = createResourceRegistry([userResource, postResource, commentResource]);
 ```
+
 > `defineResource`/`createResourceRegistry` come from `rxfy-server` (its `.` entry, which is browser-safe — it imports drizzle-orm/drizzle-zod but no DB driver). The client imports this module to get `resources` for `createLiveClient` and the models for `useModelStore`.
 
 - [ ] **Step 2: `src/blog/states.ts`**
+
 ```ts
 import { array, defineState, single } from "rxfy";
 import { z } from "zod";
@@ -303,14 +330,12 @@ export const postDetailState = defineState({
 ```
 
 - [ ] **Step 3: `src/routes.ts`** — single source of url ↔ state mapping (used by both the SSR grant step and the client router):
+
 ```ts
 import type { StateChannelDescriptor } from "rxfy-server";
 import { postDetailState, postsState } from "./blog/states.js";
 
-export type Route =
-  | { name: "home" }
-  | { name: "post"; postId: string }
-  | { name: "not-found" };
+export type Route = { name: "home" } | { name: "post"; postId: string } | { name: "not-found" };
 
 /** Parse a pathname into a route. */
 export function matchRoute(pathname: string): Route {
@@ -329,8 +354,9 @@ export function routeStates(route: Route): Array<{ state: StateChannelDescriptor
 ```
 
 - [ ] **Step 4: verify + commit**
-Run: `pnpm --filter vite-blog-framework check-types` (0 errors — `array`/`single`/`defineState` typecheck against the derived models).
-> If `defineResource(...).model` (a `ModelDescriptor`) doesn't satisfy `array()`/`single()` due to the branded-key generics, it will — `array<T,TKey>(model: ModelDescriptor<T,TKey>)`. Report any cast needed.
+      Run: `pnpm --filter vite-blog-framework check-types` (0 errors — `array`/`single`/`defineState` typecheck against the derived models).
+  > If `defineResource(...).model` (a `ModelDescriptor`) doesn't satisfy `array()`/`single()` due to the branded-key generics, it will — `array<T,TKey>(model: ModelDescriptor<T,TKey>)`. Report any cast needed.
+
 ```bash
 git add examples/vite-blog-framework/src/blog/resources.ts examples/vite-blog-framework/src/blog/states.ts examples/vite-blog-framework/src/routes.ts
 git commit -m "feat(example): add shared resources, states, and route map"
@@ -343,6 +369,7 @@ git commit -m "feat(example): add shared resources, states, and route map"
 **Files:** `server/live.ts`, `server/api.ts`, `server/ws.ts`.
 
 - [ ] **Step 1: `server/live.ts`**
+
 ```ts
 import { createInMemoryHub, createServer, createTopicKeyer } from "rxfy-server";
 import { resources } from "../src/blog/resources.js";
@@ -359,6 +386,7 @@ export const live = createServer({
 ```
 
 - [ ] **Step 2: `server/api.ts`** — Hono routes calling `live.*`. Creates/deletes `touch` the state channels; edits broadcast a patch automatically.
+
 ```ts
 import { Hono } from "hono";
 import { touch } from "rxfy-server";
@@ -455,10 +483,12 @@ api.delete("/posts/:postId/comments/:id", async (c) => {
   return c.json({ ok: true });
 });
 ```
+
 > The GET endpoints return `{ data, ids, grants }`: `data` is the denormalized shape (so `useStateData`'s `fetchFn` can return it directly), `grants` is the topic/channel-id map for the live client. `normalizeResult`/`createModelRegistry` are imported from `rxfy` (dynamic import keeps the example's import graph simple; a top-level import is equally fine — prefer top-level and remove the `await import` if it type-checks cleanly).
 > SIMPLIFY during implementation: hoist the `rxfy`/`drizzle-orm` imports to the top of the file (top-level), not dynamic — the dynamic imports above are only to keep the snippet self-contained. Use top-level imports.
 
 - [ ] **Step 3: `server/ws.ts`** — bridge `createWsServer(hub)` to `@hono/node-ws`:
+
 ```ts
 import { EventEmitter } from "node:events";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -481,10 +511,12 @@ export function liveRoute(upgradeWebSocket: UpgradeWebSocket) {
   });
 }
 ```
+
 > The `rxfy-ws` `ServerSocket` is structural (`{ send, on }`); the shim maps Hono's `onMessage`/`onClose` callbacks onto an `EventEmitter` that the adapter's `socket.on(...)` listens to. `wsServer` is created ONCE (module scope) so the single `hub.onPublish` sink is registered once; `handleConnection` runs per socket. Adjust the `onOpen`/`onMessage` param types to match `@hono/node-ws`'s actual `WSContext`/`MessageEvent` types (read them; the `evt.data` is the raw frame — `.toString()`-able). Report the final types.
 
 - [ ] **Step 4: verify + commit**
-Run: `pnpm --filter vite-blog-framework check-types` (resolve any `@hono/node-ws` type specifics; the runtime is correct).
+      Run: `pnpm --filter vite-blog-framework check-types` (resolve any `@hono/node-ws` type specifics; the runtime is correct).
+
 ```bash
 git add examples/vite-blog-framework/server/live.ts examples/vite-blog-framework/server/api.ts examples/vite-blog-framework/server/ws.ts
 git commit -m "feat(example): server live store, REST API, and ws bridge"
@@ -497,6 +529,7 @@ git commit -m "feat(example): server live store, REST API, and ws bridge"
 **Files:** `server/render.ts`, `src/entry-server.tsx`, `server/index.ts`.
 
 - [ ] **Step 1: `src/entry-server.tsx`** — buffered SSR that returns html + the per-route grants (so `render.ts` can build the state script). Adapt `examples/vite-realtime-todos/src/entry-server.tsx`:
+
 ```ts
 import { PassThrough } from "node:stream";
 import { StrictMode } from "react";
@@ -539,9 +572,11 @@ export function render(url: string): Promise<{ html: string; state: string }> {
   });
 }
 ```
+
 > `entry-server` imports `server/live.ts` (the per-process `live`/`hub`/`db`). That's fine — the SSR entry runs in the same Node process. The SSR render uses `useStateData` with `fetchFn`s that, on the server, read from the in-process DB (see Task 6 `api-client` — on the server it can call the DB directly OR fetch `/api`; SIMPLEST: the `fetchFn` does a relative `fetch` to the same server's `/api`, which works in Node 18+ with an absolute URL — but during SSR the server isn't listening to itself cleanly). DECISION: for SSR, seed via a server-side fetcher that queries the DB directly. Implement `fetchPostsServer`/`fetchPostDetailServer` in `api-client.ts` guarded by `typeof window === "undefined"`, OR pass `defaultData` via the route. KEEP IT SIMPLE: the `fetchFn` checks `typeof window === "undefined"` and, if server, imports the DB query inline; if client, does `fetch('/api/...')`. The plan's Task 6 defines this dual fetcher. Confirm the chosen approach in your report.
 
 - [ ] **Step 2: `server/render.ts`** — thin wrapper used by `index.ts` (dev: `ssrLoadModule`; prod: import built bundle). Mirror the inline render logic in `examples/vite-realtime-todos/server/index.ts`'s catch-all; extract it here for clarity:
+
 ```ts
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -568,6 +603,7 @@ export async function renderPage(url: string, vite: ViteDevServer | undefined, i
 ```
 
 - [ ] **Step 3: `server/index.ts`** — Hono app (adapt the todos `server/index.ts`): mount `api`, the `/live` ws route, vite middleware (dev) / static (prod), SSR catch-all, own the Node http server, `injectWebSocket`, `await initDb()` before listen.
+
 ```ts
 /* eslint-disable turbo/no-undeclared-env-vars */
 import { createServer as createHttpServer } from "node:http";
@@ -621,6 +657,7 @@ server.listen(port, () => console.log(`Live blog at http://localhost:${port}`));
 ```
 
 - [ ] **Step 4: verify + commit** — `pnpm --filter vite-blog-framework check-types`.
+
 ```bash
 git add examples/vite-blog-framework/server/render.ts examples/vite-blog-framework/server/index.ts examples/vite-blog-framework/src/entry-server.tsx
 git commit -m "feat(example): SSR render with grants and the Hono server"
@@ -633,6 +670,7 @@ git commit -m "feat(example): SSR render with grants and the Hono server"
 **Files:** `src/live-singleton.ts`, `src/blog/api-client.ts`, `src/entry-client.tsx`, `src/App.tsx`.
 
 - [ ] **Step 1: `src/live-singleton.ts`**
+
 ```ts
 import type { LiveClient } from "rxfy-react";
 
@@ -642,6 +680,7 @@ export const getLiveClient = (): LiveClient | undefined => client;
 ```
 
 - [ ] **Step 2: `src/blog/api-client.ts`** — dual fetchers (server reads DB directly; client fetches `/api` and merges grants) + mutation helpers:
+
 ```ts
 import type { Comment, Post, User } from "./types.js";
 import { getLiveClient } from "../live-singleton.js";
@@ -659,7 +698,10 @@ export async function fetchPosts(): Promise<PostsShape> {
     return { posts: await db.select().from(posts), authors: await db.select().from(users) };
   }
   const res = await fetch("/api/posts");
-  const body = (await res.json()) as { data: PostsShape; grants: { entities: Record<string, string>; channels: Record<string, string> } };
+  const body = (await res.json()) as {
+    data: PostsShape;
+    grants: { entities: Record<string, string>; channels: Record<string, string> };
+  };
   getLiveClient()?.addGrants(body.grants);
   return body.data;
 }
@@ -676,7 +718,10 @@ export async function fetchPostDetail({ postId }: { postId: string }): Promise<D
   }
   const res = await fetch(`/api/posts/${encodeURIComponent(postId)}`);
   if (!res.ok) throw new Error(`Post ${postId} not found`);
-  const body = (await res.json()) as { data: DetailShape; grants: { entities: Record<string, string>; channels: Record<string, string> } };
+  const body = (await res.json()) as {
+    data: DetailShape;
+    grants: { entities: Record<string, string>; channels: Record<string, string> };
+  };
   getLiveClient()?.addGrants(body.grants);
   return body.data;
 }
@@ -690,13 +735,16 @@ const del = (url: string) => fetch(url, { method: "DELETE" });
 export const createPost = (p: { authorId: string; title: string; body: string }) => post("/api/posts", p);
 export const editPost = (id: string, p: { title?: string; body?: string }) => patch(`/api/posts/${id}`, p);
 export const deletePost = (id: string) => del(`/api/posts/${id}`);
-export const addComment = (postId: string, p: { author: string; body: string }) => post(`/api/posts/${postId}/comments`, p);
+export const addComment = (postId: string, p: { author: string; body: string }) =>
+  post(`/api/posts/${postId}/comments`, p);
 export const editComment = (id: string, p: { body: string }) => patch(`/api/comments/${id}`, p);
 export const deleteComment = (postId: string, id: string) => del(`/api/posts/${postId}/comments/${id}`);
 ```
+
 > The dual server/client fetcher keeps the example single-codebase. On the server (SSR) it reads PGlite directly (no self-fetch); on the client it hits `/api` and merges grants. The `void eq` in `fetchPosts` is a lint guard if `eq` is unused there — remove if you don't import it. Clean up unused imports to satisfy `noUnusedLocals`.
 
 - [ ] **Step 3: `src/entry-client.tsx`** — create the live client once, set the singleton, hydrate:
+
 ```ts
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
@@ -723,9 +771,11 @@ function Root() {
   return <App url={location.pathname} liveClient={liveClient} />;
 }
 ```
+
 > PROBLEM: `useModelRegistry()` must be called INSIDE `StoreProvider`, and the `liveClient` must be passed BACK into `StoreProvider`. Resolve this ordering with a two-provider pattern: render `<StoreProvider ssr>` (creates/drains the registry), then an inner component reads the registry via `useModelRegistry()`, builds the live client, and renders a SECOND `<StoreProvider ssr registry={sameRegistry} liveClient={c}>`? That double-wraps. CLEANER: create the registry explicitly in entry-client, drain SSR into it is automatic via StoreProvider; but to build the live client we need the registry instance. SIMPLEST CORRECT APPROACH: pass an explicit registry to StoreProvider.
 >
 > Implement entry-client as:
+
 ```ts
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
@@ -753,9 +803,11 @@ hydrateRoot(
   </StrictMode>,
 );
 ```
+
 > Passing an explicit `registry` to `StoreProvider` makes it drain `window.__RXFY_SSR__` into THAT registry (confirm StoreProvider uses the provided registry for hydration — it does: the `registry` prop is the external registry and hydration drains into it). `readSsrGrants()` reads the same payload. The live client now shares the exact registry components read from. This is the canonical wiring.
 
 - [ ] **Step 4: `src/App.tsx`** — a tiny client router (no router dep) keyed off `location.pathname`, with in-app navigation via `history.pushState` + a `popstate`/click handler. Props: `{ url }` (initial path for SSR). Render `<PostList/>` for `/`, `<PostDetail postId/>` for `/posts/:id`, else a not-found. Provide a `navigate(path)` via context or simple module function that pushes state and updates a `useState` path. Keep it ~40 lines. Use `matchRoute` from `routes.ts`.
+
 ```tsx
 import { useEffect, useState } from "react";
 import { matchRoute } from "./routes.js";
@@ -783,7 +835,17 @@ export function App({ url }: { url: string }) {
   const route = matchRoute(path);
   return (
     <main className="container">
-      <header><a href="/" onClick={(e) => { e.preventDefault(); navigate("/"); }}><h1>rxfy live blog</h1></a></header>
+      <header>
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/");
+          }}
+        >
+          <h1>rxfy live blog</h1>
+        </a>
+      </header>
       {route.name === "home" && <PostList />}
       {route.name === "post" && <PostDetail postId={route.postId} />}
       {route.name === "not-found" && <p className="status">Not found.</p>}
@@ -791,9 +853,11 @@ export function App({ url }: { url: string }) {
   );
 }
 ```
+
 > `entry-server` calls `<App url={url} />` (no `useEffect`/`navigate` runs server-side; the initial `path` comes from `url`). `entry-client` calls `<App url={location.pathname} />`.
 
 - [ ] **Step 5: verify + commit** — `pnpm --filter vite-blog-framework check-types`.
+
 ```bash
 git add examples/vite-blog-framework/src/live-singleton.ts examples/vite-blog-framework/src/blog/api-client.ts examples/vite-blog-framework/src/entry-client.tsx examples/vite-blog-framework/src/App.tsx
 git commit -m "feat(example): client live wiring, api-client, and router"
@@ -808,16 +872,26 @@ git commit -m "feat(example): client live wiring, api-client, and router"
 Build the presentational components using the `Pending` + `useModelStore(model).get(id)` pattern from `examples/waku-blog` (read `PostList.tsx`/`PostDetail.tsx`/`AddCommentForm.tsx` there and adapt — swap the `*model` imports for this example's `postModel`/`userModel`/`commentModel`, and the row field names: posts have `authorId`/`title`/`body`, comments have `author`/`body`). Add the live badge + forms.
 
 - [ ] **Step 1: `UpdatesBadge.tsx`** — the reusable badge:
+
 ```tsx
 import { useObservable } from "rxfy-react";
 import type { Observable } from "rxjs";
 
-export function UpdatesBadge({ available$, onApply, noun }: { available$: Observable<number>; onApply: () => void; noun: string }) {
+export function UpdatesBadge({
+  available$,
+  onApply,
+  noun,
+}: {
+  available$: Observable<number>;
+  onApply: () => void;
+  noun: string;
+}) {
   const n = useObservable(available$, 0);
   if (n <= 0) return null;
   return (
     <button className="badge-button" onClick={onApply}>
-      {n} new {noun}{n === 1 ? "" : "s"} · click to refresh
+      {n} new {noun}
+      {n === 1 ? "" : "s"} · click to refresh
     </button>
   );
 }
@@ -828,9 +902,11 @@ export function UpdatesBadge({ available$, onApply, noun }: { available$: Observ
 - [ ] **Step 4: `PostDetail.tsx`** — `useStateData(postDetailState, fetchPostDetail, { postId })`; badge ("comment"); render post (live-editable) + author + comments via ids; `<AddCommentForm/>`.
 - [ ] **Step 5: `CommentItem.tsx`** — `useModelStore(commentModel).get(id)`; delete button (`deleteComment`).
 - [ ] **Step 6: `NewPostForm.tsx` / `EditPostForm.tsx` / `AddCommentForm.tsx`** — controlled forms (template from waku `AddCommentForm.tsx`) that call the api-client mutation helpers. NewPostForm picks an author from the seeded users (hardcode the 3 ids `u1/u2/u3` in a select, or fetch users). On submit, call the helper; the live broadcast handles propagation (no local mutation needed — creates show via the badge in OTHER tabs; in the SAME tab, call `handle.applyUpdates()` after a successful create to refresh immediately, OR rely on the badge. KEEP: after a successful create/delete in the same tab, call the relevant `applyUpdates()` so the acting tab updates immediately).
-> Each component is small and focused. After writing all, run `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-framework lint`.
+
+  > Each component is small and focused. After writing all, run `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-framework lint`.
 
 - [ ] **Step 7: commit**
+
 ```bash
 git add examples/vite-blog-framework/src/components
 git commit -m "feat(example): blog components with live badge and forms"
@@ -843,6 +919,7 @@ git commit -m "feat(example): blog components with live badge and forms"
 **Files:** `server/live.smoke.test.ts`, `README.md`.
 
 - [ ] **Step 1: `server/live.smoke.test.ts`** — boot `live` over a fresh PGlite and assert the write+broadcast path (reuse the framework's own style; no HTTP/React):
+
 ```ts
 import { createInMemoryHub, createServer, createTopicKeyer, touch } from "rxfy-server";
 import { parseServerMessage, type ServerMessage } from "rxfy-protocol";
@@ -874,7 +951,11 @@ describe("vite-blog-framework live server", () => {
     hub.onPublish((_conn, msg) => received.push(msg));
     hub.subscribe("client", [keyer.current("posts")]);
 
-    const row = await live.create(postResource, { id: "p1", authorId: "u1", title: "Hi", body: "B" }, { touch: [touch(postsState, {})] });
+    const row = await live.create(
+      postResource,
+      { id: "p1", authorId: "u1", title: "Hi", body: "B" },
+      { touch: [touch(postsState, {})] },
+    );
     expect(row).toMatchObject({ id: "p1", title: "Hi" });
     expect(received).toEqual([{ v: 1, kind: "stale", channel: "posts" }]);
 
@@ -898,21 +979,31 @@ describe("vite-blog-framework live server", () => {
 
     const row = await live.update(postResource, "p1", { title: "New" });
     expect(row).toMatchObject({ title: "New" });
-    expect(received).toEqual([{ v: 1, kind: "patch", name: "post", id: "p1", data: { id: "p1", authorId: "u1", title: "New", body: "B", createdAt: expect.any(Date) } }]);
+    expect(received).toEqual([
+      {
+        v: 1,
+        kind: "patch",
+        name: "post",
+        id: "p1",
+        data: { id: "p1", authorId: "u1", title: "New", body: "B", createdAt: expect.any(Date) },
+      },
+    ]);
   });
 });
 ```
+
 Run: `pnpm --filter vite-blog-framework test` → both pass. (Remove the unused `parseServerMessage` import if it trips lint; it's there only to mirror framework-test imports — prefer removing it.)
 
 - [ ] **Step 2: `README.md`** — what it is, `pnpm --filter vite-blog-framework dev` (→ http://localhost:5176), and the two-tab demo script: (1) open two tabs; (2) in tab A create a post → tab B shows "1 new post · click to refresh"; (3) edit a post → both tabs update live (no refresh); (4) open a post, add a comment in tab A → tab B's open post page shows "1 new comment"; (5) delete → badge. Note it uses PGlite (in-memory; data resets on restart) and the rxfy live framework (link the packages).
 
 - [ ] **Step 3: final verification**
-Run: `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-framework lint && pnpm --filter vite-blog-framework test && pnpm --filter vite-blog-framework build`
-Expected: types clean, lint clean, smoke tests pass, and BOTH `build:client` + `build:server` produce `dist/`. (The build is the real integration check that the SSR entry + client entry compile through Vite.)
+      Run: `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-framework lint && pnpm --filter vite-blog-framework test && pnpm --filter vite-blog-framework build`
+      Expected: types clean, lint clean, smoke tests pass, and BOTH `build:client` + `build:server` produce `dist/`. (The build is the real integration check that the SSR entry + client entry compile through Vite.)
 
 - [ ] **Step 4: manual run sanity (optional but recommended)** — `pnpm --filter vite-blog-framework dev`, open http://localhost:5176, confirm the posts list renders (SSR), then stop. (If launching the app is out of scope for the executor, skip — the build + smoke test are the automated gates.)
 
 - [ ] **Step 5: commit**
+
 ```bash
 git add examples/vite-blog-framework/server/live.smoke.test.ts examples/vite-blog-framework/README.md
 git commit -m "test(example): live server smoke test + README"
@@ -924,5 +1015,5 @@ git commit -m "test(example): live server smoke test + README"
 
 - **Spec coverage:** Hono+Vite SSR+PGlite+Drizzle (Tasks 1,2,5), resources/states (Task 3), live API + ws bridge (Task 4), SSR grants (Task 5), client live wiring + badge + forms (Tasks 6,7), smoke test + README (Task 8). The two badges = `useStateData(postsState/postDetailState).updatesAvailable$`; live edits via `createLiveClient` patches; creates/deletes via `touch`.
 - **Known wrinkles flagged for the implementer:** (a) the GET endpoints normalize into a throwaway registry purely to mint grants — `data` is what the client fetcher returns; (b) the dual server/client `fetchFn` (SSR reads PGlite directly, client fetches `/api` + `addGrants`); (c) the `@hono/node-ws` ↔ structural `ServerSocket` EventEmitter shim; (d) `entry-client` passes an explicit `registry` to `StoreProvider` so the live client shares it; (e) prefer top-level imports over the `await import` used in snippets for self-containment.
-- **YAGNI:** tiny `useState` router (no router dep); no auth; no pagination; one smoke test (examples are demos). 
+- **YAGNI:** tiny `useState` router (no router dep); no auth; no pagination; one smoke test (examples are demos).
 - **Type consistency:** `live.create/update/delete` + `touch` from `rxfy-server`; `createWsServer` from `rxfy-ws`; `createWsClient` from `rxfy-ws/client`; `createLiveClient`/`readSsrGrants`/`StoreProvider`/`useStateData`/`useObservable`/`useModelStore` from `rxfy-react`; `defineResource`/`createResourceRegistry`/`defineState`/`array`/`single`/`createModelRegistry`/`normalizeResult`/`dehydrate`/`hydrationScript` from `rxfy`/`rxfy-server`. Resource names `"user"`/`"post"`/`"comment"`; channels `"posts"` and `"post-detail:postId=<id>"`.

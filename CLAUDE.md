@@ -37,11 +37,11 @@ After any public API change to a published package (`rxfy`, `rxfy-react`), creat
 
 ### Packages
 
-| Package | Purpose |
-|---|---|
-| `packages/rxfy` | Core library — Atom, Lens, Wrapped, Model/State, ModelStore, normalization, SSR |
-| `packages/rxfy-react` | React bindings (`useStateData`, `useModelStore`, `useAtom`, `Pending`, `StoreProvider`; `/next` subpath for streaming SSR) |
-| `examples/*`, `apps/docs` | Demo apps and documentation site (private, never published) |
+| Package                   | Purpose                                                                                                                    |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `packages/rxfy`           | Core library — Atom, Lens, Wrapped, Model/State, ModelStore, normalization, SSR                                            |
+| `packages/rxfy-react`     | React bindings (`useStateData`, `useModelStore`, `useAtom`, `Pending`, `StoreProvider`; `/next` subpath for streaming SSR) |
+| `examples/*`, `apps/docs` | Demo apps and documentation site (private, never published)                                                                |
 
 ### Core Concepts (packages/rxfy)
 

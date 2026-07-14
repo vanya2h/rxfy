@@ -1,0 +1,115 @@
+# Storage adapters [Persist writes with Drizzle or in memory]
+
+[rxfy-server](/framework/server) is storage-agnostic: it writes and publishes through a
+`SyncStorage` adapter, and each resource carries a **binding** the adapter knows how to persist. You
+pick the adapter and hand it to [`createSync`](/framework/server/create-server); everything else — the
+hub, grants, `live.*` writes — stays the same. Two official adapters ship today, with more data
+providers on the way.
+
+## rxfy-server-drizzle
+
+The Drizzle / Postgres adapter binds Drizzle tables to rxfy models and persists the sync server's
+writes.
+
+```bash
+npm install rxfy-server-drizzle
+# peer deps: rxfy rxfy-server drizzle-orm drizzle-zod zod
+```
+
+### `defineResource`
+
+Bind a Drizzle table to an rxfy model. Pass just a `table` and the model is derived from the table's
+columns via [`drizzle-zod`](https://orm.drizzle.team/docs/zod); pass a `model` to reuse one you already
+share with client code:
+
+```ts
+import { defineResource } from "rxfy-server-drizzle";
+import { posts } from "./db/schema.js";
+
+// Derived model — name defaults to the table name ("posts").
+export const postResource = defineResource({ table: posts });
+
+// Or bind a pre-made model (its `name` becomes the sync topic namespace):
+export const postResource = defineResource({ table: posts, model: postModel });
+```
+
+`defineResource({ table, name?, model? })` returns a storage-neutral [`Resource`](/framework/server)
+carrying a `DrizzleBinding` — no `db` handle inside, so it's safe to import into client bundles. The
+resource `name` resolves to `name ?? model.name ?? <table name>`; in dev a mismatch between the
+resource name and the model name warns, because entity patches publish under the resource name and must
+match the model store to route. See [defineResource](/framework/server/define-resource) for the full
+walkthrough.
+
+### `drizzleStorage`
+
+A `SyncStorage` that runs `create` / `update` / `delete` against the bound tables. Hand it to
+`createSync`:
+
+```ts
+import { createInMemoryHub, createSync } from "rxfy-server";
+import { drizzleStorage } from "rxfy-server-drizzle";
+import { db } from "./db.js";
+
+export const sync = createSync({ storage: drizzleStorage(db), hub: createInMemoryHub(), secret: SECRET });
+```
+
+`drizzleStorage(db)` takes any Drizzle `PgDatabase`; each write returns the affected row, which the
+sync server publishes as a `patch`.
+
+### Also exported
+
+- `primaryKeyColumn(table)` — the JS property name of a table's single primary-key column (the lookup
+  `defineResource` uses). Throws on no primary key or a composite one.
+- `DrizzleBinding` — the resource binding type, `{ table, pkColumn }`.
+
+## rxfy-server-memory
+
+The in-memory adapter needs no database: each collection's `Map` is both the write target and the read
+source. Reach for it in demos, tests, and prototypes — it's a drop-in `SyncStorage` you swap for the
+Drizzle adapter when you add a real database. Zero dependencies beyond rxfy.
+
+```bash
+npm install rxfy-server-memory
+# peer deps: rxfy rxfy-server
+```
+
+### `defineCollection`
+
+An in-memory collection is a [`Resource`](/framework/server) whose binding **is** its data `Map`, plus
+`.all()` / `.get(id)` reads you use when serving:
+
+```ts
+import { defineCollection } from "rxfy-server-memory";
+import { postModel } from "./models.js";
+
+export const postCollection = defineCollection({
+  name: "post", // the sync topic namespace
+  model: postModel,
+  seed: [{ id: "1", title: "Hello", body: "…" }], // optional initial rows
+});
+
+postCollection.all(); // → every row, e.g. to answer a list endpoint
+postCollection.get("1"); // → one row by id
+```
+
+`defineCollection({ name, model, seed? })` returns a `Collection<TRow>`. Unlike the Drizzle adapter, the
+`model` is required — there's no table to derive a schema from.
+
+### `memoryStorage`
+
+A `SyncStorage` over those collections. It's stateless — the data lives in each collection's binding —
+so one instance serves every collection:
+
+```ts
+import { createInMemoryHub, createSync } from "rxfy-server";
+import { memoryStorage } from "rxfy-server-memory";
+
+export const sync = createSync({ storage: memoryStorage(), hub: createInMemoryHub(), secret: SECRET });
+
+await sync.create(postCollection, { id: "2", title: "New", body: "…" }); // stores + publishes a patch
+```
+
+### Also exported
+
+- `Collection<TRow>` — a `Resource` plus `.all()` / `.get(id)`.
+- `MemoryBinding` — the resource binding type, `{ rows, getKey }`.

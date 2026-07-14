@@ -1,46 +1,57 @@
 # Agent Skills [Accurate rxfy context for AI coding assistants]
 
-rxfy ships two **agent skills** — structured reference files that AI coding assistants (Claude Code, GitHub Copilot Agent, Codex, and others) load on demand to get accurate, rxfy-specific guidance without hallucinating APIs.
+rxfy ships **two agent skills** — structured reference libraries that AI coding assistants (Claude Code, GitHub Copilot Agent, Codex, and others) load on demand to get accurate, rxfy-specific guidance without hallucinating APIs.
 
 Without a skill an agent has only its training data: it may invent hook signatures, confuse normalized ids with entity data, or silently omit the `name`/`key` fields that SSR requires. With a skill it has the real API surface and the common pitfalls already in context.
 
-## Pick one — never both
+## Two skills — one for setup, one for usage
 
-The two skills mirror the two [getting-started paths](/getting-started). Each is fully self-contained; install the one matching your setup:
+| Skill        | Use it when                                                                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rxfy-setup` | **Getting rxfy into a project** — starting a new app from a template, or adding rxfy to an existing app at a chosen depth. Routes the two paths, gives the install commands, records the setup variant, then hands off. |
+| `rxfy`       | **Working in a project that already has rxfy** — declaring models/states, reading data, SSR, sync, debugging. A task-indexed reference library that orients to your integration level.                                  |
 
-| Your setup | Install |
-|---|---|
-| Client-only store — `rxfy` + `rxfy-react`, with or without SSR | `rxfy` |
-| Live app — the framework packages (`rxfy-server`, `rxfy-ws`) on top | `rxfy-framework` |
-
-`rxfy-framework` already contains everything in `rxfy`, so installing both only duplicates context and confuses skill routing.
+rxfy is one framework you adopt at progressive levels — **Store → +SSR → +Sync**. `rxfy-setup` gets you to a level; `rxfy` is how you work once you're there. During setup, `rxfy-setup` records which variant you chose (in `CLAUDE.md` or memory) so `rxfy` never has to re-detect the project type.
 
 ## Install
 
 ```bash
-# store setup
-npx skills add vanya2h/rxfy --skill rxfy
+# setup / installation front-door
+npx skills add vanya2h/rxfy --skill rxfy-setup
 
-# framework (live-app) setup
-npx skills add vanya2h/rxfy --skill rxfy-framework
+# working in an rxfy project
+npx skills add vanya2h/rxfy --skill rxfy
 ```
 
-## What the skills cover
+Installing both is fine — they cover different phases and don't overlap.
 
-**`rxfy`** — the store path:
+## How the `rxfy` skill works
+
+The skill's `SKILL.md` is a small router, not a wall of text. It carries the two invariant rules (`data$` emits ids, not entities; `patch` edits in place while `stale` triggers a refetch) and a **library table** the agent reads from by task. On first contact it detects — from files on disk — whether it's in a scaffolded template or an existing app, and which level the app is at, then opens only the matching mini-guides. A client-only project never pulls sync or grants context.
+
+## What the skill covers
+
+**Store + React (always):**
 
 - Models (`createModel`) and states (`defineState`), including [plain value fields](/rxfy/define-state#plain-value-fields)
 - The normalized data flow: `useStateData` returns ids, `useModelStore` gives entities
 - `useAtom`, `usePending`, `<Pending>` — async rendering patterns
 - Mutations, `set` vs `setRaw`, pagination with `useStatePagedData`
 - Lens composition with `createLens` / `keyLens`
-- SSR: `name`/`key` requirements, buffered (`onAllReady`), streaming (`<HydrationStream />`), and two-pass (`collectStateData`) modes
-- Common mistakes: inline observable creation, `store.entity()` guards, atom stability, missing-data-after-SSR
+- Common mistakes: inline observable creation, `store.get()` on unloaded ids, atom stability, missing-data-after-SSR
 
-**`rxfy-framework`** — everything above, plus the real-time layer:
+**SSR:**
 
-- Binding Drizzle tables with `defineResource` and writing through `live.create` / `live.update` / `live.delete`
+- `name`/`key` requirements, buffered (`onAllReady`), streaming (`<HydrationStream />`), and two-pass (`collectStateData`) modes
+
+**Sync (real-time layer):**
+
+- Binding Drizzle tables with `defineResource` and writing through `sync.create` / `sync.update` / `sync.delete`
 - `patch` vs `stale`: which writes publish what, and why lists refresh instead of mutating in place
 - The wire protocol and the `rxfy-ws` transports (`createWsServer`, `createWsClient`)
-- `createLiveClient`, the `StoreProvider` `liveClient` prop, and `updatesAvailable$` / `applyUpdates`
-- Grants and live hydration: `live.grant`, `readSsrGrants`, topic keyers, and state channels
+- `createSyncClient`, the `StoreProvider` `syncClient` prop, and `updatesAvailable$` / `applyUpdates`
+- Grants and sync hydration: `sync.serve` (signs a channel grant as `$grant`), `sync.hydration`, `createSyncClient` with grant renewal, `readSsrGrants`
+
+**Templates:**
+
+- What each `create-rxfy-app` template (`vite-spa`, `next`, `vite`) already wires, where the model/state lives, and where to add the next entity — so the agent extends the scaffold instead of rebuilding it

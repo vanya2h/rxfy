@@ -1,0 +1,5 @@
+{
+  "order": 2,
+  "display": "Vite + Hono (sync SSR app)",
+  "description": "Full sync stack: Vite SSR, React Router, Hono, Drizzle + PGlite, real-time updates over WebSocket"
+}

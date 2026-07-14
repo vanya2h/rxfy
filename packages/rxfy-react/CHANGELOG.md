@@ -1,10 +1,134 @@
 # rxfy-react
 
+## 3.0.0-rc.1
+
+### Major Changes
+
+- f4cf59f: Entity grants: the signed grant now names the exact entity topics it authorizes.
+
+  `live.serve` extracts the served payload's `name:id` topics and signs them into the grant claims;
+  the `subscribe` frame drops its `entities` field (the client forwards only the grant); the WS server
+  subscribes to `channel + claims.entities` alone. Entity ids no longer need to be unguessable — a grant
+  authorizes a fixed, signed set. SSR reuses the served grant verbatim (`grantsHydration` no longer signs;
+  its `secret`/`ttlMs` options are removed). New `collectShapeTopics` export in `rxfy`.
+
+- 630ab6f: Automatic live subscriptions via signed channel grants — the declared-grant flow is removed.
+
+  `live.serve(state, params, data)` signs a per-state JWT grant (channel + expiry) and attaches it
+  to the parsed payload as `$grant`; `useStateData` lifts it automatically and subscribes with the
+  payload's entity topics. Nothing to declare, no keyer, no fetch-client wiring.
+
+  - `rxfy`: hydration payload carries `grants: string[]`; new `collectEntityTopics`.
+  - `rxfy-protocol`: v2 — `subscribe { grant, entities }` is the only client frame; hashed-token
+    subscribe/unsubscribe frames are gone.
+  - `rxfy-server`: `createServer` requires `secret`; `serve` returns the parsed shape + `$grant`;
+    new `renew`; hub is socket-keyed with grant expiry; `createTopicKeyer`, `grant`, `GrantSpec`,
+    `Grants` are removed.
+  - `rxfy-ws`: the server verifies grants on `subscribe`; the client transport is `send`/`onOpen`.
+  - `rxfy-react`: `useStateData` lifts `$grant`; `addGrants` and grant props are removed.
+
+  SECURITY: the grant authorizes both the channel and the exact entity topics it was signed for (see
+  the entity-grants changeset), so entity ids need not be unguessable. Keep `Cache-Control: private,
+no-store` on state endpoints as ordinary response hygiene (the payload carries a bearer grant).
+
+- 7e4415e: New `rxfy-client` package — the framework-agnostic browser half of the sync stack — and a
+  terminology change: the real-time "live" surface is now named **sync**.
+
+  `createSyncClient` (formerly `createLiveClient`) moves out of `rxfy-react` into `rxfy-client`;
+  `rxfy-react` re-exports it, so React apps still import from `rxfy-react`. Sync updates no longer
+  require React. In `rxfy-react`, `StoreProvider`'s `liveClient` prop is now `syncClient` and
+  `useLiveClient` is now `useSyncClient`.
+
+  The client takes custody of the signed channel grants the data delivered — each `$grant` lifted by
+  `useStateData`, plus the SSR `grants` payload via the new `readSsrGrants()`. It subscribes with them
+  over the WebSocket transport, renews them ahead of expiry through an app-mounted endpoint
+  (`renewUrl`, which runs the app's own auth), and replays its whole grant set on every reconnect.
+
+  - `rxfy-client`: `createSyncClient({ registry, transport, renewUrl? })`, `readSsrGrants()`.
+  - `rxfy-react`: re-exports `createSyncClient` and `readSsrGrants`; `syncClient` prop, `useSyncClient`.
+  - **Breaking (rename):** `createLiveClient` → `createSyncClient`, `useLiveClient` → `useSyncClient`,
+    `liveClient` prop → `syncClient`, and types `LiveClient` / `LiveClientConfig` / `LiveTransport` →
+    `SyncClient` / `SyncClientConfig` / `SyncTransport`.
+
+- 02995d1: `defineState` now requires `key`, and `StateDescriptor.key` is a required `string`. Every state participates in the SSR query cache and derives a live invalidation channel; the keyless opt-out is gone. Keyed descriptors are now directly assignable to key-requiring inputs such as rxfy-server's `StateChannelDescriptor`, so `touch(postsState, params)` works without a cast. `useStateData` drops the keyless code paths (private per-mount query atom and the SSR "cannot be fetched" warning). A `_shape` phantom carrier was added to `StateDescriptor` so `TShape` is structurally inferable from a descriptor value.
+
+  Migration: add a unique `key` to any `defineState` call that omitted one.
+
+### Patch Changes
+
+- Updated dependencies [f4cf59f]
+- Updated dependencies [630ab6f]
+- Updated dependencies [7e4415e]
+  - rxfy-protocol@3.0.0-rc.1
+  - rxfy-client@3.0.0-rc.1
+
+## 3.0.0-rc.0
+
+### Major Changes
+
+- f4cf59f: Entity grants: the signed grant now names the exact entity topics it authorizes.
+
+  `live.serve` extracts the served payload's `name:id` topics and signs them into the grant claims;
+  the `subscribe` frame drops its `entities` field (the client forwards only the grant); the WS server
+  subscribes to `channel + claims.entities` alone. Entity ids no longer need to be unguessable — a grant
+  authorizes a fixed, signed set. SSR reuses the served grant verbatim (`grantsHydration` no longer signs;
+  its `secret`/`ttlMs` options are removed). New `collectShapeTopics` export in `rxfy`.
+
+- 630ab6f: Automatic live subscriptions via signed channel grants — the declared-grant flow is removed.
+
+  `live.serve(state, params, data)` signs a per-state JWT grant (channel + expiry) and attaches it
+  to the parsed payload as `$grant`; `useStateData` lifts it automatically and subscribes with the
+  payload's entity topics. Nothing to declare, no keyer, no fetch-client wiring.
+
+  - `rxfy`: hydration payload carries `grants: string[]`; new `collectEntityTopics`.
+  - `rxfy-protocol`: v2 — `subscribe { grant, entities }` is the only client frame; hashed-token
+    subscribe/unsubscribe frames are gone.
+  - `rxfy-server`: `createServer` requires `secret`; `serve` returns the parsed shape + `$grant`;
+    new `renew`; hub is socket-keyed with grant expiry; `createTopicKeyer`, `grant`, `GrantSpec`,
+    `Grants` are removed.
+  - `rxfy-ws`: the server verifies grants on `subscribe`; the client transport is `send`/`onOpen`.
+  - `rxfy-react`: `useStateData` lifts `$grant`; `addGrants` and grant props are removed.
+
+  SECURITY: the grant authorizes both the channel and the exact entity topics it was signed for (see
+  the entity-grants changeset), so entity ids need not be unguessable. Keep `Cache-Control: private,
+no-store` on state endpoints as ordinary response hygiene (the payload carries a bearer grant).
+
+- 7e4415e: New `rxfy-client` package — the framework-agnostic browser half of the sync stack — and a
+  terminology change: the real-time "live" surface is now named **sync**.
+
+  `createSyncClient` (formerly `createLiveClient`) moves out of `rxfy-react` into `rxfy-client`;
+  `rxfy-react` re-exports it, so React apps still import from `rxfy-react`. Sync updates no longer
+  require React. In `rxfy-react`, `StoreProvider`'s `liveClient` prop is now `syncClient` and
+  `useLiveClient` is now `useSyncClient`.
+
+  The client takes custody of the signed channel grants the data delivered — each `$grant` lifted by
+  `useStateData`, plus the SSR `grants` payload via the new `readSsrGrants()`. It subscribes with them
+  over the WebSocket transport, renews them ahead of expiry through an app-mounted endpoint
+  (`renewUrl`, which runs the app's own auth), and replays its whole grant set on every reconnect.
+
+  - `rxfy-client`: `createSyncClient({ registry, transport, renewUrl? })`, `readSsrGrants()`.
+  - `rxfy-react`: re-exports `createSyncClient` and `readSsrGrants`; `syncClient` prop, `useSyncClient`.
+  - **Breaking (rename):** `createLiveClient` → `createSyncClient`, `useLiveClient` → `useSyncClient`,
+    `liveClient` prop → `syncClient`, and types `LiveClient` / `LiveClientConfig` / `LiveTransport` →
+    `SyncClient` / `SyncClientConfig` / `SyncTransport`.
+
+- 02995d1: `defineState` now requires `key`, and `StateDescriptor.key` is a required `string`. Every state participates in the SSR query cache and derives a live invalidation channel; the keyless opt-out is gone. Keyed descriptors are now directly assignable to key-requiring inputs such as rxfy-server's `StateChannelDescriptor`, so `touch(postsState, params)` works without a cast. `useStateData` drops the keyless code paths (private per-mount query atom and the SSR "cannot be fetched" warning). A `_shape` phantom carrier was added to `StateDescriptor` so `TShape` is structurally inferable from a descriptor value.
+
+  Migration: add a unique `key` to any `defineState` call that omitted one.
+
+### Patch Changes
+
+- Updated dependencies [f4cf59f]
+- Updated dependencies [630ab6f]
+- Updated dependencies [7e4415e]
+  - rxfy-protocol@3.0.0-rc.0
+  - rxfy-client@3.0.0-rc.0
+
 ## 2.0.0
 
 ### Minor Changes
 
-- a833885: Add the client live layer: `createLiveClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `liveClient` prop + `useLiveClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
+- a833885: Add the client live layer: `createSyncClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `syncClient` prop + `useSyncClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
 
 ### Patch Changes
 
@@ -23,7 +147,7 @@
 
 ### Minor Changes
 
-- a833885: Add the client live layer: `createLiveClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `liveClient` prop + `useLiveClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
+- a833885: Add the client live layer: `createSyncClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `syncClient` prop + `useSyncClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
 
 ### Patch Changes
 

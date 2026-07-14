@@ -1,0 +1,5 @@
+{
+  "order": 1,
+  "display": "Vite (client-only SPA)",
+  "description": "The simplest rxfy setup: one model, one state, useStateData — no server, no SSR"
+}

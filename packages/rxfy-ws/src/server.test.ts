@@ -1,70 +1,82 @@
-import { EventEmitter } from "node:events";
-import { parseServerMessage, serialize, stale, subscribe, unsubscribe } from "rxfy-protocol";
-import { createInMemoryHub } from "rxfy-server";
+import { patch, serialize, stale, subscribe } from "rxfy-protocol";
+import { channelSubscription, createInMemoryHub, entitySubscription, signGrant } from "rxfy-server";
 import { describe, expect, it } from "vitest";
-import { createWsServer } from "./server.js";
+import { createWsServer, type ServerSocket } from "./server.js";
 
-class FakeSocket extends EventEmitter {
-  sent: string[] = [];
-  send(data: string) {
-    this.sent.push(data);
-  }
+function fakeSocket() {
+  const sent: string[] = [];
+  const listeners = new Map<string, (...args: unknown[]) => void>();
+  const socket: ServerSocket = {
+    send: (data) => sent.push(data),
+    on: (event, listener) => void listeners.set(event, listener),
+  };
+  return {
+    socket,
+    sent,
+    emit: (event: string, ...args: unknown[]) => listeners.get(event)?.(...args),
+  };
 }
 
 describe("createWsServer", () => {
-  it("subscribes a connection and forwards published messages to its socket", () => {
+  it("a verified subscribe registers the grant's channel + entities and receives pushes", () => {
     const hub = createInMemoryHub();
-    const server = createWsServer(hub);
-    const socket = new FakeSocket();
-    server.handleConnection(socket as never);
-    socket.emit("message", serialize(subscribe(["id-1"])));
-    const msg = stale("post:orgId=A");
-    hub.publish("id-1", msg);
-    expect(socket.sent.map((s) => parseServerMessage(s))).toEqual([msg]);
+    const ws = createWsServer(hub, { secret: "s" });
+    const { socket, sent, emit } = fakeSocket();
+    ws.handleConnection(socket);
+
+    const grant = signGrant({ channel: "todos|{}", entities: ["todo:1"], secret: "s", ttlMs: 60_000 });
+    emit("message", serialize(subscribe(grant)));
+    hub.publish(channelSubscription("todos|{}"), stale("todos|{}"));
+    hub.publish(entitySubscription("todo", "1"), patch("todo", "1", { done: true }));
+
+    expect(sent).toHaveLength(2);
   });
 
-  it("stops forwarding after an unsubscribe frame", () => {
+  it("never subscribes to an entity the grant does not enumerate", () => {
     const hub = createInMemoryHub();
-    const server = createWsServer(hub);
-    const socket = new FakeSocket();
-    server.handleConnection(socket as never);
-    socket.emit("message", serialize(subscribe(["id-1"])));
-    socket.emit("message", serialize(unsubscribe(["id-1"])));
-    hub.publish("id-1", stale("c"));
-    expect(socket.sent).toEqual([]);
+    const ws = createWsServer(hub, { secret: "s" });
+    const { socket, sent, emit } = fakeSocket();
+    ws.handleConnection(socket);
+
+    // grant authorizes only todo:1; a patch for the un-granted todo:2 must never reach this socket
+    const grant = signGrant({ channel: "todos|{}", entities: ["todo:1"], secret: "s", ttlMs: 60_000 });
+    emit("message", serialize(subscribe(grant)));
+    hub.publish(entitySubscription("todo", "2"), patch("todo", "2", { done: true }));
+
+    expect(sent).toHaveLength(0);
   });
 
-  it("drops the connection on close", () => {
+  it("an invalid or expired grant is dropped silently", () => {
     const hub = createInMemoryHub();
-    const server = createWsServer(hub);
-    const socket = new FakeSocket();
-    server.handleConnection(socket as never);
-    socket.emit("message", serialize(subscribe(["id-1"])));
-    socket.emit("close");
-    hub.publish("id-1", stale("c"));
-    expect(socket.sent).toEqual([]);
+    const ws = createWsServer(hub, { secret: "s" });
+    const { socket, sent, emit } = fakeSocket();
+    ws.handleConnection(socket);
+
+    emit("message", serialize(subscribe("garbage")));
+    hub.publish(entitySubscription("todo", "1"), patch("todo", "1", {}));
+
+    expect(sent).toHaveLength(0);
   });
 
-  it("ignores malformed inbound frames without throwing", () => {
+  it("close drops the connection's subscriptions", () => {
     const hub = createInMemoryHub();
-    const server = createWsServer(hub);
-    const socket = new FakeSocket();
-    server.handleConnection(socket as never);
-    expect(() => socket.emit("message", "{not a frame")).not.toThrow();
+    const ws = createWsServer(hub, { secret: "s" });
+    const { socket, sent, emit } = fakeSocket();
+    ws.handleConnection(socket);
+
+    const grant = signGrant({ channel: "c", entities: [], secret: "s", ttlMs: 60_000 });
+    emit("message", serialize(subscribe(grant)));
+    emit("close");
+    hub.publish(channelSubscription("c"), stale("c"));
+
+    expect(sent).toHaveLength(0);
   });
 
-  it("routes to the correct socket among several connections", () => {
+  it("ignores malformed frames", () => {
     const hub = createInMemoryHub();
-    const server = createWsServer(hub);
-    const a = new FakeSocket();
-    const b = new FakeSocket();
-    server.handleConnection(a as never);
-    server.handleConnection(b as never);
-    a.emit("message", serialize(subscribe(["id-a"])));
-    b.emit("message", serialize(subscribe(["id-b"])));
-    const msg = stale("c");
-    hub.publish("id-a", msg);
-    expect(a.sent.map((s) => parseServerMessage(s))).toEqual([msg]);
-    expect(b.sent).toEqual([]);
+    const ws = createWsServer(hub, { secret: "s" });
+    const { socket, emit } = fakeSocket();
+    ws.handleConnection(socket); // register the message listener so the parse/catch path is exercised
+    expect(() => emit("message", "not json")).not.toThrow();
   });
 });

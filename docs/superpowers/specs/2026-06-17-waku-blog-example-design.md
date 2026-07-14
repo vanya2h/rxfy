@@ -23,11 +23,11 @@ drains it — zero client fetches on first paint).
 
 The "get the snapshot into the HTML" step differs per framework:
 
-| Example | Architecture | Injection seam rxfy uses | Explicit prefetch? |
-|---|---|---|---|
-| next-blog | RSC + streaming | `useServerInsertedHTML` (`HydrationStream`) | No |
-| rr7-blog | classic SSR | custom `entry.server.tsx` + `onAllReady` inject | No |
-| **waku-blog** | RSC, **no injection seam** | none available | **Yes** |
+| Example       | Architecture               | Injection seam rxfy uses                        | Explicit prefetch? |
+| ------------- | -------------------------- | ----------------------------------------------- | ------------------ |
+| next-blog     | RSC + streaming            | `useServerInsertedHTML` (`HydrationStream`)     | No                 |
+| rr7-blog      | classic SSR                | custom `entry.server.tsx` + `onAllReady` inject | No                 |
+| **waku-blog** | RSC, **no injection seam** | none available                                  | **Yes**            |
 
 - **next-blog** works because Next exposes `useServerInsertedHTML`. `HydrationStream` (a client
   component) uses it to flush a `<script>` of the dehydrated delta on every streaming flush.
@@ -40,8 +40,8 @@ The "get the snapshot into the HTML" step differs per framework:
   request scope but don't reach the HTML stream. So `HydrationStream` cannot be ported (it imports
   from `next/navigation`), and the rr7 buffered-inject pattern has no equivalent seam.
 
-**Consequence:** with no seam to inject the snapshot *after* render, the Waku example produces the
-snapshot *before* render — in the async Server Component — and passes it down as a serializable prop.
+**Consequence:** with no seam to inject the snapshot _after_ render, the Waku example produces the
+snapshot _before_ render — in the async Server Component — and passes it down as a serializable prop.
 This is the RSC-idiomatic shape and requires **no library change**.
 
 ## Approach (decision)
@@ -66,7 +66,7 @@ a prop.
 ### Rejected alternatives
 
 - **`collectStateData` + `renderToString` two-pass** — in Waku's RSC build a `'use client'` component
-  imported into a Server Component is a *reference*, so `renderToString` can't execute the real tree.
+  imported into a Server Component is a _reference_, so `renderToString` can't execute the real tree.
   Fragile / likely broken.
 - **Custom server + buffered `hydrationScript` (rr7-style)** — Waku exposes no `renderToPipeableStream`
   seam over the client tree nor post-Suspense script injection. Would require abusing Hono middleware
@@ -160,7 +160,10 @@ import { useModelRegistry } from "rxfy-react";
 
 export function HydrateSnapshot({ snapshot }: { snapshot: DehydratedState }) {
   const registry = useModelRegistry();
-  useState(() => { hydrate(registry, snapshot); return null; });
+  useState(() => {
+    hydrate(registry, snapshot);
+    return null;
+  });
   return null;
 }
 ```
@@ -175,10 +178,15 @@ import PostList from "../components/PostList";
 
 export default async function HomePage() {
   const snapshot = await prefetch(postsState, fetchPosts, {});
-  return <><HydrateSnapshot snapshot={snapshot} /><PostList /></>;
+  return (
+    <>
+      <HydrateSnapshot snapshot={snapshot} />
+      <PostList />
+    </>
+  );
 }
 
-export const getConfig = async () => ({ render: "static" } as const);
+export const getConfig = async () => ({ render: "static" }) as const;
 ```
 
 **Dynamic detail — `pages/posts/[slug].tsx`:**
@@ -193,10 +201,15 @@ import PostDetail from "../../components/PostDetail";
 export default async function PostPage({ slug }: PageProps<"/posts/[slug]">) {
   const postId = slug as PostId;
   const snapshot = await prefetch(postDetailState, fetchPostDetail, { postId });
-  return <><HydrateSnapshot snapshot={snapshot} /><PostDetail postId={postId} /></>;
+  return (
+    <>
+      <HydrateSnapshot snapshot={snapshot} />
+      <PostDetail postId={postId} />
+    </>
+  );
 }
 
-export const getConfig = async () => ({ render: "dynamic" } as const);
+export const getConfig = async () => ({ render: "dynamic" }) as const;
 ```
 
 (Exact Waku page-prop / `getConfig` / params API to be confirmed against the installed Waku version
@@ -254,4 +267,7 @@ entirely within a new private example.
 - Promoting `prefetch()` into `rxfy-react` as a public API (kept example-local; can be revisited later
   if more non-seam SSR integrations appear).
 - Pagination / infinite scroll (covered by other examples).
+
+```
+
 ```

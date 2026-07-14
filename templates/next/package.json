@@ -1,0 +1,50 @@
+{
+  "name": "rxfy-template-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "rxfy live app: Next.js App Router + Hono + Drizzle/PGlite + real-time updates over WebSocket",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.mts",
+    "build": "next build",
+    "start": "cross-env NODE_ENV=production tsx server.mts",
+    "clean": "rimraf .next",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.3",
+    "drizzle-orm": "^0.45.2",
+    "lodash": "^4.17.21",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "rxfy": "workspace:*",
+    "rxfy-client": "workspace:*",
+    "rxfy-react": "workspace:*",
+    "rxfy-server": "workspace:*",
+    "rxfy-server-drizzle": "workspace:*",
+    "rxfy-ws": "workspace:*",
+    "rxjs": "^7.8.2",
+    "ws": "^8.18.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/lodash": "^4.17.17",
+    "@types/node": "^22.15.29",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.27.0",
+    "eslint-config-next": "^16.2.9",
+    "rimraf": "^6.0.1",
+    "tailwindcss": "^4.3.2",
+    "tsx": "^4.22.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}

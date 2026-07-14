@@ -7,9 +7,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body>
         <RxfyProvider>
-          <div className="container">
+          <div className="container mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
             <header>
-              <Link to="/">rxfy + Waku</Link>
+              <Link to="/" className="text-lg font-semibold">
+                rxfy + Waku
+              </Link>
             </header>
             <main>{children}</main>
           </div>

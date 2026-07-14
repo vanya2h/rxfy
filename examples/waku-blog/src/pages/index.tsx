@@ -1,19 +1,15 @@
-import { postsState } from "examples-shared/data";
-import { fetchPosts } from "../blog/fetchers";
+import { parseResponse } from "hono/client";
+import { serverApi } from "../blog/api-server";
 import { HomeView } from "../components/HomeView";
-import { HydrateSnapshot } from "../components/HydrateSnapshot";
-import { prefetch } from "../ssr";
 
 export default async function HomePage() {
-  const snapshot = await prefetch(postsState, fetchPosts, {});
-  return (
-    <>
-      <HydrateSnapshot snapshot={snapshot} />
-      <HomeView />
-    </>
-  );
+  // The in-process fetch returns the parsed shape plus a signed `$grant`; HomeView seeds its store
+  // from it and the sync client subscribes the grant on the browser socket.
+  const posts = await parseResponse(serverApi.posts.$get());
+  return <HomeView defaultData={posts} />;
 }
 
 export const getConfig = async () => {
-  return { render: "static" } as const;
+  // Each render signs a fresh, time-limited grant, so pages can't be statically prerendered.
+  return { render: "dynamic" } as const;
 };

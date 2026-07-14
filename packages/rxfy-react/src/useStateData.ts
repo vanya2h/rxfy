@@ -10,7 +10,6 @@ import type {
 } from "rxfy";
 import {
   attachReload,
-  createAtom,
   createFulfilled,
   createIdle,
   createPending,
@@ -20,13 +19,13 @@ import {
   normalizeResult,
   normalizeWritable,
   stableStringify,
+  stateChannel,
   StatusEnum,
 } from "rxfy";
 import { filter, merge, Observable, of, ReplaySubject, share, switchMap, throwError, timer } from "rxjs";
-import { stateChannel } from "./live/channel.js";
-import { useLiveClient } from "./live-context.js";
 import { useModelRegistry } from "./registry-context.js";
 import { SsrContext } from "./StoreProvider.js";
+import { useSyncClient } from "./sync-context.js";
 
 /** A new value, or a function deriving it from the previous one — the `useState`-style setter union. */
 export type Updater<T> = T | ((prev: T) => T);
@@ -83,18 +82,18 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 > {
   const registry = useModelRegistry();
   const ssr = useContext(SsrContext);
-  const liveClient = useLiveClient();
+  const syncClient = useSyncClient();
 
   // Re-subscribe epoch. Only ever bumped by a reload() that recovers from a terminal REJECTED: an
   // Rx error ends the subscription, so those consumers must resubscribe. Every other reload — and
   // FULFILLED → reload in particular — updates the shared atom in place and keeps data$ stable.
   const [reloadEpoch, setReloadEpoch] = useState(0);
 
-  // Value-based key — params with the same shape resolve to the same query (and, when keyed, the
-  // same shared atom). The memo keys off this string rather than `params`'s identity, so an
+  // Value-based key — params with the same shape resolve to the same query (and the same shared
+  // atom). The memo keys off this string rather than `params`'s identity, so an
   // identity-unstable-but-value-stable params object does not churn data$.
   const paramsKey = stableStringify(params);
-  const cacheKey = state.key ? `${state.key}:${paramsKey}` : undefined;
+  const cacheKey = `${state.key}:${paramsKey}`;
   const channel = stateChannel(state, params as Record<string, unknown>);
 
   // `fetchFn`, `params` and `defaultData` are intentionally absent from the memo deps: data$ must
@@ -107,20 +106,25 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     const fields = state.fields as FieldsMap;
     const isServer = typeof window === "undefined";
 
-    // The query's status Atom. Keyed states share one via the registry; keyless states get a private one.
-    const atom$: Atom<IWrapped<TQuery>> = cacheKey
-      ? registry.queries.getQuery<TQuery>(cacheKey)
-      : createAtom<IWrapped<TQuery>>(createIdle());
+    // The query's status Atom, shared via the registry — every state with this key+params pair
+    // reads and writes the same query.
+    const atom$: Atom<IWrapped<TQuery>> = registry.queries.getQuery<TQuery>(cacheKey);
 
     // Seed the atom with defaultData (e.g. from a react-router loader) when it hasn't been populated
     // yet. Only the first-IDLE seed reads it, so a later defaultData change is intentionally ignored.
+    // A loader payload may also carry the reserved `$grant`; lift it before normalizing so the key
+    // never reaches the query. During SSR log it for hydration; with a sync client, subscribe it.
     if (defaultData !== undefined && atom$.get().type === StatusEnum.IDLE) {
-      atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData) as TQuery));
+      const { $grant, ...payload } = defaultData as TShape & { $grant?: string };
+      const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
+      atom$.set(createFulfilled(query));
+      if (isServer && ssr && $grant !== undefined) registry.grants.add($grant);
+      if ($grant !== undefined && syncClient) syncClient.subscribe($grant);
     }
 
-    // Live-updates counter for this state's channel. Null when no live client or no channel key.
+    // Sync-updates counter for this state's channel. Null when no sync client or no channel key.
     // Defined before `settle` so the FULFILLED branch can reset it.
-    const counter = liveClient && channel ? liveClient.channel(channel) : null;
+    const counter = syncClient && channel ? syncClient.channel(channel) : null;
     const updatesAvailable$: Observable<number> = counter ? counter.available$ : of(0);
 
     // `signal` is passed for client fetches so a teardown-aborted fetch is dropped instead of
@@ -130,7 +134,15 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
       run.then(
         (result) => {
           if (signal?.aborted) return;
-          atom$.set(createFulfilled(normalizeResult(registry, fields, result) as TQuery));
+          // Lift the reserved `$grant` before normalizing so the key never reaches the query. A
+          // grant marks a live endpoint (its claims enumerate the entities). During SSR, log it so
+          // hydration embeds it; with a sync client in context, subscribe it. Both conditions are
+          // load-bearing: no grant → store-only endpoint; no sync client → store-only app.
+          const { $grant, ...payload } = result as TShape & { $grant?: string };
+          const query = normalizeResult(registry, fields, payload as TShape) as TQuery;
+          atom$.set(createFulfilled(query));
+          if (isServer && ssr && $grant !== undefined) registry.grants.add($grant);
+          if ($grant !== undefined && syncClient) syncClient.subscribe($grant);
           counter?.reset();
         },
         (error: unknown) => {
@@ -155,23 +167,19 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 
     // SSR on-demand fetching: suspend on a cache miss; React re-renders when the promise settles.
     if (isServer && ssr && atom$.get().type === StatusEnum.IDLE) {
-      if (!cacheKey) {
-        console.warn('rxfy: state without "key" cannot be fetched during SSR — falling back to client fetch');
-      } else {
-        // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
-        // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
-        throw registry.queries.getOrStart(cacheKey, () => {
-          atom$.set(createPending());
-          return settle(fetchFn(params, new AbortController().signal));
-        });
-      }
+      // getOrStart dedups: `start` runs only on a cache miss, so a second component sharing this
+      // cacheKey gets the existing in-flight promise and never re-enters PENDING or refetches.
+      throw registry.queries.getOrStart(cacheKey, () => {
+        atom$.set(createPending());
+        return settle(fetchFn(params, new AbortController().signal));
+      });
     }
 
     const toError = (error: unknown) => (error instanceof Error ? error : new Error(String(error)));
 
     // FULFILLED → value, REJECTED → error(throw), IDLE/PENDING → no emission (usePending shows
     // pending). The atom is a BehaviorSubject, so a FULFILLED → PENDING → FULFILLED cycle (reload)
-    // keeps live subscriptions and re-emits — only a REJECTED terminates them (see reload()).
+    // keeps sync subscriptions and re-emits — only a REJECTED terminates them (see reload()).
     const derived$ = atom$.pipe(
       filter((w) => w.type === StatusEnum.FULFILLED || w.type === StatusEnum.REJECTED),
       switchMap((w) => (w.type === StatusEnum.FULFILLED ? of(w.value) : throwError(() => toError(w.error)))),
@@ -270,5 +278,5 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
     // fetchFn/params/defaultData are deliberately excluded — see the note above the memo. params'
     // value is tracked via cacheKey/paramsKey; data$ identity stability depends on this exclusion.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch, liveClient, channel]);
+  }, [state, registry, ssr, cacheKey, paramsKey, reloadEpoch, syncClient, channel]);
 }
