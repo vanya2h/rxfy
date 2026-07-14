@@ -1,6 +1,18 @@
 # Orientation — read this once per session, on first contact
 
-Before touching an rxfy project, establish **how the code got here** and **how integrated it already is**, so you extend the existing wiring instead of rebuilding it. Answer both from on-disk signals — do not ask the user. Emit a one-line routing verdict, then get to work.
+Before touching an rxfy project, establish **how the code got here** and **how integrated it already is**, so you extend the existing wiring instead of rebuilding it. Emit a one-line routing verdict, then get to work.
+
+## First — check for a recorded variant (skip detection if found)
+
+The `rxfy-setup` skill records the setup variant when rxfy is installed. Look for a `<!-- rxfy-setup:variant -->` marker (in `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`, or agent memory):
+
+```
+grep -rn "rxfy-setup:variant" CLAUDE.md AGENTS.md GEMINI.md 2>/dev/null
+```
+
+If found, the `Variant:` line beneath it tells you entry mode + depth directly — **skip Q1/Q2 detection** and go straight to the verdict. Values map as: `template: <name>` → scaffolded template (read `templates.md`); `existing-app, depth: <level>` → incremental adoption at that level.
+
+If there is no marker (rxfy added by hand, or an older project), fall back to the on-disk detection below. Detect from signals where you can; **if the signals are ambiguous or conflicting, ask the user — as many questions as you need** to pin down entry mode and depth. Then **record what you determined** (see "Record it" at the end) so no session has to detect or ask again.
 
 ## Q1 — How did this code get here?
 
@@ -31,3 +43,17 @@ State it in one line, then act. Examples:
 - _"Scaffolded `vite` template, Sync level → read `templates.md`, then `sync-server.md` to add a resource."_
 - _"Existing Next app, +SSR level, no sync → this is Path A adding a store/SSR feature; read `models-states.md` + `ssr.md`."_
 - _"Existing SPA, Store level → read `models-states.md` + `react-bindings.md`."_
+
+## Record it (only when there was no marker)
+
+If you had to detect or ask because no `<!-- rxfy-setup:variant -->` marker existed, persist what you found so this never repeats. Prefer `CLAUDE.md` (ask before writing if it's the user's file); write the same block `rxfy-setup` uses:
+
+```md
+## rxfy setup
+
+<!-- rxfy-setup:variant -->
+
+- Variant: <template: NAME (...) | existing-app, depth: Store | +SSR | +Sync>
+```
+
+Use `existing-app, depth: <level>` for hand-added rxfy (there's no template). Next session's grep finds the marker and skips straight to the verdict.

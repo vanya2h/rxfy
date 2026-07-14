@@ -1,20 +1,31 @@
 # Agent Skills [Accurate rxfy context for AI coding assistants]
 
-rxfy ships **one agent skill** — a structured reference library that AI coding assistants (Claude Code, GitHub Copilot Agent, Codex, and others) load on demand to get accurate, rxfy-specific guidance without hallucinating APIs.
+rxfy ships **two agent skills** — structured reference libraries that AI coding assistants (Claude Code, GitHub Copilot Agent, Codex, and others) load on demand to get accurate, rxfy-specific guidance without hallucinating APIs.
 
 Without a skill an agent has only its training data: it may invent hook signatures, confuse normalized ids with entity data, or silently omit the `name`/`key` fields that SSR requires. With a skill it has the real API surface and the common pitfalls already in context.
 
-## One skill, mirrors the one framework
+## Two skills — one for setup, one for usage
 
-rxfy is one framework you adopt at progressive levels — **Store → +SSR → +Sync** — reached either by adding rxfy to an existing app or by scaffolding a `create-rxfy-app` template. There is no store-vs-framework split, so there is nothing to choose: the skill orients itself to your project's entry mode and integration level and loads only the references your current task needs.
+| Skill        | Use it when                                                                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rxfy-setup` | **Getting rxfy into a project** — starting a new app from a template, or adding rxfy to an existing app at a chosen depth. Routes the two paths, gives the install commands, records the setup variant, then hands off. |
+| `rxfy`       | **Working in a project that already has rxfy** — declaring models/states, reading data, SSR, sync, debugging. A task-indexed reference library that orients to your integration level.                                  |
+
+rxfy is one framework you adopt at progressive levels — **Store → +SSR → +Sync**. `rxfy-setup` gets you to a level; `rxfy` is how you work once you're there. During setup, `rxfy-setup` records which variant you chose (in `CLAUDE.md` or memory) so `rxfy` never has to re-detect the project type.
 
 ## Install
 
 ```bash
+# setup / installation front-door
+npx skills add vanya2h/rxfy --skill rxfy-setup
+
+# working in an rxfy project
 npx skills add vanya2h/rxfy --skill rxfy
 ```
 
-## How it works
+Installing both is fine — they cover different phases and don't overlap.
+
+## How the `rxfy` skill works
 
 The skill's `SKILL.md` is a small router, not a wall of text. It carries the two invariant rules (`data$` emits ids, not entities; `patch` edits in place while `stale` triggers a refetch) and a **library table** the agent reads from by task. On first contact it detects — from files on disk — whether it's in a scaffolded template or an existing app, and which level the app is at, then opens only the matching mini-guides. A client-only project never pulls sync or grants context.
 
