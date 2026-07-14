@@ -28,7 +28,7 @@ subscribe(grant, ["posts:uuid-1", "posts:uuid-2"]); // SubscribeMessage
 ```
 
 `ClientMessage = SubscribeMessage` — there is no hello or session frame. Subscriptions are written
-server-side from the verified `subscribe` frame (see `live-grants.md`).
+server-side from the verified `subscribe` frame (see `sync-grants.md`).
 
 ## Codec
 

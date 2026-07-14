@@ -104,7 +104,7 @@ export type Hub = {
 
 ## sync.serve, sync.hydration, sync.renew
 
-Covered in depth in `live-grants.md`. In short:
+Covered in depth in `sync-grants.md`. In short:
 
 - `sync.serve(state, params, data)` — read-endpoint wrapper (no `req`); accepts the state's _input_
   shape (raw DB rows — unbranded ids, extra columns OK), parses it through the state's schemas, signs
