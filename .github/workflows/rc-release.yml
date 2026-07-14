@@ -82,6 +82,16 @@ jobs:
         if: steps.changesets.outputs.count != '0'
         run: pnpm run build
 
+      - name: Install Playwright browsers
+        if: steps.changesets.outputs.count != '0'
+        run: pnpm --filter rxfy-e2e exec playwright install --with-deps chromium
+
+      - name: Sync e2e
+        if: steps.changesets.outputs.count != '0'
+        run: pnpm run test:e2e
+        env:
+          CI: "true"
+
       - name: Publish RC packages
         if: steps.changesets.outputs.count != '0'
         run: pnpm changeset publish

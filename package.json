@@ -48,6 +48,7 @@
     "lint:fix": "turbo run lint:fix",
     "sort-pkg": "sort-package-json \"package.json\" \"code/packages/*/package.json\" \"code/apps/*/package.json\"",
     "test": "turbo run test",
+    "test:e2e": "turbo run e2e",
     "prepare": "husky"
   },
   "prettier": "@vanya2h/prettier-config",
