@@ -1,10 +1,16 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
-import { createTodo } from "../lib/actions";
-import { fetchTodos, todoModel, todosState } from "../lib/todos";
+import { todoModel, todosState, type Todo } from "../todos";
 
-// Subscribes to one entity by id — a store.set for this id re-renders only this item.
+async function fetchTodos(): Promise<{ todos: Todo[] }> {
+  const res = await fetch("/api/todos");
+  if (!res.ok) throw new Error("Failed to load todos");
+  // The payload also carries `$grant`; useStateData lifts it to (re)subscribe.
+  return (await res.json()) as { todos: Todo[] };
+}
+
+// Subscribes to one entity by id — a store patch for this id re-renders only this item.
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
   const [todo] = useAtom(store.get(id));
@@ -14,8 +20,14 @@ function TodoItem({ id }: { id: string }) {
         <input
           type="checkbox"
           checked={todo.done}
-          // optimistic client-only toggle — add a server action here to also persist the change
-          onChange={() => store.set(todo.id, { ...todo, done: !todo.done })}
+          // Persist the toggle; sync.update broadcasts an entity patch, so other tabs update live.
+          onChange={() =>
+            void fetch(`/api/todos/${todo.id}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ done: !todo.done }),
+            })
+          }
         />
         <span className={todo.done ? "line-through opacity-60" : ""}>{todo.title}</span>
       </label>
@@ -23,15 +35,20 @@ function TodoItem({ id }: { id: string }) {
   );
 }
 
-export function TodosView() {
-  const params = useMemo(() => ({}), []);
-  // The store is already seeded by <HydrateSnapshot> from the RSC prefetch, so there is no fetch on first paint.
-  const { data$, mutations } = useStateData({ state: todosState, fetchFn: fetchTodos, params });
+export function TodosView({ defaultData }: { defaultData: { todos: Todo[] } }) {
   const [title, setTitle] = useState("");
+  // defaultData carries the RSC-fetched todos plus `$grant`; useStateData seeds the store and lifts
+  // the grant to subscribe — no fetch on first paint.
+  const { data$, updatesAvailable$, applyUpdates } = useStateData({
+    state: todosState,
+    fetchFn: fetchTodos,
+    params: {},
+    defaultData,
+  });
 
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold">rxfy todos</h1>
+      <h1 className="text-2xl font-semibold">rxfy live todos</h1>
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -39,9 +56,15 @@ export function TodosView() {
           const next = title.trim();
           if (!next) return;
           setTitle("");
-          // Persist through the server action, then fold the created entity into the reactive store.
-          void createTodo(next)
-            .then((todo) => mutations.addTodo(todo))
+          void fetch("/api/todos", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ title: next }),
+          })
+            .then((res) => {
+              if (!res.ok) throw new Error("create failed");
+            })
+            .then(() => applyUpdates())
             .catch(() => setTitle(next)); // restore the input so a failed create isn't lost
         }}
       >
@@ -55,6 +78,15 @@ export function TodosView() {
           Add
         </button>
       </form>
+      <Pending value$={updatesAvailable$}>
+        {(n) =>
+          n > 0 && (
+            <button className="updates-badge rounded border px-3 py-1" onClick={applyUpdates}>
+              {n} new — refresh
+            </button>
+          )
+        }
+      </Pending>
       <Pending value$={data$} pending={<p>Loading…</p>} rejected={(w) => <p>Failed: {String(w.error)}</p>}>
         {({ todos }) => (
           <ul className="flex flex-col gap-2">

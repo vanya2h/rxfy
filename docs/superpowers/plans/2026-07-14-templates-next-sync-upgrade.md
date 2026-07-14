@@ -6,7 +6,21 @@
 
 **Architecture:** Port `templates/vite`'s todos domain (PGlite/drizzle storage, `createSync`, hono `/api` with `serve()`+`$grant`, updates badge) onto `examples/next-blog`'s Next+WebSocket architecture: a custom `server.mts` hosts Next **and** a `ws` `WebSocketServer` on `/live`; the hono `/api` app is served through a Next catch-all route handler (`hono/vercel`); RSC pages fetch in-process via a typed `serverApi` and pass the payload (carrying `$grant`) down as `defaultData`; the browser lifts the grant and subscribes. Hub + PGlite are pinned on `globalThis` so the custom-server bundle and Next's route-handler bundle share one instance.
 
-**Tech Stack:** Next.js 16 App Router, React 19, Hono + `hono/vercel`, rxfy / rxfy-react / rxfy-client / rxfy-ws / rxfy-server / rxfy-server-drizzle, drizzle-orm + @electric-sql/pglite, `ws`, tsx, Vitest.
+**Tech Stack:** Next.js 16 App Router, React 19, rxfy / rxfy-react / rxfy-client / rxfy-ws / rxfy-server / rxfy-server-drizzle, drizzle-orm + @electric-sql/pglite, `ws`, tsx, Vitest.
+
+> **Amendment (applied during execution):** Tasks 8, 11, and 12 shipped with a **Next-native API**
+> instead of a mounted hono app. Replaced `server/app.ts` + `[[...route]]` catch-all + `api-server.ts`
+>
+> - `api-client.ts` (hono/`hc`) with a shared `server/todos-service.ts` and three route handlers
+>   (`app/api/todos/route.ts` GET/POST, `app/api/todos/[id]/route.ts` PATCH, `app/api/live/renew/route.ts`
+>   POST); `page.tsx` calls `serveTodos()` directly; `TodosView` uses plain `fetch`. Dropped `hono` +
+>   `@hono/zod-validator` (validation via `zod`). Also required (not in the original plan):
+>   `next.config.ts` sets `serverExternalPackages: ["@electric-sql/pglite", "rxfy-server-drizzle",
+"drizzle-orm"]` so PGlite's wasm loads at runtime rather than failing under Next's server bundler.
+>   The SSR smoke test became `server/todos-service.smoke.test.ts` (asserts `serveTodos()` returns
+>   todos + `$grant`). Everything else (domain, storage, sync engine, custom WS server, UI, sync-client,
+>   providers) matches the plan. Verified at runtime over real HTTP + `/live` WS: SSR seed, cross-client
+>   create (stale badge) and toggle (entity patch).
 
 **Reference files (read before starting):**
 
