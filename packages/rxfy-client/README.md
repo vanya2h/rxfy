@@ -34,4 +34,4 @@ const live = createLiveClient({
 });
 ```
 
-See the [Live client docs](https://rxfy.vanya2h.me/react/live-client) and [Grants](https://rxfy.vanya2h.me/framework/server/grants).
+See the [rxfy-client docs](https://rxfy.vanya2h.me/framework/client) — [createLiveClient](https://rxfy.vanya2h.me/framework/client/create-live-client) and [readSsrGrants](https://rxfy.vanya2h.me/framework/client/read-ssr-grants) — plus [Sync Client in React](https://rxfy.vanya2h.me/react/live-client) and [Grants](https://rxfy.vanya2h.me/framework/server/grants).
