@@ -1,0 +1,15 @@
+# readSsrGrants [Lift SSR-embedded channel grants]
+
+```ts
+import { readSsrGrants } from "rxfy-client";
+
+const grants = readSsrGrants(); // string[]
+```
+
+Returns the grants embedded in the SSR hydration payload — one per channel the server render logged
+into ([`live.hydration(registry)`](/framework/server/grants) signs them). These are the grants the
+client lifts and subscribes to on hydration, so the first paint stays in sync without a round trip.
+
+On a CSR-only load there is no SSR chunk to read and it returns an empty array; grants then arrive with
+each fetch instead. You rarely call this directly — the React bindings do it for you — but it is
+exported for custom hydration wiring.

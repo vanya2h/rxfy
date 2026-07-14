@@ -147,21 +147,88 @@ declared by the state's `params` schema; give it real fields and `useStateData` 
 whenever their values change.
 :::
 
-## Next steps
+## Writes as mutations
 
-Go deeper on the concepts and API you just used:
+`store.set` is the low-level write. For app-level changes you usually declare **mutations** on
+the state instead: named reducers that take the whole fetched shape and return the next one.
+rxfy re-normalizes the result back into the store, so every subscribed view updates exactly the
+way the `store.set` button did — you describe the change, not the bookkeeping.
 
-- [Normalization](/core-concepts/normalization): why `data$` emits ids, and what it buys you.
-- [Model](/rxfy/create-model) and [State](/rxfy/define-state): `createModel` and `defineState` in full.
-- [React Bindings](/react): `useStateData`, `useModelStore`, `Pending`, and the rest of the hooks.
-- [Atom](/rxfy/create-atom) and [Lens](/rxfy/create-lens): the reactive primitives underneath.
+Give `usersState` a `mutations` block:
 
-Then build something bigger: the [Tutorial: Build a Todo app](/guides/todo-app) adds
-mutations, forms with `Atom` and `Lens`, and a multi-component app on this same store.
+```ts [App.tsx]
+const usersState = defineState({
+  key: "users",
+  params: z.object({}),
+  model: { users: array(UserModel) },
+  mutations: {
+    addUser: (prev, name: string) => ({
+      users: [...prev.users, { id: crypto.randomUUID(), name }],
+    }),
+    rename: (prev, next: User) => ({
+      users: prev.users.map((u) => (u.id === next.id ? next : u)),
+    }),
+  },
+});
 
-:::tip[Next rung: SSR]
-Your store works on the client. The next step up the ladder is
-[Add SSR](/getting-started/add-ssr): render the first paint on the server and hydrate it
-with no refetch — same models, same components, no server push yet. After that,
-[Add Sync Client](/getting-started/add-sync-client) turns on real-time sync.
-:::
+type User = z.infer<typeof UserModel.schema>;
+```
+
+`useStateData` returns those mutations alongside `data$`; call them from anywhere in the tree:
+
+```tsx [App.tsx]
+const { data$, mutations } = useStateData({ state: usersState, fetchFn: fetchUsers, params: {} });
+
+// ...somewhere in the render:
+<button onClick={() => mutations.addUser("Katherine Johnson")}>Add user</button>;
+```
+
+Reducers work with whole entities, not ids; normalizing the result back into the store is rxfy's
+job. A mutation and a websocket push land identically — one write, and every view of that entity
+re-renders with no re-fetch.
+
+## Local drafts with Atom and Lens
+
+A form wants a draft the user can type into — and discard — without touching the shared store
+until they commit. Hold that draft in a local [`Atom`](/rxfy/create-atom), focus the one field
+you're editing with a [`Lens`](/rxfy/create-lens), and bind it with
+[`useAtom`](/react/use-atom). The form never reads or writes the store; on submit it hands the
+edited entity to `onSave`, and the parent runs the write:
+
+```tsx [EditName.tsx]
+import { useMemo } from "react";
+import { createAtom, createLens, keyLens } from "rxfy";
+import { useAtom } from "rxfy-react";
+
+type User = { id: string; name: string };
+
+export function EditName({ user, onSave }: { user: User; onSave: (user: User) => void }) {
+  const draft$ = useMemo(() => createAtom(user), [user]);
+  const name$ = useMemo(() => createLens(draft$, keyLens("name")), [draft$]);
+  const [name, setName] = useAtom(name$);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(draft$.get());
+      }}
+    >
+      <input value={name} onChange={(e) => setName(e.target.value)} />
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+```
+
+`draft$` is a plain `Atom<User>` local to this component; `name$` is a `Lens` onto its `name`
+field, and `useAtom` binds that field to the input. Typing updates the draft, not the store; the
+row keeps showing the saved name until you submit. Wire `onSave` to the `rename` mutation and the
+edit reaches every view of that user at once. `onSave` is your write boundary — against a real
+backend it's where you'd `await` a `PATCH` before (or after) the store write.
+
+## Next: Add SSR
+
+Your store works on the client. The next level is
+[Add SSR](/getting-started/add-ssr) — render the first paint on the server and hydrate it
+with no refetch. Same models, same components; no server push yet.

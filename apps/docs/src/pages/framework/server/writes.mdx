@@ -3,7 +3,7 @@
 `live.create`, `live.update`, and `live.delete` run the SQL write and then publish live messages.
 All three accept an optional `{ touch: [...] }` option to mark state channels stale.
 
-`server/api.ts` pulls together four things declared elsewhere — the tabs below show each one:
+`server/api.ts` pulls together three things declared elsewhere — the tabs below show each one:
 
 - `live` — the `Live` object from [`createLive`](/framework/server/create-server).
 - `postResource` — a resource from [`defineResource`](/framework/server/define-resource).

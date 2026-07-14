@@ -1,13 +1,13 @@
 # Getting Started
 
-rxfy is one store that scales with you. Start client-only, then climb the ladder as far as
-your app needs: **Create Store → Add SSR → Add Sync Client**. Each rung is additive — the
+rxfy is one store that scales with you. Start client-only, then go as far as
+your app needs: **Create Store → Add SSR → Add Sync Client**. Each level is additive — the
 store you build in the first guide is the same store SSR renders and the Sync Client keeps
 in sync. Pick where you are:
 
 ## Path A — Add rxfy to an existing app
 
-You already have a React app. Adopt rxfy incrementally and stop at any rung:
+You already have a React app. Adopt rxfy incrementally and stop at any level:
 
 1. **[Create Store](/getting-started/create-store)** — typed models, normalized entities, and
    reactive subscriptions on the client. Two packages (`rxfy`, `rxfy-react`), no server.
@@ -18,8 +18,8 @@ You already have a React app. Adopt rxfy incrementally and stop at any rung:
 
 ## Path B — Start fresh with `create-rxfy-app`
 
-Scaffold a standalone app from an official template. Each template lands you on one rung of
-the ladder, wired end to end:
+Scaffold a standalone app from an official template. Each template lands you on one level,
+wired end to end:
 
 :::code-group
 
@@ -53,11 +53,11 @@ npm create rxfy-app@latest my-app -- --template vite-spa
 
 ### Templates
 
-| Template (`-t`) | Stack                                                                                         | Rung                |
-| --------------- | --------------------------------------------------------------------------------------------- | ------------------- |
-| `vite-spa`      | Vite (client-only SPA) — one model, one state, `useStateData`, no server                      | **Create Store**    |
-| `next`          | Next.js (App Router) — SSR store via RSC prefetch + hydrate, isomorphic fetch, server actions | **Add SSR**         |
-| `vite`          | Vite + Hono — full sync stack: Vite SSR, React Router, Hono, Drizzle + PGlite, WebSocket sync | **Add Sync Client** |
+| Template (`-t`) | Stack                                                                                         |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| `vite-spa`      | Vite (client-only SPA) — one model, one state, `useStateData`, no server                      |
+| `next`          | Next.js (App Router) — SSR store via RSC prefetch + hydrate, isomorphic fetch, server actions |
+| `vite`          | Vite + Hono — full sync stack: Vite SSR, React Router, Hono, Drizzle + PGlite, WebSocket sync |
 
 The `vite` template scaffolds the whole loop the [Add Sync Client](/getting-started/add-sync-client)
 guide builds by hand — open http://localhost:3000 in two tabs and toggle a todo; the other
