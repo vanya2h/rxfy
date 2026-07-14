@@ -2,6 +2,8 @@
 
 **Date:** 2026-07-14
 **Status:** Approved design, pre-implementation
+**Sub-project:** 2 of 2. **Depends on Spec 1** (`2026-07-14-templates-next-sync-upgrade-design.md`)
+— `templates/next` must be a sync-todos app before this suite covers it. Build Spec 1 first.
 **Goal:** Catch any regression in real-time **sync behavior** across every sync-capable example/template before release, by driving them in a real browser with Playwright.
 
 ## Motivation
@@ -14,7 +16,7 @@ closes that gap and becomes a release gate.
 
 ## Scope
 
-**In scope — the sync-capable apps only:**
+**In scope:**
 
 | App                 | Path                           | Sync stack            | Capability tag |
 | ------------------- | ------------------------------ | --------------------- | -------------- |
@@ -23,13 +25,19 @@ closes that gap and becomes a release gate.
 | vite-blog-framework | `examples/vite-blog-framework` | rxfy-client + rxfy-ws | `sync-blog`    |
 | waku-blog           | `examples/waku-blog`           | rxfy-client + rxfy-ws | `sync-blog`    |
 | vite (template)     | `templates/vite`               | rxfy-client + rxfy-ws | `sync-todos`   |
+| next (template)     | `templates/next`               | rxfy-client + rxfy-ws | `sync-todos`   |
 
-**Explicitly out of scope** (no live sync — carry no sync regression risk):
-`examples/vite-ssr-pagination`, `templates/next`, `templates/vite-spa`.
+All six apps carry live real-time **sync**. `templates/next` gains it in **Spec 1** (upgraded from
+its old SSR/hydrate-only shape to full sync-todos parity with `templates/vite`); this suite assumes
+that upgrade has landed.
+
+**Explicitly out of scope** (no live sync):
+`examples/vite-ssr-pagination`, `templates/vite-spa`.
 
 The four `sync-blog` apps render **identical UI** from the private `examples-shared` package, so one
-parametrized spec runs against all four. `templates/vite` has bespoke todos UI and gets its own
-short spec.
+parametrized spec runs against all four. `templates/vite` and `templates/next` are both `sync-todos`
+and, once their todos UIs expose matching selectors (guaranteed by Spec 1), share **one**
+`sync-todos.spec.ts` run against both — mirroring the sync-blog pattern.
 
 Non-goals: visual/screenshot assertions, multi-browser matrix (Chromium only to start),
 multi-process cross-client testing (two browser contexts against one server is faithful and cheaper).
@@ -45,7 +53,7 @@ examples/e2e/
   targets.ts              # the single registry of apps under test
   tests/
     sync-blog.spec.ts     # runs against the 4 blog projects (shared examples-shared selectors)
-    sync-todos.spec.ts    # runs against templates/vite
+    sync-todos.spec.ts    # runs against templates/vite AND templates/next (shared selectors)
   fixtures/
     two-clients.ts        # helper: open two browser contexts on the same baseURL
     selectors.ts          # shared selector/text constants per capability
@@ -69,13 +77,14 @@ type Target = {
 
 Fixed ports (no collisions when all run together):
 
-| App                 | pkg name (`--filter`)    | HTTP port | Start command | Notes                          |
-| ------------------- | ------------------------ | --------- | ------------- | ------------------------------ |
-| next-blog           | `rxfy-example-next-blog` | 4301      | `... start`   | `server.mts` reads `PORT`      |
-| rr7-blog            | `rxfy-example-rr7-blog`  | 4302      | `... start`   | `server.mts` reads `PORT`      |
-| vite-blog-framework | `vite-blog-framework`    | 4303      | `... preview` | `server/index.ts` reads `PORT` |
-| waku-blog           | `rxfy-example-waku-blog` | 4304      | `... start`   | see waku nuance below          |
-| vite (template)     | `rxfy-template-vite`     | 4305      | `... preview` | `server/index.ts` reads `PORT` |
+| App                 | pkg name (`--filter`)    | HTTP port | Start command | Notes                                                                 |
+| ------------------- | ------------------------ | --------- | ------------- | --------------------------------------------------------------------- |
+| next-blog           | `rxfy-example-next-blog` | 4301      | `... start`   | `server.mts` reads `PORT`                                             |
+| rr7-blog            | `rxfy-example-rr7-blog`  | 4302      | `... start`   | `server.mts` reads `PORT`                                             |
+| vite-blog-framework | `vite-blog-framework`    | 4303      | `... preview` | `server/index.ts` reads `PORT`                                        |
+| waku-blog           | `rxfy-example-waku-blog` | 4304      | `... start`   | see waku nuance below                                                 |
+| vite (template)     | `rxfy-template-vite`     | 4305      | `... preview` | `server/index.ts` reads `PORT`                                        |
+| next (template)     | `rxfy-template-next`     | 4306      | `... start`   | custom `server.mts` reads `PORT`; WS on same port at `/live` (Spec 1) |
 
 The e2e package itself is named `rxfy-e2e` (private).
 
@@ -89,7 +98,7 @@ app whose WS port is not freely assignable; captured here so the implementer doe
 
 - `projects`: one per target. Each sets `use.baseURL = http://localhost:<port>`,
   `metadata.capability`, and `testMatch` so the project runs only its capability's spec
-  (`sync-blog` projects → `sync-blog.spec.ts`; `sync-todos` → `sync-todos.spec.ts`).
+  (`sync-blog` projects → `sync-blog.spec.ts`; `sync-todos` projects → `sync-todos.spec.ts`).
 - `webServer`: array built from `targets`, each `{ command: startCmd, url: baseURL, env: { PORT },
 reuseExistingServer: !CI, timeout: 120_000 }`. Playwright boots each once and reuses it across the
   project's tests.
@@ -107,14 +116,15 @@ The apps are built by turbo (cached), not by Playwright, so `webServer` commands
    production artifact exists, so `start`/`preview` boots instantly.
 
 To make `^build` include the apps, `examples/e2e` declares a dev dependency (or turbo `dependsOn`
-via `//#e2e` pinning) on each target app package. Simplest: add the five apps as `devDependencies`
-(`"next-blog": "workspace:*"` etc.) of `examples/e2e` so they land in its `^build` closure. (This is
+via `//#e2e` pinning) on each target app package. Simplest: add the six apps as `devDependencies`
+(`"rxfy-example-next-blog": "workspace:*"` etc.) of `examples/e2e` so they land in its `^build`
+closure. (This is
 private infra, so a workspace dep on private apps is fine — cf. examples-shared conventions.)
 
 All apps use **PGlite (in-memory Postgres)** — servers are self-contained, no external DB, fresh
 seed per boot.
 
-## Test scenarios — the sync behavior locked down
+## Test scenarios
 
 ### `sync-blog.spec.ts` (runs 4×, the core regression net)
 
@@ -138,16 +148,19 @@ Selectors come from `examples-shared` components (identical across the 4 apps):
    - **A**'s rendered title updates **live, with no badge and no refresh** — the entity-topic
      `patch` lands straight in A's model store.
 
-### `sync-todos.spec.ts` (templates/vite)
+### `sync-todos.spec.ts` (runs 2×: templates/vite + templates/next)
+
+Both todos templates are `sync-todos` and expose the same selectors (parity guaranteed by Spec 1),
+so this spec runs against both as separate projects.
 
 Selectors: `.updates-badge` button reading `"{n} new — refresh"`; the add form
 (`input[placeholder="What needs doing?"]` + Add button); `<li>` todo items with checkboxes.
 
-1. **Live todo badge → apply.** Context B adds a todo → A's `.updates-badge` shows "1 new —
-   refresh" → A clicks it → the todo appears in A's list.
+1. **Live todo badge → apply.** Two contexts. Context B adds a todo → A's `.updates-badge` shows
+   "1 new — refresh" → A clicks it → the todo appears in A's list.
 2. **Live toggle.** B toggles a todo's checkbox → A reflects the new checked state live (entity
-   patch). _(Include only if the app patches todo entities live; otherwise drop to keep the spec
-   honest — verify during implementation.)_
+   patch on `todo:<id>`, no refresh). Both templates support this after Spec 1 (create **and** toggle
+   propagate live).
 
 ## CI / release wiring
 
@@ -168,8 +181,9 @@ chromium` (Chromium only).
    markup changes; add testids only if text matching proves flaky.
 3. **Waku HTTP port.** Confirm `waku start` honors `PORT` (or its documented env) for the HTTP port
    while WS stays on 8090.
-4. **`sync-todos` live toggle.** Confirm templates/vite patches todo entities to other clients before
-   asserting scenario 2.
+4. **`sync-todos` selector parity.** Spec 1 must land templates/vite + templates/next todos UIs with
+   matching selectors (badge, add form, items) so one spec runs against both; confirm before wiring
+   the shared project.
 
 ## Success criteria
 
