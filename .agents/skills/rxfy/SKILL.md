@@ -20,7 +20,7 @@ You adopt it at the depth your app needs: **Store → +SSR → +Sync**. These ar
 
 ## First, orient yourself
 
-If you have **not** already established this project's entry mode (existing app vs scaffolded template) and integration level this session, read **`references/orientation.md`** first — it detects both from on-disk signals and routes you. Once oriented, skip straight to the library below.
+If you have **not** already established this project's entry mode (existing app vs scaffolded template) and integration level this session, read **`references/orientation.md`** first — it reads the setup variant that `rxfy-setup` recorded (in `CLAUDE.md`/memory) if present, otherwise detects from on-disk signals, and routes you. Once oriented, skip straight to the library below.
 
 ## Reference library — read the one matching your task
 
