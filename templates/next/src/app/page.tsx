@@ -1,16 +1,13 @@
-import { HydrateSnapshot } from "../components/HydrateSnapshot";
 import { TodosView } from "../components/TodosView";
-import { prefetch } from "../lib/ssr";
-import { fetchTodos, todosState } from "../lib/todos";
+import { serveTodos } from "../server/todos-service";
 
-// Server Component: fetch on the server, dehydrate, and pass the snapshot to the client so the
-// store is seeded before TodosView reads it. This is the RSC alternative to <HydrationStream />.
+// Each read is served with a freshly signed, time-limited channel grant, so the payload varies per
+// request — the page can't be statically prerendered.
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
-  const snapshot = await prefetch(todosState, fetchTodos, {});
-  return (
-    <>
-      <HydrateSnapshot snapshot={snapshot} />
-      <TodosView />
-    </>
-  );
+  // RSC reads the service directly (no self-fetch). The payload carries a `$grant`; it rides down as
+  // defaultData, and the browser's sync client lifts the grant and subscribes.
+  const todos = await serveTodos();
+  return <TodosView defaultData={todos} />;
 }

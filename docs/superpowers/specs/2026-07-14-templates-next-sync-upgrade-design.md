@@ -8,6 +8,17 @@
 todos app with the full rxfy sync engine — so the Next App Router starter demonstrates the same
 sync story as the Vite starter, and both can be covered by one shared `sync-todos` e2e spec.
 
+> **Amendment (2026-07-14, during implementation):** the API layer uses **Next-native App Router
+> route handlers**, not a mounted hono app. A Next starter reads better as idiomatic Next, needs
+> fewer deps, and lets the RSC page call the read service directly (no self-fetch). Concretely: a
+> server-only `src/server/todos-service.ts` (`serveTodos`/`createTodo`/`toggleTodo`/`renewGrants`)
+> is shared by `app/api/todos/route.ts` (GET/POST), `app/api/todos/[id]/route.ts` (PATCH),
+> `app/api/live/renew/route.ts` (POST), and by `app/page.tsx` directly. No `hono` /
+> `@hono/zod-validator` (validation via `zod`), no typed `hc` client, no `[[...route]]` catch-all.
+> The sync engine, custom WS server, PGlite storage, `$grant` flow, and UI are unchanged. Sections
+> below that mention hono/`app.ts`/`api-server.ts`/`api-client.ts`/`serverApi` describe the original
+> design; read them as "the API surface" — the shipped mechanism is native route handlers.
+
 ## Why
 
 `templates/vite` is a complete **sync-todos** template: create + toggle persist through a hono API
