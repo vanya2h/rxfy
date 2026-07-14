@@ -1,6 +1,6 @@
 {
   "name": "rxfy-server-memory",
-  "version": "3.0.0-rc.1",
+  "version": "3.0.0",
   "description": "In-memory storage adapter for rxfy-server",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
