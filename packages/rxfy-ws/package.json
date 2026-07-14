@@ -1,6 +1,6 @@
 {
   "name": "rxfy-ws",
-  "version": "3.0.0-rc.0",
+  "version": "3.0.0-rc.1",
   "description": "Default WebSocket transport adapter for rxfy live updates",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {

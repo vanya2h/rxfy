@@ -1,6 +1,6 @@
 {
   "name": "vite-blog-framework",
-  "version": "0.1.1-rc.0",
+  "version": "0.1.1-rc.1",
   "private": true,
   "description": "Live blog example (Vite SSR + Hono + PGlite + the rxfy live framework)",
   "license": "MIT",
