@@ -2,7 +2,19 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.5/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": ["@changesets/cli/commit", { "skipCI": "version" }],
-  "fixed": [["rxfy", "rxfy-react", "rxfy-server", "rxfy-protocol", "rxfy-ws"]],
+  "fixed": [
+    [
+      "rxfy",
+      "rxfy-react",
+      "rxfy-client",
+      "rxfy-server",
+      "rxfy-protocol",
+      "rxfy-ws",
+      "rxfy-server-drizzle",
+      "rxfy-server-memory",
+      "create-rxfy-app"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
