@@ -1,6 +1,6 @@
 {
   "name": "create-rxfy-app",
-  "version": "0.0.0",
+  "version": "0.1.0-rc.0",
   "description": "Scaffold a standalone rxfy app from an official template",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {

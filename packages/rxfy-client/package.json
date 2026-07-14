@@ -1,6 +1,6 @@
 {
   "name": "rxfy-client",
-  "version": "2.0.0",
+  "version": "3.0.0-rc.0",
   "description": "framework-agnostic browser live runtime for rxfy — session identity and the live update sink",
   "keywords": [
     "rxfy",
@@ -72,7 +72,7 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "rxfy": "^2.0.0",
+    "rxfy": "^3.0.0-rc.0",
     "rxjs": "^7.0.0"
   },
   "publishConfig": {

@@ -1,6 +1,6 @@
 {
   "name": "rxfy-server-memory",
-  "version": "0.0.0",
+  "version": "1.0.0-rc.0",
   "description": "In-memory storage adapter for rxfy-server",
   "homepage": "https://rxfy.vanya2h.me",
   "bugs": {
@@ -46,7 +46,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "peerDependencies": {
-    "rxfy": "^2.0.0",
+    "rxfy": "^3.0.0-rc.0",
     "rxfy-server": "workspace:*"
   },
   "devDependencies": {
