@@ -3,9 +3,10 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "examples-s
 import { Input } from "examples-shared/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "examples-shared/ui/select";
 import { Textarea } from "examples-shared/ui/textarea";
+import { parseResponse } from "hono/client";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { createPost } from "../blog/api-client.js";
+import { useApi } from "../blog/api-client.js";
 
 const AUTHORS = [
   { id: "u1", name: "Alice Doe" },
@@ -14,6 +15,7 @@ const AUTHORS = [
 ];
 
 export function NewPostForm({ onCreated }: { onCreated?: () => void }) {
+  const api = useApi();
   const [userId, setUserId] = useState("u1");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -21,7 +23,7 @@ export function NewPostForm({ onCreated }: { onCreated?: () => void }) {
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    await createPost({ userId, title: title.trim(), body: body.trim() });
+    await parseResponse(api.posts.$post({ json: { userId, title: title.trim(), body: body.trim() } }));
     onCreated?.();
     setTitle("");
     setBody("");

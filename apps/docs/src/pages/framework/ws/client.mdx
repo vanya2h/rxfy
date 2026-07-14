@@ -1,7 +1,7 @@
 # createWsClient [The browser transport with reconnect and replay]
 
 `createWsClient` opens a WebSocket to `url` and returns a `ClientTransport` that
-`createLiveClient` (from `rxfy-react`) consumes.
+`createSyncClient` (from `rxfy-client`, re-exported by `rxfy-react`) consumes.
 
 ```ts
 import { createWsClient } from "rxfy-ws/client";
@@ -17,31 +17,37 @@ type WsClientOptions = {
 function createWsClient(options: WsClientOptions): ClientTransport;
 ```
 
-**Auto-reconnect and subscription replay.** The client keeps an internal set of
-active subscription ids. On `"close"` it schedules a reconnect after
-`reconnectDelayMs`; on `"open"` it immediately re-sends a subscribe frame for every
-id in that set. Subscriptions made before the socket is `OPEN` are buffered and sent
-once the connection is ready — no caller-side queuing needed.
+**Auto-reconnect and grant replay.** The transport is `{ send, onMessage, onOpen, close }` — there
+is no `hello` method. On `"close"` it schedules a reconnect after `reconnectDelayMs`; on `"open"`
+it fires the `onOpen` handler, and `createSyncClient` responds by replaying its full grant set —
+re-sending a `subscribe` frame for every live entry — so the caller never re-announces anything.
+A frame passed to `send` while the socket is closed is silently dropped (nothing is buffered);
+the grant set replayed on the next `"open"` is what restores the subscriptions.
 
 ```tsx [src/entry-client.tsx]
+import { StrictMode } from "react";
+import { hydrateRoot } from "react-dom/client";
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, readSsrGrants, StoreProvider } from "rxfy-react";
+import { createSyncClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
+import { ApiProvider, createApiClient } from "./blog/api-client.js";
+import { App } from "./App.js";
 
 const registry = createModelRegistry();
-const liveClient = createLiveClient({
+const apiClient = createApiClient(); // browser client: plain hc("/api") — carries nothing; grants ride the payload
+const syncClient = createSyncClient({
   registry,
-  transport: createWsClient({
-    url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`,
-  }),
-  grants: readSsrGrants(),
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
+  renewUrl: "/api/live/renew",
 });
 
 hydrateRoot(
   document.getElementById("root") as HTMLElement,
   <StrictMode>
-    <StoreProvider registry={registry} ssr liveClient={liveClient}>
-      <App url={location.pathname} />
+    <StoreProvider registry={registry} ssr syncClient={syncClient}>
+      <ApiProvider client={apiClient}>
+        <App url={location.pathname} />
+      </ApiProvider>
     </StoreProvider>
   </StrictMode>,
 );
@@ -49,4 +55,4 @@ hydrateRoot(
 
 The `ClientTransport` shape it returns — and how to substitute your own — is covered in
 [Custom transports](/framework/ws/custom-transport). For the consuming side, see
-[Live client](/react/live-client).
+[rxfy-client](/framework/client).

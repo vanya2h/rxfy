@@ -1,0 +1,22 @@
+{
+  "name": "rxfy-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Playwright e2e suite driving real-time sync across the example/template apps",
+  "scripts": {
+    "e2e": "playwright test",
+    "test:ui": "playwright test --ui",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.15.29",
+    "rxfy-example-next-blog": "workspace:*",
+    "rxfy-example-rr7-blog": "workspace:*",
+    "rxfy-example-waku-blog": "workspace:*",
+    "rxfy-template-next": "workspace:*",
+    "rxfy-template-vite": "workspace:*",
+    "vite-blog-framework": "workspace:*"
+  }
+}

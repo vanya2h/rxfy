@@ -7,16 +7,16 @@ registry, serialized into the HTML, and ingested on the client so the first pain
 already fulfilled: no loading flash, no re-fetch, no hydration mismatch.
 
 :::info[Requirements]
-give models a `name` and states a `key` (stable string identities), and
-write `fetchFn` to work in both environments (it runs on the server during SSR and on the
-client for reloads).
+models carry a `name` and states a `key` (stable string identities — both required by
+their types), and `fetchFn` must work in both environments (it runs on the server during
+SSR and on the client for reloads).
 
 [Plain value fields](/rxfy/define-state#plain-value-fields) (bare Zod schemas in `model`) don't need a model `name` — they travel inside the keyed state's dehydrated value. Keep them JSON-serializable.
 :::
 
-:::tip[Building a live app?]
-SSR also mints the subscription **grants** a live client uses. See
-[Grants & live hydration](/framework/server/grants).
+:::tip[Building a synced app?]
+SSR also signs the channel **grants** a Sync Client uses to receive pushes. See
+[Grants](/framework/server/grants).
 :::
 
 ## Buffered mode (any Node server)
@@ -175,10 +175,9 @@ The server snapshot is produced and embedded with three helpers from `rxfy`:
 type DehydratedState = {
   queries: Record<string, SerializedWrapped>; // settled query results, by key
   models: Record<string, Record<string, unknown>>; // entities, by model name then id
-  grants?: { entities: Record<string, string>; channels: Record<string, string> }; // live-update subscription grants, if the server minted any
 };
 
-// Snapshot a request's registry; only named models and keyed queries are included.
+// Snapshot a request's registry: every model store (by name) plus all settled queries.
 function dehydrate(registry: IModelRegistry): DehydratedState;
 
 // Serialize a snapshot into a ready-to-inject <script> tag (HTML-safe).
@@ -191,9 +190,10 @@ function hydrate(registry: IModelRegistry, state: DehydratedState): void;
 In the common path you never call `hydrate` directly — the embedded script populates
 `window.__RXFY_SSR__` and the client `StoreProvider` ingests it automatically.
 
-`grants` only appears in live apps: the server [mints subscription grants](/framework/server/grants)
-for the entities and state channels in the response, and the client live layer reads them from the
-same snapshot via [`readSsrGrants`](/react/live-client#readssrgrants).
+Synced apps use a different entry point for the same idea: [`sync.hydration(registry)`](/framework/server/grants)
+signs one grant per rendered channel, embeds them alongside the dehydrated data, and returns the
+hydration script in one call — the client lifts them with [`readSsrGrants`](/framework/client/read-ssr-grants)
+and subscribes, instead of calling `dehydrate` / `hydrationScript` directly.
 
 ## Error handling
 

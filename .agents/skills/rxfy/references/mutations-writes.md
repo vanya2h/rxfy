@@ -33,8 +33,7 @@ mutations.toggle(id);
 ```tsx
 const { setRaw } = useStateData({ state: feedState, fetchFn, params });
 // append a page — pass entities by object; setRaw normalizes them + appends their ids
-const appendPage = (page: { items: FeedItem[] }) =>
-  setRaw((prev) => ({ items: [...prev.items, ...page.items] }));
+const appendPage = (page: { items: FeedItem[] }) => setRaw((prev) => ({ items: [...prev.items, ...page.items] }));
 ```
 
 The updater's `prev` is the current **ids** (`QueryShapeOf`), so appends stay O(page size); passing entities costs only O(objects passed). `setRaw` is a no-op until the query is FULFILLED. Value type: `WritableQueryShapeOf<TShape>`.
@@ -46,12 +45,12 @@ The updater's `prev` is the current **ids** (`QueryShapeOf`), so appends stay O(
 ```tsx
 const { data$, loadMore, isLoading, hasMore, reload } = useStatePagedData({
   model: userModel,
-  key: "users",                                  // SSR / cache key; omit to fetch per mount
-  params,                                         // keep stable (useMemo) — one identity = one list
+  key: "users", // SSR / cache key; omit to fetch per mount
+  params, // keep stable (useMemo) — one identity = one list
   fetchPage: ({ cursor, params, signal }) => fetchUsers(cursor, signal),
   getCursor: ({ ids, pageIndex }) => ids.length, // next cursor from current ids
-  select: ({ page }) => page.items,              // entities this page contributes
-  hasMore: ({ page }) => page.hasNext,           // omit for an infinite list
+  select: ({ page }) => page.items, // entities this page contributes
+  hasMore: ({ page }) => page.hasNext, // omit for an infinite list
 });
 // data$ emits string[] — render each row via useModelStore(userModel).get(id)
 ```
@@ -67,5 +66,7 @@ store.setMany(rows.map((row) => todoModel.schema.parse(row)));
 
 // React to entities entering ANY store:
 const registry = useModelRegistry();
-registry.added$.subscribe(({ name, key }) => {/* track what's on screen */});
+registry.added$.subscribe(({ name, key }) => {
+  /* track what's on screen */
+});
 ```

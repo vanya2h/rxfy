@@ -14,25 +14,26 @@ This is Plan 1 of 5 (dependency order): **rxfy-protocol** → rxfy-server (pure 
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `packages/rxfy-protocol/package.json` | Package manifest — zero runtime deps, dual ESM/CJS exports |
-| `packages/rxfy-protocol/tsconfig.json` | Extends the repo's shared node tsconfig |
-| `packages/rxfy-protocol/config.ts` | tsup path config (mirrors `packages/rxfy/config.ts`) |
-| `packages/rxfy-protocol/tsup.config.ts` | Build config — emits `dist/index.{js,cjs,d.ts,d.cts}` |
-| `packages/rxfy-protocol/vitest.config.ts` | Vitest config — node env, globals |
-| `packages/rxfy-protocol/eslint.config.ts` | Lint config (mirrors `packages/rxfy/eslint.config.ts`) |
-| `packages/rxfy-protocol/src/messages.ts` | Message unions, `PROTOCOL_VERSION`, constructors |
-| `packages/rxfy-protocol/src/codec.ts` | `serialize`, `parseServerMessage`, `parseClientMessage`, `ProtocolError` |
-| `packages/rxfy-protocol/src/index.ts` | Barrel re-export |
-| `packages/rxfy-protocol/src/messages.test.ts` | Tests for constructors |
-| `packages/rxfy-protocol/src/codec.test.ts` | Round-trip + rejection tests |
+| File                                          | Responsibility                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| `packages/rxfy-protocol/package.json`         | Package manifest — zero runtime deps, dual ESM/CJS exports               |
+| `packages/rxfy-protocol/tsconfig.json`        | Extends the repo's shared node tsconfig                                  |
+| `packages/rxfy-protocol/config.ts`            | tsup path config (mirrors `packages/rxfy/config.ts`)                     |
+| `packages/rxfy-protocol/tsup.config.ts`       | Build config — emits `dist/index.{js,cjs,d.ts,d.cts}`                    |
+| `packages/rxfy-protocol/vitest.config.ts`     | Vitest config — node env, globals                                        |
+| `packages/rxfy-protocol/eslint.config.ts`     | Lint config (mirrors `packages/rxfy/eslint.config.ts`)                   |
+| `packages/rxfy-protocol/src/messages.ts`      | Message unions, `PROTOCOL_VERSION`, constructors                         |
+| `packages/rxfy-protocol/src/codec.ts`         | `serialize`, `parseServerMessage`, `parseClientMessage`, `ProtocolError` |
+| `packages/rxfy-protocol/src/index.ts`         | Barrel re-export                                                         |
+| `packages/rxfy-protocol/src/messages.test.ts` | Tests for constructors                                                   |
+| `packages/rxfy-protocol/src/codec.test.ts`    | Round-trip + rejection tests                                             |
 
 ---
 
 ## Task 1: Scaffold the `rxfy-protocol` package
 
 **Files:**
+
 - Create: `packages/rxfy-protocol/package.json`
 - Create: `packages/rxfy-protocol/tsconfig.json`
 - Create: `packages/rxfy-protocol/config.ts`
@@ -76,10 +77,7 @@ This is Plan 1 of 5 (dependency order): **rxfy-protocol** → rxfy-server (pure 
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
-    "dist",
-    "package.json"
-  ],
+  "files": ["dist", "package.json"],
   "scripts": {
     "build": "tsup",
     "check-types": "tsc --noEmit",
@@ -91,8 +89,8 @@ This is Plan 1 of 5 (dependency order): **rxfy-protocol** → rxfy-server (pure 
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@vanya2h/eslint-config": "^0.4.0",
-    "@vanya2h/typescript-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
     "eslint": "^9.27.0",
     "jiti": "^2.4.2",
     "rimraf": "^6.0.1",
@@ -208,6 +206,7 @@ git commit -m "chore(rxfy-protocol): scaffold package"
 ## Task 2: Message types, version, and constructors
 
 **Files:**
+
 - Create: `packages/rxfy-protocol/src/messages.ts`
 - Test: `packages/rxfy-protocol/src/messages.test.ts`
 
@@ -359,6 +358,7 @@ git commit -m "feat(rxfy-protocol): add message types, version, and constructors
 ## Task 3: Codec — `serialize` and `parseServerMessage`
 
 **Files:**
+
 - Create: `packages/rxfy-protocol/src/codec.ts`
 - Test: `packages/rxfy-protocol/src/codec.test.ts`
 
@@ -393,33 +393,25 @@ describe("parseServerMessage rejects invalid input", () => {
   });
 
   it("rejects an unsupported version", () => {
-    expect(() =>
-      parseServerMessage(JSON.stringify({ v: 2, kind: "stale", channel: "c" })),
-    ).toThrow(/unsupported protocol version/);
+    expect(() => parseServerMessage(JSON.stringify({ v: 2, kind: "stale", channel: "c" }))).toThrow(
+      /unsupported protocol version/,
+    );
   });
 
   it("rejects an unknown kind", () => {
-    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "nope" }))).toThrow(
-      /unknown server message kind/,
-    );
+    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "nope" }))).toThrow(/unknown server message kind/);
   });
 
   it("rejects a patch with missing fields", () => {
-    expect(() =>
-      parseServerMessage(JSON.stringify({ v: 1, kind: "patch", name: "post" })),
-    ).toThrow(ProtocolError);
+    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "patch", name: "post" }))).toThrow(ProtocolError);
   });
 
   it("rejects a stale with a non-string channel", () => {
-    expect(() =>
-      parseServerMessage(JSON.stringify({ v: 1, kind: "stale", channel: 5 })),
-    ).toThrow(ProtocolError);
+    expect(() => parseServerMessage(JSON.stringify({ v: 1, kind: "stale", channel: 5 }))).toThrow(ProtocolError);
   });
 
   it("rejects a client frame (subscribe) as a server message", () => {
-    expect(() => parseServerMessage(serialize(subscribe(["a"])))).toThrow(
-      /unknown server message kind/,
-    );
+    expect(() => parseServerMessage(serialize(subscribe(["a"])))).toThrow(/unknown server message kind/);
   });
 });
 ```
@@ -434,12 +426,7 @@ Expected: FAIL — cannot resolve `./codec.js`.
 Create `packages/rxfy-protocol/src/codec.ts`:
 
 ```ts
-import {
-  PROTOCOL_VERSION,
-  type ClientMessage,
-  type ProtocolMessage,
-  type ServerMessage,
-} from "./messages.js";
+import { PROTOCOL_VERSION, type ClientMessage, type ProtocolMessage, type ServerMessage } from "./messages.js";
 
 /** Thrown when a payload is not a valid protocol message. */
 export class ProtocolError extends Error {
@@ -453,8 +440,7 @@ export function serialize(message: ProtocolMessage): string {
   return JSON.stringify(message);
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === "string");
@@ -532,6 +518,7 @@ git commit -m "feat(rxfy-protocol): add serialize and parseServerMessage codec"
 ## Task 4: Codec — `parseClientMessage` coverage
 
 **Files:**
+
 - Modify: `packages/rxfy-protocol/src/codec.test.ts` (append a describe block)
 
 `parseClientMessage` already exists from Task 3; this task adds its tests.
@@ -558,21 +545,15 @@ describe("serialize + parseClientMessage round-trip", () => {
 
 describe("parseClientMessage rejects invalid input", () => {
   it("rejects subscribe with non-string ids", () => {
-    expect(() =>
-      parseClientMessage(JSON.stringify({ v: 1, kind: "subscribe", ids: [1, 2] })),
-    ).toThrow(ProtocolError);
+    expect(() => parseClientMessage(JSON.stringify({ v: 1, kind: "subscribe", ids: [1, 2] }))).toThrow(ProtocolError);
   });
 
   it("rejects subscribe with a non-array ids", () => {
-    expect(() =>
-      parseClientMessage(JSON.stringify({ v: 1, kind: "subscribe", ids: "nope" })),
-    ).toThrow(ProtocolError);
+    expect(() => parseClientMessage(JSON.stringify({ v: 1, kind: "subscribe", ids: "nope" }))).toThrow(ProtocolError);
   });
 
   it("rejects a server frame (stale) as a client message", () => {
-    expect(() => parseClientMessage(serialize(stale("c")))).toThrow(
-      /unknown client message kind/,
-    );
+    expect(() => parseClientMessage(serialize(stale("c")))).toThrow(/unknown client message kind/);
   });
 });
 ```
@@ -596,6 +577,7 @@ git commit -m "test(rxfy-protocol): cover parseClientMessage round-trip and reje
 ## Task 5: Barrel export and full package verification
 
 **Files:**
+
 - Modify: `packages/rxfy-protocol/src/index.ts`
 
 - [ ] **Step 1: Replace the placeholder barrel**
@@ -620,9 +602,11 @@ Expected: build emits `dist/index.js`, `dist/index.cjs`, `dist/index.d.ts`, `dis
 - [ ] **Step 4: Verify the public surface is importable from the build**
 
 Run:
+
 ```bash
 node --input-type=module -e "import('./packages/rxfy-protocol/dist/index.js').then(m => { const s = m.serialize(m.patch('post','1',{a:1})); console.log(s); console.log(m.parseServerMessage(s).kind); })"
 ```
+
 Expected: prints the JSON string then `patch`.
 
 - [ ] **Step 5: Commit**
@@ -637,6 +621,7 @@ git commit -m "feat(rxfy-protocol): export public surface via barrel"
 ## Task 6: Changeset
 
 **Files:**
+
 - Create: `.changeset/<generated-name>.md`
 
 - [ ] **Step 1: Create the changeset**

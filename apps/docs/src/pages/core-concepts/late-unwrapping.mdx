@@ -41,19 +41,21 @@ Three costs follow from unwrapping at the trunk:
 - **Every consumer re-renders when it flips.** `isLoading` going `true → false` re-renders the
   entire component, not just the parts whose data changed.
 - **Writes get stuck behind reads.** With the value locked inside `data`, code that wants to
-  *write* an entity has to wait for the read to resolve and thread the update back through it.
+  _write_ an entity has to wait for the read to resolve and thread the update back through it.
 
 ## Wrapped values travel; leaves unwrap
 
 In rxfy, async data does not arrive as `{ data, isLoading, error }`. It arrives as an
 `Observable` that carries an `IWrapped<T>` — the discriminated union
-`IDLE | PENDING | FULFILLED | REJECTED` (`StatusEnum`). Two of the most common sources:
-
-- `data$` from [`useStateData`](/react/use-state-data) — a state's query result (a shape of ids).
-- `store.get(id)` from a [model store](/react/use-model-store) — one entity's cell.
+`IDLE | PENDING | FULFILLED | REJECTED` (`StatusEnum`). The canonical source is `data$` from
+[`useStateData`](/react/use-state-data) — a state's query result (a shape of ids).
 
 Intermediate code never inspects the status. It subscribes, composes, and passes the wrapper
 along. The status rides inside the value all the way down to the component that renders it.
+
+Entity reads are _not_ async sources: an id in a fulfilled query means its entity is already
+in the [model store](/react/use-model-store), so `store.get(id)` is a synchronous handle.
+The query is the only thing that loads; entities referenced by it are simply present.
 
 ## `Pending`: unwrap at the edge
 
@@ -72,38 +74,41 @@ function PostList({ params }: { params: { page: number } }) {
       value$={data$}
       pending={<p>Loading…</p>}
       rejected={({ error }) => (
-        <p>Error: {String(error)} <button onClick={reload}>Retry</button></p>
+        <p>
+          Error: {String(error)} <button onClick={reload}>Retry</button>
+        </p>
       )}
     >
-      {({ posts }) => <ul>{posts.map((id) => <PostRow key={id} id={id} />)}</ul>}
+      {({ posts }) => (
+        <ul>
+          {posts.map((id) => (
+            <PostRow key={id} id={id} />
+          ))}
+        </ul>
+      )}
     </Pending>
   );
 }
 ```
 
-`PostRow` then unwraps *its own* entity, again at the leaf — so a single post arriving or
-changing re-renders that row alone, not the list:
+`PostRow` then subscribes to _its own_ entity, again at the leaf — the id came from the
+fulfilled query, so the read is synchronous, and a single post changing re-renders that row
+alone, not the list:
 
 ```tsx
-import { useMemo } from "react";
-import { StatusEnum } from "rxfy";
-import { usePending, useModelStore } from "rxfy-react";
+import { useAtom, useModelStore } from "rxfy-react";
 import { PostModel } from "./models";
 
 function PostRow({ id }: { id: string }) {
   const store = useModelStore(PostModel);
-  const post$ = useMemo(() => store.get(id), [store, id]);
-  const post = usePending(post$); // IWrapped<Post>, narrowed to PENDING | FULFILLED | REJECTED
-
-  if (post.type === StatusEnum.PENDING) return <li>…</li>;
-  if (post.type === StatusEnum.REJECTED) return <li>failed to load</li>;
-  return <li>{post.value.title}</li>;
+  const [post] = useAtom(store.get(id));
+  return <li>{post.title}</li>;
 }
 ```
 
 Use `Pending` when you want to render UI per status, and [`usePending`](/react/use-pending) when
 you need the `IWrapped<T>` value itself. Either way, the unwrap is as narrow as the thing being
-shown.
+shown — and below the unwrap, entity reads carry no status at all.
 
 ## Writes never unwrap at all
 

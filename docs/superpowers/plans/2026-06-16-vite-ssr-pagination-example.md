@@ -11,6 +11,7 @@
 **Note on TDD:** This repo's example apps ship no unit-test infra; they are verified by `check-types`, `lint`, `build`, and manual run. This plan follows that convention rather than adding Vitest to a single example (YAGNI). The one piece of pure logic (`getUsersPage`) is verified with an inline `tsx -e` assertion in its task.
 
 **Preconditions already done (do NOT redo):**
+
 - The branch is `develop`.
 - The template was already scaffolded into `examples/vite-ssr-pagination/` (raw template files present, no monorepo wiring yet, `node_modules` not installed). Task 1 starts from those raw files.
 
@@ -19,6 +20,7 @@
 ### Task 1: Rewire package.json into the monorepo
 
 **Files:**
+
 - Modify: `examples/vite-ssr-pagination/package.json` (full replace)
 
 - [ ] **Step 1: Replace package.json**
@@ -47,7 +49,7 @@
     "@types/express": "^5.0.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vanya2h/eslint-config": "^0.4.0",
+    "@vanya2h/eslint-config": "^0.7.0",
     "@vitejs/plugin-react": "^5.2.0",
     "compression": "^1.8.0",
     "cross-env": "^7.0.3",
@@ -86,6 +88,7 @@ git commit -m "chore(example): scaffold vite-ssr-pagination and wire into monore
 ### Task 2: TypeScript + ESLint config
 
 **Files:**
+
 - Modify: `examples/vite-ssr-pagination/tsconfig.json`
 - Modify: `examples/vite-ssr-pagination/tsconfig.app.json`
 - Modify: `examples/vite-ssr-pagination/tsconfig.node.json`
@@ -197,6 +200,7 @@ import them; the faker generator lives in `shared/generate.ts` (server-only, rea
 API route and a dynamic import) so faker never lands in the client bundle.
 
 **Files:**
+
 - Modify: `examples/vite-ssr-pagination/package.json` (add `@faker-js/faker` dep)
 - Create: `examples/vite-ssr-pagination/shared/users.ts`
 - Create: `examples/vite-ssr-pagination/shared/generate.ts`
@@ -287,6 +291,7 @@ git commit -m "feat(example): add infinite on-demand user generator (faker)"
 ### Task 4: Isomorphic fetch client
 
 **Files:**
+
 - Create: `examples/vite-ssr-pagination/src/api.ts`
 
 - [ ] **Step 1: Write src/api.ts**
@@ -323,6 +328,7 @@ git commit -m "feat(example): add isomorphic users fetch client"
 ### Task 5: rxfy model + state
 
 **Files:**
+
 - Create: `examples/vite-ssr-pagination/src/users.ts`
 
 - [ ] **Step 1: Write src/users.ts**
@@ -357,6 +363,7 @@ git commit -m "feat(example): add user model and paginated state"
 ### Task 6: UserRow and LoadMoreSentinel components
 
 **Files:**
+
 - Create: `examples/vite-ssr-pagination/src/UserRow.tsx`
 - Create: `examples/vite-ssr-pagination/src/LoadMoreSentinel.tsx`
 
@@ -425,6 +432,7 @@ git commit -m "feat(example): add UserRow and infinite-scroll sentinel"
 ### Task 7: Users list (pagination logic)
 
 **Files:**
+
 - Create: `examples/vite-ssr-pagination/src/Users.tsx`
 
 - [ ] **Step 1: Write src/Users.tsx**
@@ -503,6 +511,7 @@ git commit -m "feat(example): add paginated users list with load-more + infinite
 ### Task 8: App shell + styles
 
 **Files:**
+
 - Create: `examples/vite-ssr-pagination/src/App.tsx` (replace template version)
 - Create: `examples/vite-ssr-pagination/src/index.css` (replace template version)
 - Delete: `examples/vite-ssr-pagination/src/App.css`
@@ -532,7 +541,12 @@ export default function App() {
 ```css
 :root {
   color-scheme: light dark;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   line-height: 1.5;
 }
 
@@ -668,6 +682,7 @@ git commit -m "feat(example): add users-directory app shell and styles"
 ### Task 9: SSR entries + streaming server + HTML
 
 **Files:**
+
 - Modify: `examples/vite-ssr-pagination/src/entry-server.tsx` (replace)
 - Modify: `examples/vite-ssr-pagination/src/entry-client.tsx` (replace)
 - Modify: `examples/vite-ssr-pagination/index.html` (add `<!--app-state-->`)
@@ -926,6 +941,7 @@ Expected: first returns 20 items with `"nextCursor":"20"`; the deep page returns
 ### Task 12: README
 
 **Files:**
+
 - Modify: `examples/vite-ssr-pagination/README.md` (replace template README)
 
 - [ ] **Step 1: Replace README.md**
@@ -960,7 +976,7 @@ pnpm --filter rxfy-example-ssr-pagination dev
   on two pages resolves to one cell.
 - **Offset as cursor, derived from the loaded count.** The next offset is simply the number
   of rows already loaded. This is hydration-safe: under SSR, `useStateData` hydrates page 1
-  from the cache and does *not* re-run `fetchFirst` on the client, so a cursor stashed during
+  from the cache and does _not_ re-run `fetchFirst` on the client, so a cursor stashed during
   the first fetch would be lost. Deriving the offset from the rendered list length works on
   both server and client. Keep this view state out of `params` — stable params are what let
   `set` accumulate one growing list.
@@ -976,7 +992,7 @@ mount.
 
 ### Known limitation
 
-True *per-chunk progressive* hydration — pushing each Suspense boundary's data as it flushes
+True _per-chunk progressive_ hydration — pushing each Suspense boundary's data as it flushes
 — is not available here. rxfy's `HydrationStream` relies on Next's `useServerInsertedHTML`
 and can't run in a plain Vite server. The markup still streams; only the data snapshot is
 sent once, at the end of the stream. A Vite/raw-Node streaming hydration adapter would be a

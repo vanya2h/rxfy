@@ -1,15 +1,10 @@
-export type { ChannelStateDescriptor } from "./live/channel.js";
-export { stateChannel } from "./live/channel.js";
-export type { ChannelCounter, Grants, LiveClient, LiveClientConfig, LiveTransport } from "./live/live-client.js";
-export { createLiveClient } from "./live/live-client.js";
-export { readSsrGrants } from "./live/read-grants.js";
-export { LiveClientContext, useLiveClient } from "./live-context.js";
 export type { IPendingProps } from "./Pending.js";
 export { Pending } from "./Pending.js";
 export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
 export { collectStateData } from "./ssr/collect-state-data.js";
 export type { StoreProviderProps } from "./StoreProvider.js";
 export { SsrContext, StoreProvider } from "./StoreProvider.js";
+export { SyncClientContext, useSyncClient } from "./sync-context.js";
 export { useAtom } from "./useAtom.js";
 export { useModelStore } from "./useModelStore.js";
 export { useObservable } from "./useObservable.js";
@@ -19,3 +14,7 @@ export type { BoundMutations, StateHandle, Updater, UseStateDataConfig } from ".
 export { useStateData } from "./useStateData.js";
 export type { PagedListHandle, UseStatePagedDataConfig } from "./useStatePagedData.js";
 export { useStatePagedData } from "./useStatePagedData.js";
+export type { ChannelStateDescriptor } from "rxfy";
+export { stateChannel } from "rxfy";
+export type { ChannelCounter, SyncClient, SyncClientConfig, SyncTransport } from "rxfy-client";
+export { createSyncClient, readSsrGrants } from "rxfy-client";

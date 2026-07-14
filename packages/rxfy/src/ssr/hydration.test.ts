@@ -1,10 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createModel } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
 import { StatusEnum } from "../wrapped/wrapped.js";
-import { dehydrate, type DehydratedState, hydrate, hydrationScript } from "./hydration.js";
-import { serializeForHtml } from "./serialize.js";
+import { dehydrate, hydrate, hydrationScript } from "./hydration.js";
 
 const todoModel = createModel({
   schema: z.object({ id: z.string(), title: z.string() }),
@@ -30,17 +29,6 @@ describe("dehydrate", () => {
     registry.queries.getQuery("k").set({ type: StatusEnum.REJECTED, error: { name: "Error", message: "boom" } });
     const state = dehydrate(registry);
     expect(JSON.parse(JSON.stringify(state))).toEqual(state);
-  });
-
-  it("warns once for an unnamed store holding data and skips it", () => {
-    const unnamed = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id });
-    const registry = createModelRegistry();
-    registry.model(unnamed).set("1", { id: "1" });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const state = dehydrate(registry);
-    expect(state.models).toEqual({});
-    expect(warn).toHaveBeenCalledOnce();
-    warn.mockRestore();
   });
 
   it("dehydrate emits only terminal queries in SerializedWrapped form", () => {
@@ -72,19 +60,18 @@ describe("hydrate", () => {
       queries: { "posts:{}": { type: StatusEnum.FULFILLED, value: { posts: ["1"] } } },
       models: {},
     });
-    expect(registry.queries.getQuery("posts:{}").get()).toEqual({ type: StatusEnum.FULFILLED, value: { posts: ["1"] } });
+    expect(registry.queries.getQuery("posts:{}").get()).toEqual({
+      type: StatusEnum.FULFILLED,
+      value: { posts: ["1"] },
+    });
   });
 });
 
-describe("DehydratedState grants round-trip", () => {
-  it("preserves grants through serializeForHtml → JSON.parse", () => {
-    const state: DehydratedState = {
-      queries: {},
-      models: {},
-      grants: { entities: { "post:1": "tok-a" }, channels: { "posts:orgId=A": "tok-c" } },
-    };
-    const parsed = JSON.parse(serializeForHtml(state).replace(/\\u003c/g, "<"));
-    expect(parsed.grants).toEqual(state.grants);
+describe("DehydratedState grants", () => {
+  it("hydrationScript carries grants through to the payload", () => {
+    const script = hydrationScript({ queries: {}, models: {}, grants: ["g1", "g2"] });
+    expect(script).toContain('"grants"');
+    expect(script).toContain("g1");
   });
 });
 

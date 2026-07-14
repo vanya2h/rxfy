@@ -13,21 +13,22 @@
 ### Task 1: Root `README.md`
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Overwrite `README.md` with the following content**
 
-```markdown
+````markdown
 # rxfy
 
 Stream-based state management built on RxJS.
 
 ## Packages
 
-| Package | Purpose |
-|---|---|
-| [`rxfy`](packages/rxfy) | Core library — Atom, Edge, Lens, Models/States API |
-| [`rxfy-react`](packages/rxfy-react) | Official React bindings |
+| Package                             | Purpose                                            |
+| ----------------------------------- | -------------------------------------------------- |
+| [`rxfy`](packages/rxfy)             | Core library — Atom, Edge, Lens, Models/States API |
+| [`rxfy-react`](packages/rxfy-react) | Official React bindings                            |
 
 ## Install
 
@@ -35,6 +36,7 @@ Stream-based state management built on RxJS.
 npm install rxfy        # core only
 npm install rxfy-react  # React bindings (peer-depends on rxfy)
 ```
+````
 
 ## Quick taste
 
@@ -77,7 +79,8 @@ function TodoApp() {
 - [rxfy — Core API reference](packages/rxfy/README.md)
 - [rxfy-react — React bindings reference](packages/rxfy-react/README.md)
 - [Example app (vite-todo)](examples/vite-todo)
-```
+
+````
 
 - [ ] **Step 2: Verify the file looks right**
 
@@ -91,18 +94,19 @@ Open `README.md` and confirm:
 ```bash
 git add README.md
 git commit -m "docs: rewrite root README as monorepo landing page"
-```
+````
 
 ---
 
 ### Task 2: `packages/rxfy/README.md`
 
 **Files:**
+
 - Modify: `packages/rxfy/README.md`
 
 - [ ] **Step 1: Overwrite `packages/rxfy/README.md` with the following content**
 
-```markdown
+````markdown
 # rxfy
 
 rxfy (/ɑɹ ɪks faɪ/) — stream-based state management built on RxJS.
@@ -113,6 +117,7 @@ rxfy (/ɑɹ ɪks faɪ/) — stream-based state management built on RxJS.
 npm install rxfy
 # or: pnpm add rxfy  /  yarn add rxfy
 ```
+````
 
 ## Peer dependencies
 
@@ -154,7 +159,7 @@ function defineState<TParams, TFields, TMutations>(def: {
   params: z.ZodType<TParams>;
   model: TFields;
   mutations?: TMutations;
-}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>
+}): StateDescriptor<TParams, ShapeFromFields<TFields>, TMutations>;
 ```
 
 ### `createModel`
@@ -165,19 +170,15 @@ Creates a typed model descriptor for normalizing and sharing entities across sta
 import { z } from "zod";
 import { createModel } from "rxfy";
 
-const TodoModel = createModel(
-  z.object({ id: z.string(), title: z.string(), done: z.boolean() }),
-  { getKey: (todo) => todo.id },
-);
+const TodoModel = createModel(z.object({ id: z.string(), title: z.string(), done: z.boolean() }), {
+  getKey: (todo) => todo.id,
+});
 ```
 
 **Signature:**
 
 ```ts
-function createModel<T>(
-  schema: z.ZodType<T>,
-  opts: { getKey: (item: T) => string },
-): ModelDescriptor<T>
+function createModel<T>(schema: z.ZodType<T>, opts: { getKey: (item: T) => string }): ModelDescriptor<T>;
 ```
 
 ### `array` / `single`
@@ -190,8 +191,8 @@ import { array, single } from "rxfy";
 const userPageState = defineState({
   params: z.object({ userId: z.string() }),
   model: {
-    user: single(UserModel),    // one item
-    friends: array(UserModel),  // array of items
+    user: single(UserModel), // one item
+    friends: array(UserModel), // array of items
   },
 });
 ```
@@ -199,8 +200,8 @@ const userPageState = defineState({
 **Signatures:**
 
 ```ts
-function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>
-function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>
+function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>;
+function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>;
 ```
 
 ### `createModelRegistry` / `createModelStore`
@@ -211,10 +212,7 @@ Low-level normalized storage. In React apps these are wired automatically by `St
 import { z } from "zod";
 import { createModel, createModelRegistry } from "rxfy";
 
-const UserModel = createModel(
-  z.object({ id: z.string(), name: z.string() }),
-  { getKey: (u) => u.id },
-);
+const UserModel = createModel(z.object({ id: z.string(), name: z.string() }), { getKey: (u) => u.id });
 
 const registry = createModelRegistry();
 const users = registry.model(UserModel);
@@ -226,10 +224,10 @@ users.get("1").subscribe(console.log); // { id: "1", name: "Alice" }
 **Signatures:**
 
 ```ts
-function createModelRegistry(): IModelRegistry
+function createModelRegistry(): IModelRegistry;
 // IModelRegistry: { model<T>(descriptor: ModelDescriptor<T>): ModelStore<T> }
 
-function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+function createModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>;
 // ModelStore<T>: { get(key: string): Observable<T>; set(key, val): void; setMany(items): void }
 ```
 
@@ -248,10 +246,10 @@ import { createAtom } from "rxfy";
 
 const count = createAtom(0);
 
-count.get();               // 0
+count.get(); // 0
 count.set(5);
 count.modify((n) => n + 1);
-count.get();               // 6
+count.get(); // 6
 
 count.subscribe((n) => console.log(n)); // emits current value then future changes
 ```
@@ -259,7 +257,7 @@ count.subscribe((n) => console.log(n)); // emits current value then future chang
 **Signature:**
 
 ```ts
-function createAtom<T>(value: T): Atom<T>
+function createAtom<T>(value: T): Atom<T>;
 // Atom<T>: Observable<T> & { get(): T; set(val: T): void; modify(fn: (val: T) => T): void }
 ```
 
@@ -273,17 +271,17 @@ import { createAtom, createLens, keyLens } from "rxfy";
 const user = createAtom({ id: "1", name: "Alice" });
 const name = createLens(user, keyLens("name"));
 
-name.get();        // "Alice"
+name.get(); // "Alice"
 name.set("Bob");
-user.get();        // { id: "1", name: "Bob" }
+user.get(); // { id: "1", name: "Bob" }
 ```
 
 **Signatures:**
 
 ```ts
-function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>
+function createLens<S, T>(source$: IAtom<S>, lens: ILens<S, T>): Lens<S, T>;
 
-function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>
+function keyLens<S, K extends keyof S>(key: K): ILens<S, S[K]>;
 // ILens<S, T>: { get(source: S): T; set(current: T, source: S): S }
 ```
 
@@ -307,11 +305,7 @@ await edge.next(); // trigger a reload
 **Signature:**
 
 ```ts
-function createEdge<T>(
-  state$: IAtom<IEdgeState<T>>,
-  queue: PQueue,
-  loader: () => Observable<T>,
-): IEdge<T>
+function createEdge<T>(state$: IAtom<IEdgeState<T>>, queue: PQueue, loader: () => Observable<T>): IEdge<T>;
 
 // IEdge<T>: {
 //   subject$: IAtom<IEdgeState<T>>;
@@ -327,18 +321,18 @@ Discriminated union for async state. Used internally by `Edge`; available for cu
 ```ts
 import { createIdle, createPending, createFulfilled, createRejected } from "rxfy";
 
-createIdle<string>();     // { type: "IDLE" }
-createPending<string>();  // { type: "PENDING" }
-createFulfilled("hi");    // { type: "FULFILLED", value: "hi" }
-createRejected("oops");   // { type: "REJECTED", error: "oops" }
+createIdle<string>(); // { type: "IDLE" }
+createPending<string>(); // { type: "PENDING" }
+createFulfilled("hi"); // { type: "FULFILLED", value: "hi" }
+createRejected("oops"); // { type: "REJECTED", error: "oops" }
 ```
 
-| Helper | Returns |
-|---|---|
-| `createIdle<T>()` | `{ type: "IDLE" }` |
-| `createPending<T>()` | `{ type: "PENDING" }` |
+| Helper                      | Returns                        |
+| --------------------------- | ------------------------------ |
+| `createIdle<T>()`           | `{ type: "IDLE" }`             |
+| `createPending<T>()`        | `{ type: "PENDING" }`          |
 | `createFulfilled<T>(value)` | `{ type: "FULFILLED", value }` |
-| `createRejected<T>(error)` | `{ type: "REJECTED", error }` |
+| `createRejected<T>(error)`  | `{ type: "REJECTED", error }`  |
 
 ---
 
@@ -346,7 +340,8 @@ createRejected("oops");   // { type: "REJECTED", error: "oops" }
 
 - [rxfy-react](../rxfy-react/README.md) — React bindings
 - [examples/vite-todo](../../examples/vite-todo) — full working example
-```
+
+````
 
 - [ ] **Step 2: Verify exports match source**
 
@@ -366,18 +361,19 @@ Run: `grep -n "export" packages/rxfy/src/index.ts` and confirm nothing is missin
 ```bash
 git add packages/rxfy/README.md
 git commit -m "docs: rewrite rxfy README with full API reference"
-```
+````
 
 ---
 
 ### Task 3: `packages/rxfy-react/README.md`
 
 **Files:**
+
 - Modify: `packages/rxfy-react/README.md`
 
 - [ ] **Step 1: Overwrite `packages/rxfy-react/README.md` with the following content**
 
-```markdown
+````markdown
 # rxfy-react
 
 `rxfy-react` — official React bindings for [`rxfy`](../rxfy/README.md).
@@ -388,6 +384,7 @@ git commit -m "docs: rewrite rxfy README with full API reference"
 npm install rxfy rxfy-react
 # or: pnpm add rxfy rxfy-react
 ```
+````
 
 ## Peer dependencies
 
@@ -420,7 +417,7 @@ createRoot(document.getElementById("root")!).render(
 **Signature:**
 
 ```ts
-function StoreProvider({ children }: PropsWithChildren): JSX.Element
+function StoreProvider({ children }: PropsWithChildren): JSX.Element;
 ```
 
 ---
@@ -446,10 +443,12 @@ function TodoApp() {
     <Pending value$={data$} pending={<p>Loading…</p>}>
       {({ todos }) => (
         <>
-          <ul>{todos.map((t) => <li key={t.id}>{t.title}</li>)}</ul>
-          <button onClick={() => mutations.addTodo({ id: crypto.randomUUID(), title: "new", done: false })}>
-            Add
-          </button>
+          <ul>
+            {todos.map((t) => (
+              <li key={t.id}>{t.title}</li>
+            ))}
+          </ul>
+          <button onClick={() => mutations.addTodo({ id: crypto.randomUUID(), title: "new", done: false })}>Add</button>
           <button onClick={reload}>Reload</button>
         </>
       )}
@@ -465,7 +464,7 @@ function useStateData<TParams, TShape, TMutations>(
   state: StateDescriptor<TParams, TShape, TMutations>,
   fetchFn: (params: TParams, signal: AbortSignal) => Promise<TShape>,
   params: TParams,
-): StateHandle<TShape, TMutations>
+): StateHandle<TShape, TMutations>;
 
 // StateHandle<TShape, TMutations>: {
 //   data$: Observable<TShape>;
@@ -488,18 +487,14 @@ function TodoItem({ id }: { id: string }) {
   const store = useModelStore(TodoModel);
   const todo$ = useMemo(() => store.get(id), [store, id]);
 
-  return (
-    <Pending value$={todo$}>
-      {(todo) => <li>{todo.title}</li>}
-    </Pending>
-  );
+  return <Pending value$={todo$}>{(todo) => <li>{todo.title}</li>}</Pending>;
 }
 ```
 
 **Signature:**
 
 ```ts
-function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>;
 // ModelStore<T>: { get(key: string): Observable<T>; set(key, val): void; setMany(items): void }
 ```
 
@@ -524,7 +519,7 @@ import { Pending } from "rxfy-react";
   )}
 >
   {(value) => <div>{JSON.stringify(value)}</div>}
-</Pending>
+</Pending>;
 ```
 
 **Signature:**
@@ -536,7 +531,7 @@ function Pending<T>(props: {
   rejected?: IRenderable<IPendingStatus<T, "rejected">>;
   children: IRenderable<T>;
   getDefaultValue?: () => T;
-}): JSX.Element
+}): JSX.Element;
 
 // IRenderable<T> = React.ReactNode | ((data: T) => React.ReactNode)
 // ObservableLike<T> = Observable<T> | T
@@ -552,18 +547,13 @@ import { BehaviorSubject } from "rxjs";
 
 const count$ = new BehaviorSubject(0);
 
-<BehaviorSubjectRender value$={count$}>
-  {(n) => <span>{n}</span>}
-</BehaviorSubjectRender>
+<BehaviorSubjectRender value$={count$}>{(n) => <span>{n}</span>}</BehaviorSubjectRender>;
 ```
 
 **Signature:**
 
 ```tsx
-function BehaviorSubjectRender<T>(props: {
-  value$: BehaviorSubject<T>;
-  children: IRenderable<T>;
-}): JSX.Element
+function BehaviorSubjectRender<T>(props: { value$: BehaviorSubject<T>; children: IRenderable<T> }): JSX.Element;
 ```
 
 ---
@@ -586,10 +576,7 @@ const status = usePending(data$);
 **Signature:**
 
 ```ts
-function usePending<T>(
-  source$: ObservableLike<T>,
-  getDefaultValue?: () => T,
-): IPendingStatus<T>
+function usePending<T>(source$: ObservableLike<T>, getDefaultValue?: () => T): IPendingStatus<T>;
 ```
 
 ### `useEdge` + `Edge`
@@ -603,19 +590,15 @@ import { useEdge, Edge } from "rxfy-react";
 const state = useEdge(myEdge);
 
 // Component form
-<Edge
-  edge={myEdge}
-  pending={<span>Loading…</span>}
-  rejected={(err) => <span>{String(err)}</span>}
->
+<Edge edge={myEdge} pending={<span>Loading…</span>} rejected={(err) => <span>{String(err)}</span>}>
   {(value) => <div>{JSON.stringify(value)}</div>}
-</Edge>
+</Edge>;
 ```
 
 **Signatures:**
 
 ```ts
-function useEdge<T>(edge: IEdge<T>): IEdgeState<T>
+function useEdge<T>(edge: IEdge<T>): IEdgeState<T>;
 ```
 
 ```tsx
@@ -624,7 +607,7 @@ function Edge<T>(props: {
   children: IRenderFn<T>;
   rejected?: IRenderFn<unknown>;
   pending?: React.ReactNode;
-}): JSX.Element
+}): JSX.Element;
 
 // IRenderFn<T> = React.ReactNode | ((data: T) => React.ReactNode)
 ```
@@ -643,8 +626,8 @@ const maybeValue = useObservable(observable$); // T | undefined
 **Signature:**
 
 ```ts
-function useObservable<T>(observable: Observable<T>, initialValue: T): T
-function useObservable<T>(observable: Observable<T>): T | undefined
+function useObservable<T>(observable: Observable<T>, initialValue: T): T;
+function useObservable<T>(observable: Observable<T>): T | undefined;
 ```
 
 ---
@@ -661,7 +644,7 @@ import { createModelRegistry } from "rxfy";
 const registry = createModelRegistry();
 <ModelRegistryContext.Provider value={registry}>
   <App />
-</ModelRegistryContext.Provider>
+</ModelRegistryContext.Provider>;
 
 // inside any child — throws if no provider is found above
 const registry = useModelRegistry();
@@ -670,8 +653,8 @@ const registry = useModelRegistry();
 **Signatures:**
 
 ```ts
-const ModelRegistryContext: React.Context<IModelRegistry | null>
-function useModelRegistry(): IModelRegistry
+const ModelRegistryContext: React.Context<IModelRegistry | null>;
+function useModelRegistry(): IModelRegistry;
 ```
 
 ---
@@ -680,7 +663,8 @@ function useModelRegistry(): IModelRegistry
 
 - [rxfy — Core API](../rxfy/README.md)
 - [examples/vite-todo](../../examples/vite-todo) — full working example
-```
+
+````
 
 - [ ] **Step 2: Verify exports match source**
 
@@ -701,4 +685,4 @@ Run: `grep -n "^export" packages/rxfy-react/src/index.tsx` and confirm nothing i
 ```bash
 git add packages/rxfy-react/README.md
 git commit -m "docs: rewrite rxfy-react README with full API reference"
-```
+````

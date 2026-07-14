@@ -41,11 +41,11 @@ story begins, and complexity is not introduced gradually.
 The gradual progression maps onto examples that already exist; the docs narrative
 carries the continuity that the changing domains do not.
 
-| Tier | Anchor example | Teaches |
-|---|---|---|
-| **1 · Store (client-only)** | `examples/vite-todo` | Normalized stores, Model/State, `useModelStore`/`useStateData`, mutations — no server |
-| **2 · SSR** | `examples/vite-ssr-pagination` (Vite/Hono; closest stack to the live app), links out to `rr7-blog`, `next-blog`, `waku-blog` | dehydrate/hydrate, streaming, pagination |
-| **3 · Live** | `examples/vite-blog-framework` | `rxfy-server`/`-protocol`/`-ws`, grants, patch/stale, live UI |
+| Tier                        | Anchor example                                                                                                               | Teaches                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **1 · Store (client-only)** | `examples/vite-todo`                                                                                                         | Normalized stores, Model/State, `useModelStore`/`useStateData`, mutations — no server |
+| **2 · SSR**                 | `examples/vite-ssr-pagination` (Vite/Hono; closest stack to the live app), links out to `rr7-blog`, `next-blog`, `waku-blog` | dehydrate/hydrate, streaming, pagination                                              |
+| **3 · Live**                | `examples/vite-blog-framework`                                                                                               | `rxfy-server`/`-protocol`/`-ws`, grants, patch/stale, live UI                         |
 
 ### The fork — "Choose your path"
 
@@ -53,8 +53,8 @@ carries the continuity that the changing domains do not.
 fork is the "ask the user which cycle they want" mechanism.
 
 - **Store quickstart** (`/getting-started/store`) — install `rxfy` + `rxfy-react`, wire a
-  `vite-todo`-style store. Ends with: *"That's it — you have normalized reactive state.
-  Need it on a server or live? Continue below."*
+  `vite-todo`-style store. Ends with: _"That's it — you have normalized reactive state.
+  Need it on a server or live? Continue below."_
 - **Framework quickstart** (`/getting-started/framework`) — install the full stack, stand
   up the `vite-blog-framework` skeleton.
 
@@ -93,7 +93,7 @@ cross-linked from the Framework section.
 ### Replace the hand-rolled live guide
 
 The existing `/guides/live-updates-websockets` teaches the pre-framework, hand-rolled
-approach and explicitly claims *"rxfy ships no WebSocket helper"* — now false, since
+approach and explicitly claims _"rxfy ships no WebSocket helper"_ — now false, since
 `rxfy-ws` exists. It is the guide-twin of the deleted `vite-realtime-todos` example.
 
 - Delete `/guides/live-updates-websockets`; `/guides/live-blog` is its replacement.
@@ -166,6 +166,7 @@ Agent Skills
 `guides/live-blog`. Plus a live-glue reference page under React Bindings.
 
 **Changed:**
+
 - `getting-started` → intro + fork
 - `examples.mdx` → regroup by tier; remove `vite-realtime-todos`
 - `react` overview → mention live glue
@@ -192,6 +193,7 @@ their now-stable public API and versions the whole group in lockstep. Docs app i
 changesets — no changeset for docs-page changes.
 
 **Root `README.md`:**
+
 - Packages table → add `rxfy-protocol`, `rxfy-server`, `rxfy-ws` rows.
 - API Reference / Guides links → replace `live-updates-websockets` with `live-blog`;
   add a Framework link.
@@ -204,8 +206,8 @@ Delete `examples/vite-realtime-todos/`; run `pnpm install` to regenerate the loc
 
 1. **Scaffold & cleanup** — update `vocs.config.ts` sidebar (move Comparison, add Framework
    section, fork Getting Started, drop old live guide entry); delete `vite-realtime-todos`
-   + `guides/live-updates-websockets.mdx` + scrub references in `README.md`/`examples.mdx`;
-   create the 3 package READMEs (+ `files` array) and the changeset.
+   - `guides/live-updates-websockets.mdx` + scrub references in `README.md`/`examples.mdx`;
+     create the 3 package READMEs (+ `files` array) and the changeset.
 2. **Framework reference** — write `/framework` overview (incl. salvaged "under the hood"),
    `/framework/server`, `/framework/protocol`, `/framework/ws`, `/framework/grants`, and the
    React live-glue reference page.

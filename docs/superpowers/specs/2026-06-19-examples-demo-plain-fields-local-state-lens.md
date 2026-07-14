@@ -25,8 +25,8 @@ const postsState = defineState({
   key: "posts",
   params: z.object({}),
   model: {
-    posts: array(PostModel),                                        // entities (normalized → ids)
-    authors: array(UserModel),                                      // entities
+    posts: array(PostModel), // entities (normalized → ids)
+    authors: array(UserModel), // entities
     meta: z.object({ total: z.number(), generatedAt: z.string() }), // plain (passed through)
   },
 });
@@ -41,14 +41,14 @@ const postsState = defineState({
 
 ## Per example
 
-| Example | Fetched state | Plain field added | Caption |
-|---|---|---|---|
-| next-blog | `postsState` (posts + authors) | `meta: { total, generatedAt }` | "{total} posts · loaded {time}" in PostList |
-| rr7-blog | `postsState` | `meta: { total, generatedAt }` | same |
-| waku-blog | `postsState` | `meta: { total, generatedAt }` | same (needs `pnpm install` first — deps not installed) |
-| vite-todo | `todosState` | `meta: { total, generatedAt }` | "{total} todos · loaded {time}" |
-| vite-realtime-todos | `todosState` | `meta: { total, generatedAt }` | same |
-| vite-ssr-pagination | uses `useStatePagedData` (no `defineState` model) | a small **header** `defineState({ model: { topUser: single(UserModel), meta: z.object({ total, generatedAt }) } })` + fetch, to show the entity+plain mix | "Top: {name} · {total} users · loaded {time}" |
+| Example             | Fetched state                                     | Plain field added                                                                                                                                         | Caption                                                |
+| ------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| next-blog           | `postsState` (posts + authors)                    | `meta: { total, generatedAt }`                                                                                                                            | "{total} posts · loaded {time}" in PostList            |
+| rr7-blog            | `postsState`                                      | `meta: { total, generatedAt }`                                                                                                                            | same                                                   |
+| waku-blog           | `postsState`                                      | `meta: { total, generatedAt }`                                                                                                                            | same (needs `pnpm install` first — deps not installed) |
+| vite-todo           | `todosState`                                      | `meta: { total, generatedAt }`                                                                                                                            | "{total} todos · loaded {time}"                        |
+| vite-realtime-todos | `todosState`                                      | `meta: { total, generatedAt }`                                                                                                                            | same                                                   |
+| vite-ssr-pagination | uses `useStatePagedData` (no `defineState` model) | a small **header** `defineState({ model: { topUser: single(UserModel), meta: z.object({ total, generatedAt }) } })` + fetch, to show the entity+plain mix | "Top: {name} · {total} users · loaded {time}"          |
 
 Field names/shape adapt to each example's real schema and fetch. Prefer `generatedAt` as an ISO
 string set server-side; render with `new Date(generatedAt).toLocaleTimeString()`.

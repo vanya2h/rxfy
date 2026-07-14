@@ -44,9 +44,9 @@ Follow these steps:
 
 ## Packages
 
-| Package | Version |
-| ------- | ------- |
-| `rxfy` | `{version}` |
+| Package | Version     |
+| ------- | ----------- |
+| `rxfy`  | `{version}` |
 
 <!-- List every package being published in this release with its new version. -->
 
@@ -73,7 +73,7 @@ Follow these steps:
 <!-- Note any dependency additions, removals, or version bumps. Omit if none. -->
 ```
 
-   The publishable packages are `rxfy` and `rxfy-react`. Packages under `examples/` and `apps/` are private and are never released.
+The publishable packages are `rxfy` and `rxfy-react`. Packages under `examples/` and `apps/` are private and are never released.
 
 9. Omit any section that has no entries rather than leaving it empty.
 

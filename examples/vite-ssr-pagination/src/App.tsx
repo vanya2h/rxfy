@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Users } from "./Users.tsx";
 
 export default function App() {
@@ -5,9 +6,14 @@ export default function App() {
     <main className="app">
       <header>
         <h1>Users directory</h1>
-        <p className="subtitle">Streaming SSR + normalized pagination with rxfy</p>
+        <p className="subtitle">SSR + normalized pagination with rxfy</p>
       </header>
-      <Users />
+      {/* The SSR fetches suspend inside this boundary. The server pipes on onAllReady, so the
+          sent HTML is fully resolved (renders without JS); flip it to onShellReady and this
+          fallback streams first instead. */}
+      <Suspense fallback={<p className="status">Loading users…</p>}>
+        <Users />
+      </Suspense>
     </main>
   );
 }

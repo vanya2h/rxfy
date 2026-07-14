@@ -16,9 +16,10 @@ const TodoModel = createModel({
 });
 ```
 
-`name` is the model's stable string identity for SSR; only named models are included
-in `dehydrate` output. Models without a name work normally but opt out of SSR
-serialization (a dev warning fires if they hold data at dehydrate time).
+`name` is the model's stable string identity for SSR dehydration and sync topics —
+symbols can't cross the server/client boundary, so the name is what addresses the
+model's entities there. Keep it unique per app: registries warn on duplicates, since
+two models sharing a name would mix their entities in `dehydrate` output.
 
 ## Low-level storage
 
@@ -33,23 +34,24 @@ const registry = createModelRegistry();
 const users = registry.model(UserModel);
 
 users.set("1", { id: "1", name: "Alice" });
-users.get("1").subscribe(console.log); // emits { id: "1", name: "Alice" }
+users.get("1").get(); // { id: "1", name: "Alice" } — synchronous
+users.get("1").subscribe(console.log); // reactive: emits on every change
 ```
 
 :::warning
-`get()` on a key that has never had `set()` called returns an Observable that never
-emits until `set()` or `setMany()` is called for that key.
+`get()` on a key that has never had `set()` called **throws** — ids are expected to come
+from fulfilled states, which normalize their entities into the store before handing out
+ids. Use `getValue(key)` for a non-throwing probe.
 :::
 
 A `ModelStore<T>` exposes:
 
 ```ts
 type ModelStore<T> = {
-  get(key: EntityKey<T>): Observable<T>; // reactive read; emits on every change
+  get(key: EntityKey<T>): IAtom<T>; // writable handle (see below); throws if not loaded
   set(key: string, val: T): void; // write one entity
   setMany(items: T[]): void; // write many; key is derived via getKey
-  getValue(key: string): T | undefined; // synchronous read, no subscription
-  entity(key: EntityKey<T>): IAtom<T>; // writable handle (see below)
+  getValue(key: string): T | undefined; // synchronous read, no subscription, never throws
   valueEntries(): [string, T][]; // snapshot of all loaded [key, value] pairs
   added$: Observable<string>; // a key, the first time its entity appears
 };
@@ -76,7 +78,7 @@ users.set("1", { id: "1", name: "Alice" }); // → "now live on 1"
 users.set("1", { id: "1", name: "Bob" }); // (update, no emit)
 ```
 
-The registry exposes the same signal across every **named** store, tagged with the model name:
+The registry exposes the same signal across every store, tagged with the model name:
 
 ```ts
 import { createModelRegistry } from "rxfy";
@@ -88,17 +90,17 @@ registry.added$.subscribe(({ name, key }) => console.log(`${name}:${key}`));
 registry.model(UserModel).set("1", { id: "1", name: "Alice" }); // → "user:1"
 ```
 
-It replays entities already in the registry and follows stores created later; unnamed stores
-are skipped, since there's no `name` to address them by. This is what lets a live-update layer
-track exactly what the client holds without each query wiring its ids in by hand; see
-[rxfy-server](/framework/server).
+It replays entities already in the registry and follows stores created later. This is what
+lets a sync layer track exactly what the client holds without each query wiring its
+ids in by hand; see [rxfy-server](/framework/server).
 
-## ModelStore entity
+## ModelStore get
 
-`entity(key)` returns a writable `IAtom<T>` over a single entity's cell, a read/write
-handle suitable for field [Lenses](/rxfy/create-lens) and form inputs. Reads reflect the
-store; `.set(next)` writes back (equivalent to `store.set(key, next)`), so the change
-propagates to every subscriber of that entity.
+`get(key)` returns the entity's cell itself — a writable `IAtom<T>` for rendering, field
+[Lenses](/rxfy/create-lens), and form inputs. Repeated calls return the same handle (stable
+identity, no wrapper allocation). Reads reflect the store; `.set(next)` writes back
+(equivalent to `store.set(key, next)`), so the change propagates to every subscriber of
+that entity.
 
 ```ts
 import { createModelRegistry } from "rxfy";
@@ -107,11 +109,12 @@ import { UserModel } from "./models";
 const users = createModelRegistry().model(UserModel);
 users.set("1", { id: "1", name: "Alice" });
 
-const user$ = users.entity("1"); // IAtom<User>
+const user$ = users.get("1"); // IAtom<User>
 user$.get(); // { id: "1", name: "Alice" }
 user$.set({ id: "1", name: "Bob" }); // === users.set("1", { id: "1", name: "Bob" })
 ```
 
-It assumes the entity is already loaded; reading a key that has never been `set` yields
-`undefined` typed as `T`. For the React form-binding pattern, see
-[`useAtom` & two-way binding](/react/use-atom).
+It assumes the entity is already loaded and **throws** for a key that has never been
+`set` — an id in hand should always have come from a fulfilled state, so an unloaded
+access is a programming error surfaced early, not a loading state. For the React
+form-binding pattern, see [`useAtom` & two-way binding](/react/use-atom).

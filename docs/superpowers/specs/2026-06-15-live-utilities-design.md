@@ -61,10 +61,11 @@ export type SubscriptionManager = ReturnType<typeof createSubscriptionManager>;
 export function createSubscriptionManager(send: (topics: Topic[]) => void): {
   want(topic: Topic): void;
   reconnect(): void;
-}
+};
 ```
 
 **Internals:**
+
 - `desired: Set<Topic>` — grows monotonically; never shrinks (store-lifecycle == subscription-lifecycle)
 - `active: Set<Topic>` — what the server currently knows
 - `reconcile()` — sends `desired − active`, then sets `active = desired`; called inside `want` and `reconnect`
@@ -78,6 +79,7 @@ export function createSubscriptionManager(send: (topics: Topic[]) => void): {
 ## Documentation
 
 Update the live-updates-websockets guide:
+
 - Replace the inline `topic.ts` snippet with an import of `modelTopic` and `Topic` from `rxfy`
 - Replace the inline `liveClient.ts` snippet with an import of `createSubscriptionManager` from `rxfy`
 - Update `useStoreSubscriptions.ts` snippet to use `modelTopic(…)` instead of `topic(name, key)`

@@ -20,6 +20,7 @@
 - `.changeset/<name>.md` — `minor` for both packages.
 
 Run all package tests from repo root with:
+
 - `pnpm --filter rxfy test`
 - `pnpm --filter rxfy-react test`
 
@@ -30,6 +31,7 @@ Type-check with `pnpm --filter rxfy check-types` / `pnpm --filter rxfy-react che
 ## Task 1: `isFieldDescriptor` runtime guard
 
 **Files:**
+
 - Modify: `packages/rxfy/src/model/model.ts`
 - Test: `packages/rxfy/src/model/model.test.ts`
 
@@ -93,6 +95,7 @@ git commit -m "feat(rxfy): add isFieldDescriptor guard"
 ## Task 2: Fields-driven types in `state.ts`
 
 **Files:**
+
 - Modify: `packages/rxfy/src/state/state.ts`
 - Test: `packages/rxfy/src/state/state.test.ts`
 
@@ -280,6 +283,7 @@ git commit -m "feat(rxfy): fields-driven query/writable shapes with plain value 
 ## Task 3: Runtime normalize/denormalize for plain fields
 
 **Files:**
+
 - Modify: `packages/rxfy/src/state/normalize.ts`
 - Test: `packages/rxfy/src/state/normalize.test.ts`
 
@@ -495,6 +499,7 @@ git commit -m "feat(rxfy): normalize plain value fields with dev-only validation
 ## Task 4: Thread `TQuery`/`TWritable` through `useStateData` (plain fields end-to-end)
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStateData.ts`
 - Test: `packages/rxfy-react/src/useStateData.test.tsx`
 
@@ -519,10 +524,7 @@ describe("plain value fields", () => {
       isOpen: true,
       filters: { q: "hello" },
     });
-    const { result } = renderHook(
-      () => useStateData({ state: plainState, fetchFn, params: { id: "x" } }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData({ state: plainState, fetchFn, params: { id: "x" } }), { wrapper });
     const data = await firstValueFrom(result.current.data$);
     expect(data.posts).toEqual(["1"]);
     expect(data.isOpen).toBe(true);
@@ -531,10 +533,7 @@ describe("plain value fields", () => {
 
   it("updates a plain value through a mutation", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [], isOpen: false, filters: { q: "" } });
-    const { result } = renderHook(
-      () => useStateData({ state: plainState, fetchFn, params: { id: "y" } }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => useStateData({ state: plainState, fetchFn, params: { id: "y" } }), { wrapper });
     await firstValueFrom(result.current.data$);
     act(() => result.current.mutations.setOpen(true));
     const data = await firstValueFrom(result.current.data$);
@@ -607,6 +606,7 @@ export function useStateData<TParams, TShape, TMutations extends MutationDefs<TS
 ```
 
 Then inside the body, replace every `QueryShapeOf<TShape>` with `TQuery` and every `WritableQueryShapeOf<TShape>` with `TWritable`. Specifically:
+
 - `atom$: Atom<IWrapped<TQuery>>`
 - `registry.queries.getQuery<TQuery>(cacheKey)`
 - `createAtom<IWrapped<TQuery>>(createIdle())`
@@ -615,13 +615,14 @@ Then inside the body, replace every `QueryShapeOf<TShape>` with `TQuery` and eve
 - `const setRaw = (idsOrUpdater: TWritable | ((prev: TQuery) => TWritable)) => {`
 
 The calls to `normalizeResult`/`normalizeWritable`/`denormalizeValue` return/accept the structural shapes and are already cast through their own generics; cast their results to the local generic where TypeScript needs help, e.g.:
+
 - `atom$.set(createFulfilled(normalizeResult(registry, fields, defaultData) as TQuery));`
 - in `settle`: `atom$.set(createFulfilled(normalizeResult(registry, fields, result) as TQuery));`
 - in `writeThrough` callers: `writeThrough(normalizeResult(registry, fields, updater(prev)) as TQuery);` and `writeThrough(normalizeResult(registry, fields, valueOrUpdater) as TQuery);`
 - in `setRaw`: the updater is `(prev: TQuery) => TWritable`, so call it as `idsOrUpdater(current.value)` (no cast), then cast the `normalizeWritable` argument since `TWritable` is opaque to it: `writeThrough(normalizeWritable(registry, fields, idsOrUpdater(current.value) as never) as TQuery);` and `writeThrough(normalizeWritable(registry, fields, idsOrUpdater as never) as TQuery);`
 - in `applyUpdate`: `const prev = denormalizeValue<TShape>(registry, fields, current.value as never);`
 
-> Rationale for the casts: `normalizeResult`/`normalizeWritable` are generic over the *denormalized* `TShape` and operate on the structural `QueryShapeOf<TShape>`/`WritableQueryShapeOf<TShape>`, which equal `TQuery`/`TWritable` for these fields, but the compiler cannot prove the relationship to the opaque `TQuery`/`TWritable` type parameters. The casts (`as never` on inputs, `as TQuery` on outputs) are sound because `TQuery`/`TWritable` are exactly the fields-driven shapes the descriptor was built from.
+> Rationale for the casts: `normalizeResult`/`normalizeWritable` are generic over the _denormalized_ `TShape` and operate on the structural `QueryShapeOf<TShape>`/`WritableQueryShapeOf<TShape>`, which equal `TQuery`/`TWritable` for these fields, but the compiler cannot prove the relationship to the opaque `TQuery`/`TWritable` type parameters. The casts (`as never` on inputs, `as TQuery` on outputs) are sound because `TQuery`/`TWritable` are exactly the fields-driven shapes the descriptor was built from.
 
 - [ ] **Step 4: Run check-types and tests**
 
@@ -642,6 +643,7 @@ git commit -m "feat(rxfy-react): type data\$ from fields so plain values keep th
 ## Task 5: Local / sync state mode
 
 **Files:**
+
 - Modify: `packages/rxfy-react/src/useStateData.ts`
 - Test: `packages/rxfy-react/src/useStateData.local.test.tsx` (create)
 
@@ -778,25 +780,25 @@ Then make three edits inside the `useMemo`:
 (1) Replace the `defaultData` seeding block with a unified seed that also covers local mode:
 
 ```ts
-    // Seed the atom when it hasn't been populated yet. Local mode seeds from `initial`; remote mode
-    // from `defaultData` (router loader handoff). Only the first-IDLE seed reads it.
-    const seed = isLocal ? initial : defaultData;
-    if (seed !== undefined && atom$.get().type === StatusEnum.IDLE) {
-      atom$.set(createFulfilled(normalizeResult(registry, fields, seed) as TQuery));
-    }
+// Seed the atom when it hasn't been populated yet. Local mode seeds from `initial`; remote mode
+// from `defaultData` (router loader handoff). Only the first-IDLE seed reads it.
+const seed = isLocal ? initial : defaultData;
+if (seed !== undefined && atom$.get().type === StatusEnum.IDLE) {
+  atom$.set(createFulfilled(normalizeResult(registry, fields, seed) as TQuery));
+}
 ```
 
 (2) Guard `runFetch` so it is a no-op without a `fetchFn` (local mode never fetches, and this keeps TypeScript happy about the optional `fetchFn`):
 
 ```ts
-    const runFetch = () => {
-      if (!fetchFn) return;
-      inFlight.controller?.abort();
-      const controller = new AbortController();
-      inFlight.controller = controller;
-      atom$.set(createPending());
-      void settle(fetchFn(params, controller.signal), controller.signal);
-    };
+const runFetch = () => {
+  if (!fetchFn) return;
+  inFlight.controller?.abort();
+  const controller = new AbortController();
+  inFlight.controller = controller;
+  atom$.set(createPending());
+  void settle(fetchFn(params, controller.signal), controller.signal);
+};
 ```
 
 Also guard the SSR on-demand fetch block so local (already-FULFILLED) states skip it — it is already gated on `atom$.get().type === StatusEnum.IDLE`, which is false after seeding, so no change is needed there. Inside it, `fetchFn(params, ...)` must be reachable only in remote mode; since local is FULFILLED it never enters. Leave as-is.
@@ -804,18 +806,18 @@ Also guard the SSR on-demand fetch block so local (already-FULFILLED) states ski
 (3) Replace `reload` so local mode resets to `initial`:
 
 ```ts
-    const reload = () => {
-      if (isLocal) {
-        if (initial !== undefined) writeThrough(normalizeResult(registry, fields, initial) as TQuery);
-        return;
-      }
-      if (atom$.get().type === StatusEnum.REJECTED) {
-        atom$.set(createIdle());
-        setReloadEpoch((e) => e + 1);
-      } else {
-        runFetch();
-      }
-    };
+const reload = () => {
+  if (isLocal) {
+    if (initial !== undefined) writeThrough(normalizeResult(registry, fields, initial) as TQuery);
+    return;
+  }
+  if (atom$.get().type === StatusEnum.REJECTED) {
+    atom$.set(createIdle());
+    setReloadEpoch((e) => e + 1);
+  } else {
+    runFetch();
+  }
+};
 ```
 
 Finally, update the `useMemo` dependency array to include the local-mode inputs. Replace the deps line:
@@ -847,6 +849,7 @@ git commit -m "feat(rxfy-react): local sync state via initial (no fetchFn), relo
 ## Task 6: Full verification, changeset, docs
 
 **Files:**
+
 - Create: `.changeset/plain-state-fields-and-local-state.md`
 
 - [ ] **Step 1: Run the full build, test, and type-check across the monorepo**
@@ -898,4 +901,7 @@ git commit -m "chore: changeset for plain state fields and local sync state"
 - **Spec coverage:** Part A (plain fields) → Tasks 1–4; Part B (local state) → Task 5; SSR (plain values ride the query cache, no code change) covered by Task 4's keyed `plainState` test exercising the query atom; validation dev-only → Task 3. Affected-files list in the spec maps 1:1 to Tasks 1–6.
 - **Type consistency:** `isFieldDescriptor` (Task 1) is used by `normalize.ts` (Task 3); `QueryShapeFromFields`/`WritableQueryShapeFromFields` and the `_query`/`_writable` phantom carriers (Task 2) are consumed by `defineState` (Task 2) and inferred by `useStateData`/`StateHandle` (Tasks 4–5); `TQuery`/`TWritable` names are consistent across `state.ts`, `useStateData.ts`, and `StateHandle`.
 - **Backward compatibility:** `StateDescriptor`'s new generics default to the existing `QueryShapeOf`/`WritableQueryShapeOf`, so entity-only states and external `StateDescriptor<P,S,M>` references are unaffected; `useStatePagedData` passes `state.fields` (typed `FieldsMap`) to `normalizeResult` unchanged.
+
+```
+
 ```

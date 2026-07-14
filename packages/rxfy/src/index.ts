@@ -8,6 +8,8 @@ export * from "./query/stable-stringify.js";
 export * from "./ssr/hydration.js";
 export * from "./ssr/serialize.js";
 export * from "./ssr/sync-marker.js";
+export * from "./state/channel.js";
+export * from "./state/grant-log.js";
 export * from "./state/normalize.js";
 export * from "./state/state.js";
 export * from "./wrapped/wrapped.js";

@@ -1,8 +1,14 @@
 # defineResource [Tie a Drizzle table to an rxfy model]
 
-`defineResource` ties a Drizzle `PgTable` to an rxfy `ModelDescriptor`. You can either supply a
-pre-made model (the common case when sharing models between server and client) or let the package
-derive one automatically via `drizzle-zod`.
+`defineResource` — from `rxfy-server-drizzle` — ties a Drizzle `PgTable` to an rxfy
+`ModelDescriptor`. You can either supply a pre-made model (the common case when sharing models
+between server and client) or let the package derive one automatically via `drizzle-zod`.
+
+:::note[In-memory apps use `defineCollection`]
+An app without Drizzle uses `defineCollection({ name, model, seed? })` from `rxfy-server-memory`
+instead — it returns a resource whose binding is an in-memory `Map` (with `.all()` / `.get(id)`),
+paired with `memoryStorage()` on [`createSync`](/framework/server/create-server).
+:::
 
 A resource pairs a `model` (from [`createModel`](/rxfy/create-model)) with a Drizzle `table` (a
 `pgTable`). The tabs below show both sides:
@@ -11,7 +17,8 @@ A resource pairs a `model` (from [`createModel`](/rxfy/create-model)) with a Dri
 
 ```ts [src/blog/resources.ts]
 import { commentModel, postModel, userModel } from "./models.js";
-import { createResourceRegistry, defineResource } from "rxfy-server/browser";
+import { createResourceRegistry } from "rxfy-server";
+import { defineResource } from "rxfy-server-drizzle";
 import { comments, posts, users } from "../db/schema.js";
 
 export const userResource = defineResource({ table: users, model: userModel });
@@ -69,7 +76,7 @@ export const comments = pgTable("comments", {
 :::
 
 **Name resolution** — `name` defaults to `model.name` when a model is supplied, then falls back to
-the SQL table name. It becomes the topic namespace used for live routing (`"posts:uuid-..."`) and
+the SQL table name. It becomes the topic namespace used for sync routing (`"posts:uuid-..."`) and
 must match the rxfy model's own `name` so `patch` messages land in the right client store.
 
 **`primaryKeyColumn`** — `defineResource` calls `primaryKeyColumn(table)` internally to locate the
@@ -78,9 +85,10 @@ if it finds more than one PK column or a `primaryKeys`-style composite key.
 
 ## createResourceRegistry
 
-`createResourceRegistry` indexes resources by name, rejects duplicates, and exposes `byName`,
-`model`, and `all` for server-side wiring. Pass the registry to
-[`createServer`](/framework/server/create-server).
+`createResourceRegistry` — from core `rxfy-server` — indexes resources by name, rejects duplicates,
+and exposes `byName`, `model`, and `all`. It is a neutral convenience lookup:
+[`createSync`](/framework/server/create-server) does not require it, since the writers take a
+resource directly.
 
-Both `defineResource` and `createResourceRegistry` are client-safe: import them from
-`rxfy-server/browser` in code shared between server and client.
+`createResourceRegistry` lives in core `rxfy-server`; `defineResource` comes from
+`rxfy-server-drizzle`, and `defineCollection` from `rxfy-server-memory`.

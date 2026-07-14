@@ -75,11 +75,7 @@ page, say from a button handler, and the write goes straight to the shared store
 ```tsx
 function RenameButton({ id }: { id: string }) {
   const store = useModelStore(UserModel);
-  return (
-    <button onClick={() => store.entity(id).modify((user) => ({ ...user, name: "John Doe" }))}>
-      Rename
-    </button>
-  );
+  return <button onClick={() => store.get(id).modify((user) => ({ ...user, name: "John Doe" }))}>Rename</button>;
 }
 ```
 
@@ -100,7 +96,7 @@ You pay for this in three places:
   data inline from the query.
 - Mutations **denormalize → reduce → renormalize**, so reducers still work with whole entities.
 
-In return you get one source of truth, per-entity subscriptions, and live updates with no
+In return you get one source of truth, per-entity subscriptions, and real-time sync with no
 re-fetching. It pays off most when the same entity appears on many pages.
 
 ## In rxfy

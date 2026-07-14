@@ -5,9 +5,9 @@
 
 **rxfy** (/ɑɹ ɪks faɪ/) is a reactive data-flow layer for your React app: declare typed models, states, and [normalized stores](https://rxfy.vanya2h.me/core-concepts/normalization), and scale from a client-only store to a fully live app with server-side rendering and real-time updates via websockets. It's built for consistency and granular RxJS-based reactivity at no extra cost.
 
-Keeping every view of your data in agreement is hard. Doing it across many connected clients, in real time, is way harder. Rename one todo and the list, the sidebar counter, and the search results all have to show the new title; the usual fixes — refetch the list, patch the cache in place, invalidate caches by hand — are workarounds for one root cause: your app holds multiple copies of the same entity.
+Keeping every view of your data in agreement is a difficult exercise. Doing it across many connected clients, in real time, is even harder. Update one entity and the list, the sidebar counter, and the search results all have to show its latest version; the usual fixes — refetch the list, patch the cache in place, invalidate caches by hand — are workarounds for one root cause: your app holds multiple copies of the same entity.
 
-rxfy removes the copies. Each entity is stored **once**, in a normalized store keyed by its id; states hold only references by id, and components subscribe to the exact entities they render, so one write reaches every subscriber. The server serializes the filled stores and the client restores them, which makes SSR first-class. With websockets on top, the write crosses the network too: the server persists it and publishes it to every connected client.
+rxfy removes the copies. Each entity is stored **once**, in a normalized and composable store keyed by its id; states hold only references by id, and components subscribe to the exact entities they render, so one write reaches every subscriber. The server serializes the filled stores and the client restores them, which makes SSR first-class. With websockets on top, the write crosses the network too: the server persists it and publishes it to every connected client.
 
 rxfy is built on four principles:
 
@@ -26,7 +26,7 @@ rxfy doesn't invent a reactivity system — it's built on [RxJS](https://rxjs.de
 # client-only store setup
 npx skills add vanya2h/rxfy --skill rxfy
 
-# live-app (framework) setup
+# sync app (framework) setup
 npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 
@@ -34,13 +34,16 @@ Installs one of two agent skills for AI coding assistants — `rxfy` (store + Re
 
 ## Packages
 
-| Package                                   | Purpose                                                                     |
-| ----------------------------------------- | --------------------------------------------------------------------------- |
-| [`rxfy`](packages/rxfy)                   | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
-| [`rxfy-react`](packages/rxfy-react)       | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
-| [`rxfy-server`](packages/rxfy-server)     | Server-side live data: Drizzle resources, write + publish, grants           |
-| [`rxfy-protocol`](packages/rxfy-protocol) | Wire protocol and codec for live updates                                    |
-| [`rxfy-ws`](packages/rxfy-ws)             | Default WebSocket transport (client + server)                               |
+| Package                                               | Purpose                                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- |
+| [`rxfy`](packages/rxfy)                               | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
+| [`rxfy-react`](packages/rxfy-react)                   | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
+| [`rxfy-server`](packages/rxfy-server)                 | Storage-agnostic sync server: write + publish, signed grants                |
+| [`rxfy-server-drizzle`](packages/rxfy-server-drizzle) | Drizzle/Postgres storage adapter (`defineResource`, `drizzleStorage`)       |
+| [`rxfy-server-memory`](packages/rxfy-server-memory)   | In-memory storage adapter (`defineCollection`, `memoryStorage`)             |
+| [`rxfy-client`](packages/rxfy-client)                 | Framework-agnostic browser sync runtime: grant custody, renewal, replay     |
+| [`rxfy-protocol`](packages/rxfy-protocol)             | Wire protocol and codec for sync updates                                    |
+| [`rxfy-ws`](packages/rxfy-ws)                         | Default WebSocket transport (client + server)                               |
 
 ## Install
 
@@ -60,6 +63,7 @@ npm install rxfy rxfy-react
 
 **Core Concepts**
 
+- [Observables](https://rxfy.vanya2h.me/core-concepts/observables)
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
 - [Late Unwrapping](https://rxfy.vanya2h.me/core-concepts/late-unwrapping)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr)
@@ -67,22 +71,20 @@ npm install rxfy rxfy-react
 **API Reference**
 
 - [rxfy](https://rxfy.vanya2h.me/rxfy) — `createAtom`, `createLens`, `createModel`, `defineState`
-- [React Bindings](https://rxfy.vanya2h.me/react)
-- [rxfy-server](https://rxfy.vanya2h.me/framework/server)
+- [rxfy-react](https://rxfy.vanya2h.me/react)
+- [rxfy-client](https://rxfy.vanya2h.me/framework/client) — `createSyncClient`, `readSsrGrants`
+- [rxfy-server](https://rxfy.vanya2h.me/framework/server) — including [storage adapters](https://rxfy.vanya2h.me/framework/server/storage-adapters)
 - [rxfy-ws](https://rxfy.vanya2h.me/framework/ws)
 - [rxfy package README](packages/rxfy/README.md)
 - [rxfy-react package README](packages/rxfy-react/README.md)
 
 **Guides**
 
-- [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live blog](https://rxfy.vanya2h.me/guides/live-blog)
 - [Examples](https://rxfy.vanya2h.me/examples)
 
 **Examples**
 
-- [vite-todo](examples/vite-todo) — Todo app with Vite SSR
 - [vite-blog-framework](examples/vite-blog-framework) — live blog: SSR + WebSocket patches/stale, HMAC grants (Vite · Hono · PGlite · Drizzle · rxfy-server · rxfy-ws)
 - [vite-ssr-pagination](examples/vite-ssr-pagination) — infinite paginated list with a switch between Load-more button and infinite scroll; streaming SSR; rows generated on demand with faker
 - [next-blog](examples/next-blog) — Next.js App Router with streaming SSR

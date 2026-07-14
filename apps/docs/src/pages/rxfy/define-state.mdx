@@ -9,7 +9,7 @@ import { z } from "zod";
 import { defineState, array } from "rxfy";
 
 const todosState = defineState({
-  key: "todos", // stable identity for the SSR query cache; omit to opt out of caching
+  key: "todos", // stable identity for the SSR query cache and the sync invalidation channel
   params: z.object({ filter: z.enum(["all", "active", "done"]) }),
   model: { todos: array(TodoModel) },
   mutations: {
@@ -26,8 +26,8 @@ A `StateDescriptor<TParams, TShape, TMutations>` exposes (note your `params` is 
 
 ```ts
 type StateDescriptor<TParams, TShape, TMutations> = {
-  key?: string; // SSR query-cache identity; absent ⇒ opts out of caching
-  window?: readonly string[]; // param names that slice within a dataset (page, cursor, sort)
+  key: string; // SSR query-cache identity, also derives the sync invalidation channel
+  window?: readonly (keyof TParams & string)[]; // param names that slice within a dataset (page, cursor, sort)
   paramsSchema: z.ZodType<TParams>; // the `params` schema, used to validate fetch params
   fields: FieldsMap; // the `model` entries: array(Model) | single(Model) | a zod schema (plain value)
   mutations: TMutations; // the reducers, bound by useStateData
@@ -54,6 +54,7 @@ a single item.
 import { array, single } from "rxfy";
 
 const userPageState = defineState({
+  key: "user-page",
   params: z.object({ userId: z.string() }),
   model: {
     user: single(UserModel), // one item
@@ -102,9 +103,9 @@ have.
 
 ## `window`
 
-For live apps, `window` names the params that slice *within* a dataset — page, cursor, sort —
-as opposed to params that select *which* dataset the state shows. Windowed params are excluded
-from the state's live invalidation channel, so every page of a list shares one channel and a
+For synced apps, `window` names the params that slice _within_ a dataset — page, cursor, sort —
+as opposed to params that select _which_ dataset the state shows. Windowed params are excluded
+from the state's sync invalidation channel, so every page of a list shares one channel and a
 server write marks all of them stale at once.
 
 ```ts
@@ -117,5 +118,5 @@ const postsState = defineState({
 ```
 
 The field is inert in a client-only store — it only affects channel derivation in the
-real-time layer. See [state channels and grants](/framework/server/grants) for how the
-channel is derived and delivered.
+real-time layer. See [Grants](/framework/server/grants) for how the channel is derived
+and signed into a grant.

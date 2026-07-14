@@ -14,18 +14,18 @@ Spec: `docs/superpowers/specs/2026-07-01-vite-blog-shadcn-design.md`. There are 
 
 ## File Structure
 
-| File | Change |
-|---|---|
-| `package.json` | +tailwind/shadcn deps (CLI-installed) |
-| `vite.config.ts` | +`@tailwindcss/vite` plugin, +`@/` alias |
-| `tsconfig.app.json` | +`baseUrl`/`paths` for `@/*` |
-| `src/styles.css` | becomes the Tailwind entry + shadcn theme |
-| `index.html` | +pre-paint dark-mode script |
-| `components.json`, `src/lib/utils.ts`, `src/components/ui/*` | CLI-generated |
-| `src/components/ThemeToggle.tsx` | new |
-| `src/App.tsx` | header + toggle (router unchanged) |
-| `src/components/{UpdatesBadge,PostList,PostItem,NewPostForm,EditPostForm,PostDetail,CommentItem,AddCommentForm}.tsx` | rewritten with shadcn |
-| `README.md` | note the shadcn UI + toggle |
+| File                                                                                                                 | Change                                    |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `package.json`                                                                                                       | +tailwind/shadcn deps (CLI-installed)     |
+| `vite.config.ts`                                                                                                     | +`@tailwindcss/vite` plugin, +`@/` alias  |
+| `tsconfig.app.json`                                                                                                  | +`baseUrl`/`paths` for `@/*`              |
+| `src/styles.css`                                                                                                     | becomes the Tailwind entry + shadcn theme |
+| `index.html`                                                                                                         | +pre-paint dark-mode script               |
+| `components.json`, `src/lib/utils.ts`, `src/components/ui/*`                                                         | CLI-generated                             |
+| `src/components/ThemeToggle.tsx`                                                                                     | new                                       |
+| `src/App.tsx`                                                                                                        | header + toggle (router unchanged)        |
+| `src/components/{UpdatesBadge,PostList,PostItem,NewPostForm,EditPostForm,PostDetail,CommentItem,AddCommentForm}.tsx` | rewritten with shadcn                     |
+| `README.md`                                                                                                          | note the shadcn UI + toggle               |
 
 ---
 
@@ -36,13 +36,16 @@ Spec: `docs/superpowers/specs/2026-07-01-vite-blog-shadcn-design.md`. There are 
 - [ ] **Step 1: run the shadcn CLI init (non-interactive), from the example dir**
 
 Invoke the `shadcn` skill first (it provides the current CLI guidance). Then, from `examples/vite-blog-framework`:
+
 ```bash
 cd examples/vite-blog-framework
 pnpm dlx shadcn@latest init -b neutral -y
 ```
+
 This installs Tailwind v4 + shadcn runtime deps (`class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`, `tw-animate-css`, `@tailwindcss/vite`), writes `components.json`, `src/lib/utils.ts` (`cn`), and the theme CSS. If `-y` still prompts, add `-d` (defaults). Report exactly which files it created/modified (esp. whether it wrote the CSS to `src/styles.css` or a new `src/index.css`, and whether it touched `vite.config.ts`/`tsconfig*.json`).
 
 - [ ] **Step 2: reconcile `vite.config.ts`** to EXACTLY:
+
 ```ts
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
@@ -60,6 +63,7 @@ export default defineConfig({
 ```
 
 - [ ] **Step 3: reconcile `tsconfig.app.json`** — add `baseUrl` + `paths` to `compilerOptions` (keep every existing option):
+
 ```jsonc
   // inside "compilerOptions", add:
     "baseUrl": ".",
@@ -69,6 +73,7 @@ export default defineConfig({
 - [ ] **Step 4: ensure the Tailwind entry is `src/styles.css`** (the file `entry-client.tsx` imports)
 
 `entry-client.tsx` imports `./styles.css`. If the CLI wrote the theme to `src/index.css`, MOVE its contents into `src/styles.css` and delete `src/index.css`. `src/styles.css` must start with (CLI writes the `:root`/`.dark`/`@theme` blocks — keep them):
+
 ```css
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -77,9 +82,11 @@ export default defineConfig({
 
 /* :root { … } .dark { … } @theme inline { … }  — shadcn neutral theme, written by the CLI */
 ```
+
 Remove any leftover hand-rolled classes from the old `styles.css` (the old `.container`/`.post-card`/etc. rules) — they're replaced by Tailwind/shadcn.
 
 - [ ] **Step 5: verify `components.json`** points Tailwind css at `src/styles.css` and uses the `@/` aliases + lucide. It should look like:
+
 ```json
 {
   "$schema": "https://ui.shadcn.com/schema.json",
@@ -87,16 +94,25 @@ Remove any leftover hand-rolled classes from the old `styles.css` (the old `.con
   "rsc": false,
   "tsx": true,
   "tailwind": { "config": "", "css": "src/styles.css", "baseColor": "neutral", "cssVariables": true, "prefix": "" },
-  "aliases": { "components": "@/components", "utils": "@/lib/utils", "ui": "@/components/ui", "lib": "@/lib", "hooks": "@/hooks" },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
   "iconLibrary": "lucide"
 }
 ```
+
 If the CLI set `tailwind.css` to `src/index.css`, change it to `src/styles.css` (matching Step 4).
 
 - [ ] **Step 6: add the components**
+
 ```bash
 pnpm dlx shadcn@latest add button card input textarea select badge separator -y
 ```
+
 Confirm `src/components/ui/{button,card,input,textarea,select,badge,separator}.tsx` exist.
 
 - [ ] **Step 7: verify build + types (components not yet rewritten — that's fine)**
@@ -105,6 +121,7 @@ Run: `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-f
 Expected: check-types 0 errors (the generated `ui/*` + `lib/utils` typecheck; the still-old app components with stale classNames still compile), and BOTH client + SSR bundles emit (Tailwind now compiles into the client CSS). Lint may warn on generated `ui/*` files — the eslint config already ignores `dist`; if `ui/*` trips rules, add `"src/components/ui/**"` to the `ignores` array in `eslint.config.ts` (shadcn-generated code is not linted by convention). Run `pnpm --filter vite-blog-framework lint` and add that ignore if needed.
 
 - [ ] **Step 8: commit**
+
 ```bash
 git add examples/vite-blog-framework
 git commit -m "chore(example): set up Tailwind v4 + shadcn/ui (neutral)"
@@ -117,6 +134,7 @@ git commit -m "chore(example): set up Tailwind v4 + shadcn/ui (neutral)"
 **Files:** `src/components/ThemeToggle.tsx` (new), `index.html`, `src/App.tsx`.
 
 - [ ] **Step 1: `src/components/ThemeToggle.tsx`**
+
 ```tsx
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
@@ -149,18 +167,21 @@ export function ThemeToggle() {
 ```
 
 - [ ] **Step 2: add the pre-paint script to `index.html`** — inside `<head>`, BEFORE `<!--app-head-->`:
+
 ```html
-    <script>
-      try {
-        var t = localStorage.getItem("theme");
-        if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches))
-          document.documentElement.classList.add("dark");
-      } catch (e) {}
-    </script>
+<script>
+  try {
+    var t = localStorage.getItem("theme");
+    if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches))
+      document.documentElement.classList.add("dark");
+  } catch (e) {}
+</script>
 ```
+
 (This sets the class before hydration so SSR HTML and the first client paint agree; the class lives on `<html>`, outside the hydrated `#root`.)
 
 - [ ] **Step 3: rewrite `src/App.tsx`** (keep the router; add the shell + toggle)
+
 ```tsx
 import { useEffect, useState } from "react";
 import { PostDetail } from "./components/PostDetail.js";
@@ -207,7 +228,8 @@ export function App({ url }: { url: string }) {
 ```
 
 - [ ] **Step 4: verify + commit**
-Run: `pnpm --filter vite-blog-framework check-types` (0 errors) and `pnpm --filter vite-blog-framework lint` (clean; `eslint . --fix` first if needed).
+      Run: `pnpm --filter vite-blog-framework check-types` (0 errors) and `pnpm --filter vite-blog-framework lint` (clean; `eslint . --fix` first if needed).
+
 ```bash
 git add examples/vite-blog-framework/src/components/ThemeToggle.tsx examples/vite-blog-framework/index.html examples/vite-blog-framework/src/App.tsx
 git commit -m "feat(example): dark-mode toggle and shadcn app shell"
@@ -220,13 +242,22 @@ git commit -m "feat(example): dark-mode toggle and shadcn app shell"
 **Files:** `src/components/{UpdatesBadge,PostList,PostItem,NewPostForm,EditPostForm}.tsx`.
 
 - [ ] **Step 1: `UpdatesBadge.tsx`**
+
 ```tsx
 import { RefreshCw } from "lucide-react";
 import { useObservable } from "rxfy-react";
 import type { Observable } from "rxjs";
 import { Button } from "@/components/ui/button";
 
-export function UpdatesBadge({ available$, onApply, noun }: { available$: Observable<number>; onApply: () => void; noun: string }) {
+export function UpdatesBadge({
+  available$,
+  onApply,
+  noun,
+}: {
+  available$: Observable<number>;
+  onApply: () => void;
+  noun: string;
+}) {
   const n = useObservable(available$, 0);
   if (n <= 0) return null;
   return (
@@ -240,6 +271,7 @@ export function UpdatesBadge({ available$, onApply, noun }: { available$: Observ
 ```
 
 - [ ] **Step 2: `NewPostForm.tsx`**
+
 ```tsx
 import { useState } from "react";
 import { Plus } from "lucide-react";
@@ -304,6 +336,7 @@ export function NewPostForm() {
 ```
 
 - [ ] **Step 3: `EditPostForm.tsx`**
+
 ```tsx
 import { useState } from "react";
 import { editPost } from "../blog/api-client.js";
@@ -311,7 +344,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-export function EditPostForm({ id, title: initialTitle, body: initialBody, onDone }: { id: string; title: string; body: string; onDone: () => void }) {
+export function EditPostForm({
+  id,
+  title: initialTitle,
+  body: initialBody,
+  onDone,
+}: {
+  id: string;
+  title: string;
+  body: string;
+  onDone: () => void;
+}) {
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
 
@@ -339,6 +382,7 @@ export function EditPostForm({ id, title: initialTitle, body: initialBody, onDon
 ```
 
 - [ ] **Step 4: `PostItem.tsx`**
+
 ```tsx
 import { useMemo, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
@@ -378,7 +422,9 @@ export function PostItem({ id }: { id: string }) {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">{post.body.slice(0, 140)}…</p>
-            {editing && <EditPostForm id={post.id} title={post.title} body={post.body} onDone={() => setEditing(false)} />}
+            {editing && (
+              <EditPostForm id={post.id} title={post.title} body={post.body} onDone={() => setEditing(false)} />
+            )}
           </CardContent>
           <CardFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
@@ -399,11 +445,16 @@ export function PostItem({ id }: { id: string }) {
 function Author({ authorId }: { authorId: string }) {
   const store = useModelStore(userModel);
   const author$ = useMemo(() => store.get(authorId), [store, authorId]);
-  return <Pending value$={author$} pending={<span>…</span>}>{(a) => <span>by {a.name}</span>}</Pending>;
+  return (
+    <Pending value$={author$} pending={<span>…</span>}>
+      {(a) => <span>by {a.name}</span>}
+    </Pending>
+  );
 }
 ```
 
 - [ ] **Step 5: `PostList.tsx`**
+
 ```tsx
 import { Pending, useStateData } from "rxfy-react";
 import { fetchPosts } from "../blog/api-client.js";
@@ -450,7 +501,8 @@ export function PostList() {
 ```
 
 - [ ] **Step 6: verify + commit**
-Run: `pnpm --filter vite-blog-framework check-types` (0 errors) and `pnpm --filter vite-blog-framework lint` (`eslint . --fix` then re-lint; clean).
+      Run: `pnpm --filter vite-blog-framework check-types` (0 errors) and `pnpm --filter vite-blog-framework lint` (`eslint . --fix` then re-lint; clean).
+
 ```bash
 git add examples/vite-blog-framework/src/components/UpdatesBadge.tsx examples/vite-blog-framework/src/components/NewPostForm.tsx examples/vite-blog-framework/src/components/EditPostForm.tsx examples/vite-blog-framework/src/components/PostItem.tsx examples/vite-blog-framework/src/components/PostList.tsx
 git commit -m "feat(example): shadcn posts list, cards, and forms"
@@ -463,6 +515,7 @@ git commit -m "feat(example): shadcn posts list, cards, and forms"
 **Files:** `src/components/{PostDetail,CommentItem,AddCommentForm}.tsx`.
 
 - [ ] **Step 1: `AddCommentForm.tsx`**
+
 ```tsx
 import { useState } from "react";
 import { addComment } from "../blog/api-client.js";
@@ -495,6 +548,7 @@ export function AddCommentForm({ postId }: { postId: string }) {
 ```
 
 - [ ] **Step 2: `CommentItem.tsx`**
+
 ```tsx
 import { useMemo } from "react";
 import { Trash2 } from "lucide-react";
@@ -515,7 +569,12 @@ export function CommentItem({ id, postId }: { id: string; postId: string }) {
             <p className="font-medium">{comment.author}</p>
             <p className="text-muted-foreground">{comment.body}</p>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Delete comment" onClick={() => void deleteComment(postId, comment.id)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Delete comment"
+            onClick={() => void deleteComment(postId, comment.id)}
+          >
             <Trash2 />
           </Button>
         </div>
@@ -526,6 +585,7 @@ export function CommentItem({ id, postId }: { id: string; postId: string }) {
 ```
 
 - [ ] **Step 3: `PostDetail.tsx`**
+
 ```tsx
 import { useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -549,11 +609,7 @@ export function PostDetail({ postId }: { postId: string }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate("/")}
-        >
+        <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
           <ArrowLeft data-icon="inline-start" />
           All posts
         </Button>
@@ -612,7 +668,8 @@ function Article({ ids, postId }: { ids: { post: string; author: string; comment
 ```
 
 - [ ] **Step 4: verify + commit**
-Run: `pnpm --filter vite-blog-framework check-types` (0 errors) and `pnpm --filter vite-blog-framework lint` (`eslint . --fix` then re-lint; clean).
+      Run: `pnpm --filter vite-blog-framework check-types` (0 errors) and `pnpm --filter vite-blog-framework lint` (`eslint . --fix` then re-lint; clean).
+
 ```bash
 git add examples/vite-blog-framework/src/components/AddCommentForm.tsx examples/vite-blog-framework/src/components/CommentItem.tsx examples/vite-blog-framework/src/components/PostDetail.tsx
 git commit -m "feat(example): shadcn post detail and comments"
@@ -625,17 +682,19 @@ git commit -m "feat(example): shadcn post detail and comments"
 **Files:** `README.md`.
 
 - [ ] **Step 1: confirm no stale CSS classes / old styles remain**
-Run: `grep -rn 'className="\(container\|post-card\|post-list\|form\|badge-button\|comment\|status\|post-meta\|actions\|comment-list\|comment-author\)"' examples/vite-blog-framework/src || echo "no stale classes (good)"`
-Expected: `no stale classes (good)`. If any remain, they're leftover from an un-rewritten component — fix it.
+      Run: `grep -rn 'className="\(container\|post-card\|post-list\|form\|badge-button\|comment\|status\|post-meta\|actions\|comment-list\|comment-author\)"' examples/vite-blog-framework/src || echo "no stale classes (good)"`
+      Expected: `no stale classes (good)`. If any remain, they're leftover from an un-rewritten component — fix it.
 
 - [ ] **Step 2: full gates**
-Run: `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-framework lint && pnpm --filter vite-blog-framework build`
-Expected: types clean, lint clean, and BOTH `dist/client` + `dist/server` bundles emit (the client CSS now includes Tailwind + the shadcn theme). PGlite chunk/eval warnings during the client build are pre-existing and unrelated.
+      Run: `pnpm --filter vite-blog-framework check-types && pnpm --filter vite-blog-framework lint && pnpm --filter vite-blog-framework build`
+      Expected: types clean, lint clean, and BOTH `dist/client` + `dist/server` bundles emit (the client CSS now includes Tailwind + the shadcn theme). PGlite chunk/eval warnings during the client build are pre-existing and unrelated.
 
 - [ ] **Step 3: README note** — add a short paragraph under the stack/description:
-> The UI is built with **shadcn/ui** (Tailwind v4) — `Card`/`Button`/`Input`/`Textarea`/`Select` components, semantic theme tokens, and a light/dark toggle in the header (persisted to `localStorage`). The data + live wiring is unchanged.
+
+  > The UI is built with **shadcn/ui** (Tailwind v4) — `Card`/`Button`/`Input`/`Textarea`/`Select` components, semantic theme tokens, and a light/dark toggle in the header (persisted to `localStorage`). The data + live wiring is unchanged.
 
 - [ ] **Step 4: commit**
+
 ```bash
 git add examples/vite-blog-framework/README.md
 git commit -m "docs(example): note shadcn UI in README"

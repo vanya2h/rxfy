@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { array, createModel, single } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
-import { denormalizeValue, normalizeResult, normalizeWritable } from "./normalize.js";
+import {
+  collectEntityTopics,
+  collectShapeTopics,
+  denormalizeValue,
+  normalizeResult,
+  normalizeWritable,
+} from "./normalize.js";
 
 const postModel = createModel({
   schema: z.object({ id: z.string(), title: z.string() }),
@@ -34,6 +40,51 @@ describe("normalizeResult", () => {
     expect(ids).toEqual({ posts: ["1", "2"], author: "u1" });
     expect(registry.model(postModel).getValue("2")).toEqual({ id: "2", title: "B" });
     expect(registry.model(userModel).getValue("u1")).toEqual({ id: "u1", name: "Ann" });
+  });
+});
+
+describe("collectEntityTopics", () => {
+  it("lists name:id per entity slot of a normalized query", () => {
+    const query = normalizeResult(createModelRegistry(), fields, {
+      posts: [
+        { id: "1", title: "A" },
+        { id: "2", title: "B" },
+      ],
+      author: { id: "9", name: "Ann" },
+    });
+    expect(collectEntityTopics(fields, query as Record<string, unknown>).sort()).toEqual([
+      "post:1",
+      "post:2",
+      "user:9",
+    ]);
+  });
+
+  it("ignores plain-value fields", () => {
+    const plainFields = { posts: array(postModel), isOpen: z.boolean() };
+    const query = normalizeResult(createModelRegistry(), plainFields, {
+      posts: [{ id: "1", title: "A" }],
+      isOpen: true,
+    });
+    expect(collectEntityTopics(plainFields, query as Record<string, unknown>)).toEqual(["post:1"]);
+  });
+});
+
+describe("collectShapeTopics", () => {
+  it("extracts name:id topics from a parsed full-entity shape via getKey", () => {
+    const shape = {
+      posts: [
+        { id: "p1", title: "a" },
+        { id: "p2", title: "b" },
+      ],
+      author: { id: "u1", name: "z" },
+    };
+    expect(collectShapeTopics(fields, shape)).toEqual(["post:p1", "post:p2", "user:u1"]);
+  });
+
+  it("skips plain (zod) fields and null single entities", () => {
+    const plainFields = { posts: array(postModel), author: single(userModel), count: z.number() };
+    const shape = { posts: [], author: null, count: 5 };
+    expect(collectShapeTopics(plainFields, shape)).toEqual([]);
   });
 });
 

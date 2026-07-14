@@ -116,6 +116,7 @@ the existing denormalize error style (`rxfy: ... model "<name>" ...`).
 ## Testing (TDD — tests first)
 
 **rxfy — `normalizeWritable` unit tests:**
+
 - all-ids passthrough (no store writes)
 - all-entities (written + ids returned)
 - mixed `[id, entity]` array
@@ -124,6 +125,7 @@ the existing denormalize error style (`rxfy: ... model "<name>" ...`).
 - prod skips validation
 
 **rxfy-react — `useStateData` integration:**
+
 - append via `setRaw((prev) => ({ items: [...prev.items, ...entities] }))` writes entities to the
   store and appends their ids, with no `normalizeResult` call
 - a `useModelStore` read of an appended id resolves without "entity not loaded"

@@ -1,7 +1,8 @@
 # createWsServer [Attach a Hub to WebSocket connections]
 
-`createWsServer(hub)` attaches a `Hub` to WebSocket connections. Call it once at
-startup; call `handleConnection` for every new socket.
+`createWsServer(hub, { secret })` attaches a `Hub` to WebSocket connections. Call it
+once at startup; call `handleConnection` for every new socket. The `secret` is required —
+the same HMAC key `createSync` signs grants with, so the WS layer can verify them.
 
 ```ts
 import { createWsServer } from "rxfy-ws";
@@ -11,12 +12,18 @@ type ServerSocket = {
   on: (event: string, listener: (...args: unknown[]) => void) => void;
 };
 
-function createWsServer(hub: Hub): { handleConnection: (socket: ServerSocket) => void };
+function createWsServer(hub: Hub, options: { secret: string }): { handleConnection: (socket: ServerSocket) => void };
 ```
 
 `ServerSocket` is a structural type — the `ws` package's `WebSocket` satisfies it
 directly. Frameworks that wrap the underlying socket (Hono, Bun, etc.) need a thin
 adapter.
+
+When a `subscribe` frame arrives, the server verifies its grant — signature plus expiry —
+and, on success, subscribes the socket to the grant's channel plus the entity topics named
+in the frame. A frame whose grant is invalid or expired is dropped silently: no reply, no
+subscription (the client recovers by renewing or refetching). When the socket closes, all of
+its subscriptions are dropped. See [Grants](/framework/server/grants).
 
 ## Adapter pattern (Hono)
 
@@ -28,9 +35,9 @@ The Hono bridge from `examples/vite-blog-framework` shows the pattern: create an
 import { EventEmitter } from "node:events";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createWsServer } from "rxfy-ws";
-import { hub } from "./live.js";
+import { hub, SECRET } from "./sync.js";
 
-const wsServer = createWsServer(hub);
+const wsServer = createWsServer(hub, { secret: SECRET });
 
 export function liveRoute(upgradeWebSocket: UpgradeWebSocket) {
   return upgradeWebSocket(() => {

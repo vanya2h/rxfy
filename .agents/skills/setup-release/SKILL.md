@@ -50,10 +50,12 @@ If all checks pass, state which prerequisites were satisfied and continue to Ste
 Read the root `package.json` and project files to collect:
 
 **Project type** — determines install flag and access detection in subsequent steps:
+
 - **Monorepo**: `pnpm-workspace.yaml` exists, or root `package.json` has a `workspaces` field, or `lerna.json` exists.
 - **Single-package**: none of the above.
 
 **Package manager** — check for lock files in the project root:
+
 - `pnpm-lock.yaml` → `pnpm`
 - `yarn.lock` → `yarn`
 - `package-lock.json` → `npm`
@@ -66,6 +68,7 @@ If none found, check the `packageManager` field in `package.json`. If still none
 **Node version** — read `engines.node` from root `package.json`. Strip `>=` and take the major version (e.g. `>=25` → `25`). If absent, default to `22`.
 
 **Install command**:
+
 - pnpm: `pnpm install --frozen-lockfile`
 - yarn: `yarn install --frozen-lockfile`
 - npm: `npm ci`
@@ -74,6 +77,7 @@ If none found, check the `packageManager` field in `package.json`. If still none
 For the re-install step after versioning in the release workflow, omit `--frozen-lockfile` (versions change the lockfile).
 
 **Package access**:
+
 - Monorepo: if every workspace package has `"private": true`, use `"access": "restricted"`. Otherwise `"public"`.
 - Single-package: if root `package.json` has `"private": true`, use `"access": "restricted"`. Otherwise `"public"`.
 
@@ -96,12 +100,14 @@ If any of these are non-trivial customizations that would be silently overwritte
 Install as a dev dependency. Run without asking — show the command as it runs.
 
 For **monorepos**, the workspace root flag is required so the package manager installs at the root rather than a nested package:
+
 - pnpm: `pnpm add -D -w @changesets/cli`
 - yarn: `yarn add -D -W @changesets/cli`
 - npm: `npm install --save-dev @changesets/cli`
 - bun: `bun add -d @changesets/cli`
 
 For **single-package repos**, omit the workspace root flag:
+
 - pnpm: `pnpm add -D @changesets/cli`
 - yarn: `yarn add -D @changesets/cli`
 - npm: `npm install --save-dev @changesets/cli`

@@ -12,22 +12,23 @@
 
 ## File Map
 
-| Action | Path | Responsibility |
-|--------|------|----------------|
-| Create | `packages/rxfy/src/live/topic.ts` | `Topic` brand type, internal `topic()`, exported `modelTopic()` |
-| Create | `packages/rxfy/src/live/topic.test.ts` | Unit tests for `modelTopic` |
-| Create | `packages/rxfy/src/live/subscription-manager.ts` | `createSubscriptionManager` |
-| Create | `packages/rxfy/src/live/subscription-manager.test.ts` | Unit tests for `createSubscriptionManager` |
-| Create | `packages/rxfy/src/live/index.ts` | Re-exports both modules |
-| Modify | `packages/rxfy/src/index.ts` | Add barrel export for `./live/index.js` |
+| Action | Path                                                     | Responsibility                                                                                                      |
+| ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Create | `packages/rxfy/src/live/topic.ts`                        | `Topic` brand type, internal `topic()`, exported `modelTopic()`                                                     |
+| Create | `packages/rxfy/src/live/topic.test.ts`                   | Unit tests for `modelTopic`                                                                                         |
+| Create | `packages/rxfy/src/live/subscription-manager.ts`         | `createSubscriptionManager`                                                                                         |
+| Create | `packages/rxfy/src/live/subscription-manager.test.ts`    | Unit tests for `createSubscriptionManager`                                                                          |
+| Create | `packages/rxfy/src/live/index.ts`                        | Re-exports both modules                                                                                             |
+| Modify | `packages/rxfy/src/index.ts`                             | Add barrel export for `./live/index.js`                                                                             |
 | Modify | `apps/docs/src/pages/guides/live-updates-websockets.mdx` | Replace inline `topic.ts` and `liveClient.ts` snippets with rxfy imports; update `useStoreSubscriptions.ts` snippet |
-| Modify | `apps/docs/src/pages/core-concepts/model.mdx` | Add live-update callout after the `createModel` section |
+| Modify | `apps/docs/src/pages/core-concepts/model.mdx`            | Add live-update callout after the `createModel` section                                                             |
 
 ---
 
 ## Task 1: `Topic` type and `modelTopic`
 
 **Files:**
+
 - Create: `packages/rxfy/src/live/topic.ts`
 - Create: `packages/rxfy/src/live/topic.test.ts`
 
@@ -55,9 +56,7 @@ describe("modelTopic", () => {
   });
 
   it("throws when model has no name", () => {
-    expect(() => modelTopic(UnnamedModel, "u1")).toThrow(
-      "rxfy: modelTopic requires a named model",
-    );
+    expect(() => modelTopic(UnnamedModel, "u1")).toThrow("rxfy: modelTopic requires a named model");
   });
 });
 ```
@@ -84,7 +83,7 @@ const topic = (name: string, id: string): Topic => `${name}:${id}` as Topic;
 
 export function modelTopic<T>(model: ModelDescriptor<T>, id: string): Topic {
   if (!model.name) {
-    throw new Error("rxfy: modelTopic requires a named model — pass { name: \"...\" } to createModel");
+    throw new Error('rxfy: modelTopic requires a named model — pass { name: "..." } to createModel');
   }
   return topic(model.name, id);
 }
@@ -110,6 +109,7 @@ git commit -m "feat(rxfy): add Topic type and modelTopic"
 ## Task 2: `createSubscriptionManager`
 
 **Files:**
+
 - Create: `packages/rxfy/src/live/subscription-manager.ts`
 - Create: `packages/rxfy/src/live/subscription-manager.test.ts`
 
@@ -248,6 +248,7 @@ git commit -m "feat(rxfy): add createSubscriptionManager"
 ## Task 3: Wire into barrel export
 
 **Files:**
+
 - Create: `packages/rxfy/src/live/index.ts`
 - Modify: `packages/rxfy/src/index.ts`
 
@@ -295,6 +296,7 @@ git commit -m "feat(rxfy): export modelTopic and createSubscriptionManager from 
 ## Task 4: Update live-updates guide
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/guides/live-updates-websockets.mdx`
 
 The guide currently defines `topic.ts` and `liveClient.ts` inline and imports them as local files. Replace both with rxfy imports.
@@ -303,7 +305,7 @@ The guide currently defines `topic.ts` and `liveClient.ts` inline and imports th
 
 Find this block (lines 34–42 in the guide):
 
-```mdx
+````mdx
 ```ts
 // shared/topic.ts (imported by client and server)
 declare const brand: unique symbol;
@@ -313,7 +315,9 @@ export type Topic = `${string}:${string}` & { readonly [brand]: "Topic" };
 
 export const topic = (name: string, id: string): Topic => `${name}:${id}` as Topic;
 ```
-```
+````
+
+````
 
 Replace with:
 
@@ -322,8 +326,9 @@ Replace with:
 
 ```ts
 import { type Topic, modelTopic } from "rxfy";
-```
-```
+````
+
+````
 
 - [ ] **Step 2: Replace the `liveClient.ts` snippet**
 
@@ -335,7 +340,7 @@ Find the entire `### Subscription manager` section code block (the `createLiveCl
 ```ts
 import { createSubscriptionManager, type SubscriptionManager } from "rxfy";
 export type { SubscriptionManager };
-```
+````
 
 Call it with a `send` function that writes to the socket:
 
@@ -350,7 +355,8 @@ const manager = createSubscriptionManager((topics) => {
 // On reconnect — replays the full desired set to the new connection
 socket.addEventListener("open", () => manager.reconnect());
 ```
-```
+
+````
 
 - [ ] **Step 3: Update `useStoreSubscriptions.ts` snippet**
 
@@ -374,7 +380,7 @@ export function useStoreSubscriptions() {
     return () => sub.unsubscribe();
   }, [registry, client]);
 }
-```
+````
 
 - [ ] **Step 4: Verify the guide renders (manual check)**
 
@@ -392,6 +398,7 @@ git commit -m "docs: update live-updates guide to import modelTopic and createSu
 ## Task 5: Update core-concepts/model.mdx
 
 **Files:**
+
 - Modify: `apps/docs/src/pages/core-concepts/model.mdx`
 
 - [ ] **Step 1: Add live-update callout after `createModel` signature block**
@@ -407,7 +414,6 @@ serialization (a dev warning fires if they hold data at dehydrate time).
 Append immediately after it:
 
 ```mdx
-
 > **Live updates:** Named models also integrate with `modelTopic` — see the
 > [Live updates guide](/guides/live-updates-websockets) for how `name` connects a model
 > to a WebSocket subscription.

@@ -23,15 +23,12 @@ Module-level, stateless. Created once and reused everywhere.
 
 ```ts
 type ModelDescriptor<T> = {
-  readonly _key: symbol;                   // unique lookup key in registry
+  readonly _key: symbol; // unique lookup key in registry
   readonly schema: z.ZodType<T>;
   readonly getKey: (item: T) => string;
 };
 
-function createModel<T>(
-  schema: z.ZodType<T>,
-  opts: { getKey: (item: T) => string },
-): ModelDescriptor<T>
+function createModel<T>(schema: z.ZodType<T>, opts: { getKey: (item: T) => string }): ModelDescriptor<T>;
 ```
 
 `_key` is a `Symbol()` created inside `createModel`. It is the stable identity of the model across all registry instances.
@@ -43,12 +40,10 @@ function createModel<T>(
 Used inside `defineState` to describe the shape of a state field.
 
 ```ts
-type FieldDescriptor<T> =
-  | { kind: 'single'; model: ModelDescriptor<T> }
-  | { kind: 'array';  model: ModelDescriptor<T> };   // T is the element type
+type FieldDescriptor<T> = { kind: "single"; model: ModelDescriptor<T> } | { kind: "array"; model: ModelDescriptor<T> }; // T is the element type
 
-function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>
-function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>
+function array<T>(model: ModelDescriptor<T>): FieldDescriptor<T[]>;
+function single<T>(model: ModelDescriptor<T>): FieldDescriptor<T>;
 ```
 
 ---
@@ -66,7 +61,7 @@ type StateDescriptor<TParams, TShape> = {
 function defineState<TParams, TShape>(def: {
   params: z.ZodType<TParams>;
   model: { [K in keyof TShape]: FieldDescriptor<TShape[K]> };
-}): StateDescriptor<TParams, TShape>
+}): StateDescriptor<TParams, TShape>;
 ```
 
 ---
@@ -77,9 +72,9 @@ One instance per model per provider. Backed by `Map<string, Atom<T>>`.
 
 ```ts
 type ModelStore<T> = {
-  get: (key: string) => Observable<T>;   // creates Atom on first access
+  get: (key: string) => Observable<T>; // creates Atom on first access
   set: (key: string, val: T) => void;
-  setMany: (items: T[]) => void;         // uses descriptor.getKey per item
+  setMany: (items: T[]) => void; // uses descriptor.getKey per item
 };
 ```
 
@@ -96,7 +91,7 @@ type IModelRegistry = {
   model: <T>(descriptor: ModelDescriptor<T>) => ModelStore<T>;
 };
 
-function createModelRegistry(): IModelRegistry
+function createModelRegistry(): IModelRegistry;
 ```
 
 `model()` returns the existing `ModelStore<T>` for this descriptor if one exists, or creates and registers a new one. Safe to call on every render — idempotent.
@@ -144,12 +139,10 @@ Kept in `packages/rxfy`: `atom.ts`, `edge.ts`, `wrapped.ts`, `lens.ts`, `batcher
 ### On mount / params change
 
 Given:
+
 ```ts
 // posts.ts
-export const postModel = createModel(
-  z.object({ id: z.string(), isPost: z.literal(true) }),
-  { getKey: (x) => x.id },
-);
+export const postModel = createModel(z.object({ id: z.string(), isPost: z.literal(true) }), { getKey: (x) => x.id });
 export const pageState = defineState({
   params: z.object({ page: z.number() }),
   model: { posts: array(postModel) },
@@ -165,14 +158,14 @@ export const pageState = defineState({
    - Calls `postModelStore.setMany([post1, post2])` → each key's `Atom` updated
 5. Builds projection:
    ```ts
-   combineLatest(["1", "2"].map(k => postModelStore.get(k)))
-     .pipe(map(posts => ({ posts })))
+   combineLatest(["1", "2"].map((k) => postModelStore.get(k))).pipe(map((posts) => ({ posts })));
    ```
 6. `combineLatest` emits immediately (atoms have current values) → `Pending` transitions to `fulfilled`.
 
 ### Ongoing reactivity
 
 If any other component or fetch calls `postModelStore.set("1", updatedPost)`:
+
 - The `Atom` at key `"1"` emits the new value
 - `combineLatest` re-emits with the updated post
 - `<Pending>` re-renders — no re-fetch needed
@@ -180,6 +173,7 @@ If any other component or fetch calls `postModelStore.set("1", updatedPost)`:
 ### Params change
 
 `setParams({ page: 1 })`:
+
 1. `useStateData` returns a new Observable instance (new memo)
 2. `usePending` sees a new `source$` → re-subscribes → shows pending
 3. Old projection torn down; atoms for old keys remain in the model store, still serve other subscribers
@@ -188,6 +182,7 @@ If any other component or fetch calls `postModelStore.set("1", updatedPost)`:
 ### Error handling
 
 If `fetchMainPage` rejects:
+
 - Observable errors → `usePending` catches → `status: "rejected"` with `onReload` callback
 - Model stores are not modified
 - `onReload` re-subscribes to the same observable → retries the fetch
@@ -199,7 +194,7 @@ If `fetchMainPage` rejects:
 ### StoreProvider
 
 ```tsx
-function StoreProvider({ children }: PropsWithChildren): ReactElement
+function StoreProvider({ children }: PropsWithChildren): ReactElement;
 ```
 
 Creates a fresh `IModelRegistry` and provides it via `ModelRegistryContext`. Wrap the app root (or any subtree that needs isolation, e.g. in tests).
@@ -215,7 +210,7 @@ Creates a fresh `IModelRegistry` and provides it via `ModelRegistryContext`. Wra
 ### useModelStore
 
 ```ts
-function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>
+function useModelStore<T>(descriptor: ModelDescriptor<T>): ModelStore<T>;
 ```
 
 Returns the `ModelStore<T>` for this descriptor from the current provider's registry, auto-registering it on first call. Safe to call on every render.
@@ -224,10 +219,7 @@ Each model module exports its own accessor so consumers never import the descrip
 
 ```ts
 // posts.ts
-export const postModel = createModel(
-  z.object({ id: z.string(), title: z.string() }),
-  { getKey: (x) => x.id },
-);
+export const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
 export const usePostStore = () => useModelStore(postModel);
 ```
 
@@ -240,10 +232,11 @@ function useStateData<TParams, TShape>(
   state: StateDescriptor<TParams, TShape>,
   fetchFn: (params: TParams) => Promise<TShape>,
   params: TParams,
-): Observable<TShape>
+): Observable<TShape>;
 ```
 
 Internals:
+
 - Calls `useModelRegistry()` — reads `IModelRegistry` from `ModelRegistryContext`
 - Returns `useMemo(() => new Observable(...), [state, fetchFn, params, registry])`
 - On subscription: triggers fetch, normalizes into model stores via `setMany`/`set`, then subscribes to the `combineLatest` projection
@@ -257,12 +250,12 @@ Internals:
 type IPendingProps<T> = {
   value$: Observable<T> | T;
   pending?: ReactNode | (() => ReactNode);
-  rejected?: (status: { status: 'rejected'; error: unknown; onReload: () => void }) => ReactNode;
+  rejected?: (status: { status: "rejected"; error: unknown; onReload: () => void }) => ReactNode;
   children: (data: T) => ReactNode;
   getDefaultValue?: () => T;
 };
 
-function Pending<T>(props: IPendingProps<T>): ReactElement
+function Pending<T>(props: IPendingProps<T>): ReactElement;
 ```
 
 `ObservableLike<T>` (`Observable<T> | T`) and `toObservable` are inlined — no dependency on the common package.
@@ -273,10 +266,7 @@ function Pending<T>(props: IPendingProps<T>): ReactElement
 
 ```ts
 // posts.ts — self-contained model module
-export const postModel = createModel(
-  z.object({ id: z.string(), title: z.string() }),
-  { getKey: (x) => x.id },
-);
+export const postModel = createModel(z.object({ id: z.string(), title: z.string() }), { getKey: (x) => x.id });
 export const usePostStore = () => useModelStore(postModel);
 
 export const pageState = defineState({
@@ -309,7 +299,9 @@ function MainPage() {
     <Pending value$={state$} pending={<Spinner />}>
       {(data) => (
         <div>
-          {data.posts.map(x => <div key={x.id}>{x.title}</div>)}
+          {data.posts.map((x) => (
+            <div key={x.id}>{x.title}</div>
+          ))}
         </div>
       )}
     </Pending>
@@ -321,11 +313,7 @@ function PostDetail({ id }: { id: string }) {
   const posts = usePostStore();
   const post$ = useMemo(() => posts.get(id), [posts, id]);
 
-  return (
-    <Pending value$={post$}>
-      {(post) => <div>{post.title}</div>}
-    </Pending>
-  );
+  return <Pending value$={post$}>{(post) => <div>{post.title}</div>}</Pending>;
 }
 
 // PostEditor.tsx — writes back to the model store
@@ -333,7 +321,7 @@ function PostEditor({ id }: { id: string }) {
   const posts = usePostStore();
 
   const handleSave = async (draft: Post) => {
-    posts.set(id, draft);  // instantly propagates to all subscribers
+    posts.set(id, draft); // instantly propagates to all subscribers
     await api.put(`/posts/${id}`, draft);
   };
 }

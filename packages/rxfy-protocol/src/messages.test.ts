@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { patch, PROTOCOL_VERSION, stale, subscribe, unsubscribe } from "./messages.js";
+import { patch, PROTOCOL_VERSION, stale, subscribe } from "./messages.js";
 
 describe("PROTOCOL_VERSION", () => {
-  it("is the literal 1", () => {
-    expect(PROTOCOL_VERSION).toBe(1);
+  it("is the literal 2", () => {
+    expect(PROTOCOL_VERSION).toBe(2);
   });
 });
 
@@ -26,19 +26,11 @@ describe("message constructors", () => {
     });
   });
 
-  it("subscribe carries ids", () => {
-    expect(subscribe(["a", "b"])).toEqual({
+  it("subscribe frame carries only the grant", () => {
+    expect(subscribe("jwt.token.here")).toEqual({
       v: PROTOCOL_VERSION,
       kind: "subscribe",
-      ids: ["a", "b"],
-    });
-  });
-
-  it("unsubscribe carries ids", () => {
-    expect(unsubscribe(["a"])).toEqual({
-      v: PROTOCOL_VERSION,
-      kind: "unsubscribe",
-      ids: ["a"],
+      grant: "jwt.token.here",
     });
   });
 });

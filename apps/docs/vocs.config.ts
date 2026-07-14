@@ -15,6 +15,7 @@ export default defineConfig({
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Comparison", link: "/comparison" },
+    { text: "Inspired by", link: "/inspired-by" },
     { text: "Agent Skills", link: "/agent-skills" },
     { text: "Examples", link: "/examples" },
     { text: "Changelog", link: "/changelog" },
@@ -23,8 +24,9 @@ export default defineConfig({
       text: "Getting Started",
       link: "/getting-started",
       items: [
-        { text: "Store quickstart", link: "/getting-started/store" },
-        { text: "Framework quickstart", link: "/getting-started/framework" },
+        { text: "Create Store", link: "/getting-started/create-store" },
+        { text: "Add SSR", link: "/getting-started/add-ssr" },
+        { text: "Add Sync Client", link: "/getting-started/add-sync-client" },
       ],
     },
 
@@ -32,6 +34,7 @@ export default defineConfig({
       text: "Core Concepts",
       link: "/core-concepts",
       items: [
+        { text: "Observables", link: "/core-concepts/observables" },
         { text: "Normalization", link: "/core-concepts/normalization" },
         { text: "Late Unwrapping", link: "/core-concepts/late-unwrapping" },
         { text: "Server-Side Rendering", link: "/core-concepts/ssr" },
@@ -50,7 +53,7 @@ export default defineConfig({
     },
 
     {
-      text: "React Bindings",
+      text: "rxfy-react",
       link: "/react",
       items: [
         { text: "useStateData", link: "/react/use-state-data" },
@@ -60,7 +63,16 @@ export default defineConfig({
         { text: "Pending", link: "/react/pending" },
         { text: "usePending", link: "/react/use-pending" },
         { text: "useObservable", link: "/react/use-observable" },
-        { text: "createLiveClient", link: "/react/live-client" },
+        { text: "Sync Client (React)", link: "/react/sync-client" },
+      ],
+    },
+
+    {
+      text: "rxfy-client",
+      link: "/framework/client",
+      items: [
+        { text: "createSyncClient", link: "/framework/client/create-sync-client" },
+        { text: "readSsrGrants", link: "/framework/client/read-ssr-grants" },
       ],
     },
 
@@ -69,12 +81,12 @@ export default defineConfig({
       link: "/framework/server",
       items: [
         { text: "defineResource", link: "/framework/server/define-resource" },
-        { text: "createServer", link: "/framework/server/create-server" },
-        { text: "Writes", link: "/framework/server/writes" },
-        { text: "Live messages", link: "/framework/server/messages" },
-        { text: "Grants & live hydration", link: "/framework/server/grants" },
-        { text: "createTopicKeyer", link: "/framework/server/create-topic-keyer" },
+        { text: "createSync", link: "/framework/server/create-server" },
         { text: "createInMemoryHub", link: "/framework/server/hub" },
+        { text: "Writes", link: "/framework/server/writes" },
+        { text: "Storage adapters", link: "/framework/server/storage-adapters" },
+        { text: "Sync messages", link: "/framework/server/messages" },
+        { text: "Grants", link: "/framework/server/grants" },
       ],
     },
 
@@ -91,11 +103,7 @@ export default defineConfig({
     {
       text: "Guides",
       link: "/guides",
-      items: [
-        { text: "Build a Todo app", link: "/guides/todo-app" },
-        { text: "Pagination and infinite scroll", link: "/guides/pagination" },
-        { text: "Live blog", link: "/guides/live-blog" },
-      ],
+      items: [{ text: "Pagination and infinite scroll", link: "/guides/pagination" }],
     },
   ],
 });

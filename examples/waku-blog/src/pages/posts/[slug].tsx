@@ -1,19 +1,15 @@
-import { postDetailState, type PostId } from "examples-shared/data";
+import { type PostId } from "examples-shared/data";
+import { parseResponse } from "hono/client";
 import type { PageProps } from "waku/router";
-import { fetchPostDetail } from "../../blog/fetchers";
-import { HydrateSnapshot } from "../../components/HydrateSnapshot";
+import { serverApi } from "../../blog/api-server";
 import { PostView } from "../../components/PostView";
-import { prefetch } from "../../ssr";
 
 export default async function PostPage({ slug }: PageProps<"/posts/[slug]">) {
   const postId = slug as PostId;
-  const snapshot = await prefetch(postDetailState, fetchPostDetail, { postId });
-  return (
-    <>
-      <HydrateSnapshot snapshot={snapshot} />
-      <PostView postId={postId} />
-    </>
-  );
+  // The in-process fetch returns the post detail plus a signed `$grant`; PostView seeds its store
+  // from it and the sync client subscribes the grant. parseResponse throws on the API's 404.
+  const detail = await parseResponse(serverApi.posts[":id"].$get({ param: { id: postId } }));
+  return <PostView postId={postId} defaultData={detail} />;
 }
 
 export const getConfig = async () => {

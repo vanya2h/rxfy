@@ -14,47 +14,49 @@ Spec: `docs/superpowers/specs/2026-07-01-examples-shared-design.md` §4. This is
 
 ## File Structure
 
-| File | Change |
-|---|---|
-| `packages/rxfy-server/src/resource.ts` | add optional `model` to `defineResource` config + the injected-model branch |
-| `packages/rxfy-server/src/resource.test.ts` | tests for the injected-model path |
-| `packages/rxfy-server/src/server.test.ts` | test that `grant` enumerates the injected model's store |
-| `.changeset/rxfy-server-resource-model.md` | changeset |
+| File                                        | Change                                                                      |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| `packages/rxfy-server/src/resource.ts`      | add optional `model` to `defineResource` config + the injected-model branch |
+| `packages/rxfy-server/src/resource.test.ts` | tests for the injected-model path                                           |
+| `packages/rxfy-server/src/server.test.ts`   | test that `grant` enumerates the injected model's store                     |
+| `.changeset/rxfy-server-resource-model.md`  | changeset                                                                   |
 
 ---
 
 ## Task 1: `defineResource({ model })`
 
 **Files:**
+
 - Modify: `packages/rxfy-server/src/resource.ts`
 - Test: `packages/rxfy-server/src/resource.test.ts`
 
 - [ ] **Step 1: Write the failing test** — append to `packages/rxfy-server/src/resource.test.ts` (inside the existing `describe("defineResource", ...)` block; `createModel` is imported from `rxfy` — add it to the existing imports if not present, and `z` from `zod` is already imported):
 
 ```ts
-  it("uses an injected model instead of deriving one", () => {
-    const sharedPost = createModel({
-      schema: z.object({ id: z.string(), orgId: z.string(), title: z.string(), views: z.number() }),
-      getKey: (p: { id: string }) => p.id,
-      name: "post",
-    });
-    const r = defineResource({ table: posts, model: sharedPost });
-    // the resource exposes the EXACT injected model + its name/schema/getKey
-    expect(r.model).toBe(sharedPost);
-    expect(r.name).toBe("post");
-    expect(r.zod).toBe(sharedPost.schema);
-    expect(r.getKey).toBe(sharedPost.getKey);
-    // the PK column is still detected from the table (drives SQL)
-    expect(r.primaryKeyColumn).toBe("id");
+it("uses an injected model instead of deriving one", () => {
+  const sharedPost = createModel({
+    schema: z.object({ id: z.string(), orgId: z.string(), title: z.string(), views: z.number() }),
+    getKey: (p: { id: string }) => p.id,
+    name: "post",
   });
+  const r = defineResource({ table: posts, model: sharedPost });
+  // the resource exposes the EXACT injected model + its name/schema/getKey
+  expect(r.model).toBe(sharedPost);
+  expect(r.name).toBe("post");
+  expect(r.zod).toBe(sharedPost.schema);
+  expect(r.getKey).toBe(sharedPost.getKey);
+  // the PK column is still detected from the table (drives SQL)
+  expect(r.primaryKeyColumn).toBe("id");
+});
 
-  it("prefers an explicit name over the injected model's name", () => {
-    const m = createModel({ schema: z.object({ id: z.string() }), getKey: (p: { id: string }) => p.id, name: "post" });
-    const r = defineResource({ table: posts, name: "article", model: m });
-    expect(r.name).toBe("article");
-    expect(r.model).toBe(m);
-  });
+it("prefers an explicit name over the injected model's name", () => {
+  const m = createModel({ schema: z.object({ id: z.string() }), getKey: (p: { id: string }) => p.id, name: "post" });
+  const r = defineResource({ table: posts, name: "article", model: m });
+  expect(r.name).toBe("article");
+  expect(r.model).toBe(m);
+});
 ```
+
 > The `posts` table fixture already exists at the top of `resource.test.ts` (`pgTable("posts", { id: text("id").primaryKey(), orgId, title, views })`). If `createModel` isn't already imported there, add `createModel` to the `import { … } from "rxfy"` line (or add such an import).
 
 - [ ] **Step 2: Run to verify it FAILS**
@@ -106,6 +108,7 @@ export function defineResource<TTable extends PgTable, const TName extends strin
   };
 }
 ```
+
 > Note the doc comment near the injected-model branch that when a `model` is injected, `resource.name` defaults to the model's `name` so live `patch`/`stale` topics route into the model's store. If `check-types` flags `config.model.getKey` (returns the model's `TKey extends string`) against `Resource.getKey: (row) => string`, that's assignable (a branded string IS a string); if TS still complains, add a minimal cast `config.model.getKey as (row: TRow) => string` and report.
 
 - [ ] **Step 4: Run to verify it PASSES**
@@ -116,6 +119,7 @@ Expected: PASS — all existing resource tests plus the two new injected-model t
 - [ ] **Step 5: Lint + type-check + commit**
 
 Run `pnpm --filter rxfy-server lint` (run `pnpm --filter rxfy-server exec eslint . --fix` first if the linter reformats, then re-run `lint` and confirm exit 0 — do NOT pipe through `tail`) and `pnpm --filter rxfy-server check-types` (exit 0).
+
 ```bash
 git add packages/rxfy-server/src/resource.ts packages/rxfy-server/src/resource.test.ts
 git commit -m "feat(rxfy-server): defineResource accepts a pre-made model"
@@ -126,6 +130,7 @@ git commit -m "feat(rxfy-server): defineResource accepts a pre-made model"
 ## Task 2: `grant` enumerates the injected model's store
 
 **Files:**
+
 - Test: `packages/rxfy-server/src/server.test.ts`
 
 This proves the point of Task 1: a resource built with an injected model, when granted, reads that model's store (so vite's live grants work against the shared model).
@@ -133,31 +138,32 @@ This proves the point of Task 1: a resource built with an injected model, when g
 - [ ] **Step 1: Append the failing test** — add to `packages/rxfy-server/src/server.test.ts` (inside the existing `describe("createServer.grant", ...)` block). Merge any new imports (`createModel` from `rxfy`, `pgTable`/`text` from `drizzle-orm/pg-core`, `defineResource` from `./resource.js`) into the existing import lines — do not duplicate imports:
 
 ```ts
-  it("grants entity ids from an injected model's store", async () => {
-    const db = await createTestDb(CREATE_POSTS);
-    const { live } = harness(db);
+it("grants entity ids from an injected model's store", async () => {
+  const db = await createTestDb(CREATE_POSTS);
+  const { live } = harness(db);
 
-    // a shared model + a resource bound to it (not derived from the table)
-    const sharedPost = createModel({
-      schema: z.object({ id: z.string(), orgId: z.string(), title: z.string() }),
-      getKey: (p: { id: string }) => p.id,
-      name: "post",
-    });
-    const sharedPostResource = defineResource({ table: postsTable, model: sharedPost });
-
-    const registry = createModelRegistry();
-    registry.model(sharedPost).setMany([
-      { id: "1", orgId: "A", title: "a" },
-      { id: "2", orgId: "A", title: "b" },
-    ]);
-
-    const grants = live.grant(registry, { entities: sharedPostResource });
-    expect(grants.entities).toEqual({
-      "post:1": keyer.current("post:1"),
-      "post:2": keyer.current("post:2"),
-    });
+  // a shared model + a resource bound to it (not derived from the table)
+  const sharedPost = createModel({
+    schema: z.object({ id: z.string(), orgId: z.string(), title: z.string() }),
+    getKey: (p: { id: string }) => p.id,
+    name: "post",
   });
+  const sharedPostResource = defineResource({ table: postsTable, model: sharedPost });
+
+  const registry = createModelRegistry();
+  registry.model(sharedPost).setMany([
+    { id: "1", orgId: "A", title: "a" },
+    { id: "2", orgId: "A", title: "b" },
+  ]);
+
+  const grants = live.grant(registry, { entities: sharedPostResource });
+  expect(grants.entities).toEqual({
+    "post:1": keyer.current("post:1"),
+    "post:2": keyer.current("post:2"),
+  });
+});
 ```
+
 > `server.test.ts` already defines `postsTable`, `createTestDb`, `CREATE_POSTS`, `harness`, `keyer`, and imports `createModelRegistry` from `rxfy`. Add `import { z } from "zod";` if not present, and `createModel` to the `rxfy` import. `sharedPost`'s schema uses plain `z.string()` id (not branded) to keep the test simple; `title` here differs from the table's columns but that's fine — grant only reads the store's keys.
 
 - [ ] **Step 2: Run → PASS**
@@ -168,6 +174,7 @@ Expected: PASS — the new grant test plus all existing server tests. (This test
 - [ ] **Step 3: Lint + check-types + commit**
 
 Run `pnpm --filter rxfy-server lint` (fix + re-lint, exit 0) and `pnpm --filter rxfy-server check-types` (exit 0).
+
 ```bash
 git add packages/rxfy-server/src/server.test.ts
 git commit -m "test(rxfy-server): grant enumerates an injected model's store"
@@ -178,11 +185,13 @@ git commit -m "test(rxfy-server): grant enumerates an injected model's store"
 ## Task 3: Changeset + full verification
 
 **Files:**
+
 - Create: `.changeset/rxfy-server-resource-model.md`
 
 - [ ] **Step 1: Create the changeset**
 
 `.changeset/rxfy-server-resource-model.md`:
+
 ```md
 ---
 "rxfy-server": minor

@@ -1,24 +1,29 @@
 import { PassThrough } from "node:stream";
 import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
-import { createModelRegistry, dehydrate, hydrationScript } from "rxfy";
+import { StaticRouter } from "react-router";
+import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
-import { live } from "../server/live.js";
-import { commentResource, postResource, userResource } from "./blog/resources.js";
+import type { RenderFn } from "../server/render-types.js";
+import { ApiProvider, createApiClient } from "./blog/api-client.js";
 import { App } from "./App.js";
-import { matchRoute, routeStates } from "./routes.js";
 
-export function render(url: string): Promise<{ html: string; state: string }> {
+export const render: RenderFn = (url, sync, apiFetch) => {
+  // SSR data fetching goes through the server's own endpoints, in-process.
+  const apiClient = createApiClient(apiFetch);
   const registry = createModelRegistry();
-  const route = matchRoute(new URL(url, "http://localhost").pathname);
 
   return new Promise((resolve, reject) => {
     const { pipe } = renderToPipeableStream(
       <StrictMode>
         <StoreProvider registry={registry} ssr>
-          <Suspense fallback={null}>
-            <App url={url} />
-          </Suspense>
+          <ApiProvider client={apiClient}>
+            <Suspense fallback={null}>
+              <StaticRouter location={url}>
+                <App />
+              </StaticRouter>
+            </Suspense>
+          </ApiProvider>
         </StoreProvider>
       </StrictMode>,
       {
@@ -27,11 +32,9 @@ export function render(url: string): Promise<{ html: string; state: string }> {
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk.toString()));
           sink.on("end", () => {
-            const grants = live.grant(registry, {
-              entities: [postResource, userResource, commentResource],
-              states: routeStates(route),
-            });
-            resolve({ html, state: hydrationScript({ ...dehydrate(registry), grants }) });
+            // hydration() signs a channel grant per state this render served and embeds them
+            // alongside the dehydrated registry; the client lifts the grants and subscribes.
+            resolve({ html, state: sync.hydration(registry) });
           });
           pipe(sink);
         },
@@ -39,4 +42,4 @@ export function render(url: string): Promise<{ html: string; state: string }> {
       },
     );
   });
-}
+};

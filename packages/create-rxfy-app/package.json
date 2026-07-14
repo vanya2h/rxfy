@@ -1,0 +1,61 @@
+{
+  "name": "create-rxfy-app",
+  "version": "0.0.0",
+  "description": "Scaffold a standalone rxfy app from an official template",
+  "homepage": "https://rxfy.vanya2h.me",
+  "bugs": {
+    "url": "https://github.com/vanya2h/rxfy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vanya2h/rxfy.git",
+    "directory": "packages/create-rxfy-app"
+  },
+  "license": "MIT",
+  "author": "hi@vanya2h.me",
+  "type": "module",
+  "bin": {
+    "create-rxfy-app": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && tsx ./scripts/prepare-templates.ts",
+    "check-types": "tsc --noEmit",
+    "clean": "rimraf ./dist",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepublishOnly": "pnpm run build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "incur": "^0.4.11",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@vanya2h/eslint-config": "^0.7.0",
+    "@vanya2h/typescript-config": "^0.7.0",
+    "eslint": "^9.27.0",
+    "jiti": "^2.4.2",
+    "rimraf": "^6.0.1",
+    "rxfy-template-vite": "workspace:*",
+    "rxfy-template-vite-spa": "workspace:*",
+    "rxfy-template-next": "workspace:*",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

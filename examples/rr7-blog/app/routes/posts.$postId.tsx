@@ -1,6 +1,8 @@
 import { PostDetail } from "examples-shared";
-import { type PostId } from "examples-shared/data";
-import { fetchPostDetail } from "../blog/fetchers";
+import { postDetailState, type PostId } from "examples-shared/data";
+import { parseResponse } from "hono/client";
+import { useStateData } from "rxfy-react";
+import { useApi } from "../blog/api-client";
 import type { Route } from "./+types/posts.$postId";
 
 export function loader({ params }: Route.LoaderArgs) {
@@ -11,5 +13,11 @@ export function loader({ params }: Route.LoaderArgs) {
 }
 
 export default function PostDetailRoute({ loaderData }: Route.ComponentProps) {
-  return <PostDetail postId={loaderData.postId} fetchPostDetail={fetchPostDetail} />;
+  const api = useApi();
+  const detail = useStateData({
+    state: postDetailState,
+    fetchFn: ({ postId }) => parseResponse(api.posts[":id"].$get({ param: { id: postId } })),
+    params: { postId: loaderData.postId },
+  });
+  return <PostDetail detail={detail} />;
 }

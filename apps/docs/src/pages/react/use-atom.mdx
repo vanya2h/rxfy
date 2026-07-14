@@ -1,8 +1,8 @@
 # useAtom [Two-way binding for any IAtom]
 
 `useAtom` binds any `IAtom<T>` (a plain `Atom`, a field [`Lens`](/rxfy/create-lens), or
-a `ModelStore.entity(id)` handle) to React as `[value, setValue]`. Combined with
-`store.entity(id)` and `keyLens`, it gives two-way form binding that stays in sync across
+a `ModelStore.get(id)` handle) to React as `[value, setValue]`. Combined with
+`store.get(id)` and `keyLens`, it gives two-way form binding that stays in sync across
 every component subscribed to that entity:
 
 ```tsx
@@ -13,7 +13,7 @@ import { TodoModel } from "./models";
 
 function EditTitle({ id }: { id: string }) {
   const store = useModelStore(TodoModel);
-  const todo$ = useMemo(() => store.entity(id), [store, id]); // IAtom<Todo>
+  const todo$ = store.get(id); // IAtom<Todo> — the entity's cell, stable across renders
   const title$ = useMemo(() => createLens(todo$, keyLens("title")), [todo$]);
   const [title, setTitle] = useAtom(title$);
 
@@ -23,11 +23,11 @@ function EditTitle({ id }: { id: string }) {
 
 Typing writes through the field `Lens` into the model store's entity cell, so the edit
 reaches every other subscriber of that todo (a list row, a detail header) with
-no re-fetch. `store.entity(id)` assumes the entity is already loaded (see
-[Model](/rxfy/create-model#modelstore-entity)).
+no re-fetch. `store.get(id)` assumes the entity is already loaded and throws otherwise (see
+[Model](/rxfy/create-model#modelstore-get)).
 
 ```ts
-function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void]
+function useAtom<T>(atom$: IAtom<T>): [T, (value: T) => void];
 ```
 
 The `IAtom<T>` it accepts is the writable reactive cell:
@@ -43,6 +43,7 @@ type IAtom<T> = Observable<T> & {
 See [Atom](/rxfy/create-atom) for the full reference.
 
 :::warning
-`atom$` must be referentially stable across renders; wrap `store.entity(id)` and the
-`Lens` in `useMemo` as above.
+`atom$` must be referentially stable across renders. `store.get(id)` already returns the
+same cell every call; atoms you derive yourself (a `Lens`, a `createAtom` draft) must be
+wrapped in `useMemo` as above.
 :::

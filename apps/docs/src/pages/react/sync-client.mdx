@@ -1,0 +1,78 @@
+# Sync Client in React [StoreProvider, useSyncClient, and update handles]
+
+The Sync Client itself — [`createSyncClient`](/framework/client) — lives in `rxfy-client` and is
+framework-agnostic. This page covers the React side: handing it to `StoreProvider`, reading it with
+`useSyncClient`, and the `updatesAvailable$` / `applyUpdates` handles `useStateData` surfaces once a
+client is in context.
+
+Build the client from a WebSocket transport, then pass it to `StoreProvider`'s `syncClient` prop
+(`rxfy-react` re-exports `createSyncClient`, so you can import it from either package):
+
+```tsx [entry-client.tsx]
+import { createModelRegistry } from "rxfy";
+import { createSyncClient, StoreProvider } from "rxfy-react";
+import { createWsClient } from "rxfy-ws/client";
+
+const registry = createModelRegistry();
+const syncClient = createSyncClient({
+  registry,
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
+  renewUrl: "/api/live/renew",
+});
+
+hydrateRoot(
+  document.getElementById("root")!,
+  <StoreProvider registry={registry} ssr syncClient={syncClient}>
+    <App />
+  </StoreProvider>,
+);
+```
+
+Once it's in context, `useStateData` uses it automatically: it lifts the `$grant` the server signed
+into each fetch (via `sync.serve` / `sync.hydration`), hands it to the client with the entity topics
+its data normalized into, and the client subscribes. See [rxfy-client](/framework/client) for the
+runtime itself — `createSyncClient`, `readSsrGrants`, reconnection, and grant renewal — and
+[Grants](/framework/server/grants) for the grant model.
+
+## `StoreProvider` `syncClient` prop
+
+`syncClient` is optional. When omitted, every `updatesAvailable$` stream emits `0` and `applyUpdates`
+falls back to a plain `reload()` — so the same components work with or without the sync stack.
+
+### `useSyncClient`
+
+```ts
+import { useSyncClient } from "rxfy-react";
+
+function MyWidget() {
+  const sync = useSyncClient(); // SyncClient | null
+  // ...
+}
+```
+
+Returns the `SyncClient` from the nearest `StoreProvider`, or `null` when no `syncClient` prop was
+provided. Normally you never call this directly — `useStateData` does it for you — but it is exported
+as an escape hatch for custom transports or direct `channel(name)` access.
+
+## `updatesAvailable$` / `applyUpdates`
+
+Both come from the `StateHandle` returned by `useStateData`:
+
+```ts
+const { data$, updatesAvailable$, applyUpdates } = useStateData({
+  state: postsState,
+  fetchFn: fetchPosts,
+  params: {},
+});
+```
+
+`updatesAvailable$` is an `Observable<number>` that starts at `0` and increments each time the server
+sends a `stale` message for this state's channel. When no Sync Client is present it stays `0`.
+
+`applyUpdates()` resets the counter to `0` and calls `reload()` — triggering a fresh fetch and updating
+`data$` in place.
+
+Render a badge that unwraps `updatesAvailable$` at the leaf with [`Pending`](/react/pending) and calls
+`applyUpdates` on click — the [Add Sync Client](/getting-started/add-sync-client) guide builds the full
+component. `applyUpdates` also works as the `onCreated` / `onDeleted` callback in mutation forms, so a
+local write resets the counter and re-fetches in one step.
