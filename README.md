@@ -23,14 +23,14 @@ rxfy doesn't invent a reactivity system — it's built on [RxJS](https://rxjs.de
 ## Agent skills
 
 ```bash
-# client-only store setup
-npx skills add vanya2h/rxfy --skill rxfy
+# getting rxfy into a project (template or add-to-existing-app)
+npx skills add vanya2h/rxfy --skill rxfy-setup
 
-# sync app (framework) setup
-npx skills add vanya2h/rxfy --skill rxfy-framework
+# working in a project that already has rxfy
+npx skills add vanya2h/rxfy --skill rxfy
 ```
 
-Installs one of two agent skills for AI coding assistants — `rxfy` (store + React + SSR) or `rxfy-framework` (everything in `rxfy` plus the real-time layer). Install the one matching your setup — never both. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
+Two agent skills for AI coding assistants: `rxfy-setup` (scaffold a `create-rxfy-app` template or add rxfy to an existing app at a chosen depth) and `rxfy` (a task-indexed reference library for the whole framework — store, React, SSR, real-time sync). Setup records the chosen variant so usage never re-detects the project type. See [Agent Skills](https://rxfy.vanya2h.me/agent-skills).
 
 ## Packages
 

@@ -28,7 +28,7 @@ It drives the grant lifecycle. What it does:
 
 There is no session id, no `getSessionId`, and no header on the API client. Live capability rides
 entirely in the `$grant` fields of served payloads and the SSR `grants` array; `readSsrGrants()`
-(from `rxfy-client`) lifts the latter (see `live-grants.md`).
+(from `rxfy-client`) lifts the latter (see `sync-grants.md`).
 
 ## StoreProvider `syncClient` prop
 
@@ -58,7 +58,7 @@ Returns the `SyncClient` from the nearest `StoreProvider`, or `null` when no `sy
 Both come from the `StateHandle` returned by `useStateData`:
 
 ```ts
-const api = useApi(); // the typed client from context, see live-grants.md
+const api = useApi(); // the typed client from context, see sync-grants.md
 const { data$, updatesAvailable$, applyUpdates } = useStateData({
   state: postsState,
   fetchFn: async () => (await api.posts.$get()).json(),
