@@ -63,6 +63,7 @@ npm install rxfy rxfy-react
 
 **Core Concepts**
 
+- [Observables](https://rxfy.vanya2h.me/core-concepts/observables)
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
 - [Late Unwrapping](https://rxfy.vanya2h.me/core-concepts/late-unwrapping)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr)
@@ -70,17 +71,16 @@ npm install rxfy rxfy-react
 **API Reference**
 
 - [rxfy](https://rxfy.vanya2h.me/rxfy) — `createAtom`, `createLens`, `createModel`, `defineState`
-- [React Bindings](https://rxfy.vanya2h.me/react)
-- [rxfy-server](https://rxfy.vanya2h.me/framework/server)
+- [rxfy-react](https://rxfy.vanya2h.me/react)
+- [rxfy-client](https://rxfy.vanya2h.me/framework/client) — `createLiveClient`, `readSsrGrants`
+- [rxfy-server](https://rxfy.vanya2h.me/framework/server) — including [storage adapters](https://rxfy.vanya2h.me/framework/server/storage-adapters)
 - [rxfy-ws](https://rxfy.vanya2h.me/framework/ws)
 - [rxfy package README](packages/rxfy/README.md)
 - [rxfy-react package README](packages/rxfy-react/README.md)
 
 **Guides**
 
-- [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live blog](https://rxfy.vanya2h.me/guides/live-blog)
 - [Examples](https://rxfy.vanya2h.me/examples)
 
 **Examples**

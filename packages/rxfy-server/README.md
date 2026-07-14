@@ -20,4 +20,4 @@ npm install rxfy-server
 - `live.hydration` — the one-call SSR payload: dehydrate the registry and embed the grants the render logged as `grants: string[]`.
 - `signGrant` / `verifyGrant` — the HS256 grant primitives (the WebSocket transport verifies with the same `secret`).
 
-See the [rxfy-server docs](https://rxfy.vanya2h.me/framework/server) for the full walkthrough.
+See the [rxfy-server docs](https://rxfy.vanya2h.me/framework/server) for the full walkthrough, and [Storage adapters](https://rxfy.vanya2h.me/framework/server/storage-adapters) for picking a `LiveStorage`.

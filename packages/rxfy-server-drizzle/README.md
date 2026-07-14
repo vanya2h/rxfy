@@ -25,4 +25,4 @@ const live = createLive({ storage: drizzleStorage(db), hub: createInMemoryHub(),
 await live.update(posts, id, { title }); // writes the row and publishes a patch
 ```
 
-See the [rxfy-server docs](https://rxfy.vanya2h.me/framework/server) for the full walkthrough.
+See the [rxfy-server docs](https://rxfy.vanya2h.me/framework/server) for the full walkthrough, and [Storage adapters](https://rxfy.vanya2h.me/framework/server/storage-adapters) for how this adapter plugs in.

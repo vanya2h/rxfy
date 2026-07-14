@@ -46,15 +46,14 @@ npm install rxfy
 - [State](https://rxfy.vanya2h.me/rxfy/define-state) — `defineState`, plain value fields, mutations
 - [Atom](https://rxfy.vanya2h.me/rxfy/create-atom) — `createAtom`
 - [Lens](https://rxfy.vanya2h.me/rxfy/create-lens) — `createLens`, `keyLens`
+- [Observables](https://rxfy.vanya2h.me/core-concepts/observables) — the value-over-time model behind `Atom` and `data$`
 - [Normalization](https://rxfy.vanya2h.me/core-concepts/normalization)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — `dehydrate`, `hydrate`, `hydrationScript`
 - [rxfy-react](../rxfy-react/README.md) — React bindings
 
 ## Guides
 
-- [Build a Todo app](https://rxfy.vanya2h.me/guides/todo-app)
 - [Pagination and infinite scroll](https://rxfy.vanya2h.me/guides/pagination)
-- [Live blog guide](https://rxfy.vanya2h.me/guides/live-blog)
 
 ## License
 
