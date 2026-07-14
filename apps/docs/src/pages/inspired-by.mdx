@@ -1,0 +1,55 @@
+# Inspired by [the libraries and ideas rxfy grew out of]
+
+rxfy is the endpoint of a path through several libraries and ideas. Each one taught
+something worth keeping — and, just as often, marked a boundary rxfy decided to cross.
+This page credits those influences and records what rxfy took from each, including where
+it deliberately diverged.
+
+## DataLoader
+
+The first thing that pointed the way was
+[graphql/dataloader](https://github.com/graphql/dataloader). Its interesting move is a
+**store keyed by entity id** that not only caches entities but also owns _how each one is
+loaded_ — a load function batches and dedupes the fetches behind the cache, so the rest of
+the app asks for an entity by id and never thinks about the request.
+
+What drew me in was exactly that entity store: a single place where each entity lives once,
+addressed by id, shared across everything that reads it. That idea is at the core of rxfy's
+[normalized stores](/core-concepts/normalization).
+
+The part rxfy could not keep was the store owning the fetch. When the store loads an entity
+straight from its own endpoint, that endpoint is **state-agnostic** — it answers for an id
+with no notion of _which view, which query, or which user_ asked. There is nowhere to put an
+authorization layer: the entity read has no context to authorize against. Security has to live
+somewhere, and a per-entity loader is the wrong place for it.
+
+So rxfy splits the two concerns. [States](/rxfy/define-state) do the fetching and normalize
+the result into the shared stores, referencing each entity by **id** rather than embedding it.
+The entity store still gives you one cell per entity, shared and reactive — but nothing fetches
+_through_ it. Authorization sits on the **state fetch**, where the request carries the params,
+the query, and the caller's identity, and the store holds only what that authorized fetch
+produced.
+
+## Focal
+
+The second library that shaped rxfy was
+[grammarly/focal](https://github.com/grammarly/focal). It is the clearest example I know of
+functional reactive programming done well inside React: state lives in an observable
+**`Atom`**, a **`Lens`** focuses a piece of it for reading and writing, and observables embed
+directly in the view. It made a case I still believe — that Atom and Lens are primitives React
+data flow genuinely needs, not conveniences bolted onto a store.
+
+What I took is the two primitives themselves. rxfy's [`Atom`](/rxfy/create-atom) is the same
+idea — a reactive cell you can read synchronously with `get()`, write with `set()`, and
+`modify()` in place — and its [`Lens`](/rxfy/create-lens) is the same functional view-plus-edit
+optic, composed with `keyLens` and driven from React through [`useAtom`](/react/use-atom).
+Two-way binding in rxfy is a Lens over a store cell, straight out of Focal's playbook.
+
+Where rxfy diverges is scope and substrate. Focal is a rendering library: its Atom is the
+state _behind a component_, and `<F.div>` and friends are how observables reach the DOM. rxfy
+leaves rendering to React and pushes the primitives underneath a data layer instead — an Atom
+is a **cell inside the normalized store**, and a Lens composes over
+[`store.get(id)`](/rxfy/create-model#modelstore-get) so an edit flows back into the shared store
+and reaches every subscriber, not just one component. And because rxfy's Atom _is_ an RxJS
+`Observable` rather than a React-coupled one, the same primitives work outside React entirely —
+in a mutation, a server render, or a plain stream pipeline.

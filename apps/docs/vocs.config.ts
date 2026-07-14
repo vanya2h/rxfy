@@ -15,6 +15,7 @@ export default defineConfig({
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Comparison", link: "/comparison" },
+    { text: "Inspired by", link: "/inspired-by" },
     { text: "Agent Skills", link: "/agent-skills" },
     { text: "Examples", link: "/examples" },
     { text: "Changelog", link: "/changelog" },
