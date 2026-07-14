@@ -62,7 +62,7 @@ export default defineConfig({
         { text: "Pending", link: "/react/pending" },
         { text: "usePending", link: "/react/use-pending" },
         { text: "useObservable", link: "/react/use-observable" },
-        { text: "Sync Client (React)", link: "/react/live-client" },
+        { text: "Sync Client (React)", link: "/react/sync-client" },
       ],
     },
 
@@ -70,7 +70,7 @@ export default defineConfig({
       text: "rxfy-client",
       link: "/framework/client",
       items: [
-        { text: "createLiveClient", link: "/framework/client/create-live-client" },
+        { text: "createSyncClient", link: "/framework/client/create-sync-client" },
         { text: "readSsrGrants", link: "/framework/client/read-ssr-grants" },
       ],
     },
@@ -80,7 +80,7 @@ export default defineConfig({
       link: "/framework/server",
       items: [
         { text: "defineResource", link: "/framework/server/define-resource" },
-        { text: "createLive", link: "/framework/server/create-server" },
+        { text: "createSync", link: "/framework/server/create-server" },
         { text: "createInMemoryHub", link: "/framework/server/hub" },
         { text: "Writes", link: "/framework/server/writes" },
         { text: "Storage adapters", link: "/framework/server/storage-adapters" },

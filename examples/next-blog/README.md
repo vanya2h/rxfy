@@ -1,7 +1,7 @@
 # rxfy + Next.js blog example
 
 A Next.js App Router blog using **rxfy** for normalized, reactive state with streaming SSR
-hydration **and live updates**. Companion to the `waku-blog` (Waku) and `rr7-blog`
+hydration **and sync updates**. Companion to the `waku-blog` (Waku) and `rr7-blog`
 (React Router 7) examples — same domain, three frameworks.
 
 ## What it shows
@@ -17,16 +17,16 @@ hydration **and live updates**. Companion to the `waku-blog` (Waku) and `rr7-blo
   so the payload varies per request (`force-dynamic` on the home page) and pages can't be
   statically prerendered.
 
-## Live updates
+## Sync updates
 
 Plain `next dev`/`next start` can't host a WebSocket, so `server.mts` is a custom server:
 Next's request handler for pages, `/live` upgraded to the rxfy WebSocket, one shared in-memory
-hub (`src/server/live.ts`, bridged across Next's bundles via globalThis). Live subscriptions are
+hub (`src/server/live.ts`, bridged across Next's bundles via globalThis). Sync subscriptions are
 stateless — there's no session. The loop:
 
 1. Each read calls `serve()`, which signs a channel grant and attaches it as `$grant`. It rides
    down to the browser in `defaultData` (RSC render) and on every client refetch.
-2. The browser's live client (`src/blog/live-client.ts`) lifts `$grant`, subscribes the channel
+2. The browser's sync client (`src/blog/sync-client.ts`) lifts `$grant`, subscribes the channel
    on its own socket (the WebSocket server verifies the grant's HMAC — shared `SECRET`), and
    renews it before expiry against `POST /api/live/renew`.
 3. Posting a comment `touchState`s the post-detail channel — every client subscribed to that

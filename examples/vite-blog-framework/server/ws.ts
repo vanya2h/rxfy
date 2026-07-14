@@ -1,9 +1,9 @@
 import { EventEmitter } from "node:events";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createWsServer } from "rxfy-ws";
-import { hub, SECRET } from "./live.js";
+import { hub, SECRET } from "./sync.js";
 
-// Share the grant-signing secret with the HTTP server so grants signed by live.serve verify here.
+// Share the grant-signing secret with the HTTP server so grants signed by sync.serve verify here.
 const wsServer = createWsServer(hub, { secret: SECRET });
 
 /** Register the `/live` WebSocket handler using a Hono app's upgradeWebSocket helper. */

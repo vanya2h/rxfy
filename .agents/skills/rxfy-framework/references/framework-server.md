@@ -1,6 +1,6 @@
 # rxfy-server
 
-Runs writes through a storage adapter and publishes live update messages via a hub. Core `rxfy-server` is storage-agnostic; the Drizzle binding lives in **`rxfy-server-drizzle`** (`defineResource`, `drizzleStorage`, `type DrizzleBinding`) and an in-memory binding in **`rxfy-server-memory`** (`defineCollection`, `memoryStorage`, `type MemoryBinding`). Everything else — the hub API, `createResourceRegistry`, `signGrant`/`verifyGrant`, `grantsHydration`, `stateChannel`/`touch`, `createGrantIssuer`, `createLive`, and `type Live`/`LiveStorage`/`Resource` — imports from the single `rxfy-server` entry. There are no `rxfy-server/browser` or `rxfy-server/hub` subpaths.
+Runs writes through a storage adapter and publishes live update messages via a hub. Core `rxfy-server` is storage-agnostic; the Drizzle binding lives in **`rxfy-server-drizzle`** (`defineResource`, `drizzleStorage`, `type DrizzleBinding`) and an in-memory binding in **`rxfy-server-memory`** (`defineCollection`, `memoryStorage`, `type MemoryBinding`). Everything else — the hub API, `createResourceRegistry`, `signGrant`/`verifyGrant`, `grantsHydration`, `stateChannel`/`touch`, `createGrantIssuer`, `createSync`, and `type Live`/`SyncStorage`/`Resource` — imports from the single `rxfy-server` entry. There are no `rxfy-server/browser` or `rxfy-server/hub` subpaths.
 
 ## defineResource
 
@@ -23,12 +23,12 @@ export const resources = createResourceRegistry([userResource, postResource, com
 - Resource `name` defaults to `model.name` (falls back to the SQL table name). It is the live topic namespace (`"posts:uuid-..."`) and **must match the client model's `name`** so `patch` messages land in the right store.
 - Single-column primary keys only: `primaryKeyColumn(table)` throws on composite or missing PKs.
 
-`createResourceRegistry([...])` — from core `rxfy-server` — indexes resources by name, rejects duplicates, and exposes `byName(name)`, `model(name)`, `all()`. It is a neutral convenience lookup; `createLive` does not require it (the writers take a resource directly).
+`createResourceRegistry([...])` — from core `rxfy-server` — indexes resources by name, rejects duplicates, and exposes `byName(name)`, `model(name)`, `all()`. It is a neutral convenience lookup; `createSync` does not require it (the writers take a resource directly).
 
-## createLive
+## createSync
 
-`createLive({ storage, hub, secret })` returns a `Live` object with typed write methods plus
-the grant-signing calls `serve`, `hydration`, and `renew`. `storage` is a `LiveStorage` adapter —
+`createSync({ storage, hub, secret })` returns a `Live` object with typed write methods plus
+the grant-signing calls `serve`, `hydration`, and `renew`. `storage` is a `SyncStorage` adapter —
 `drizzleStorage(db)` from `rxfy-server-drizzle` or `memoryStorage()` from `rxfy-server-memory`; the
 writers delegate create/update/delete to it. `secret` is REQUIRED — it is the HMAC key used to sign
 and verify channel grants, and it MUST be the same secret passed to the WS server. Optional:
@@ -37,11 +37,11 @@ binding: `Live<DrizzleBinding>` / `Live<MemoryBinding>`.
 
 ```ts
 // server/live.ts
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-// The hub holds socket-keyed live subscriptions, so there must be exactly ONE instance. entry-server's
+// The hub holds socket-keyed sync subscriptions, so there must be exactly ONE instance. entry-server's
 // render (typed by the shared RenderFn in server/render-types.ts) receives `live` — and `apiFetch`,
 // hono's in-process `app.request`, for SSR data fetching — as parameters instead of importing
 // server modules, so a separate Vite SSR module graph never instantiates a second db/hub/api.
@@ -49,17 +49,17 @@ import { db } from "./db.js";
 export const hub = createInMemoryHub();
 
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
-export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
+export const sync = createSync({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
 
 ## Writes
 
 | Call                                    | SQL                | Publishes                                                      |
 | --------------------------------------- | ------------------ | -------------------------------------------------------------- |
-| `live.update(resource, id, patch)`      | UPDATE … RETURNING | `patch` on `"<name>:<id>"` topic + `stale` on touched channels |
-| `live.create(resource, row, { touch })` | INSERT             | `stale` on touched channels only (no patch)                    |
-| `live.delete(resource, id, { touch })`  | DELETE             | `stale` on touched channels only                               |
-| `live.touch(...targets)`                | none               | `stale` out of band                                            |
+| `sync.update(resource, id, patch)`      | UPDATE … RETURNING | `patch` on `"<name>:<id>"` topic + `stale` on touched channels |
+| `sync.create(resource, row, { touch })` | INSERT             | `stale` on touched channels only (no patch)                    |
+| `sync.delete(resource, id, { touch })`  | DELETE             | `stale` on touched channels only                               |
+| `sync.touch(...targets)`                | none               | `stale` out of band                                            |
 
 Return values: `create` resolves the inserted row. `update` resolves the updated row, or `undefined` when no row matches the id — a not-found update writes nothing and publishes nothing (no patch, no touch).
 
@@ -67,13 +67,13 @@ Return values: `create` resolves the inserted row. `update` resolves the updated
 import { touch } from "rxfy-server";
 
 // update — publishes a `patch` on the entity topic automatically
-await live.update(postWriteResource, postId, { title, body });
+await sync.update(postWriteResource, postId, { title, body });
 
 // create — no patch; touch the state channels that list this entity
-await live.create(postWriteResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
+await sync.create(postWriteResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
 
 // delete — same: no patch, touch the channels that referenced this entity
-await live.delete(postResource, postId, { touch: [touch(postsState, {})] });
+await sync.delete(postResource, postId, { touch: [touch(postsState, {})] });
 ```
 
 `touch(stateDescriptor, params)` builds a `TouchTarget` for a state instance. Window dimensions declared in `state.window` (page, cursor, sort) are stripped from the channel key, so all windows of the same partition share one invalidation channel.
@@ -102,17 +102,17 @@ export type Hub = {
 - Register the delivery sink with `hub.onPublish(sink)` — `createWsServer` does this internally to
   route `patch`/`stale` messages to the right socket by `ConnId`.
 
-## live.serve, live.hydration, live.renew
+## sync.serve, sync.hydration, sync.renew
 
 Covered in depth in `live-grants.md`. In short:
 
-- `live.serve(state, params, data)` — read-endpoint wrapper (no `req`); accepts the state's _input_
+- `sync.serve(state, params, data)` — read-endpoint wrapper (no `req`); accepts the state's _input_
   shape (raw DB rows — unbranded ids, extra columns OK), parses it through the state's schemas, signs
   a grant for the state's channel, and returns the parsed shape (ids branded, unknown keys stripped)
   with the grant attached as a reserved `$grant` field. Stateless — it never touches the hub.
-- `live.hydration(registry)` — one-call SSR payload: signs one grant per channel the render logged
+- `sync.hydration(registry)` — one-call SSR payload: signs one grant per channel the render logged
   into `registry.channels`, and returns the `hydrationScript` string carrying the dehydrated state
   plus `grants: string[]`.
-- `live.renew(grant)` — verifies a grant (accepting tokens expired within `renewGraceMs`) and returns
+- `sync.renew(grant)` — verifies a grant (accepting tokens expired within `renewGraceMs`) and returns
   a freshly-dated grant string, or `null` when the signature is invalid or beyond grace. Mount it
   behind the app's own auth on `POST /live/renew`.

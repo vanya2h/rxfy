@@ -3,7 +3,8 @@ import { parseServerMessage, serialize, subscribe } from "rxfy-protocol";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // A quasi-unique port so parallel test runs (and a locally running dev server) don't collide.
-const PORT = 7900 + (process.pid % 500);
+const PORT = 8400 + (process.pid % 400);
+const WS_PORT = PORT + 400;
 const BASE = `http://localhost:${PORT}`;
 
 let server: ChildProcess;
@@ -23,14 +24,14 @@ async function waitForServer(timeoutMs = 25_000): Promise<void> {
 }
 
 /**
- * The full live loop over the real server: a client reads a post detail (the response carries a
- * signed channel grant as `$grant`), presents the grant on its socket to subscribe the channel,
- * and receives a `stale` push when another client comments.
+ * The full live loop over the real server: reading a post returns a signed channel grant; the
+ * client presents it in a `subscribe` frame on the sync socket and receives a `stale` push when
+ * another client comments. No sessions — the grant carries the channel authorization.
  */
 describe("live end-to-end", () => {
   beforeAll(async () => {
-    server = spawn("node_modules/.bin/tsx", ["server.mts"], {
-      env: { ...process.env, NODE_ENV: "production", PORT: String(PORT) },
+    server = spawn("node_modules/.bin/waku", ["start", "--port", String(PORT)], {
+      env: { ...process.env, RXFY_WS_PORT: String(WS_PORT) },
       stdio: "ignore",
       detached: true,
     });
@@ -41,13 +42,13 @@ describe("live end-to-end", () => {
     if (server.pid) process.kill(-server.pid, "SIGTERM");
   });
 
-  it("pushes a stale to a socket that subscribed with the post-detail grant", async () => {
-    // 1. Read the post detail — the response carries a signed channel grant as $grant.
+  it("pushes a stale to a socket that presented the post-detail grant", async () => {
+    // 1. Read the post detail — the response carries a signed grant for its channel.
     const detail = (await (await fetch(`${BASE}/api/posts/1`)).json()) as { $grant: string };
     expect(typeof detail.$grant).toBe("string");
 
-    // 2. Present the grant on a live socket — the WS server verifies it and subscribes the channel.
-    const ws = new WebSocket(`ws://localhost:${PORT}/live`);
+    // 2. Present the grant on a sync socket via a subscribe frame.
+    const ws = new WebSocket(`ws://localhost:${WS_PORT}/live`);
     const staleMessage = new Promise((resolve, reject) => {
       ws.addEventListener("message", (event) => {
         const message = parseServerMessage(String(event.data));

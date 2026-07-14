@@ -1,14 +1,14 @@
-# Live client (rxfy-client)
+# Sync client (rxfy-client)
 
-Connects a WebSocket transport to a `ModelRegistry` so server pushes land in the normalized stores and per-state update counters tick up. Lives in `rxfy-client`, the framework-agnostic browser runtime (`rxfy-react` re-exports everything for back-compat — either import works). Pass the result to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces `updatesAvailable$` / `applyUpdates` on every handle.
+Connects a WebSocket transport to a `ModelRegistry` so server pushes land in the normalized stores and per-state update counters tick up. Lives in `rxfy-client`, the framework-agnostic browser runtime (`rxfy-react` re-exports everything for back-compat — either import works). Pass the result to `StoreProvider`'s `syncClient` prop; `useStateData` reads it automatically and surfaces `updatesAvailable$` / `applyUpdates` on every handle.
 
-## createLiveClient
+## createSyncClient
 
 ```ts
-import { createLiveClient } from "rxfy-client";
+import { createSyncClient } from "rxfy-client";
 import { createWsClient } from "rxfy-ws/client";
 
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry, // IModelRegistry — the same one passed to StoreProvider
   transport, // ClientTransport — e.g. createWsClient() from rxfy-ws/client
   renewUrl: "/api/live/renew", // optional — the app's grant-renewal endpoint; omit to let grants expire
@@ -30,14 +30,14 @@ There is no session id, no `getSessionId`, and no header on the API client. Live
 entirely in the `$grant` fields of served payloads and the SSR `grants` array; `readSsrGrants()`
 (from `rxfy-client`) lifts the latter (see `live-grants.md`).
 
-## StoreProvider `liveClient` prop
+## StoreProvider `syncClient` prop
 
 ```tsx
 import { StoreProvider } from "rxfy-react";
 
 hydrateRoot(
   document.getElementById("root")!,
-  <StoreProvider registry={registry} ssr liveClient={liveClient}>
+  <StoreProvider registry={registry} ssr syncClient={syncClient}>
     <App />
   </StoreProvider>,
 );
@@ -45,13 +45,13 @@ hydrateRoot(
 
 Optional. When omitted, every `updatesAvailable$` emits `0` and `applyUpdates` falls back to a plain `reload()`.
 
-## useLiveClient
+## useSyncClient
 
 ```ts
-const live = useLiveClient(); // LiveClient | null
+const sync = useSyncClient(); // SyncClient | null
 ```
 
-Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient` prop was provided. Escape hatch for custom transports or direct `channel(name)` access — normally never called directly (`useStateData` does it).
+Returns the `SyncClient` from the nearest `StoreProvider`, or `null` when no `syncClient` prop was provided. Escape hatch for custom transports or direct `channel(name)` access — normally never called directly (`useStateData` does it).
 
 ## updatesAvailable$ / applyUpdates
 
@@ -66,7 +66,7 @@ const { data$, updatesAvailable$, applyUpdates } = useStateData({
 });
 ```
 
-- `updatesAvailable$: Observable<number>` — starts at `0`, increments on each `stale` message for this state's channel. Stays `0` with no live client.
+- `updatesAvailable$: Observable<number>` — starts at `0`, increments on each `stale` message for this state's channel. Stays `0` with no sync client.
 - `applyUpdates()` — resets the counter to `0` and calls `reload()`.
 
 ```tsx

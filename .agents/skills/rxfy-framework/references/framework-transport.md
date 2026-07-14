@@ -4,7 +4,7 @@ The default WebSocket transport. Two entry points: `rxfy-ws` (server adapter, wi
 
 ## Server
 
-`createWsServer(hub, { secret })` returns `{ handleConnection(socket) }` — call `createWsServer` once at startup, `handleConnection` for every new socket. `secret` is REQUIRED and MUST match the one passed to `createLive`. It bridges the `Hub` to WebSocket connections: on each `subscribe` frame it verifies the grant (signature + expiry) against `secret` and, on success, subscribes the socket to the channel plus the entity topics the grant's own claims enumerate (`hub.subscribe(conn, ids, exp)`) — the frame carries only the grant, so a client cannot ask for a topic its grant does not authorize; a frame whose grant fails verification is dropped silently (the client's renewal / refetch is the recovery path). There are no hello or session frames and no session binding. When the socket closes, `handleConnection` calls `hub.drop(conn)`, releasing every subscription it held.
+`createWsServer(hub, { secret })` returns `{ handleConnection(socket) }` — call `createWsServer` once at startup, `handleConnection` for every new socket. `secret` is REQUIRED and MUST match the one passed to `createSync`. It bridges the `Hub` to WebSocket connections: on each `subscribe` frame it verifies the grant (signature + expiry) against `secret` and, on success, subscribes the socket to the channel plus the entity topics the grant's own claims enumerate (`hub.subscribe(conn, ids, exp)`) — the frame carries only the grant, so a client cannot ask for a topic its grant does not authorize; a frame whose grant fails verification is dropped silently (the client's renewal / refetch is the recovery path). There are no hello or session frames and no session binding. When the socket closes, `handleConnection` calls `hub.drop(conn)`, releasing every subscription it held.
 
 ```ts
 type ServerSocket = {
@@ -20,7 +20,7 @@ type ServerSocket = {
 import { EventEmitter } from "node:events";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createWsServer } from "rxfy-ws";
-import { hub, SECRET } from "./live.js";
+import { hub, SECRET } from "./sync.js";
 
 const wsServer = createWsServer(hub, { secret: SECRET });
 
@@ -63,7 +63,7 @@ type ClientTransport = {
   send: (message: ClientMessage) => void;
   /** Single-slot inbound handler — a later call replaces the previous one. */
   onMessage: (handler: (message: ServerMessage) => void) => void;
-  /** Fires on every (re)connect — the live client uses it to replay its grant set. */
+  /** Fires on every (re)connect — the sync client uses it to replay its grant set. */
   onOpen: (handler: () => void) => void;
   close: () => void;
 };
@@ -76,10 +76,10 @@ Behaviors:
 - There is no `hello` or session frame. The transport is a plain conduit: `send` puts a
   `subscribe` message on the wire, `onMessage` receives `patch`/`stale`.
 - On `"close"` it reconnects after `reconnectDelayMs` (default 1000 ms) and fires the `onOpen`
-  handler on `"open"`. The live client's `onOpen` handler replays its full grant set (one
+  handler on `"open"`. The sync client's `onOpen` handler replays its full grant set (one
   `subscribe` frame per live entry), so subscriptions re-establish with no caller action.
 - A `send` call made before the socket is `OPEN` is silently dropped for that connection attempt
-  (nothing is buffered); the live client recovers by re-sending everything on the next `onOpen`.
+  (nothing is buffered); the sync client recovers by re-sending everything on the next `onOpen`.
 - `onMessage` is single-slot: a later call replaces the previous handler.
 
 `ClientTransport` is a plain interface — anything satisfying the four-method shape works (test mocks, custom reconnect policies, non-WebSocket channels); the wire format is defined by `rxfy-protocol`. The server subscribes a socket from each verified `subscribe` frame (see `createWsServer` above).

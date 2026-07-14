@@ -1,7 +1,7 @@
-# Live grants
+# Sync grants
 
 The server records nothing at serve time — it **signs**. A read endpoint wraps its result in
-`live.serve`, which parses the payload and attaches a per-state JWT grant (claims: channel + the
+`sync.serve`, which parses the payload and attaches a per-state JWT grant (claims: channel + the
 served payload's entity topics + expiry) as a reserved `$grant` field on the returned data. The
 client lifts `$grant` automatically inside `useStateData` — no session header, no fetch wrapping, no
 integrator plumbing — sends a `subscribe` frame carrying just the grant, and renews grants before
@@ -28,8 +28,8 @@ once — renewals then fail, clients degrade to static, and a refetch mints fres
 
 ## Grant custody
 
-The grant is never something the integrator handles. `live.serve` attaches it as `$grant`;
-`useStateData` strips it before normalization and hands the grant straight to the live client — the
+The grant is never something the integrator handles. `sync.serve` attaches it as `$grant`;
+`useStateData` strips it before normalization and hands the grant straight to the sync client — the
 entity topics ride inside the grant, so the client computes nothing. A payload without `$grant`
 simply isn't live; a store-only app hits none of this. A consumer that ignores `$grant` (curl,
 server-to-server) just sees one extra string field.
@@ -59,11 +59,11 @@ export function createApiClient(serverFetch?: ApiFetch) {
 }
 ```
 
-The live client is created in `entry-client.tsx`; its `renewUrl` points at the app-mounted renewal
+The sync client is created in `entry-client.tsx`; its `renewUrl` points at the app-mounted renewal
 endpoint. No `session` option, no `sessionHeaders`:
 
 ```tsx
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry,
   transport: createWsClient({ url }),
   renewUrl: "/api/live/renew",
@@ -92,7 +92,7 @@ void api.todos.$post({ json: { title: next } }).then(() => applyUpdates());
 
 ## Serving = signing
 
-A read endpoint wraps its result in `live.serve(state, params, data)` — it parses the raw payload
+A read endpoint wraps its result in `sync.serve(state, params, data)` — it parses the raw payload
 (the state's _input_ shape: raw DB rows, unbranded ids, extra columns allowed) through the state's
 schemas, signs a grant for `stateChannel(state, params)`, and returns the parsed shape (ids branded,
 unknown keys stripped) with `$grant` attached. It never touches the hub — serving is stateless.
@@ -101,7 +101,7 @@ Raw Drizzle rows go in directly, no casts, no `req`:
 ```ts
 .get("/todos", async (c) => {
   const rows = await db.select().from(todos);
-  return c.json(live.serve(todosState, {}, { todos: rows }));
+  return c.json(sync.serve(todosState, {}, { todos: rows }));
 })
 ```
 
@@ -109,17 +109,17 @@ Pass the SAME `params` you pass to `useStateData` — window keys are stripped i
 signed channel always matches the one the client's `updatesAvailable$` counts.
 
 SSR renders sign everything at once. `useStateData` logs each rendered state's channel into
-`registry.channels` during SSR; `live.hydration(registry)` signs one grant per logged channel and
+`registry.channels` during SSR; `sync.hydration(registry)` signs one grant per logged channel and
 embeds them in the hydration script as `grants: string[]`:
 
 ```ts
 onAllReady() {
   // collect pipe into `html`, then:
-  resolve({ html, state: live.hydration(registry) });
+  resolve({ html, state: sync.hydration(registry) });
 }
 ```
 
-On the client, `readSsrGrants()` (from `rxfy-client`) lifts those embedded grants so the live client
+On the client, `readSsrGrants()` (from `rxfy-client`) lifts those embedded grants so the sync client
 can subscribe immediately, before any client-side fetch resolves.
 
 The entry's `render` (typed by the shared `RenderFn` in `server/render-types.ts`) receives `live`
@@ -132,16 +132,16 @@ fetches hit the same endpoints in-process.
 
 Grants expire (default TTL 15 min). The client runs one renewal timer; near expiry it POSTs the
 expiring grants to `renewUrl` and re-subscribes with the reissued ones. The endpoint runs the app's
-own auth and calls `live.renew(grant)` per grant:
+own auth and calls `sync.renew(grant)` per grant:
 
 ```ts
 .post("/live/renew", async (c) => {
   const { grants } = await c.req.json<{ grants: string[] }>();
-  return c.json({ grants: grants.map((g) => live.renew(g)) });
+  return c.json({ grants: grants.map((g) => sync.renew(g)) });
 })
 ```
 
-`live.renew` verifies each grant (accepting tokens expired within the grace window) and returns a
+`sync.renew` verifies each grant (accepting tokens expired within the grace window) and returns a
 freshly-dated grant, or `null` when the signature is invalid or beyond grace. A denied renewal
 (401, rotated secret) drops that entry — the state goes static, and recovery is a refetch that mints
 a fresh grant.
@@ -161,4 +161,4 @@ a fresh grant.
 ## What stays manual
 
 - `touch(channelDescriptor, params)` on writes — only the app knows which lists a write invalidates.
-- One `live.serve` per read endpoint — the server can't see what a plain Drizzle read served.
+- One `sync.serve` per read endpoint — the server can't see what a plain Drizzle read served.

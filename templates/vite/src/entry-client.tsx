@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, StoreProvider } from "rxfy-react";
+import { createSyncClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 import { ApiProvider, createApiClient } from "./api-client.js";
 import { App } from "./App.js";
@@ -11,7 +11,7 @@ const registry = createModelRegistry();
 const apiClient = createApiClient(); // browser client: real network trip
 // Grants lifted from the SSR payload (and from client-only fetches) subscribe on this socket; the
 // renew route reissues each grant before it expires so long-lived tabs keep receiving updates.
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry,
   transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
   renewUrl: "/api/live/renew",
@@ -20,7 +20,7 @@ const liveClient = createLiveClient({
 hydrateRoot(
   document.getElementById("root") as HTMLElement,
   <StrictMode>
-    <StoreProvider registry={registry} ssr liveClient={liveClient}>
+    <StoreProvider registry={registry} ssr syncClient={syncClient}>
       <ApiProvider client={apiClient}>
         <BrowserRouter>
           <App />

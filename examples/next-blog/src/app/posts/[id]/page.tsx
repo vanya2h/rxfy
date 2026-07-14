@@ -8,7 +8,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const postId = id as PostId;
   // The in-process fetch returns the post detail plus a `$grant` for its channel; it rides down as
-  // defaultData, and the browser's live client subscribes. parseResponse throws on the API's 404.
+  // defaultData, and the browser's sync client subscribes. parseResponse throws on the API's 404.
   const detail = await parseResponse(serverApi.posts[":id"].$get({ param: { id: postId } })).catch(() => null);
   if (!detail) notFound();
   return <PostView postId={postId} defaultData={detail} />;

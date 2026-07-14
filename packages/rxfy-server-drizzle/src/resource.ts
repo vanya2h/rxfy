@@ -51,7 +51,7 @@ function warnNameMismatch(name: string, modelName: string): void {
   if (isDev() && name !== modelName) {
     console.warn(
       `rxfy-server-drizzle: resource "${name}" has a different model name "${modelName}"; ` +
-        `live entity patches publish under the resource name and will not route to the model store`,
+        `sync entity patches publish under the resource name and will not route to the model store`,
     );
   }
 }

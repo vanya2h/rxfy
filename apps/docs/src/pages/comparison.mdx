@@ -134,9 +134,9 @@ listen to what. rxfy's [framework](/framework/server) ships that pipeline — se
 persist via Drizzle and publish on their own, and the server signs a channel grant per served
 state, delivered in the payload, so the client subscribes with exactly that capability: no
 allow-list to manage. Edits patch the entity cell in place; creates and deletes surface as an
-"updates available" count ([`updatesAvailable$` / `applyUpdates`](/react/live-client)), so
+"updates available" count ([`updatesAvailable$` / `applyUpdates`](/react/sync-client)), so
 the client reloads on its own terms instead of through an eager key invalidation. SSR carries
-this through: `live.hydration` signs a grant per rendered channel next to the dehydrated data,
+this through: `sync.hydration` signs a grant per rendered channel next to the dehydrated data,
 so a server-rendered page subscribes and resumes receiving pushes along with its cache.
 
 **Reach for TanStack Query when** you want a mature, framework-agnostic cache with rich
@@ -162,7 +162,7 @@ app and want real-time sync without re-platforming it.
 ## When rxfy is a good fit
 
 - Your app is driven by **normalized server data** that several views render at once.
-- You want a single live entity update (refetch, mutation, websocket) to reach every
+- You want a single sync entity update (refetch, mutation, websocket) to reach every
   subscriber **without re-fetching or re-selecting**.
 - Changes must **appear across clients as they happen**, and you'd rather not build the push
   layer, its auth, and its transport yourself — the [framework](/framework/server) ships them.

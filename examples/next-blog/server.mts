@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import next from "next";
 import { createWsServer } from "rxfy-ws";
 import { WebSocketServer } from "ws";
-import { hub, SECRET } from "./src/server/live";
+import { hub, SECRET } from "./src/server/sync";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT) || 3000;

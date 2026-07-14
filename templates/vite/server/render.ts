@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ViteDevServer } from "vite";
 import { api } from "./api.js";
-import { live } from "./live.js";
+import { sync } from "./sync.js";
 import type { RenderFn } from "./render-types.js";
 
 export async function renderPage(url: string, vite: ViteDevServer | undefined, isProduction: boolean): Promise<string> {
@@ -19,6 +19,6 @@ export async function renderPage(url: string, vite: ViteDevServer | undefined, i
     const entryUrl = pathToFileURL(path.resolve(process.cwd(), "dist/server/entry-server.js")).href;
     render = (await import(entryUrl)).render;
   }
-  const rendered = await render(url, live, api.request);
+  const rendered = await render(url, sync, api.request);
   return template.replace("<!--app-html-->", () => rendered.html).replace("<!--app-state-->", () => rendered.state);
 }

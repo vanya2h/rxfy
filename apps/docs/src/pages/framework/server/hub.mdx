@@ -1,7 +1,7 @@
 # createInMemoryHub [The socket-keyed pub/sub backbone]
 
 The hub is the pub/sub backbone: it maps **connections** to subscriptions, and forwards
-`ServerMessage` objects from `live.create` / `update` / `delete` to whichever sockets are
+`ServerMessage` objects from `sync.create` / `update` / `delete` to whichever sockets are
 subscribed to the affected topic. Subscription state lives and dies with the socket.
 
 ```ts [server/live.ts]
@@ -35,8 +35,8 @@ type Hub = {
   entries past their `exp` (lazy prune); re-subscribing with a fresh grant extends `exp` in place.
 - `drop` runs when a socket closes — it forgets every subscription that connection held. There is
   no unbound subscription and no TTL to configure: an unsubscribed topic cannot exist because
-  subscribing requires a live socket, and a closed socket's state is dropped immediately. The
+  subscribing requires a sync socket, and a closed socket's state is dropped immediately. The
   client owns durability by replaying its grant set on reconnect.
 
-For grant signing (`live.serve` / `live.hydration`) see [Grants](/framework/server/grants); for
+For grant signing (`sync.serve` / `sync.hydration`) see [Grants](/framework/server/grants); for
 WebSocket delivery and the full transport wiring, see [rxfy-ws](/framework/ws).

@@ -13,7 +13,7 @@ pnpm create rxfy-app my-app
 | Name       | Stack                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------- |
 | `vite-spa` | Client-only Vite + React SPA — one model, one state, no server                              |
-| `vite`     | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy live updates over WebSocket          |
+| `vite`     | Vite SSR + React Router + Hono + Drizzle/PGlite + rxfy sync updates over WebSocket          |
 | `next`     | Next.js App Router — SSR store via RSC prefetch + hydrate, isomorphic fetch, server actions |
 
 Pick non-interactively with `--template`:

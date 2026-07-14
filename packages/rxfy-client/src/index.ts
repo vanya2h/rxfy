@@ -1,2 +1,2 @@
-export * from "./live-client.js";
 export * from "./read-grants.js";
+export * from "./sync-client.js";

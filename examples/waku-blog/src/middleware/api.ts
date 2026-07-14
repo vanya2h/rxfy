@@ -1,9 +1,9 @@
 import type { MiddlewareHandler } from "hono";
 import { app } from "../server/app";
-import { startLiveSocket } from "../server/ws";
+import { startSyncSocket } from "../server/ws";
 
-// waku loads middleware at startup — bring the live WebSocket up with it.
-startLiveSocket();
+// waku loads middleware at startup — bring the sync WebSocket up with it.
+startSyncSocket();
 
 const apiMiddleware = (): MiddlewareHandler => async (c, next) => {
   if (c.req.path.startsWith("/api/")) {

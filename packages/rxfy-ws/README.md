@@ -1,6 +1,6 @@
 # rxfy-ws
 
-The default WebSocket transport for [rxfy](https://rxfy.vanya2h.me) live updates. Bridges a `rxfy-server` hub to WebSocket connections on the server, and rxfy stores to a socket on the client.
+The default WebSocket transport for [rxfy](https://rxfy.vanya2h.me) sync updates. Bridges a `rxfy-server` hub to WebSocket connections on the server, and rxfy stores to a socket on the client.
 
 ## Install
 

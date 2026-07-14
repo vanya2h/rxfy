@@ -4,7 +4,7 @@ import { BehaviorSubject, type Observable } from "rxjs";
 import { readSsrGrants } from "./read-grants.js";
 
 /** Structural transport (satisfied by rxfy-ws/client's ClientTransport). */
-export type LiveTransport = {
+export type SyncTransport = {
   send: (message: ClientMessage) => void;
   onMessage: (handler: (message: ServerMessage) => void) => void;
   onOpen: (handler: () => void) => void;
@@ -15,16 +15,16 @@ export type ChannelCounter = {
   reset: () => void;
 };
 
-export type LiveClient = {
+export type SyncClient = {
   /** Record a grant; sends the subscribe frame and replays it on reconnect and after renewal. */
   subscribe: (grant: string) => void;
   channel: (channel: string) => ChannelCounter;
   stop: () => void;
 };
 
-export type LiveClientConfig = {
+export type SyncClientConfig = {
   registry: IModelRegistry;
-  transport: LiveTransport;
+  transport: SyncTransport;
   /** Renewal endpoint (POST { grants: string[] } -> { grants: (string | null)[] }). Omit to let grants expire. */
   renewUrl?: string;
   /** Renew this long before the soonest expiry. */
@@ -54,7 +54,7 @@ const decodeGrant = (token: string): { ch: string; exp: number } | null => {
  * timer renews grants nearing expiry against `renewUrl`; a denied renewal drops the entry. Patches
  * land in the model stores in place; stales bump the matching channel counter.
  */
-export function createLiveClient(config: LiveClientConfig): LiveClient {
+export function createSyncClient(config: SyncClientConfig): SyncClient {
   const { registry, transport, renewLeadMs = 60_000, now = Date.now } = config;
   const counters = new Map<string, BehaviorSubject<number>>();
   const entries = new Map<string, { grant: string; exp: number }>(); // by channel
@@ -124,7 +124,7 @@ export function createLiveClient(config: LiveClientConfig): LiveClient {
     for (const entry of entries.values()) sendEntry(entry);
   });
 
-  const client: LiveClient = {
+  const client: SyncClient = {
     subscribe(grant) {
       const claims = decodeGrant(grant);
       if (claims === null) return;

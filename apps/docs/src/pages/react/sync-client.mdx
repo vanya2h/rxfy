@@ -1,20 +1,20 @@
-# Sync Client in React [StoreProvider, useLiveClient, and update handles]
+# Sync Client in React [StoreProvider, useSyncClient, and update handles]
 
-The Sync Client itself — [`createLiveClient`](/framework/client) — lives in `rxfy-client` and is
+The Sync Client itself — [`createSyncClient`](/framework/client) — lives in `rxfy-client` and is
 framework-agnostic. This page covers the React side: handing it to `StoreProvider`, reading it with
-`useLiveClient`, and the `updatesAvailable$` / `applyUpdates` handles `useStateData` surfaces once a
+`useSyncClient`, and the `updatesAvailable$` / `applyUpdates` handles `useStateData` surfaces once a
 client is in context.
 
-Build the client from a WebSocket transport, then pass it to `StoreProvider`'s `liveClient` prop
-(`rxfy-react` re-exports `createLiveClient`, so you can import it from either package):
+Build the client from a WebSocket transport, then pass it to `StoreProvider`'s `syncClient` prop
+(`rxfy-react` re-exports `createSyncClient`, so you can import it from either package):
 
 ```tsx [entry-client.tsx]
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, StoreProvider } from "rxfy-react";
+import { createSyncClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 
 const registry = createModelRegistry();
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry,
   transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
   renewUrl: "/api/live/renew",
@@ -22,35 +22,35 @@ const liveClient = createLiveClient({
 
 hydrateRoot(
   document.getElementById("root")!,
-  <StoreProvider registry={registry} ssr liveClient={liveClient}>
+  <StoreProvider registry={registry} ssr syncClient={syncClient}>
     <App />
   </StoreProvider>,
 );
 ```
 
 Once it's in context, `useStateData` uses it automatically: it lifts the `$grant` the server signed
-into each fetch (via `live.serve` / `live.hydration`), hands it to the client with the entity topics
+into each fetch (via `sync.serve` / `sync.hydration`), hands it to the client with the entity topics
 its data normalized into, and the client subscribes. See [rxfy-client](/framework/client) for the
-runtime itself — `createLiveClient`, `readSsrGrants`, reconnection, and grant renewal — and
+runtime itself — `createSyncClient`, `readSsrGrants`, reconnection, and grant renewal — and
 [Grants](/framework/server/grants) for the grant model.
 
-## `StoreProvider` `liveClient` prop
+## `StoreProvider` `syncClient` prop
 
-`liveClient` is optional. When omitted, every `updatesAvailable$` stream emits `0` and `applyUpdates`
+`syncClient` is optional. When omitted, every `updatesAvailable$` stream emits `0` and `applyUpdates`
 falls back to a plain `reload()` — so the same components work with or without the sync stack.
 
-### `useLiveClient`
+### `useSyncClient`
 
 ```ts
-import { useLiveClient } from "rxfy-react";
+import { useSyncClient } from "rxfy-react";
 
 function MyWidget() {
-  const live = useLiveClient(); // LiveClient | null
+  const sync = useSyncClient(); // SyncClient | null
   // ...
 }
 ```
 
-Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient` prop was
+Returns the `SyncClient` from the nearest `StoreProvider`, or `null` when no `syncClient` prop was
 provided. Normally you never call this directly — `useStateData` does it for you — but it is exported
 as an escape hatch for custom transports or direct `channel(name)` access.
 

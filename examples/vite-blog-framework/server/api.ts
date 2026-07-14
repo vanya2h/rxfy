@@ -13,7 +13,7 @@ import { Hono } from "hono";
 import { touch } from "rxfy-server";
 import { commentResource, postResource } from "../src/blog/resources.js";
 import { comments, db, posts, users } from "./db.js";
-import { live } from "./live.js";
+import { sync } from "./sync.js";
 
 const newId = () => crypto.randomUUID();
 
@@ -28,12 +28,12 @@ export const api = new Hono()
     };
     // serve() parses the raw rows through the state's schemas and attaches a signed channel grant as
     // `$grant`; the client lifts it and subscribes on its own WebSocket. Stateless — no request needed.
-    return c.json(live.serve(postsState, {}, data));
+    return c.json(sync.serve(postsState, {}, data));
   })
   .post("/live/renew", async (c) => {
     // The client posts grants nearing expiry; renew() reissues each (or null when denied).
     const { grants } = await c.req.json<{ grants: string[] }>();
-    return c.json({ grants: grants.map((g) => live.renew(g)) });
+    return c.json({ grants: grants.map((g) => sync.renew(g)) });
   })
   .get("/posts/:id", async (c) => {
     const postId = c.req.param("id") as PostId;
@@ -42,11 +42,11 @@ export const api = new Hono()
     const [author] = await db.select().from(users).where(eq(users.id, post.userId));
     const postComments = await db.select().from(comments).where(eq(comments.postId, postId));
     const data = { post, author, comments: postComments };
-    return c.json(live.serve(postDetailState, { postId }, data));
+    return c.json(sync.serve(postDetailState, { postId }, data));
   })
   .post("/posts", zValidator("json", CreatePostInputSchema), async (c) => {
     const { userId, title, body } = c.req.valid("json");
-    const row = await live.create(
+    const row = await sync.create(
       postResource,
       { id: newId(), userId, title, body },
       { touch: [touch(postsState, {})] },
@@ -55,18 +55,18 @@ export const api = new Hono()
   })
   .patch("/posts/:id", zValidator("json", UpdatePostInputSchema), async (c) => {
     const patch = c.req.valid("json");
-    const row = await live.update(postResource, c.req.param("id"), patch);
+    const row = await sync.update(postResource, c.req.param("id"), patch);
     if (!row) return c.json({ error: "not found" }, 404);
     return c.json(row);
   })
   .delete("/posts/:id", async (c) => {
-    await live.delete(postResource, c.req.param("id"), { touch: [touch(postsState, {})] });
+    await sync.delete(postResource, c.req.param("id"), { touch: [touch(postsState, {})] });
     return c.json({ ok: true });
   })
   .post("/posts/:id/comments", zValidator("json", CreateCommentInputSchema), async (c) => {
     const postId = c.req.param("id");
     const { name, body } = c.req.valid("json");
-    const row = await live.create(
+    const row = await sync.create(
       commentResource,
       { id: newId(), postId, name, body },
       { touch: [touch(postDetailState, { postId })] },
@@ -75,13 +75,13 @@ export const api = new Hono()
   })
   .patch("/comments/:id", zValidator("json", UpdateCommentInputSchema), async (c) => {
     const patch = c.req.valid("json");
-    const row = await live.update(commentResource, c.req.param("id"), patch);
+    const row = await sync.update(commentResource, c.req.param("id"), patch);
     if (!row) return c.json({ error: "not found" }, 404);
     return c.json(row);
   })
   .delete("/posts/:postId/comments/:id", async (c) => {
     const postId = c.req.param("postId");
-    await live.delete(commentResource, c.req.param("id"), { touch: [touch(postDetailState, { postId })] });
+    await sync.delete(commentResource, c.req.param("id"), { touch: [touch(postDetailState, { postId })] });
     return c.json({ ok: true });
   });
 

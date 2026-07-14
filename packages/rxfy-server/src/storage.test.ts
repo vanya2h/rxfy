@@ -1,6 +1,6 @@
 import type { ModelDescriptor } from "rxfy";
 import { describe, expectTypeOf, it } from "vitest";
-import type { LiveStorage, Resource } from "./storage.js";
+import type { Resource, SyncStorage } from "./storage.js";
 
 describe("storage types", () => {
   it("Resource carries insert/row/binding params", () => {
@@ -10,7 +10,7 @@ describe("storage types", () => {
     expectTypeOf<R["model"]>().toEqualTypeOf<ModelDescriptor<{ id: string; n: number }>>();
   });
 
-  it("LiveStorage is generic over the binding", () => {
-    expectTypeOf<LiveStorage<{ tag: "x" }>["create"]>().parameter(0).toEqualTypeOf<{ tag: "x" }>();
+  it("SyncStorage is generic over the binding", () => {
+    expectTypeOf<SyncStorage<{ tag: "x" }>["create"]>().parameter(0).toEqualTypeOf<{ tag: "x" }>();
   });
 });

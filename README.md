@@ -26,7 +26,7 @@ rxfy doesn't invent a reactivity system — it's built on [RxJS](https://rxjs.de
 # client-only store setup
 npx skills add vanya2h/rxfy --skill rxfy
 
-# live-app (framework) setup
+# sync app (framework) setup
 npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 
@@ -38,11 +38,11 @@ Installs one of two agent skills for AI coding assistants — `rxfy` (store + Re
 | ----------------------------------------------------- | --------------------------------------------------------------------------- |
 | [`rxfy`](packages/rxfy)                               | Core library: Atom, Lens, Wrapped, Models/States API, SSR dehydrate/hydrate |
 | [`rxfy-react`](packages/rxfy-react)                   | Official React bindings (`rxfy-react/next` for Next.js App Router)          |
-| [`rxfy-server`](packages/rxfy-server)                 | Storage-agnostic live server: write + publish, signed grants                |
+| [`rxfy-server`](packages/rxfy-server)                 | Storage-agnostic sync server: write + publish, signed grants                |
 | [`rxfy-server-drizzle`](packages/rxfy-server-drizzle) | Drizzle/Postgres storage adapter (`defineResource`, `drizzleStorage`)       |
 | [`rxfy-server-memory`](packages/rxfy-server-memory)   | In-memory storage adapter (`defineCollection`, `memoryStorage`)             |
-| [`rxfy-client`](packages/rxfy-client)                 | Framework-agnostic browser live runtime: grant custody, renewal, replay     |
-| [`rxfy-protocol`](packages/rxfy-protocol)             | Wire protocol and codec for live updates                                    |
+| [`rxfy-client`](packages/rxfy-client)                 | Framework-agnostic browser sync runtime: grant custody, renewal, replay     |
+| [`rxfy-protocol`](packages/rxfy-protocol)             | Wire protocol and codec for sync updates                                    |
 | [`rxfy-ws`](packages/rxfy-ws)                         | Default WebSocket transport (client + server)                               |
 
 ## Install
@@ -72,7 +72,7 @@ npm install rxfy rxfy-react
 
 - [rxfy](https://rxfy.vanya2h.me/rxfy) — `createAtom`, `createLens`, `createModel`, `defineState`
 - [rxfy-react](https://rxfy.vanya2h.me/react)
-- [rxfy-client](https://rxfy.vanya2h.me/framework/client) — `createLiveClient`, `readSsrGrants`
+- [rxfy-client](https://rxfy.vanya2h.me/framework/client) — `createSyncClient`, `readSsrGrants`
 - [rxfy-server](https://rxfy.vanya2h.me/framework/server) — including [storage adapters](https://rxfy.vanya2h.me/framework/server/storage-adapters)
 - [rxfy-ws](https://rxfy.vanya2h.me/framework/ws)
 - [rxfy package README](packages/rxfy/README.md)

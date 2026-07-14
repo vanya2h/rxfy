@@ -6,7 +6,7 @@ import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
 import { ApiProvider, createApiClient } from "./blog/api-client";
 import { app } from "./server/app";
-import { live } from "./server/live";
+import { sync } from "./server/sync";
 
 const ABORT_DELAY = 10_000;
 
@@ -39,10 +39,10 @@ export default function handleRequest(
           body.on("end", () => {
             const rendered = Buffer.concat(chunks).toString("utf8");
             // useStateData logged each rendered state's served grant into the registry during SSR;
-            // live.hydration() embeds them alongside the dehydrated registry — injected just
+            // sync.hydration() embeds them alongside the dehydrated registry — injected just
             // before </body> so it runs before RR's deferred client module hydrates. The client
             // lifts the grants and subscribes on its own socket.
-            const script = live.hydration(registry);
+            const script = sync.hydration(registry);
             const html = rendered.replace("</body>", `${script}</body>`);
 
             responseHeaders.set("Content-Type", "text/html");

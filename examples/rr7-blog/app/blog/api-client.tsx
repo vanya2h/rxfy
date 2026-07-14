@@ -12,7 +12,7 @@ export type ApiClient = ReturnType<typeof createApiClient>;
  * The typed RPC client over the hono endpoints — the single source of truth for reads and writes.
  * In the browser it makes a real network trip; during SSR the server entry passes its in-process
  * `app.request`, so the same routes serve both environments — no server imports in this module,
- * no duplicated queries. Live subscriptions ride channel grants (returned in the payload as
+ * no duplicated queries. Sync subscriptions ride channel grants (returned in the payload as
  * `$grant`), so the client carries no session header. `.api` unwraps the app's `/api` basePath.
  */
 export function createApiClient(serverFetch?: ApiFetch) {

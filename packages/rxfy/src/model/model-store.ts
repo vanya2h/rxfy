@@ -63,7 +63,7 @@ export type IModelRegistry<TModels extends ModelsShape = any> = {
   /**
    * Every entity added to any store, tagged with the model's `name` (the half of a `name:key`
    * topic). Replays what's already in the registry to new subscribers, and follows stores
-   * created after subscribe. Useful for driving side effects off entity arrivals; live updates
+   * created after subscribe. Useful for driving side effects off entity arrivals; sync updates
    * subscribe to entity topics derived from the served payload, not per entity here.
    */
   added$: Observable<{ name: string; key: string }>;
