@@ -1,22 +1,22 @@
 # Add Sync Client [The full stack: the server publishes, the client syncs]
 
-This is the third rung of the ladder. On top of your [store](/getting-started/create-store)
+This is the third level. On top of your [store](/getting-started/create-store)
 and [SSR](/getting-started/add-ssr), a **Sync Client** keeps every connected browser in
 sync in real time. The server owns writes: it applies a change, then publishes the new
 entity value automatically; every client writes that value into its shared store, and every
 component subscribed to that entity re-renders. Same store, same components — nothing in
-`useStateData` or `useModelStore` is sync-aware — the write just arrives over the wire
-instead of from a local call.
+`useStateData` or `useModelStore` is sync-aware — the write just arrives and propagates to the view-layer.
 
 This page wires the whole loop: the server, the socket, writes, and the browser Sync Client,
 then watches an edit land in another tab. Prefer to start from a working app? Scaffold one
 with [`create-rxfy-app`](/getting-started) (the `vite` template is this exact stack).
 
-:::note[Is this rung for you?]
-The Sync Client fits best when you're starting a new app, or when your backend already runs
-on Node with [Drizzle](https://orm.drizzle.team) — `rxfy-server` binds synced resources
-directly to Drizzle tables. With a different backend stack, stay on the
-[Create Store](/getting-started/create-store) rung and fetch your API your way; you can
+:::note[Is this level for you?]
+The Sync Client fits best when you're starting a new app, or when your backend runs on Node.
+`rxfy-server` reaches your database through a **storage adapter**, so it binds synced resources
+directly to your tables. [Drizzle](https://orm.drizzle.team) (via `rxfy-server-drizzle`) is the
+adapter shown here, with more data providers on the way. On a stack no adapter covers yet, stay
+on the [Create Store](/getting-started/create-store) level and fetch your API your way — you can
 still [Add SSR](/getting-started/add-ssr) without the sync stack.
 :::
 
@@ -55,17 +55,50 @@ bun add rxjs zod lodash drizzle-orm drizzle-zod ws
 
 ## Bind tables to models
 
-A resource pairs a Drizzle table with the rxfy model that governs it — the model's name
-becomes the sync topic namespace, and its `getKey` locates the primary key. The registry
-gives the server one object to route events through:
+Three small files: the Drizzle table, the rxfy model that governs it, and the resource that
+pairs them. The model's Zod schema is derived straight from the table with `drizzle-zod`, so
+the shape is defined once; the model's `name` becomes the sync topic namespace and its `getKey`
+locates the primary key; `defineResource` (from `rxfy-server-drizzle`) binds the two:
+
+:::code-group
 
 ```ts [src/resources.ts]
 import { defineResource } from "rxfy-server-drizzle";
 import { postModel } from "./models.js";
 import { posts } from "./db/schema.js";
 
-export const postResource = defineResource({ table: posts, model: postModel });
+export const postResource = defineResource({
+  table: posts,
+  model: postModel,
+});
 ```
+
+```ts [src/db/schema.ts]
+import { pgTable, text } from "drizzle-orm/pg-core";
+
+// Ordinary Drizzle — nothing rxfy-specific here.
+export const posts = pgTable("posts", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+});
+```
+
+```ts [src/models.ts]
+import { createModel } from "rxfy";
+import { createSelectSchema } from "drizzle-zod";
+import { posts } from "./db/schema.js";
+
+// `name` is the sync topic namespace; `getKey` locates the entity id.
+export const postModel = createModel({
+  // Derive the Zod schema straight from the table — the shape is defined once.
+  schema: createSelectSchema(posts),
+  getKey: (post) => post.id,
+  name: "post",
+});
+```
+
+:::
 
 ## Stand up the sync server
 
@@ -78,10 +111,11 @@ import { createInMemoryHub, createLive } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-export const hub = createInMemoryHub();
-export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
-
-export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
+export const live = createLive({
+  storage: drizzleStorage(db),
+  hub: createInMemoryHub(),
+  secret: process.env.RXFY_SECRET ?? "dev-secret-change-me",
+});
 ```
 
 - `createInMemoryHub` — the pub/sub backbone for one process, keyed by **socket**; swap it
@@ -132,34 +166,109 @@ await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
 
 ## Fetch through the same endpoints
 
-The client never imports server code. The scaffold's `src/api-client.tsx` exports
-`createApiClient(serverFetch?)` — the typed `hc<AppType>` RPC client over the hono routes, and
-the single source of truth for reads and writes in both environments:
+The client never imports server code — it calls your Hono routes through Hono's typed
+`hc<AppType>` RPC client, the single source of truth for reads and writes. There's no wrapper to
+write: `AppType` is just the type of your Hono app — export it once on the server, then
+instantiate `hc<AppType>` wherever you mount the client:
 
-```ts [src/api-client.tsx (core)]
-export function createApiClient(serverFetch?: ApiFetch) {
-  return serverFetch
-    ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) // SSR: hono's in-process app.request
-    : hc<AppType>("/api"); // browser: plain network trip
+:::code-group
+
+```ts [src/api.ts (client)]
+import { hc } from "hono/client";
+import type { AppType } from "../server/api";
+
+// Browser: a plain network trip to /api, fully typed from the routes above.
+export const api = hc<AppType>("/api");
+```
+
+```ts [server/api.ts]
+import { Hono } from "hono";
+
+// Chaining the routes is what carries their input/output types to the client.
+export const api = new Hono()
+  .get("/posts", (c) => c.json({ posts: [] as Post[] }))
+  .post("/posts", async (c) => c.json(await createPost(await c.req.json())));
+
+// `AppType` is the type of the whole chained app — the only thing the client imports.
+export type AppType = typeof api;
+```
+
+:::
+
+During SSR you create the same client against Hono's in-process `app.request` instead of the
+network, so fetches never leave the process. The server handler passes `app.request` into the
+render as `apiFetch`, exactly the way it passes `live`; the entry builds the SSR client from it and
+embeds sync grants with `live.hydration(registry)` — the only change from the plain
+[Add SSR](/getting-started/add-ssr) render, which used `dehydrate` / `hydrationScript`:
+
+:::code-group
+
+```tsx [src/entry-server.tsx]
+import { PassThrough } from "node:stream";
+import { renderToPipeableStream } from "react-dom/server";
+import { hc } from "hono/client";
+import type { Live } from "rxfy-server";
+import { createModelRegistry } from "rxfy";
+import { StoreProvider } from "rxfy-react";
+import type { AppType } from "../server/api";
+import { ApiProvider } from "./api-client.js";
+import { App } from "./App.js";
+
+// `live` is your createLive() object; `apiFetch` is Hono's in-process `app.request`.
+export function render(url: string, live: Live, apiFetch: typeof fetch) {
+  const registry = createModelRegistry();
+  const api = hc<AppType>("http://ssr.internal", { fetch: apiFetch }); // in-process, no network hop
+
+  return new Promise<{ html: string; state: string }>((resolve, reject) => {
+    const { pipe } = renderToPipeableStream(
+      <StoreProvider registry={registry} ssr>
+        <ApiProvider client={api}>
+          <App url={url} />
+        </ApiProvider>
+      </StoreProvider>,
+      {
+        onAllReady() {
+          const sink = new PassThrough();
+          let html = "";
+          sink.on("data", (chunk: Buffer) => (html += chunk));
+          // Same buffering as Add SSR — but embed signed sync grants, not a plain snapshot.
+          sink.on("end", () => resolve({ html, state: live.hydration(registry) }));
+          pipe(sink);
+        },
+        onError: reject,
+      },
+    );
+  });
 }
 ```
 
-During SSR the server side passes hono's in-process `app.request` into the render —
-`render(url, live, api.request)`, exactly like `live` — so the entry builds
-`createApiClient(apiFetch)` and SSR fetches are answered by the same routes without touching the
-network. The entry wraps the tree in `<ApiProvider client={apiClient}>`, and `useApi()` hands
-components the typed client — they call endpoints directly, for reads and writes alike
-(`useStateData` intentionally ignores `fetchFn` identity, so inline async arrows are fine):
+```ts [server/index.ts]
+// The catch-all HTML route wires `live` and the in-process `app.request` into the render.
+app.get("*", async (c) => {
+  const { html, state } = await render(c.req.path, live, app.request);
+  return c.html(injectIntoTemplate(html, state)); // fills <!--app-html--> / <!--app-state-->
+});
+```
 
-```tsx [src/pages/TodosPage.tsx (abbreviated)]
+:::
+
+Provide the client through `<ApiProvider>` and read it with `useApi()` — components call endpoints
+directly, for reads and writes alike (`useStateData` intentionally ignores `fetchFn` identity, so
+inline async arrows are fine):
+
+```tsx [src/pages/PostsPage.tsx (abbreviated)]
+import { useStateData } from "rxfy-react";
+import { useApi } from "../api-client.js"; // the ApiProvider context from above
+import { postsState } from "../states.js"; // your defineState from the Create Store level
+
 const api = useApi();
 const { data$, updatesAvailable$, applyUpdates } = useStateData({
-  state: todosState,
-  fetchFn: async () => (await api.todos.$get()).json(),
+  state: postsState,
+  fetchFn: async () => (await api.posts.$get()).json(),
   params: {},
 });
 // writes call the endpoint directly
-void api.todos.$post({ json: { title: next } }).then(() => applyUpdates());
+void api.posts.$post({ json: { title, body } }).then(() => applyUpdates());
 ```
 
 ## Add the Sync Client
@@ -171,10 +280,12 @@ exactly as they were on the store path:
 import { createModelRegistry } from "rxfy";
 import { createLiveClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
-import { ApiProvider, createApiClient } from "./api-client.js";
+import { hc } from "hono/client";
+import type { AppType } from "../server/api";
+import { ApiProvider } from "./api-client.js";
 
 const registry = createModelRegistry();
-const apiClient = createApiClient(); // browser client: plain network trip
+const apiClient = hc<AppType>("/api"); // browser client: plain network trip
 const liveClient = createLiveClient({
   registry,
   transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
@@ -208,7 +319,7 @@ one route you add to your Hono app, behind your own auth, that reissues each gra
 
 See [Grants](/framework/server/grants).
 
-## Open two tabs
+## How it works
 
 Edit a post in tab A. Tab B updates in place — no spinner, no reload, no code in the
 component asking for it.
@@ -228,21 +339,66 @@ Edits travel as `patch`; creates and deletes instead mark the lists that referen
 entity as `stale`, surfacing a "click to refresh" badge. The two message kinds — and why
 lists aren't updated in place — are covered in [Sync messages](/framework/server/messages).
 
+## Click to refresh on `stale`
+
+A `patch` merges itself — the entity is already in the store, so subscribed components just
+re-render. A create or delete can't be merged blindly into a list you might be paginating or
+sorting, so it arrives as `stale` instead: `useStateData` bumps the handle's `updatesAvailable$`
+counter and leaves the current list untouched. You decide when to reload.
+
+The idiomatic UI is a small badge that unwraps `updatesAvailable$` at the leaf with
+[`Pending`](/react/pending) and calls `applyUpdates()` on click — which resets the counter and
+re-fetches the list in place. It pulls both off its own `useStateData` handle for `postsState`;
+the update counter is shared per state channel, so the badge stays self-contained with no props
+to thread. Unwrapping late keeps the re-render scoped to the badge:
+
+```tsx [src/pages/UpdatesBadge.tsx]
+import { Pending, useStateData } from "rxfy-react";
+import { useApi } from "../api-client.js"; // the ApiProvider context from earlier
+import { postsState } from "../states.js"; // your defineState from the Create Store level
+
+export function UpdatesBadge() {
+  const api = useApi();
+  const { updatesAvailable$, applyUpdates } = useStateData({
+    state: postsState,
+    fetchFn: async () => (await api.posts.$get()).json(),
+    params: {},
+  });
+
+  return (
+    <Pending value$={updatesAvailable$} getDefaultValue={() => 0}>
+      {(n) =>
+        n > 0 ? (
+          <button onClick={applyUpdates}>
+            {n} new post{n === 1 ? "" : "s"} · refresh
+          </button>
+        ) : null
+      }
+    </Pending>
+  );
+}
+```
+
+Drop `<UpdatesBadge />` anywhere above your list — no props to thread. With no Sync Client in
+context, `updatesAvailable$` simply stays at `0` and the badge renders nothing, so the same
+component works with or without the sync stack. See
+[`updatesAvailable$` / `applyUpdates`](/react/live-client) for the full handle API.
+
 ## Next steps
 
-Go deeper on the concepts and each piece of the loop:
+Go deeper on the ideas underneath everything you just wired:
 
-- [Sync messages](/framework/server/messages): `patch` vs `stale`, and what travels on the wire.
-- [rxfy-server](/framework/server): `defineResource`, `createLive`, writes, and `live.serve` /
-  `live.hydration` in full.
-- [rxfy-ws](/framework/ws): the WebSocket transport on both sides, and bringing your own.
-- [Grants](/framework/server/grants): how the server signs a grant for exactly what it served,
-  and how the client subscribes and renews.
-- [Sync Client](/react/live-client): `createLiveClient`, reconnection, and stale handling in React.
+- [Observables](/core-concepts/observables) — the value-over-time mental model behind `Atom` and
+  `data$` that everything downstream subscribes to.
+- [Normalization](/core-concepts/normalization) — why `data$` emits ids, and how one store keeps
+  every view of an entity in sync.
+- [Late Unwrapping](/core-concepts/late-unwrapping) — keep values wrapped until the leaf, so a
+  write re-renders only what changed.
+- [Server-Side Rendering](/core-concepts/ssr) — `dehydrate` / `hydrate` in full, plus streaming
+  and two-pass modes.
 
-Then build the whole thing end to end: the [Sync blog guide](/guides/sync-blog) walks
-through the runnable [`vite-blog-framework`](/examples) example — schema, server, sockets,
-SSR grants, and both sync behaviors in two tabs.
+Or see it running end to end: the [Examples](/examples) index collects runnable apps from
+client-only all the way to fully synced.
 
 :::tip
 Not ready for a server? Everything above sits on the store concepts — the

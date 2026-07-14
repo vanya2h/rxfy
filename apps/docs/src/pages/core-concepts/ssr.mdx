@@ -192,7 +192,7 @@ In the common path you never call `hydrate` directly — the embedded script pop
 
 Synced apps use a different entry point for the same idea: [`live.hydration(registry)`](/framework/server/grants)
 signs one grant per rendered channel, embeds them alongside the dehydrated data, and returns the
-hydration script in one call — the client lifts them with [`readSsrGrants`](/react/live-client)
+hydration script in one call — the client lifts them with [`readSsrGrants`](/framework/client/read-ssr-grants)
 and subscribes, instead of calling `dehydrate` / `hydrationScript` directly.
 
 ## Error handling

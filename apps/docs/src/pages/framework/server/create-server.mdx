@@ -3,8 +3,9 @@
 `createLive` wires together a storage adapter, hub, and signing secret into a
 `Live` object with typed write methods plus the grant calls `serve`, `renew`, and `hydration`.
 
-`storage` is a `LiveStorage` adapter — `drizzleStorage(db)` from `rxfy-server-drizzle` for a
-Drizzle-backed app, or `memoryStorage()` from `rxfy-server-memory` for an in-memory one — and
+`storage` is a [`LiveStorage` adapter](/framework/server/storage-adapters) — `drizzleStorage(db)` from
+`rxfy-server-drizzle` for a Drizzle-backed app, or `memoryStorage()` from `rxfy-server-memory` for an
+in-memory one — and
 `secret` is the HMAC key used to sign and verify [channel grants](/framework/server/grants) —
 share it with the WebSocket server. The writers (`create` / `update` / `delete`) delegate to the
 adapter, so core `rxfy-server` never imports Drizzle. The tabs below show them:
@@ -16,15 +17,17 @@ import { createInMemoryHub, createLive } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-// The hub holds sync socket subscriptions, so there must be exactly ONE instance. entry-server
-// receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
-// graph never instantiates a second hub.
-export const hub = createInMemoryHub();
+export const live = createLive({
+  storage: drizzleStorage(db),
 
-// Signs/verifies channel grants — shared with the WebSocket server. Override via RXFY_SECRET.
-export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
+  // The hub holds sync socket subscriptions, so there must be exactly ONE instance. entry-server
+  // receives `live` as a parameter instead of importing this module, so a separate Vite SSR module
+  // graph never instantiates a second hub.
+  hub: createInMemoryHub(),
 
-export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
+  // Signs/verifies channel grants — shared with the WebSocket server. Override via RXFY_SECRET.
+  secret: process.env.RXFY_SECRET ?? "dev-secret-change-me",
+});
 ```
 
 ```ts [src/blog/resources.ts]

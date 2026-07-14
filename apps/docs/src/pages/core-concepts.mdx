@@ -3,8 +3,10 @@
 Understanding-oriented pages: the principles behind rxfy and how the pieces fit together.
 For the API surface of each primitive, see the [rxfy](/rxfy) package section.
 
+- [Observables](/core-concepts/observables) — the pattern the rest of rxfy assumes: a value that
+  changes over time and that you subscribe to. Read this first if RxJS is new to you.
 - [Normalization](/core-concepts/normalization) — the principle behind rxfy: one keyed cell per
-  entity, referenced by id everywhere else. Read this first.
+  entity, referenced by id everywhere else.
 - [Late Unwrapping](/core-concepts/late-unwrapping) — why async state travels wrapped and unwraps
   only at the leaf that renders it, so re-renders stay narrow and writes never wait on reads.
 - [Server-Side Rendering](/core-concepts/ssr) — how a per-request registry is dehydrated into

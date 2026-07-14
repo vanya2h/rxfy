@@ -1,58 +1,24 @@
-# Sync Client [Wire a WebSocket transport into StoreProvider]
+# Sync Client in React [StoreProvider, useLiveClient, and update handles]
 
-`createLiveClient` connects a WebSocket transport to a `ModelRegistry` so inbound server
-pushes land in the normalized stores and per-state update counters tick up. Pass the result
-to `StoreProvider`'s `liveClient` prop; `useStateData` reads it automatically and surfaces
-`updatesAvailable$` / `applyUpdates` on every handle.
+The Sync Client itself — [`createLiveClient`](/framework/client) — lives in `rxfy-client` and is
+framework-agnostic. This page covers the React side: handing it to `StoreProvider`, reading it with
+`useLiveClient`, and the `updatesAvailable$` / `applyUpdates` handles `useStateData` surfaces once a
+client is in context.
 
-Its subscriptions ride the payload: `useStateData` lifts the `$grant` the server signed into each
-fetch result (via `live.serve` / `live.hydration`) and hands the Sync Client the grant plus the
-entity topics its data normalized into. The client presents them on the wire as `subscribe` frames.
+Build the client from a WebSocket transport, then pass it to `StoreProvider`'s `liveClient` prop
+(`rxfy-react` re-exports `createLiveClient`, so you can import it from either package):
 
-## `createLiveClient`
+```tsx [entry-client.tsx]
+import { createModelRegistry } from "rxfy";
+import { createLiveClient, StoreProvider } from "rxfy-react";
+import { createWsClient } from "rxfy-ws/client";
 
-```ts
-import { createLiveClient } from "rxfy-client";
-
+const registry = createModelRegistry();
 const liveClient = createLiveClient({
-  registry, // IModelRegistry — the same one passed to StoreProvider
-  transport, // ClientTransport — e.g. createWsClient() from rxfy-ws/client
-  renewUrl, // optional — the app's grant-renewal endpoint, e.g. "/api/live/renew"
-  renewLeadMs, // optional — how far before expiry to renew (default is a sensible lead)
+  registry,
+  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
+  renewUrl: "/api/live/renew",
 });
-```
-
-`createLiveClient` and `readSsrGrants` below live in `rxfy-client`, the framework-agnostic
-browser sync runtime — nothing in them is React-specific, so they work from vanilla JS, Vue, or
-Svelte too. `rxfy-react` re-exports them for convenience, so either import path works.
-
-There is no `session` option: the client never carries a session id. Each grant is a stateless
-signed capability the client presents on the wire; the server verifies it rather than looking up a
-session it minted (see [Grants](/framework/server/grants)).
-
-**What `createLiveClient` does:**
-
-- Records each lifted `$grant` together with the entity topics its payload normalized into, and
-  sends a `subscribe` frame carrying the grant plus those topics — the client's entire outbound
-  protocol.
-- Calls `transport.onMessage` once. Incoming `"patch"` messages are applied directly to
-  the named model store (`registry.namedStores().get(name)?.set(id, data)`); incoming
-  `"stale"` messages increment the matching channel counter.
-- Renews grants near their expiry by POSTing the expiring grants to `renewUrl` (which runs the
-  app's own auth) and re-subscribing with the reissued grants. A denied renewal drops the entry,
-  and that state goes static until a refetch mints a fresh grant.
-- Replays its full grant set on reconnect, via the transport's `onOpen` handler.
-- Exposes `subscribe(grant, entities)` and `channel(name)` — the latter returns a `ChannelCounter`
-  (`{ available$: Observable<number>, reset: () => void }`) that `useStateData` calls internally
-  for each keyed state.
-- Exposes `stop()` — completes all channel counters and stops the renewal loop.
-
-## `StoreProvider` `liveClient` prop
-
-Pass the Sync Client to `StoreProvider` alongside the registry:
-
-```tsx
-import { StoreProvider } from "rxfy-react";
 
 hydrateRoot(
   document.getElementById("root")!,
@@ -62,8 +28,16 @@ hydrateRoot(
 );
 ```
 
-`liveClient` is optional. When omitted, every `updatesAvailable$` stream emits `0` and
-`applyUpdates` falls back to a plain `reload()`.
+Once it's in context, `useStateData` uses it automatically: it lifts the `$grant` the server signed
+into each fetch (via `live.serve` / `live.hydration`), hands it to the client with the entity topics
+its data normalized into, and the client subscribes. See [rxfy-client](/framework/client) for the
+runtime itself — `createLiveClient`, `readSsrGrants`, reconnection, and grant renewal — and
+[Grants](/framework/server/grants) for the grant model.
+
+## `StoreProvider` `liveClient` prop
+
+`liveClient` is optional. When omitted, every `updatesAvailable$` stream emits `0` and `applyUpdates`
+falls back to a plain `reload()` — so the same components work with or without the sync stack.
 
 ### `useLiveClient`
 
@@ -76,9 +50,9 @@ function MyWidget() {
 }
 ```
 
-Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient`
-prop was provided. Normally you never call this directly — `useStateData` does it for you —
-but it is exported as an escape hatch for custom transports or direct `channel(name)` access.
+Returns the `LiveClient` from the nearest `StoreProvider`, or `null` when no `liveClient` prop was
+provided. Normally you never call this directly — `useStateData` does it for you — but it is exported
+as an escape hatch for custom transports or direct `channel(name)` access.
 
 ## `updatesAvailable$` / `applyUpdates`
 
@@ -92,60 +66,13 @@ const { data$, updatesAvailable$, applyUpdates } = useStateData({
 });
 ```
 
-`updatesAvailable$` is an `Observable<number>` that starts at `0` and increments each time
-the server sends a `stale` message for this state's channel. When no Sync
-Client is present it stays `0`.
+`updatesAvailable$` is an `Observable<number>` that starts at `0` and increments each time the server
+sends a `stale` message for this state's channel. When no Sync Client is present it stays `0`.
 
-`applyUpdates()` resets the counter to `0` and calls `reload()` — triggering a fresh
-fetch and updating `data$` in place.
+`applyUpdates()` resets the counter to `0` and calls `reload()` — triggering a fresh fetch and updating
+`data$` in place.
 
-**Blog example**: `PostList` renders an `UpdatesBadge` that subscribes
-to `updatesAvailable$` with `useObservable` and shows a "N new posts · refresh" button
-when the count is above zero. Clicking it calls `applyUpdates`:
-
-```tsx
-// UpdatesBadge.tsx (abbreviated)
-const n = useObservable(available$, 0);
-if (n <= 0) return null;
-return (
-  <button onClick={onApply}>
-    {n} new {noun}
-    {n === 1 ? "" : "s"} · refresh
-  </button>
-);
-
-// PostList.tsx
-<UpdatesBadge available$={handle.updatesAvailable$} onApply={handle.applyUpdates} noun="post" />;
-```
-
-`applyUpdates` is also used as the `onCreated` / `onDeleted` callback in mutation forms so
-that local writes reset the counter and re-fetch in one step.
-
-## `readSsrGrants`
-
-```ts
-import { readSsrGrants } from "rxfy-client";
-
-const grants = readSsrGrants(); // string[]
-```
-
-Returns the grants embedded in the SSR hydration payload — one per channel the server render
-logged into (`live.hydration(registry)` signs them). These are the grants the client lifts and
-subscribes to on hydration, so the first paint stays in sync without a round trip. On a CSR-only
-load there is no SSR chunk to read and it returns an empty array; grants then arrive with each
-`useStateData` fetch instead. You rarely call this directly — `useStateData` and the Sync Client
-handle it — but it is exported for custom hydration wiring.
-
-Putting it together in the client entry:
-
-```ts
-const liveClient = createLiveClient({
-  registry,
-  transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
-  renewUrl: "/api/live/renew",
-});
-```
-
-There is no session to track: each grant is a self-contained signed capability the client presents
-on the wire, and the server verifies it and pushes updates for exactly that channel. For how the
-server signs, renews, and verifies grants, see [Grants](/framework/server/grants).
+Render a badge that unwraps `updatesAvailable$` at the leaf with [`Pending`](/react/pending) and calls
+`applyUpdates` on click — the [Add Sync Client](/getting-started/add-sync-client) guide builds the full
+component. `applyUpdates` also works as the `onCreated` / `onDeleted` callback in mutation forms, so a
+local write resets the counter and re-fetches in one step.

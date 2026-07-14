@@ -334,8 +334,8 @@ Overwrite `apps/docs/src/pages/getting-started.mdx` with this exact content:
 ````mdx
 # Getting Started
 
-rxfy is one store that scales with you. Start client-only, then climb the ladder as far as
-your app needs: **Create Store → Add SSR → Add Sync Client**. Each rung is additive — the
+rxfy is one store that scales with you. Start client-only, then go as far as
+your app needs: **Create Store → Add SSR → Add Sync Client**. Each level is additive — the
 store you build in the first guide is the same store SSR renders and the Sync Client keeps
 live. Pick where you are:
 

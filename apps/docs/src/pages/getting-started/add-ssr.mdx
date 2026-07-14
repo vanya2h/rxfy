@@ -1,13 +1,13 @@
 # Add SSR [Render the first paint on the server, hydrate with no refetch]
 
-This is the second rung of the ladder. You have a working store from
+This is the second level. You have a working store from
 [Create Store](/getting-started/create-store); now render it on the server so the first
 paint arrives already fulfilled — no loading flash, no refetch, no hydration mismatch. There
-is still **no server yet pushing updates**; that is the next rung,
+is still **no server yet pushing updates**; that is the next level,
 [Add Sync Client](/getting-started/add-sync-client).
 
-Nothing in your components changes. They declare data with `useStateData` exactly as before;
-on the server a cache miss suspends until the fetch settles, the result is captured in the
+Nothing in your components changes. They declare data with [`useStateData`](/react/use-state-data) exactly as before;
+all the data is fetched on server and can be cached with any logic you might need, the result is captured in the
 registry, serialized into the HTML, and ingested on the client.
 
 :::info[Requirements]
@@ -102,10 +102,8 @@ hydrateRoot(
 Reload the page with the network throttled: the content is in the initial HTML, and the
 client hydrates it without a second fetch.
 
-## Next steps
+## Next: Add Sync Client
 
-- [Server-Side Rendering](/core-concepts/ssr): the concept in full — two-pass mode for strict
-  `renderToString`, streaming mode for Next.js App Router, the `dehydrate`/`hydrate`/
-  `hydrationScript` helpers, and error handling.
-- [Add Sync Client](/getting-started/add-sync-client): the third rung — a server that writes
-  and publishes, and a client that subscribes and applies real-time updates.
+Your store now survives a page load. The last level is
+[Add Sync Client](/getting-started/add-sync-client) — a server that writes and publishes, and
+a client that subscribes and applies real-time updates.

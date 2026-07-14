@@ -53,7 +53,7 @@ wrapping. `useStateData` already returns the payload to the framework; after `fe
 Sync Client strips `$grant`, normalizes the rest, and sends one `subscribe` frame carrying just the
 grant. The grant's claims authorize both the channel and the exact entity topics it was signed for,
 so the server subscribes the socket to precisely those. SSR grants take the same path via
-[`readSsrGrants`](/react/live-client).
+[`readSsrGrants`](/framework/client/read-ssr-grants).
 
 The API client is therefore plain — no session header to attach:
 
@@ -136,5 +136,5 @@ capability** — a token that keeps pushing updates until it expires.
 
 See [`createLive`](/framework/server/create-server) for `live.serve` / `live.renew` /
 `live.hydration` in the full `Live` object, [`createInMemoryHub`](/framework/server/hub) for the
-socket-keyed hub, and [Sync Client](/react/live-client) for `createLiveClient` and `readSsrGrants`
+socket-keyed hub, and [rxfy-client](/framework/client) for `createLiveClient` and `readSsrGrants`
 on the browser side.
