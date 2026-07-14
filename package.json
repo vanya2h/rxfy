@@ -48,7 +48,7 @@
     "sort-pkg": "sort-package-json \"package.json\" \"code/packages/*/package.json\" \"code/apps/*/package.json\"",
     "test": "turbo run test",
     "test:e2e": "turbo run e2e",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "prettier": "@vanya2h/prettier-config",
   "lint-staged": {
