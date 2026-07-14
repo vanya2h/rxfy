@@ -39,8 +39,8 @@ npx skills add vanya2h/rxfy --skill rxfy-framework
 
 **`rxfy-framework`** — everything above, plus the real-time layer:
 
-- Binding Drizzle tables with `defineResource` and writing through `live.create` / `live.update` / `live.delete`
+- Binding Drizzle tables with `defineResource` and writing through `sync.create` / `sync.update` / `sync.delete`
 - `patch` vs `stale`: which writes publish what, and why lists refresh instead of mutating in place
 - The wire protocol and the `rxfy-ws` transports (`createWsServer`, `createWsClient`)
-- `createLiveClient`, the `StoreProvider` `liveClient` prop, and `updatesAvailable$` / `applyUpdates`
-- Grants and sync hydration: `live.serve` (signs a channel grant as `$grant`), `live.hydration`, `createLiveClient` with grant renewal, `readSsrGrants`, and state channels
+- `createSyncClient`, the `StoreProvider` `syncClient` prop, and `updatesAvailable$` / `applyUpdates`
+- Grants and sync hydration: `sync.serve` (signs a channel grant as `$grant`), `sync.hydration`, `createSyncClient` with grant renewal, `readSsrGrants`, and state channels

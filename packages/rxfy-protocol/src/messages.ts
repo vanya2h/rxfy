@@ -5,7 +5,7 @@ export type ProtocolVersion = typeof PROTOCOL_VERSION;
 
 // --- Server -> client messages ---
 
-/** Live entity update: holders of `name:id` apply this in place. */
+/** Sync entity update: holders of `name:id` apply this in place. */
 export type PatchMessage = {
   v: ProtocolVersion;
   kind: "patch";

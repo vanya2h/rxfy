@@ -1,14 +1,14 @@
 # Storage adapters [Persist writes with Drizzle or in memory]
 
 [rxfy-server](/framework/server) is storage-agnostic: it writes and publishes through a
-`LiveStorage` adapter, and each resource carries a **binding** the adapter knows how to persist. You
-pick the adapter and hand it to [`createLive`](/framework/server/create-server); everything else — the
+`SyncStorage` adapter, and each resource carries a **binding** the adapter knows how to persist. You
+pick the adapter and hand it to [`createSync`](/framework/server/create-server); everything else — the
 hub, grants, `live.*` writes — stays the same. Two official adapters ship today, with more data
 providers on the way.
 
 ## rxfy-server-drizzle
 
-The Drizzle / Postgres adapter binds Drizzle tables to rxfy models and persists the live server's
+The Drizzle / Postgres adapter binds Drizzle tables to rxfy models and persists the sync server's
 writes.
 
 ```bash
@@ -42,19 +42,19 @@ walkthrough.
 
 ### `drizzleStorage`
 
-A `LiveStorage` that runs `create` / `update` / `delete` against the bound tables. Hand it to
-`createLive`:
+A `SyncStorage` that runs `create` / `update` / `delete` against the bound tables. Hand it to
+`createSync`:
 
 ```ts
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-export const live = createLive({ storage: drizzleStorage(db), hub: createInMemoryHub(), secret: SECRET });
+export const sync = createSync({ storage: drizzleStorage(db), hub: createInMemoryHub(), secret: SECRET });
 ```
 
 `drizzleStorage(db)` takes any Drizzle `PgDatabase`; each write returns the affected row, which the
-live server publishes as a `patch`.
+sync server publishes as a `patch`.
 
 ### Also exported
 
@@ -65,7 +65,7 @@ live server publishes as a `patch`.
 ## rxfy-server-memory
 
 The in-memory adapter needs no database: each collection's `Map` is both the write target and the read
-source. Reach for it in demos, tests, and prototypes — it's a drop-in `LiveStorage` you swap for the
+source. Reach for it in demos, tests, and prototypes — it's a drop-in `SyncStorage` you swap for the
 Drizzle adapter when you add a real database. Zero dependencies beyond rxfy.
 
 ```bash
@@ -97,16 +97,16 @@ postCollection.get("1"); // → one row by id
 
 ### `memoryStorage`
 
-A `LiveStorage` over those collections. It's stateless — the data lives in each collection's binding —
+A `SyncStorage` over those collections. It's stateless — the data lives in each collection's binding —
 so one instance serves every collection:
 
 ```ts
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { memoryStorage } from "rxfy-server-memory";
 
-export const live = createLive({ storage: memoryStorage(), hub: createInMemoryHub(), secret: SECRET });
+export const sync = createSync({ storage: memoryStorage(), hub: createInMemoryHub(), secret: SECRET });
 
-await live.create(postCollection, { id: "2", title: "New", body: "…" }); // stores + publishes a patch
+await sync.create(postCollection, { id: "2", title: "New", body: "…" }); // stores + publishes a patch
 ```
 
 ### Also exported

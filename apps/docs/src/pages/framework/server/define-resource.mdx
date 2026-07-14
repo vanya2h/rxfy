@@ -7,7 +7,7 @@ between server and client) or let the package derive one automatically via `driz
 :::note[In-memory apps use `defineCollection`]
 An app without Drizzle uses `defineCollection({ name, model, seed? })` from `rxfy-server-memory`
 instead — it returns a resource whose binding is an in-memory `Map` (with `.all()` / `.get(id)`),
-paired with `memoryStorage()` on [`createLive`](/framework/server/create-server).
+paired with `memoryStorage()` on [`createSync`](/framework/server/create-server).
 :::
 
 A resource pairs a `model` (from [`createModel`](/rxfy/create-model)) with a Drizzle `table` (a
@@ -87,7 +87,7 @@ if it finds more than one PK column or a `primaryKeys`-style composite key.
 
 `createResourceRegistry` — from core `rxfy-server` — indexes resources by name, rejects duplicates,
 and exposes `byName`, `model`, and `all`. It is a neutral convenience lookup:
-[`createLive`](/framework/server/create-server) does not require it, since the writers take a
+[`createSync`](/framework/server/create-server) does not require it, since the writers take a
 resource directly.
 
 `createResourceRegistry` lives in core `rxfy-server`; `defineResource` comes from

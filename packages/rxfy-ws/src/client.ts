@@ -12,7 +12,7 @@ export type WebSocketLike = {
 export type WebSocketFactory = (url: string) => WebSocketLike;
 
 export type ClientTransport = {
-  /** Send a client frame; silently dropped when the socket isn't open — the live client replays
+  /** Send a client frame; silently dropped when the socket isn't open — the sync client replays
    *  its full grant set on every `onOpen`, which is the durability mechanism. */
   send: (message: ClientMessage) => void;
   /** Register the inbound-message handler. Single slot — a later call replaces the previous handler. */

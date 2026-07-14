@@ -1,12 +1,12 @@
 import { eq, getTableColumns } from "drizzle-orm";
 import { type PgColumn, type PgDatabase } from "drizzle-orm/pg-core";
-import type { LiveStorage } from "rxfy-server";
+import type { SyncStorage } from "rxfy-server";
 import type { DrizzleBinding } from "./resource.js";
 
 const pkCol = (binding: DrizzleBinding): PgColumn => getTableColumns(binding.table)[binding.pkColumn] as PgColumn;
 
-/** A `LiveStorage` backed by a Drizzle Postgres database. Pair with `defineResource` resources. */
-export function drizzleStorage(db: PgDatabase<any, any, any>): LiveStorage<DrizzleBinding> {
+/** A `SyncStorage` backed by a Drizzle Postgres database. Pair with `defineResource` resources. */
+export function drizzleStorage(db: PgDatabase<any, any, any>): SyncStorage<DrizzleBinding> {
   return {
     async create(binding, values) {
       const rows = await db

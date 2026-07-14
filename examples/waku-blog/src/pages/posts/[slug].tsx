@@ -7,7 +7,7 @@ import { PostView } from "../../components/PostView";
 export default async function PostPage({ slug }: PageProps<"/posts/[slug]">) {
   const postId = slug as PostId;
   // The in-process fetch returns the post detail plus a signed `$grant`; PostView seeds its store
-  // from it and the live client subscribes the grant. parseResponse throws on the API's 404.
+  // from it and the sync client subscribes the grant. parseResponse throws on the API's 404.
   const detail = await parseResponse(serverApi.posts[":id"].$get({ param: { id: postId } }));
   return <PostView postId={postId} defaultData={detail} />;
 }

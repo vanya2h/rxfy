@@ -1,7 +1,7 @@
 # rxfy + Waku blog example
 
 A [Waku](https://waku.gg) (minimal React framework, RSC-based) blog using **rxfy** for
-normalized, reactive state with SSR hydration **and live updates**. Companion to the `next-blog`
+normalized, reactive state with SSR hydration **and sync updates**. Companion to the `next-blog`
 (Next.js App Router) and `rr7-blog` (React Router 7) examples — same domain, three frameworks.
 
 ## What it shows
@@ -15,17 +15,17 @@ normalized, reactive state with SSR hydration **and live updates**. Companion to
 - **Client navigation** — Waku `Link`; the rxfy store lives in the persistent root layout and
   survives route transitions, so seen entities are not refetched.
 
-## Live updates
+## Sync updates
 
-Waku owns its HTTP server, so the live WebSocket listens on a **sibling port** (8090), started by
-the api middleware at boot (`src/server/ws.ts`). Live subscriptions ride **stateless JWT channel
+Waku owns its HTTP server, so the sync WebSocket listens on a **sibling port** (8090), started by
+the api middleware at boot (`src/server/ws.ts`). Sync subscriptions ride **stateless JWT channel
 grants** — no server-side session state. The loop:
 
 1. Each read runs through `live.serve(...)` (`src/server/live.ts`), which parses the payload and
    attaches a signed channel grant as `$grant`. RSC renders pass it down via `defaultData`; client
    refetches return it too.
-2. `useStateData` lifts `$grant` and subscribes it on the browser live socket (wired in
-   `src/blog/live-client.ts`). The client renews grants before expiry against `POST /api/live/renew`,
+2. `useStateData` lifts `$grant` and subscribes it on the browser sync socket (wired in
+   `src/blog/sync-client.ts`). The client renews grants before expiry against `POST /api/live/renew`,
    so long-lived tabs keep receiving updates.
 3. Posting a comment `touchState`s the post-detail channel — every tab holding a grant for that
    channel gets a `stale` push and shows the "new comment — refresh" badge; `applyUpdates()` refetches.

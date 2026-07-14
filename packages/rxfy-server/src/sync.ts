@@ -11,13 +11,13 @@ import { signGrant, verifyGrant } from "./grant.js";
 import { channelSubscription, entitySubscription, type Hub } from "./hub.js";
 import { grantsHydration } from "./hydration.js";
 import type { TouchTarget } from "./state-channel.js";
-import type { LiveStorage, Resource } from "./storage.js";
+import type { Resource, SyncStorage } from "./storage.js";
 
 export type WriteOpts = { touch?: TouchTarget[] };
 
-export type LiveConfig<TBinding> = {
+export type SyncConfig<TBinding> = {
   /** Persistence backend — pairs with the resources' binding type. */
-  storage: LiveStorage<TBinding>;
+  storage: SyncStorage<TBinding>;
   hub: Hub;
   /** HMAC secret for signing/verifying channel grants (required). */
   secret: string;
@@ -27,8 +27,8 @@ export type LiveConfig<TBinding> = {
   renewGraceMs?: number;
 };
 
-/** The live server: storage-neutral writers plus the stateless grant half (serve/renew/hydration). */
-export type Live<TBinding> = {
+/** The sync server: storage-neutral writers plus the stateless grant half (serve/renew/hydration). */
+export type Sync<TBinding> = {
   /** Insert and publish a patch. Returns the persisted row. */
   create: <TInsert, TRow>(
     resource: Resource<TInsert, TRow, TBinding>,
@@ -60,7 +60,7 @@ export type Live<TBinding> = {
   hydration: (registry: IModelRegistry) => string;
 };
 
-export function createLive<TBinding>(config: LiveConfig<TBinding>): Live<TBinding> {
+export function createSync<TBinding>(config: SyncConfig<TBinding>): Sync<TBinding> {
   const { storage, hub, secret } = config;
   const grantTtlMs = config.grantTtlMs ?? 15 * 60_000;
   const renewGraceMs = config.renewGraceMs ?? 5 * 60_000;

@@ -1,4 +1,4 @@
-import { createInMemoryHub, createLive, type Hub, type StateChannelDescriptor, touch } from "rxfy-server";
+import { createInMemoryHub, createSync, type Hub, type StateChannelDescriptor, touch } from "rxfy-server";
 import { memoryStorage } from "rxfy-server-memory";
 
 // One hub per process. The custom server (server.mts) and Next's route-handler bundle each load
@@ -12,11 +12,11 @@ export const hub: Hub = (globalForHub.__nextBlogHub ??= createInMemoryHub());
 // eslint-disable-next-line turbo/no-undeclared-env-vars -- app-level secret, declared per-deploy
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 
-// The live server on the in-memory storage adapter. This app persists reads/comment-writes through
-// its own store and only drives the grant half (`live.serve` / `live.renew` / `live.hydration`) plus
-// `live.touch` for stale badges — so `memoryStorage()` carries no collections; an app that wrote
+// The sync server on the in-memory storage adapter. This app persists reads/comment-writes through
+// its own store and only drives the grant half (`sync.serve` / `sync.renew` / `sync.hydration`) plus
+// `sync.touch` for stale badges — so `memoryStorage()` carries no collections; an app that wrote
 // entities would pass its `defineCollection`s through it.
-export const live = createLive({
+export const sync = createSync({
   storage: memoryStorage(),
   hub,
   secret: SECRET,
@@ -26,5 +26,5 @@ export const live = createLive({
 
 /** Mark a state channel stale — every client subscribed to it gets a live update badge. */
 export function touchState(state: StateChannelDescriptor, params: Record<string, unknown>): void {
-  live.touch(touch(state, params));
+  sync.touch(touch(state, params));
 }

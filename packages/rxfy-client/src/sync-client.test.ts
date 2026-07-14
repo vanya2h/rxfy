@@ -2,7 +2,7 @@ import { createModel, createModelRegistry } from "rxfy";
 import { type ClientMessage, patch, type ServerMessage, stale, subscribe } from "rxfy-protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { createLiveClient, type LiveTransport } from "./live-client.js";
+import { createSyncClient, type SyncTransport } from "./sync-client.js";
 
 const postModel = createModel({
   schema: z.object({ id: z.string(), title: z.string() }),
@@ -18,7 +18,7 @@ function fakeTransport() {
   let onMessage: ((m: ServerMessage) => void) | undefined;
   let onOpen: (() => void) | undefined;
   const sent: ClientMessage[] = [];
-  const transport: LiveTransport = {
+  const transport: SyncTransport = {
     send: (m) => sent.push(m),
     onMessage: (h) => {
       onMessage = h;
@@ -35,14 +35,14 @@ function fakeTransport() {
   };
 }
 
-describe("createLiveClient", () => {
+describe("createSyncClient", () => {
   it("subscribe() sends the frame, records the entry, and replays on onOpen", () => {
     const registry = createModelRegistry();
     const { transport, sent, open } = fakeTransport();
-    const live = createLiveClient({ registry, transport });
+    const sync = createSyncClient({ registry, transport });
 
     const grant = token(Date.now() + 60_000);
-    live.subscribe(grant);
+    sync.subscribe(grant);
     expect(sent).toEqual([subscribe(grant)]);
 
     open();
@@ -57,7 +57,7 @@ describe("createLiveClient", () => {
       const registry = createModelRegistry();
       // entities ride inside each grant now — the client attaches nothing from the registry
       const { transport, sent } = fakeTransport();
-      createLiveClient({ registry, transport });
+      createSyncClient({ registry, transport });
 
       expect(sent).toEqual([subscribe(ga), subscribe(gb)]);
     } finally {
@@ -80,8 +80,8 @@ describe("createLiveClient", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const live = createLiveClient({ registry, transport, renewUrl: "/live/renew", now });
-      live.subscribe(expiring);
+      const sync = createSyncClient({ registry, transport, renewUrl: "/live/renew", now });
+      sync.subscribe(expiring);
       expect(sent).toEqual([subscribe(expiring)]);
 
       await vi.runOnlyPendingTimersAsync();
@@ -91,7 +91,7 @@ describe("createLiveClient", () => {
       expect(body).toEqual({ grants: [expiring] });
       expect(sent[sent.length - 1]).toEqual(subscribe(fresh));
 
-      live.stop();
+      sync.stop();
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();
@@ -112,8 +112,8 @@ describe("createLiveClient", () => {
       );
       vi.stubGlobal("fetch", fetchMock);
 
-      const live = createLiveClient({ registry, transport, renewUrl: "/live/renew", now });
-      live.subscribe(expiring);
+      const sync = createSyncClient({ registry, transport, renewUrl: "/live/renew", now });
+      sync.subscribe(expiring);
       const before = sent.length;
 
       await vi.runOnlyPendingTimersAsync(); // must not throw
@@ -121,7 +121,7 @@ describe("createLiveClient", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(sent).toHaveLength(before); // no re-subscribe
 
-      live.stop();
+      sync.stop();
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();
@@ -142,8 +142,8 @@ describe("createLiveClient", () => {
       });
       vi.stubGlobal("fetch", fetchMock);
 
-      const live = createLiveClient({ registry, transport, renewUrl: "/live/renew", renewLeadMs, now });
-      live.subscribe(expiring);
+      const sync = createSyncClient({ registry, transport, renewUrl: "/live/renew", renewLeadMs, now });
+      sync.subscribe(expiring);
       const before = sent.length;
 
       // First renewal attempt (scheduled at ~0) fires and its fetch rejects — must not throw.
@@ -159,7 +159,7 @@ describe("createLiveClient", () => {
       await vi.advanceTimersByTimeAsync(200);
       expect(fetchMock).toHaveBeenCalledTimes(2);
 
-      live.stop();
+      sync.stop();
     } finally {
       vi.useRealTimers();
       vi.unstubAllGlobals();
@@ -170,7 +170,7 @@ describe("createLiveClient", () => {
     const registry = createModelRegistry();
     registry.model(postModel).setMany([{ id: "1", title: "old" }]);
     const { transport, deliver } = fakeTransport();
-    createLiveClient({ registry, transport });
+    createSyncClient({ registry, transport });
     deliver(patch("post", "1", { id: "1", title: "new" }));
     expect(registry.model(postModel).getValue("1")).toEqual({ id: "1", title: "new" });
   });
@@ -178,8 +178,8 @@ describe("createLiveClient", () => {
   it("counts stale signals per channel and resets", () => {
     const registry = createModelRegistry();
     const { transport, deliver } = fakeTransport();
-    const live = createLiveClient({ registry, transport });
-    const ch = live.channel("posts:orgId=A");
+    const sync = createSyncClient({ registry, transport });
+    const ch = sync.channel("posts:orgId=A");
     const seen: number[] = [];
     ch.available$.subscribe((v) => seen.push(v));
     deliver(stale("posts:orgId=A"));
@@ -191,14 +191,14 @@ describe("createLiveClient", () => {
   it("ignores stale for a channel with no local counter", () => {
     const registry = createModelRegistry();
     const { transport, deliver } = fakeTransport();
-    createLiveClient({ registry, transport });
+    createSyncClient({ registry, transport });
     expect(() => deliver(stale("unknown"))).not.toThrow();
   });
 
   it("ignores a patch for a store that is not in the registry (no-op)", () => {
     const registry = createModelRegistry();
     const { transport, deliver } = fakeTransport();
-    createLiveClient({ registry, transport });
+    createSyncClient({ registry, transport });
     expect(() => deliver(patch("nonexistent", "1", { id: "1" }))).not.toThrow();
   });
 });

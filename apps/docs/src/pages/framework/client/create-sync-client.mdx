@@ -1,16 +1,16 @@
-# createLiveClient [Connect a transport and drive the sync loop]
+# createSyncClient [Connect a transport and drive the sync loop]
 
-`createLiveClient` connects a WebSocket [transport](/framework/ws) to a `ModelRegistry` so inbound
+`createSyncClient` connects a WebSocket [transport](/framework/ws) to a `ModelRegistry` so inbound
 server pushes land in the normalized stores and per-state update counters tick up. In React you pass
-the result to [`StoreProvider`'s `liveClient` prop](/react/live-client); elsewhere you drive it
+the result to [`StoreProvider`'s `syncClient` prop](/react/sync-client); elsewhere you drive it
 directly.
 
 ```ts
-import { createLiveClient } from "rxfy-client";
+import { createSyncClient } from "rxfy-client";
 
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry, // IModelRegistry — the same one your store / StoreProvider uses
-  transport, // LiveTransport — e.g. createWsClient() from rxfy-ws/client
+  transport, // SyncTransport — e.g. createWsClient() from rxfy-ws/client
   renewUrl, // optional — the app's grant-renewal endpoint, e.g. "/api/live/renew"
   renewLeadMs, // optional — how far before expiry to renew (default 60_000 ms)
 });
@@ -20,7 +20,7 @@ There is no `session` option: the client never carries a session id. Each grant 
 capability the client presents on the wire; the server verifies it rather than looking up a session it
 minted (see [Grants](/framework/server/grants)).
 
-**What `createLiveClient` does:**
+**What `createSyncClient` does:**
 
 - Records each lifted `$grant` together with the entity topics its payload normalized into, and sends
   a `subscribe` frame carrying the grant plus those topics — the client's entire outbound protocol.
@@ -37,9 +37,9 @@ minted (see [Grants](/framework/server/grants)).
 
 ## Types
 
-- `LiveClient` — what `createLiveClient` returns (`subscribe`, `channel`, `stop`, …).
-- `LiveClientConfig` — the config object above.
-- `LiveTransport` — the structural transport interface (`onMessage`, `onOpen`, `send`);
+- `SyncClient` — what `createSyncClient` returns (`subscribe`, `channel`, `stop`, …).
+- `SyncClientConfig` — the config object above.
+- `SyncTransport` — the structural transport interface (`onMessage`, `onOpen`, `send`);
   [`rxfy-ws`](/framework/ws) provides one (`ClientTransport`), or
   [bring your own](/framework/ws/custom-transport).
 - `ChannelCounter` — `{ available$: Observable<number>, reset: () => void }`, one per state channel.

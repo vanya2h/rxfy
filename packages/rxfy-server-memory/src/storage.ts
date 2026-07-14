@@ -1,8 +1,8 @@
-import type { LiveStorage } from "rxfy-server";
+import type { SyncStorage } from "rxfy-server";
 import type { MemoryBinding } from "./collection.js";
 
-/** A `LiveStorage` over in-memory `defineCollection` maps. Stateless — the data lives in each binding. */
-export function memoryStorage(): LiveStorage<MemoryBinding> {
+/** A `SyncStorage` over in-memory `defineCollection` maps. Stateless — the data lives in each binding. */
+export function memoryStorage(): SyncStorage<MemoryBinding> {
   return {
     async create(binding, values) {
       binding.rows.set(binding.getKey(values), values);

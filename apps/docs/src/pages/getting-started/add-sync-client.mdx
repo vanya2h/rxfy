@@ -102,16 +102,16 @@ export const postModel = createModel({
 
 ## Stand up the sync server
 
-`createLive` wires a storage adapter, a pub/sub hub, and a signing `secret` into the `live`
+`createSync` wires a storage adapter, a pub/sub hub, and a signing `secret` into the `live`
 object your API routes will call. `drizzleStorage(db)` (from `rxfy-server-drizzle`) is the
 adapter for a Drizzle-backed app:
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-export const live = createLive({
+export const sync = createSync({
   storage: drizzleStorage(db),
   hub: createInMemoryHub(),
   secret: process.env.RXFY_SECRET ?? "dev-secret-change-me",
@@ -123,7 +123,7 @@ export const live = createLive({
 - `secret` is the HMAC key used to sign and verify grants. Read it from
   `process.env.RXFY_SECRET`, and share the exact same value with the WebSocket server.
 - There is no keyer and no server-held session. The server signs a per-state grant on
-  `live.serve` / `live.hydration`, and the client subscribes with it — see
+  `sync.serve` / `sync.hydration`, and the client subscribes with it — see
   [Grants](/framework/server/grants).
 
 ## Serve the socket
@@ -135,7 +135,7 @@ the **same** `secret` the HTTP server signs with:
 ```ts [server/ws.ts]
 import { WebSocketServer } from "ws";
 import { createWsServer } from "rxfy-ws";
-import { hub, SECRET } from "./live.js";
+import { hub, SECRET } from "./sync.js";
 
 const wsServer = createWsServer(hub, { secret: SECRET });
 // `httpServer` is the node:http server your app already listens on
@@ -149,19 +149,19 @@ Framework servers that wrap the raw socket (Hono, Bun) need a thin adapter — s
 
 ## Write through the server
 
-All mutations go through `live.create`, `live.update`, and `live.delete`. Each runs the
+All mutations go through `sync.create`, `sync.update`, and `sync.delete`. Each runs the
 SQL write, then publishes:
 
 ```ts [server/api.ts]
 import { touch } from "rxfy-server";
-import { live } from "./live.js";
+import { sync } from "./sync.js";
 
 // edit — publishes a `patch`; every subscribed client applies it in place
-await live.update(postResource, postId, { title, body });
+await sync.update(postResource, postId, { title, body });
 
 // create / delete — publish `stale` on the state channels that list this entity
-await live.create(postResource, { id: newId(), title, body }, { touch: [touch(postsChannel, {})] });
-await live.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
+await sync.create(postResource, { id: newId(), title, body }, { touch: [touch(postsChannel, {})] });
+await sync.delete(postResource, postId, { touch: [touch(postsChannel, {})] });
 ```
 
 ## Fetch through the same endpoints
@@ -198,7 +198,7 @@ export type AppType = typeof api;
 During SSR you create the same client against Hono's in-process `app.request` instead of the
 network, so fetches never leave the process. The server handler passes `app.request` into the
 render as `apiFetch`, exactly the way it passes `live`; the entry builds the SSR client from it and
-embeds sync grants with `live.hydration(registry)` — the only change from the plain
+embeds sync grants with `sync.hydration(registry)` — the only change from the plain
 [Add SSR](/getting-started/add-ssr) render, which used `dehydrate` / `hydrationScript`:
 
 :::code-group
@@ -214,7 +214,7 @@ import type { AppType } from "../server/api";
 import { ApiProvider } from "./api-client.js";
 import { App } from "./App.js";
 
-// `live` is your createLive() object; `apiFetch` is Hono's in-process `app.request`.
+// `live` is your createSync() object; `apiFetch` is Hono's in-process `app.request`.
 export function render(url: string, live: Live, apiFetch: typeof fetch) {
   const registry = createModelRegistry();
   const api = hc<AppType>("http://ssr.internal", { fetch: apiFetch }); // in-process, no network hop
@@ -232,7 +232,7 @@ export function render(url: string, live: Live, apiFetch: typeof fetch) {
           let html = "";
           sink.on("data", (chunk: Buffer) => (html += chunk));
           // Same buffering as Add SSR — but embed signed sync grants, not a plain snapshot.
-          sink.on("end", () => resolve({ html, state: live.hydration(registry) }));
+          sink.on("end", () => resolve({ html, state: sync.hydration(registry) }));
           pipe(sink);
         },
         onError: reject,
@@ -278,7 +278,7 @@ exactly as they were on the store path:
 
 ```tsx [src/entry-client.tsx]
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, StoreProvider } from "rxfy-react";
+import { createSyncClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 import { hc } from "hono/client";
 import type { AppType } from "../server/api";
@@ -286,7 +286,7 @@ import { ApiProvider } from "./api-client.js";
 
 const registry = createModelRegistry();
 const apiClient = hc<AppType>("/api"); // browser client: plain network trip
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry,
   transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
   renewUrl: "/api/live/renew",
@@ -294,7 +294,7 @@ const liveClient = createLiveClient({
 
 hydrateRoot(
   document.getElementById("root")!,
-  <StoreProvider registry={registry} ssr liveClient={liveClient}>
+  <StoreProvider registry={registry} ssr syncClient={syncClient}>
     <ApiProvider client={apiClient}>
       <App />
     </ApiProvider>
@@ -304,16 +304,16 @@ hydrateRoot(
 
 There is no allow-list to read and nothing to pass by hand: the server signs a grant covering
 exactly what it served, and the client lifts it from the payload automatically and subscribes
-with it. SSR grants come from `live.hydration(registry)`, embedded in the page and lifted on
-hydration; client-only loads pick up the grant from each `live.serve` response. Grants expire,
+with it. SSR grants come from `sync.hydration(registry)`, embedded in the page and lifted on
+hydration; client-only loads pick up the grant from each `sync.serve` response. Grants expire,
 so the Sync Client renews them before expiry against the app-mounted `renewUrl` endpoint —
 one route you add to your Hono app, behind your own auth, that reissues each grant with
-`live.renew`:
+`sync.renew`:
 
 ```ts [server/api.ts (renewal route)]
 .post("/live/renew", async (c) => {
   const { grants } = await c.req.json<{ grants: string[] }>();
-  return c.json({ grants: grants.map((g) => live.renew(g)) });
+  return c.json({ grants: grants.map((g) => sync.renew(g)) });
 })
 ```
 
@@ -326,7 +326,7 @@ component asking for it.
 
 What happened, in order:
 
-1. `live.update` ran the update to database and got the new row.
+1. `sync.update` ran the update to database and got the new row.
 2. It published a `patch` message on the entity's topic (`post:42`) into the hub.
 3. The hub forwarded it to every socket subscribed to that entity topic — sockets that
    sent a valid grant covering it, not sessions the server tracked.
@@ -382,7 +382,7 @@ export function UpdatesBadge() {
 Drop `<UpdatesBadge />` anywhere above your list — no props to thread. With no Sync Client in
 context, `updatesAvailable$` simply stays at `0` and the badge renders nothing, so the same
 component works with or without the sync stack. See
-[`updatesAvailable$` / `applyUpdates`](/react/live-client) for the full handle API.
+[`updatesAvailable$` / `applyUpdates`](/react/sync-client) for the full handle API.
 
 ## Next steps
 

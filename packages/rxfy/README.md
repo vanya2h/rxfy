@@ -26,7 +26,7 @@ rxfy doesn't invent a reactivity system — it's built on [RxJS](https://rxjs.de
 # client-only store setup
 npx skills add vanya2h/rxfy --skill rxfy
 
-# live-app (framework) setup
+# sync app (framework) setup
 npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 

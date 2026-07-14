@@ -12,15 +12,15 @@ npm install rxfy-server-memory
 ## What it gives you
 
 - `defineCollection({ name, model, seed? })` — an in-memory collection: a `Resource` whose binding is its data `Map`, plus `.all()` / `.get(id)` reads for serving.
-- `memoryStorage()` — a `LiveStorage` over those collections. Pass it to `createLive`.
+- `memoryStorage()` — a `SyncStorage` over those collections. Pass it to `createSync`.
 - `MemoryBinding` — the resource binding type (`{ rows, getKey }`).
 
 ```ts
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { defineCollection, memoryStorage } from "rxfy-server-memory";
 
 const posts = defineCollection({ name: "post", model: postModel, seed: [] });
-const live = createLive({ storage: memoryStorage(), hub: createInMemoryHub(), secret });
+const live = createSync({ storage: memoryStorage(), hub: createInMemoryHub(), secret });
 
 await live.create(posts, { id, title }); // stores the row and publishes a patch
 ```

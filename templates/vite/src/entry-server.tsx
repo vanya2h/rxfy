@@ -8,7 +8,7 @@ import type { RenderFn } from "../server/render-types.js";
 import { ApiProvider, createApiClient } from "./api-client.js";
 import { App } from "./App.js";
 
-export const render: RenderFn = (url, live, apiFetch) => {
+export const render: RenderFn = (url, sync, apiFetch) => {
   // SSR data fetching goes through the server's own endpoints, in-process.
   const apiClient = createApiClient(apiFetch);
   const registry = createModelRegistry();
@@ -34,7 +34,7 @@ export const render: RenderFn = (url, live, apiFetch) => {
           sink.on("end", () => {
             // hydration() signs a channel grant per state this render served and embeds them
             // alongside the dehydrated registry; the client lifts the grants and subscribes.
-            resolve({ html, state: live.hydration(registry) });
+            resolve({ html, state: sync.hydration(registry) });
           });
           pipe(sink);
         },

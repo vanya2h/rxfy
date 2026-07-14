@@ -3,8 +3,7 @@ import { parseServerMessage, serialize, subscribe } from "rxfy-protocol";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // A quasi-unique port so parallel test runs (and a locally running dev server) don't collide.
-const PORT = 8400 + (process.pid % 400);
-const WS_PORT = PORT + 400;
+const PORT = 7400 + (process.pid % 500);
 const BASE = `http://localhost:${PORT}`;
 
 let server: ChildProcess;
@@ -24,14 +23,14 @@ async function waitForServer(timeoutMs = 25_000): Promise<void> {
 }
 
 /**
- * The full live loop over the real server: reading a post returns a signed channel grant; the
- * client presents it in a `subscribe` frame on the live socket and receives a `stale` push when
- * another client comments. No sessions — the grant carries the channel authorization.
+ * The full live loop over the real server: a client reads a post (the response carries a signed
+ * channel grant), subscribes its socket with that grant, and receives a `stale` push when another
+ * client comments.
  */
 describe("live end-to-end", () => {
   beforeAll(async () => {
-    server = spawn("node_modules/.bin/waku", ["start", "--port", String(PORT)], {
-      env: { ...process.env, RXFY_WS_PORT: String(WS_PORT) },
+    server = spawn("node_modules/.bin/tsx", ["server.mts"], {
+      env: { ...process.env, NODE_ENV: "production", PORT: String(PORT) },
       stdio: "ignore",
       detached: true,
     });
@@ -42,13 +41,13 @@ describe("live end-to-end", () => {
     if (server.pid) process.kill(-server.pid, "SIGTERM");
   });
 
-  it("pushes a stale to a socket that presented the post-detail grant", async () => {
-    // 1. Read the post detail — the response carries a signed grant for its channel.
+  it("pushes a stale to a client subscribed via a channel grant", async () => {
+    // 1. Read the post detail — the response carries a signed channel grant.
     const detail = (await (await fetch(`${BASE}/api/posts/1`)).json()) as { $grant: string };
     expect(typeof detail.$grant).toBe("string");
 
-    // 2. Present the grant on a live socket via a subscribe frame.
-    const ws = new WebSocket(`ws://localhost:${WS_PORT}/live`);
+    // 2. Subscribe the grant on a sync socket.
+    const ws = new WebSocket(`ws://localhost:${PORT}/live`);
     const staleMessage = new Promise((resolve, reject) => {
       ws.addEventListener("message", (event) => {
         const message = parseServerMessage(String(event.data));
@@ -69,7 +68,7 @@ describe("live end-to-end", () => {
     });
     expect(res.ok).toBe(true);
 
-    // 4. The subscribed socket receives the invalidation push.
+    // 4. The subscribed client receives the invalidation push.
     expect(await staleMessage).toMatchObject({ v: 2, kind: "stale", channel: "post-detail:postId=1" });
     ws.close();
   }, 30_000);

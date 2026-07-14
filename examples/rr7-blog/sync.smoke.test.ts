@@ -3,7 +3,7 @@ import { parseServerMessage, serialize, subscribe } from "rxfy-protocol";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // A quasi-unique port so parallel test runs (and a locally running dev server) don't collide.
-const PORT = 7400 + (process.pid % 500);
+const PORT = 7900 + (process.pid % 500);
 const BASE = `http://localhost:${PORT}`;
 
 let server: ChildProcess;
@@ -23,9 +23,9 @@ async function waitForServer(timeoutMs = 25_000): Promise<void> {
 }
 
 /**
- * The full live loop over the real server: a client reads a post (the response carries a signed
- * channel grant), subscribes its socket with that grant, and receives a `stale` push when another
- * client comments.
+ * The full live loop over the real server: a client reads a post detail (the response carries a
+ * signed channel grant as `$grant`), presents the grant on its socket to subscribe the channel,
+ * and receives a `stale` push when another client comments.
  */
 describe("live end-to-end", () => {
   beforeAll(async () => {
@@ -41,12 +41,12 @@ describe("live end-to-end", () => {
     if (server.pid) process.kill(-server.pid, "SIGTERM");
   });
 
-  it("pushes a stale to a client subscribed via a channel grant", async () => {
-    // 1. Read the post detail — the response carries a signed channel grant.
+  it("pushes a stale to a socket that subscribed with the post-detail grant", async () => {
+    // 1. Read the post detail — the response carries a signed channel grant as $grant.
     const detail = (await (await fetch(`${BASE}/api/posts/1`)).json()) as { $grant: string };
     expect(typeof detail.$grant).toBe("string");
 
-    // 2. Subscribe the grant on a live socket.
+    // 2. Present the grant on a sync socket — the WS server verifies it and subscribes the channel.
     const ws = new WebSocket(`ws://localhost:${PORT}/live`);
     const staleMessage = new Promise((resolve, reject) => {
       ws.addEventListener("message", (event) => {
@@ -68,7 +68,7 @@ describe("live end-to-end", () => {
     });
     expect(res.ok).toBe(true);
 
-    // 4. The subscribed client receives the invalidation push.
+    // 4. The subscribed socket receives the invalidation push.
     expect(await staleMessage).toMatchObject({ v: 2, kind: "stale", channel: "post-detail:postId=1" });
     ws.close();
   }, 30_000);

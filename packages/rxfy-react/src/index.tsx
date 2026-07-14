@@ -1,10 +1,10 @@
-export { LiveClientContext, useLiveClient } from "./live-context.js";
 export type { IPendingProps } from "./Pending.js";
 export { Pending } from "./Pending.js";
 export { ModelRegistryContext, useModelRegistry } from "./registry-context.js";
 export { collectStateData } from "./ssr/collect-state-data.js";
 export type { StoreProviderProps } from "./StoreProvider.js";
 export { SsrContext, StoreProvider } from "./StoreProvider.js";
+export { SyncClientContext, useSyncClient } from "./sync-context.js";
 export { useAtom } from "./useAtom.js";
 export { useModelStore } from "./useModelStore.js";
 export { useObservable } from "./useObservable.js";
@@ -16,5 +16,5 @@ export type { PagedListHandle, UseStatePagedDataConfig } from "./useStatePagedDa
 export { useStatePagedData } from "./useStatePagedData.js";
 export type { ChannelStateDescriptor } from "rxfy";
 export { stateChannel } from "rxfy";
-export type { ChannelCounter, LiveClient, LiveClientConfig, LiveTransport } from "rxfy-client";
-export { createLiveClient, readSsrGrants } from "rxfy-client";
+export type { ChannelCounter, SyncClient, SyncClientConfig, SyncTransport } from "rxfy-client";
+export { createSyncClient, readSsrGrants } from "rxfy-client";

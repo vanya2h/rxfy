@@ -1,14 +1,14 @@
 # Grants [The server signs what it serves; the client subscribes with the token]
 
 Sync subscriptions ride **stateless signed channel grants**. The server records nothing at serve
-time — it _signs_. `live.serve` returns the parsed payload plus a reserved `$grant` field: a JWT
+time — it _signs_. `sync.serve` returns the parsed payload plus a reserved `$grant` field: a JWT
 whose claims are the state's channel and an expiry. The client lifts that grant automatically,
 subscribes with it over the WebSocket, and renews it before it expires. There is no session, no
 server-held subscription table, no header to inject.
 
 ## Serving = signing
 
-A read endpoint wraps its result in `live.serve` — it parses the raw payload (the state's _input_
+A read endpoint wraps its result in `sync.serve` — it parses the raw payload (the state's _input_
 shape, e.g. DB rows with unbranded ids and extra columns) through the state's schemas, signs a
 grant for `stateChannel(state, params)`, and returns the parsed shape (ids branded, unknown keys
 stripped) with the grant attached as `$grant`. Raw Drizzle rows go in with no casts, and there is
@@ -18,7 +18,7 @@ stripped) with the grant attached as `$grant`. Raw Drizzle rows go in with no ca
 .get("/todos", async (c) => {
   const rows = await db.select().from(todos);
   // Parses the rows through the state's schemas and attaches a signed channel grant as `$grant`.
-  return c.json(live.serve(todosState, {}, { todos: rows }));
+  return c.json(sync.serve(todosState, {}, { todos: rows }));
 })
 ```
 
@@ -27,14 +27,14 @@ signed channel always matches the one the client's `updatesAvailable$` counts. A
 ignores `$grant` (curl, server-to-server) just sees one extra string field.
 
 SSR renders sign everything at once: `useStateData` logs each rendered state's channel into
-`registry.channels` during SSR, and [`live.hydration(registry)`](/framework/server/create-server)
+`registry.channels` during SSR, and [`sync.hydration(registry)`](/framework/server/create-server)
 signs one grant per logged channel and embeds them in the hydration payload as `grants: string[]`.
 One call at the end of the render hands the whole thing to the client:
 
 ```tsx [entry-server.tsx]
 onAllReady() {
   // collect pipe into `html`, then:
-  resolve({ html, state: live.hydration(registry) });
+  resolve({ html, state: sync.hydration(registry) });
 }
 ```
 
@@ -66,7 +66,7 @@ export function createApiClient(serverFetch?: ApiFetch) {
 ```
 
 ```ts [src/entry-client.tsx]
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry,
   transport: createWsClient({ url }),
   renewUrl: "/api/live/renew", // where the client posts grants nearing expiry
@@ -82,13 +82,13 @@ Grants expire (default TTL 15 minutes). The client runs one renewal timer: short
 soonest expiry it POSTs the expiring grants to `renewUrl` and replaces them. Mount that endpoint
 **behind the app's own auth middleware** — this is where revocation actually bites. A user whose
 access was withdrawn fails the middleware, the reissue never happens, and their real-time sync ends at
-`exp`. `live.renew` verifies each grant (accepting tokens expired within a grace window, default 5
+`exp`. `sync.renew` verifies each grant (accepting tokens expired within a grace window, default 5
 minutes) and reissues it, or returns `null` when denied:
 
 ```ts [server/api.ts]
 .post("/live/renew", authed, async (c) => {
   const { grants } = await c.req.json<{ grants: string[] }>();
-  return c.json({ grants: grants.map((g) => live.renew(g)) });
+  return c.json({ grants: grants.map((g) => sync.renew(g)) });
 })
 ```
 
@@ -98,20 +98,20 @@ grant or an error.
 
 ## The signing secret
 
-`createLive` requires a `secret` — the HMAC key it signs grants with. The WebSocket server
+`createSync` requires a `secret` — the HMAC key it signs grants with. The WebSocket server
 ([`createWsServer`](/framework/ws/server)) verifies grants with the **same** secret, so the two
 must share it:
 
 ```ts [server/live.ts]
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
-export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
+export const sync = createSync({ storage: drizzleStorage(db), hub, secret: SECRET });
 ```
 
 Rotating the secret invalidates every outstanding grant at once: renewals fail, clients degrade to
 static data, and refetches mint fresh grants. Graceful by construction — no restart choreography.
 
 :::note[Entity authorization is bound into the grant]
-`live.serve` signs the served payload's exact entity topics (`name:id`) into the grant's claims, and
+`sync.serve` signs the served payload's exact entity topics (`name:id`) into the grant's claims, and
 the WebSocket server subscribes a socket to **only** the channel + entities its grant enumerates.
 A grant is therefore a precise capability — it can watch exactly the rows it was served, nothing
 more — so entity ids need not be unguessable (serial integer PKs are fine).
@@ -131,10 +131,10 @@ capability** — a token that keeps pushing updates until it expires.
 
 - [`touch(stateDescriptor, params)`](/framework/server/writes) on writes — only the app knows which
   lists a write invalidates.
-- One `live.serve` per read endpoint — the server can't see what a plain Drizzle read served.
+- One `sync.serve` per read endpoint — the server can't see what a plain Drizzle read served.
 - One mounted `renew` route — behind your own auth.
 
-See [`createLive`](/framework/server/create-server) for `live.serve` / `live.renew` /
-`live.hydration` in the full `Live` object, [`createInMemoryHub`](/framework/server/hub) for the
-socket-keyed hub, and [rxfy-client](/framework/client) for `createLiveClient` and `readSsrGrants`
+See [`createSync`](/framework/server/create-server) for `sync.serve` / `sync.renew` /
+`sync.hydration` in the full `Live` object, [`createInMemoryHub`](/framework/server/hub) for the
+socket-keyed hub, and [rxfy-client](/framework/client) for `createSyncClient` and `readSsrGrants`
 on the browser side.

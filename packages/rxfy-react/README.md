@@ -13,7 +13,7 @@ Official React bindings for [rxfy](../rxfy/README.md). Subscribe components to n
 # client-only store setup
 npx skills add vanya2h/rxfy --skill rxfy
 
-# live-app (framework) setup
+# sync app (framework) setup
 npx skills add vanya2h/rxfy --skill rxfy-framework
 ```
 
@@ -30,7 +30,7 @@ npm install rxfy rxfy-react
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started) — `StoreProvider` setup
 - [rxfy-react](https://rxfy.vanya2h.me/react) — `useStateData` (remote fetch or local `initial`), `useStatePagedData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
-- [Sync Client (React)](https://rxfy.vanya2h.me/react/live-client) — `createLiveClient`, `StoreProvider`'s `liveClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`; `createLiveClient` and `readSsrGrants` are re-exported from their framework-agnostic home, [`rxfy-client`](https://rxfy.vanya2h.me/framework/client)
+- [Sync Client (React)](https://rxfy.vanya2h.me/react/sync-client) — `createSyncClient`, `StoreProvider`'s `syncClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`; `createSyncClient` and `readSsrGrants` are re-exported from their framework-agnostic home, [`rxfy-client`](https://rxfy.vanya2h.me/framework/client)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — buffered, streaming (Next.js App Router), two-pass
 - [rxfy](../rxfy/README.md) — core library
 

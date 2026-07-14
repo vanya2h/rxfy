@@ -1,9 +1,9 @@
-# createLive [Wire a storage adapter, hub, and secret into a Live object]
+# createSync [Wire a storage adapter, hub, and secret into a Live object]
 
-`createLive` wires together a storage adapter, hub, and signing secret into a
+`createSync` wires together a storage adapter, hub, and signing secret into a
 `Live` object with typed write methods plus the grant calls `serve`, `renew`, and `hydration`.
 
-`storage` is a [`LiveStorage` adapter](/framework/server/storage-adapters) — `drizzleStorage(db)` from
+`storage` is a [`SyncStorage` adapter](/framework/server/storage-adapters) — `drizzleStorage(db)` from
 `rxfy-server-drizzle` for a Drizzle-backed app, or `memoryStorage()` from `rxfy-server-memory` for an
 in-memory one — and
 `secret` is the HMAC key used to sign and verify [channel grants](/framework/server/grants) —
@@ -13,11 +13,11 @@ adapter, so core `rxfy-server` never imports Drizzle. The tabs below show them:
 :::code-group
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
-export const live = createLive({
+export const sync = createSync({
   storage: drizzleStorage(db),
 
   // The hub holds sync socket subscriptions, so there must be exactly ONE instance. entry-server
@@ -55,18 +55,18 @@ export { posts, users };
 
 The returned `Live` object exposes:
 
-- [`live.create` / `live.update` / `live.delete` / `live.touch`](/framework/server/writes) —
+- [`sync.create` / `sync.update` / `sync.delete` / `sync.touch`](/framework/server/writes) —
   typed writes that publish sync messages.
-- [`live.serve(state, params, data)`](/framework/server/grants) — read-endpoint wrapper; parses
+- [`sync.serve(state, params, data)`](/framework/server/grants) — read-endpoint wrapper; parses
   `data` (the state's input shape — raw DB rows work as-is) through the state's schemas, signs a
   grant for the state's channel, and returns the parsed shape with the grant attached as `$grant`.
   Stateless — no `req`, no hub interaction.
-- [`live.renew(grant)`](/framework/server/grants) — verify a grant (within a grace window) and
+- [`sync.renew(grant)`](/framework/server/grants) — verify a grant (within a grace window) and
   reissue it with a fresh expiry, or return `null` when denied. Mount it behind your app's auth.
-- [`live.hydration(registry)`](/framework/server/grants) — one-call SSR payload: signs one grant
+- [`sync.hydration(registry)`](/framework/server/grants) — one-call SSR payload: signs one grant
   per channel the render logged, embeds them as `grants: string[]`, and returns the
   `hydrationScript` string.
-  `createLive` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
+  `createSync` also accepts `grantTtlMs` (grant lifetime, default 15 minutes) and `renewGraceMs`
   (how long past expiry a grant still renews, default 5 minutes). `Live` is generic over the
   adapter's binding — `Live<DrizzleBinding>` for `drizzleStorage`, `Live<MemoryBinding>` for
   `memoryStorage`.

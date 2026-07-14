@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- a833885: Add the client live layer: `createLiveClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `liveClient` prop + `useLiveClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
+- a833885: Add the client live layer: `createSyncClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `syncClient` prop + `useSyncClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
 
 ### Patch Changes
 
@@ -23,7 +23,7 @@
 
 ### Minor Changes
 
-- a833885: Add the client live layer: `createLiveClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `liveClient` prop + `useLiveClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
+- a833885: Add the client live layer: `createSyncClient` (applies inbound entity patches to stores and counts per-state "updates available" signals), `stateChannel`, `readSsrGrants`, `StoreProvider`'s `syncClient` prop + `useSyncClient`, and `useStateData`'s `updatesAvailable# rxfy-react / `applyUpdates()`.
 
 ### Patch Changes
 

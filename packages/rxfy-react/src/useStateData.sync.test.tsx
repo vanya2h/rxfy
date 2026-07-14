@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { array, createModel, defineState } from "rxfy";
-import type { LiveClient } from "rxfy-client";
+import type { SyncClient } from "rxfy-client";
 import { BehaviorSubject, firstValueFrom } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -20,7 +20,7 @@ const pageState = defineState({
   model: { posts: array(postModel) },
 });
 
-/** A controllable stub live client whose single channel is backed by a BehaviorSubject. */
+/** A controllable stub sync client whose single channel is backed by a BehaviorSubject. */
 function stubLive() {
   const counter = new BehaviorSubject(0);
   const reset = vi.fn(() => counter.next(0));
@@ -29,18 +29,18 @@ function stubLive() {
   const subscribe = vi.fn((grant: string) => {
     subscribed.push({ grant });
   });
-  const client: LiveClient = { subscribe, channel, stop: vi.fn() };
+  const client: SyncClient = { subscribe, channel, stop: vi.fn() };
   return { client, counter, reset, channel, subscribe, subscribed };
 }
 
-const withLive = (client: LiveClient) =>
+const withLive = (client: SyncClient) =>
   function Wrapper({ children }: { children: React.ReactNode }) {
-    return <StoreProvider liveClient={client}>{children}</StoreProvider>;
+    return <StoreProvider syncClient={client}>{children}</StoreProvider>;
   };
 
 const noLive = ({ children }: { children: React.ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
-describe("useStateData live updates", () => {
+describe("useStateData sync updates", () => {
   it("subscribes the state's channel and exposes its counter as updatesAvailable$", async () => {
     const { client, counter, channel } = stubLive();
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
@@ -120,7 +120,7 @@ describe("useStateData live updates", () => {
     expect(data).toEqual({ posts: ["1"] });
   });
 
-  it("without a live client, updatesAvailable$ stays 0 and applyUpdates still reloads", async () => {
+  it("without a sync client, updatesAvailable$ stays 0 and applyUpdates still reloads", async () => {
     const fetchFn = vi.fn().mockResolvedValue({ posts: [] });
 
     const { result } = renderHook(() => useStateData({ state: pageState, fetchFn, params: { page: 0 } }), {

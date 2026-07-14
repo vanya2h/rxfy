@@ -13,7 +13,7 @@ function fixtureTemplatesRoot(): string {
   fs.mkdirSync(path.join(dir, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(dir, "template.json"),
-    JSON.stringify({ display: "Vite (live SSR app)", description: "Full live stack" }),
+    JSON.stringify({ display: "Vite (sync SSR app)", description: "Full sync stack" }),
   );
   fs.writeFileSync(
     path.join(dir, "package.json"),

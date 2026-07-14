@@ -4,22 +4,22 @@
 publishes sync messages through a hub. Core `rxfy-server` is storage-agnostic: the Drizzle binding
 lives in `rxfy-server-drizzle` (`defineResource`, `drizzleStorage`) and an in-memory binding in
 `rxfy-server-memory` (`defineCollection`, `memoryStorage`). Everything else — the hub API,
-`createResourceRegistry`, grant signing, and `createLive` — imports from the single `rxfy-server`
+`createResourceRegistry`, grant signing, and `createSync` — imports from the single `rxfy-server`
 entry.
 
 - [`defineResource`](/framework/server/define-resource) — from `rxfy-server-drizzle`, tie a Drizzle
   `PgTable` to an rxfy model (or `defineCollection` from `rxfy-server-memory`);
   `createResourceRegistry` (core) is a neutral convenience lookup.
-- [`createLive`](/framework/server/create-server) — wire a storage adapter and hub into a
+- [`createSync`](/framework/server/create-server) — wire a storage adapter and hub into a
   `Live` object with typed write methods.
-- [Writes](/framework/server/writes) — `live.create` / `live.update` / `live.delete`, plus
+- [Writes](/framework/server/writes) — `sync.create` / `sync.update` / `sync.delete`, plus
   `touch()` for state-channel invalidation.
-- [Grants](/framework/server/grants) — `live.serve` and `live.hydration` sign a channel grant for
+- [Grants](/framework/server/grants) — `sync.serve` and `sync.hydration` sign a channel grant for
   exactly what was served; the client lifts it from the payload and subscribes, then renews it
   before it expires.
 - [`createInMemoryHub`](/framework/server/hub) — the single-process, socket-keyed pub/sub
   backbone between writes and transports.
 
 Start with [`defineResource`](/framework/server/define-resource) and
-[`createLive`](/framework/server/create-server); for an end-to-end walkthrough see
+[`createSync`](/framework/server/create-server); for an end-to-end walkthrough see
 [Add Sync Client](/getting-started/add-sync-client).

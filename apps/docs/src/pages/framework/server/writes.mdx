@@ -1,11 +1,11 @@
-# Writes [live.create / live.update / live.delete and touch]
+# Writes [sync.create / sync.update / sync.delete and touch]
 
-`live.create`, `live.update`, and `live.delete` run the SQL write and then publish live messages.
+`sync.create`, `sync.update`, and `sync.delete` run the SQL write and then publish sync messages.
 All three accept an optional `{ touch: [...] }` option to mark state channels stale.
 
 `server/api.ts` pulls together three things declared elsewhere — the tabs below show each one:
 
-- `live` — the `Live` object from [`createLive`](/framework/server/create-server).
+- `live` — the `Live` object from [`createSync`](/framework/server/create-server).
 - `postResource` — a resource from [`defineResource`](/framework/server/define-resource).
 - `postsState` — a state from [`defineState`](/rxfy/define-state), the **same state you pass to
   `useStateData`** on the client. It already carries the `{ key, window }` a channel needs, so it
@@ -17,26 +17,26 @@ All three accept an optional `{ touch: [...] }` option to mark state channels st
 import { touch } from "rxfy-server";
 import { postsState } from "../src/blog/states.js";
 import { postResource } from "../src/blog/resources.js";
-import { live } from "./live.js";
+import { sync } from "./sync.js";
 
 // update — publishes a `patch` on the entity topic automatically
-await live.update(postResource, postId, { title, body });
+await sync.update(postResource, postId, { title, body });
 
 // create — does NOT publish a patch; touch the state channels that list this entity
-await live.create(postResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
+await sync.create(postResource, { id: newId(), userId, title, body }, { touch: [touch(postsState, {})] });
 
 // delete — same: no patch, touch the channels that referenced this entity
-await live.delete(postResource, postId, { touch: [touch(postsState, {})] });
+await sync.delete(postResource, postId, { touch: [touch(postsState, {})] });
 ```
 
 ```ts [server/live.ts]
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
 export const hub = createInMemoryHub();
 
-export const live = createLive({ storage: drizzleStorage(db), hub });
+export const sync = createSync({ storage: drizzleStorage(db), hub });
 ```
 
 ```ts [src/blog/resources.ts]
@@ -67,10 +67,10 @@ export const postsState = defineState({
 
 | Call                                    | SQL                | Publishes                                                                     |
 | --------------------------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `live.update(resource, id, patch)`      | UPDATE … RETURNING | `patch` on the `"<name>:<id>"` entity topic, then `stale` on touched channels |
-| `live.create(resource, row, { touch })` | INSERT             | `stale` on touched channels only (no patch)                                   |
-| `live.delete(resource, id, { touch })`  | DELETE             | `stale` on touched channels only                                              |
-| `live.touch(...targets)`                | none               | `stale` out of band                                                           |
+| `sync.update(resource, id, patch)`      | UPDATE … RETURNING | `patch` on the `"<name>:<id>"` entity topic, then `stale` on touched channels |
+| `sync.create(resource, row, { touch })` | INSERT             | `stale` on touched channels only (no patch)                                   |
+| `sync.delete(resource, id, { touch })`  | DELETE             | `stale` on touched channels only                                              |
+| `sync.touch(...targets)`                | none               | `stale` out of band                                                           |
 
 `create` and `delete` publish no entity patch — there is no row to push for a new entity, and the
 deleted row is gone. They publish `stale` on every touched channel so clients know to refetch.
@@ -86,5 +86,5 @@ dimensions declared in `state.window` (page, cursor, sort) are stripped from the
 all windows of the same partition share one invalidation channel — see
 [Grants](/framework/server/grants) for how channels are derived and signed.
 
-You can also call `live.touch(...targets)` directly without a write to invalidate channels out of
+You can also call `sync.touch(...targets)` directly without a write to invalidate channels out of
 band.

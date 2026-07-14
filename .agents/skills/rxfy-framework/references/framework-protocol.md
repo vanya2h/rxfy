@@ -8,7 +8,7 @@ Server → client:
 
 | Type           | `kind`    | Fields                            | Description                                                                                                                                           |
 | -------------- | --------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Live entity update. Holders of `name:id` apply it in place. `data` is opaque at the protocol layer; consumers validate it against their model schema. |
+| `PatchMessage` | `"patch"` | `v`, `kind`, `name`, `id`, `data` | Sync entity update. Holders of `name:id` apply it in place. `data` is opaque at the protocol layer; consumers validate it against their model schema. |
 | `StaleMessage` | `"stale"` | `v`, `kind`, `channel`            | Structural change signal for a state channel. Clients increment a local staleness counter so they know to re-fetch.                                   |
 
 Client → server:

@@ -4,7 +4,7 @@ import { HomeView } from "../components/HomeView";
 
 export default async function HomePage() {
   // The in-process fetch returns the parsed shape plus a signed `$grant`; HomeView seeds its store
-  // from it and the live client subscribes the grant on the browser socket.
+  // from it and the sync client subscribes the grant on the browser socket.
   const posts = await parseResponse(serverApi.posts.$get());
   return <HomeView defaultData={posts} />;
 }

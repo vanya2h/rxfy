@@ -1,4 +1,4 @@
-import { createInMemoryHub, createLive } from "rxfy-server";
+import { createInMemoryHub, createSync } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { db } from "./db.js";
 
@@ -11,4 +11,4 @@ export const hub = createInMemoryHub();
 // grants signed here verify there. Override via RXFY_SECRET in production.
 export const SECRET = process.env.RXFY_SECRET ?? "dev-secret-change-me";
 
-export const live = createLive({ storage: drizzleStorage(db), hub, secret: SECRET });
+export const sync = createSync({ storage: drizzleStorage(db), hub, secret: SECRET });

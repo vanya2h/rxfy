@@ -9,7 +9,7 @@ type ResourceByName<TResources extends readonly AnyResource[], TName extends str
   { name: TName }
 >;
 
-/** Indexes resources by name — a convenience lookup for client wiring / tests. Not required by createLive. */
+/** Indexes resources by name — a convenience lookup for client wiring / tests. Not required by createSync. */
 export type ResourceRegistry<TResources extends readonly AnyResource[] = readonly AnyResource[]> = {
   byName: <TName extends string>(name: TName) => ResourceByName<TResources, TName> | undefined;
   model: <TName extends string>(name: TName) => ResourceByName<TResources, TName>["model"] | undefined;

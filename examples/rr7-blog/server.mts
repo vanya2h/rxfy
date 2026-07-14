@@ -7,7 +7,7 @@ import { createRequestHandler, type ServerBuild } from "react-router";
 import { createWsServer } from "rxfy-ws";
 import type { ViteDevServer } from "vite";
 import { WebSocketServer } from "ws";
-import { hub, SECRET } from "./app/server/live";
+import { hub, SECRET } from "./app/server/sync";
 
 const isProduction = process.env.NODE_ENV === "production";
 const port = Number(process.env.PORT) || 5173;

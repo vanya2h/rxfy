@@ -1,7 +1,7 @@
 # createWsClient [The browser transport with reconnect and replay]
 
 `createWsClient` opens a WebSocket to `url` and returns a `ClientTransport` that
-`createLiveClient` (from `rxfy-client`, re-exported by `rxfy-react`) consumes.
+`createSyncClient` (from `rxfy-client`, re-exported by `rxfy-react`) consumes.
 
 ```ts
 import { createWsClient } from "rxfy-ws/client";
@@ -19,7 +19,7 @@ function createWsClient(options: WsClientOptions): ClientTransport;
 
 **Auto-reconnect and grant replay.** The transport is `{ send, onMessage, onOpen, close }` — there
 is no `hello` method. On `"close"` it schedules a reconnect after `reconnectDelayMs`; on `"open"`
-it fires the `onOpen` handler, and `createLiveClient` responds by replaying its full grant set —
+it fires the `onOpen` handler, and `createSyncClient` responds by replaying its full grant set —
 re-sending a `subscribe` frame for every live entry — so the caller never re-announces anything.
 A frame passed to `send` while the socket is closed is silently dropped (nothing is buffered);
 the grant set replayed on the next `"open"` is what restores the subscriptions.
@@ -28,14 +28,14 @@ the grant set replayed on the next `"open"` is what restores the subscriptions.
 import { StrictMode } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { createModelRegistry } from "rxfy";
-import { createLiveClient, StoreProvider } from "rxfy-react";
+import { createSyncClient, StoreProvider } from "rxfy-react";
 import { createWsClient } from "rxfy-ws/client";
 import { ApiProvider, createApiClient } from "./blog/api-client.js";
 import { App } from "./App.js";
 
 const registry = createModelRegistry();
 const apiClient = createApiClient(); // browser client: plain hc("/api") — carries nothing; grants ride the payload
-const liveClient = createLiveClient({
+const syncClient = createSyncClient({
   registry,
   transport: createWsClient({ url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live` }),
   renewUrl: "/api/live/renew",
@@ -44,7 +44,7 @@ const liveClient = createLiveClient({
 hydrateRoot(
   document.getElementById("root") as HTMLElement,
   <StrictMode>
-    <StoreProvider registry={registry} ssr liveClient={liveClient}>
+    <StoreProvider registry={registry} ssr syncClient={syncClient}>
       <ApiProvider client={apiClient}>
         <App url={location.pathname} />
       </ApiProvider>

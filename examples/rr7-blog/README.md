@@ -25,20 +25,20 @@ rxfy fetches inside render on both the server and the client.
 3. The full HTML is buffered and `hydration(registry)` is injected before `</body>` — one call
    that signs a channel grant for every channel the render logged and embeds the grants alongside
    the dehydrated registry in the snapshot script.
-4. `app/entry.client.tsx` wraps `<HydratedRouter>` in `<StoreProvider ssr registry liveClient>`,
+4. `app/entry.client.tsx` wraps `<HydratedRouter>` in `<StoreProvider ssr registry syncClient>`,
    which drains the snapshot synchronously → **no client refetch on first paint** — and the live
    client lifts the SSR grants and subscribes them on its own socket.
 
 `StoreProvider` lives in the **entry points** (not `root.tsx`) because the per-request
 registry must be created server-side in `entry.server.tsx` so it can be dehydrated.
 
-## Live updates
+## Sync updates
 
 `server.mts` is a custom hono server (`react-router-serve` can't host a WebSocket): vite
 middleware + the RR request handler for pages, `/live` upgraded to the rxfy WebSocket. Reads are
 stateless — each api response attaches a signed channel grant as `$grant` (`serve`), and SSR
 embeds the same grants via `hydration`. The client lifts each grant and subscribes it on its own
-socket; the WebSocket server verifies the grant against the shared `SECRET`. `createLiveClient`
+socket; the WebSocket server verifies the grant against the shared `SECRET`. `createSyncClient`
 renews grants nearing expiry against `POST /api/live/renew` (`renew`). Posting a comment
 `touchState`s the post-detail channel: every socket subscribed to that channel gets a `stale`
 push and shows the "new comment — refresh" badge.
