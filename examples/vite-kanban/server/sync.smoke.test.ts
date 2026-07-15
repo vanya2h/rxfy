@@ -128,7 +128,7 @@ describe("live end-to-end over the grant/WebSocket path", () => {
     const served = sync.serve(
       boardState,
       {},
-      { cards: [{ id: "k1", columnId: "todo", title: "Old", description: "", position: "a0" }] },
+      { todo: [{ id: "k1", columnId: "todo", title: "Old", description: "", position: "a0" }], doing: [], done: [] },
     );
     const { $grant, ...payload } = served;
 
@@ -160,7 +160,7 @@ describe("live end-to-end over the grant/WebSocket path", () => {
     const served = sync.serve(
       boardState,
       {},
-      { cards: [{ id: "k1", columnId: "todo", title: "Old", description: "", position: "a0" }] },
+      { todo: [{ id: "k1", columnId: "todo", title: "Old", description: "", position: "a0" }], doing: [], done: [] },
     );
     const { $grant, ...payload } = served;
     normalizeResult(registry, boardState.fields, payload);
