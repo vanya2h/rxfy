@@ -25,14 +25,22 @@ const [todo] = useAtom(store.get(id)); // the cell itself — stable identity, n
 const [value, setValue] = useAtom(atom$); // atom$ must be stable across renders
 ```
 
+**Prefer `<Pending>` over the `usePending` hook** to render async state — it follows the
+**late-unwrapping** principle: the value stays wrapped up to the render edge, and the surrounding
+component never branches on status (`usePending` pulls that branch up into the body — an earlier
+unwrap). It also revalidates smoothly: a reload refetches in place (`data$` keeps its identity and
+skips the interim `PENDING`), so `<Pending>` holds the last fulfilled value across a live `stale`
+refetch — no pending flash, no manual keep-previous. Reach for `usePending` only when you need the
+`IWrapped<T>` value itself (a count, a derived label), not to gate a subtree.
+
 ## Hook quick-reference
 
-| Hook                                                                      | Returns           | Notes                                                                                                                      |
-| ------------------------------------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `useStateData({ state, fetchFn, params })`                                | `StateHandle`     | Re-fetches when `params` value changes; `data$` identity stays stable                                                      |
-| `useStatePagedData({ model, key, params, fetchPage, getCursor, select })` | `PagedListHandle` | Infinite list — see **Pagination** in mutations-writes.md                                                                  |
-| `useModelStore(descriptor)`                                               | `ModelStore<T>`   | Same descriptor → same store in the registry; for pushing external data in, see **External writes** in mutations-writes.md |
-| `useModelRegistry()`                                                      | `IModelRegistry`  | The active registry — for `added$` subscriptions / manual store access                                                     |
-| `useAtom(atom$)`                                                          | `[T, set]`        | `store.get(id)` is already stable; memoize derived atoms (`Lens`, drafts) — new identity resets                            |
-| `usePending(source$)`                                                     | `IWrapped<T>`     | Low-level; prefer `<Pending>` for rendering                                                                                |
-| `useObservable(obs$, initial)`                                            | `T`               | Raw subscription to any observable                                                                                         |
+| Hook                                                                      | Returns           | Notes                                                                                                                                            |
+| ------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `useStateData({ state, fetchFn, params })`                                | `StateHandle`     | Re-fetches when `params` value changes; `data$` identity stays stable                                                                            |
+| `useStatePagedData({ model, key, params, fetchPage, getCursor, select })` | `PagedListHandle` | Infinite list — see **Pagination** in mutations-writes.md                                                                                        |
+| `useModelStore(descriptor)`                                               | `ModelStore<T>`   | Same descriptor → same store in the registry; for pushing external data in, see **External writes** in mutations-writes.md                       |
+| `useModelRegistry()`                                                      | `IModelRegistry`  | The active registry — for `added$` subscriptions / manual store access                                                                           |
+| `useAtom(atom$)`                                                          | `[T, set]`        | `store.get(id)` is already stable; memoize derived atoms (`Lens`, drafts) — new identity resets                                                  |
+| `usePending(source$)`                                                     | `IWrapped<T>`     | Low-level; **prefer `<Pending>` for rendering** (late unwrapping + holds last value across reload). Use only when you need the raw `IWrapped<T>` |
+| `useObservable(obs$, initial)`                                            | `T`               | Raw subscription to any observable                                                                                                               |
