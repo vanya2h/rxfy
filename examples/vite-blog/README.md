@@ -1,4 +1,4 @@
-# vite-blog-framework
+# vite-blog
 
 A live blog example that demonstrates the rxfy live framework (`rxfy-server` + `rxfy-ws` + the React sync client from `rxfy-react`). Post and comment **edits** apply live in place across all connected tabs — no page reload. Post and comment **creates** and **deletes** surface a non-intrusive badge ("1 new post · click to refresh") that appears on each tab; the badge is powered entirely by `useStateData().updatesAvailable$` from the rxfy React bindings — no custom counter logic.
 
@@ -18,7 +18,7 @@ A live blog example that demonstrates the rxfy live framework (`rxfy-server` + `
 ## Run
 
 ```
-pnpm --filter vite-blog-framework dev
+pnpm --filter vite-blog dev
 ```
 
 Open http://localhost:5176. The in-memory database resets each time the server restarts.

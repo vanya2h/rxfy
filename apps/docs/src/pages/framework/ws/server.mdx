@@ -27,7 +27,7 @@ its subscriptions are dropped. See [Grants](/framework/server/grants).
 
 ## Adapter pattern (Hono)
 
-The Hono bridge from `examples/vite-blog-framework` shows the pattern: create an
+The Hono bridge from `examples/vite-blog` shows the pattern: create an
 `EventEmitter` to act as the event bus, pass a `ServerSocket` literal to
 `handleConnection` on open, and relay `onMessage` / `onClose` events through the emitter.
 

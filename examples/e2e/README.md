@@ -5,10 +5,10 @@ cross-tab sync. Private; never published. Wired into CI as `turbo run e2e`.
 
 ## What it covers
 
-| Capability   | Apps                                                | Asserts                                        |
-| ------------ | --------------------------------------------------- | ---------------------------------------------- |
-| `sync-blog`  | next-blog, rr7-blog, vite-blog-framework, waku-blog | comment in tab B → live badge in tab A → apply |
-| `sync-todos` | templates/vite, templates/next                      | create → badge → apply; toggle → both tabs     |
+| Capability   | Apps                                      | Asserts                                        |
+| ------------ | ----------------------------------------- | ---------------------------------------------- |
+| `sync-blog`  | next-blog, rr7-blog, vite-blog, waku-blog | comment in tab B → live badge in tab A → apply |
+| `sync-todos` | templates/vite, templates/next            | create → badge → apply; toggle → both tabs     |
 
 Each app is one Playwright project (own port + server). `targets.ts` is the single registry driving
 projects and webServers. Tests load routes **directly (SSR)** in two browser contexts — client
