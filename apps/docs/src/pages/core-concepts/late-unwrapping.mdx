@@ -106,9 +106,17 @@ function PostRow({ id }: { id: string }) {
 }
 ```
 
-Use `Pending` when you want to render UI per status, and [`usePending`](/react/use-pending) when
-you need the `IWrapped<T>` value itself. Either way, the unwrap is as narrow as the thing being
-shown — and below the unwrap, entity reads carry no status at all.
+**Prefer `Pending` over the [`usePending`](/react/use-pending) hook.** The component keeps the
+unwrap at the render edge — the value stays wrapped right up to the boundary that shows it, and the
+surrounding component never branches on status. Reaching for `usePending` pulls that branch up into
+the component body, which is an _earlier_ unwrap; keep it for the rare case where you need the
+`IWrapped<T>` value itself (a count, a derived label) rather than to gate a subtree. Either way the
+unwrap stays as narrow as the thing being shown, and below it entity reads carry no status at all.
+
+Late unwrapping also buys smooth revalidation for free. A reload refetches **in place**: `data$`
+keeps its identity and never emits the interim `PENDING`, so `Pending` holds the last fulfilled
+value across a background refresh instead of flashing its pending UI. Unwrap at the edge and a
+live `stale` refetch updates the content underneath without tearing the tree down.
 
 ## Writes never unwrap at all
 

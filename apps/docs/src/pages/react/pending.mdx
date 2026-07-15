@@ -7,6 +7,13 @@ is omitted it renders nothing and logs the error to `console.error`.
 Reload is not carried on the status object: get it from the [`useStateData`](/react/use-state-data)
 handle's `reload()` (or `getAttachedReload(source$)` for a standalone observable).
 
+`Pending` is the preferred way to unwrap async state for rendering — it keeps the unwrap at the
+render edge ([late unwrapping](/core-concepts/late-unwrapping)), whereas the [`usePending`](/react/use-pending)
+hook pulls the status branch up into the component body. It also revalidates smoothly: a reload
+refetches in place (`data$` keeps its identity and skips the interim `PENDING`), so `Pending` holds
+the last fulfilled value across a background refresh — a live `stale` update swaps the content
+underneath with no pending flash.
+
 ```tsx
 import { useMemo, useState } from "react";
 import { Pending, useStateData } from "rxfy-react";
