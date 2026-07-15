@@ -1,14 +1,17 @@
 import { PassThrough } from "node:stream";
+import { hc } from "hono/client";
 import { StrictMode, Suspense } from "react";
 import { renderToPipeableStream } from "react-dom/server";
 import { createModelRegistry } from "rxfy";
 import { StoreProvider } from "rxfy-react";
+import type { AppType } from "../server/api.js";
 import type { RenderFn } from "../server/render-types.js";
-import { ApiProvider, createApiClient } from "./kanban/api-client.js";
+import { ApiProvider } from "./kanban/api-client.js";
 import { App } from "./App.js";
 
 export const render: RenderFn = (_url, sync, apiFetch) => {
-  const apiClient = createApiClient(apiFetch);
+  // SSR client: route requests through hono's in-process `app.request` — no network trip.
+  const apiClient = hc<AppType>("http://ssr.internal", { fetch: apiFetch });
   const registry = createModelRegistry();
 
   return new Promise((resolve, reject) => {
