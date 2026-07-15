@@ -5,14 +5,17 @@ import { Card as UICard } from "examples-shared/ui/card";
 import { parseResponse } from "hono/client";
 import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useAtom, useModelStore } from "rxfy-react";
 import { useApi } from "./api-client.js";
 import { CardEditor } from "./CardEditor.js";
-import type { Card as CardEntity } from "./models";
+import { type CardId, cardModel } from "./models";
 
-export function Card({ card, onDeleted }: { card: CardEntity; onDeleted: () => void }) {
+export function Card({ id, onDeleted }: { id: CardId; onDeleted: () => void }) {
   const api = useApi();
+  const store = useModelStore(cardModel);
+  const [card] = useAtom(store.get(id));
   const [editing, setEditing] = useState(false);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -21,7 +24,7 @@ export function Card({ card, onDeleted }: { card: CardEntity; onDeleted: () => v
   };
 
   const remove = async () => {
-    await parseResponse(api.cards[":id"].$delete({ param: { id: card.id } }));
+    await parseResponse(api.cards[":id"].$delete({ param: { id } }));
     onDeleted();
   };
 
