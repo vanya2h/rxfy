@@ -17,6 +17,6 @@
     "rxfy-example-waku-blog": "workspace:*",
     "rxfy-template-next": "workspace:*",
     "rxfy-template-vite": "workspace:*",
-    "vite-blog-framework": "workspace:*"
+    "vite-blog": "workspace:*"
   }
 }

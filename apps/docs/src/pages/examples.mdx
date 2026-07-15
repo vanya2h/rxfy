@@ -56,14 +56,14 @@ pnpm --filter rxfy-example-waku-blog dev
 
 ## Tier 2 · Sync (the framework)
 
-### vite-blog-framework
+### vite-blog
 
-**[examples/vite-blog-framework](https://github.com/vanya2h/rxfy/tree/main/examples/vite-blog-framework)**
+**[examples/vite-blog](https://github.com/vanya2h/rxfy/tree/main/examples/vite-blog)**
 
 A sync blog: server-rendered first paint, then real-time sync over WebSockets. Edits apply instantly across tabs (a `patch` on the entity topic); new posts/comments and deletes surface a "click to refresh" badge (a `stale` on the state channel). Built with Vite SSR · Hono · Hono WebSocket · PGlite (in-memory Postgres) · Drizzle · `rxfy-server` · `rxfy-ws` · `rxfy-client`. SSR signs channel **grants** for exactly what the page rendered; the client subscribes with them over the WebSocket.
 
 ```bash
-pnpm --filter vite-blog-framework dev
+pnpm --filter vite-blog dev
 # open in two tabs — edit a post in one, watch it change live in the other
 ```
 

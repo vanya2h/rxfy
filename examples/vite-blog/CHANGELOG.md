@@ -1,4 +1,4 @@
-# vite-blog-framework
+# vite-blog
 
 ## 0.1.1
 

@@ -64,7 +64,7 @@ function connectClient(hub: Hub, registry: ReturnType<typeof createModelRegistry
 
 // Generous timeouts: each test cold-starts a PGlite (wasm Postgres) instance, which is
 // fast locally (~1s) but several times slower on CI runners.
-describe("vite-blog-framework sync server", () => {
+describe("vite-blog sync server", () => {
   it("registers the three resources", () => {
     expect(resources.byName("post")).toBe(postResource);
     expect(resources.byName("user")).toBe(userResource);
