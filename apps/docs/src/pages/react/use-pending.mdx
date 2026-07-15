@@ -5,6 +5,13 @@ rendered UI. It subscribes to any `ObservableLike<T>` (an `Observable<T>` or a p
 returns the current `IWrapped<T>`, narrowed to `PENDING` / `FULFILLED` /
 `REJECTED`, never `IDLE`. Pass `getDefaultValue` to start `FULFILLED` instead of `PENDING`.
 
+:::tip[Prefer `Pending` for rendering]
+To render UI per status, reach for the [`Pending`](/react/pending) component, not this hook — it
+keeps the unwrap at the render edge ([late unwrapping](/core-concepts/late-unwrapping)) and holds
+the last fulfilled value across a background reload. Use `usePending` only when you genuinely need
+the `IWrapped<T>` value itself (e.g. a count or a derived label), not to gate a subtree.
+:::
+
 ```tsx
 import { usePending, useStateData } from "rxfy-react";
 import { StatusEnum } from "rxfy";
