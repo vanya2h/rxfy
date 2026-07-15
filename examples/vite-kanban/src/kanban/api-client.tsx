@@ -6,17 +6,13 @@ import type { AppType } from "../../server/api.js";
 /** The shape of hono's in-process `app.request` — what the server entry injects for SSR. */
 export type ApiFetch = Hono["request"];
 
-export type ApiClient = ReturnType<typeof createApiClient>;
-
 /**
- * The typed RPC client over the hono endpoints. In the browser it makes a real network trip; during
- * SSR the server entry passes its in-process api (hono's `app.request`), so the same routes serve
- * both environments. Sync subscriptions ride channel grants (returned as `$grant`), so the client
- * carries no session header.
+ * The typed hono RPC client. Instantiate one per entry point with `hc<AppType>(...)`: the browser
+ * entry points it at `/api` (a real network trip); the server entry passes hono's in-process
+ * `app.request`, so the same routes serve both environments. Sync subscriptions ride channel grants
+ * (returned as `$grant`), so the client carries no session header.
  */
-export function createApiClient(serverFetch?: ApiFetch) {
-  return serverFetch ? hc<AppType>("http://ssr.internal", { fetch: serverFetch }) : hc<AppType>("/api");
-}
+export type ApiClient = ReturnType<typeof hc<AppType>>;
 
 const ApiContext = createContext<ApiClient | null>(null);
 
