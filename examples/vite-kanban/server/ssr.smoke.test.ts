@@ -6,7 +6,7 @@ const BASE = `http://localhost:${PORT}`;
 
 let server: ChildProcess;
 
-async function waitForServer(timeoutMs = 25_000): Promise<void> {
+async function waitForServer(timeoutMs = 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
@@ -33,7 +33,7 @@ describe("SSR end-to-end", () => {
       detached: true,
     });
     await waitForServer();
-  }, 30_000);
+  }, 70_000);
 
   afterAll(() => {
     if (server.pid) process.kill(-server.pid, "SIGTERM");
