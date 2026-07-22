@@ -41,15 +41,9 @@ export type IncludeMap = { readonly [field: string]: true | IncludeMap };
 type RelationEntity<V> =
   NonNullable<V> extends StoreKey<infer R> ? R : NonNullable<V> extends StoreKey<infer R>[] ? R : never;
 
-/**
- * Type-safe include over an entity's relation fields; recurses into each relation's own relations.
- * A leaf relation (whose target has no relations of its own) accepts only `true`: without the guard
- * the nested arm would collapse to `{}`, which any non-null value (`1`, `"x"`) satisfies.
- */
+/** Type-safe include over an entity's relation fields; recurses into each relation's own relations. */
 export type IncludeForEntity<TEntity> = {
-  [K in RelationFieldNames<TEntity>]?: RelationFieldNames<RelationEntity<TEntity[K]>> extends never
-    ? true
-    : true | IncludeForEntity<RelationEntity<TEntity[K]>>;
+  [K in RelationFieldNames<TEntity>]?: true | IncludeForEntity<RelationEntity<TEntity[K]>>;
 };
 
 /** Type-safe include for a field shape — unwraps arrays to their element entity. */
