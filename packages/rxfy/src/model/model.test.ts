@@ -108,6 +108,19 @@ describe("createModel fk linkage + relaxed ref validation", () => {
     });
   });
 
+  it("rejects any fk key on a model with no relations (type-level)", () => {
+    // No relations → FkMap must forbid all keys, not collapse to `{}` (which accepts anything).
+    createModel({
+      schema: z.object({ id: z.string(), title: z.string() }),
+      getKey: (x) => x.id,
+      name: "norel-fk",
+      // @ts-expect-error — a relation-less model has no valid fk keys
+      fk: { title: "title" },
+    });
+    // an empty fk map is still fine
+    createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "norel-fk-empty", fk: {} });
+  });
+
   it("the ref validator accepts a string id, undefined, or a joined object (pre-extraction)", () => {
     const schema = ref(cat);
     expect(schema.safeParse("c1").success).toBe(true);
