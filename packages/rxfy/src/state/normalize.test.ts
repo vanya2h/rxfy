@@ -8,6 +8,7 @@ import {
   denormalizeValue,
   normalizeResult,
   normalizeWritable,
+  parseShape,
   writeEntity,
 } from "./normalize.js";
 
@@ -84,6 +85,41 @@ describe("normalizeResult", () => {
   });
 });
 
+describe("parseShape with joined relations", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "pscat",
+  });
+  const post = createModel({
+    schema: z.object({
+      id: z.string(),
+      title: z.string(),
+      categoryId: z.string(),
+      category: ref(cat),
+    }),
+    getKey: (p) => p.id,
+    name: "pspost",
+  });
+
+  it("keeps a joined relation nested and cleans it (strips unknown columns)", () => {
+    const fields = { post: single(post).with({ category: true }) };
+    const parsed = parseShape<{ post: Record<string, unknown> }>(fields, {
+      post: { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News", secret: "x" } },
+    });
+    expect(parsed.post.category).toEqual({ id: "c1", name: "News" });
+    expect(parsed.post.categoryId).toBe("c1");
+  });
+
+  it("parses a non-joined payload (relation field absent) without throwing", () => {
+    const fields = { posts: array(post) };
+    const parsed = parseShape<{ posts: Record<string, unknown>[] }>(fields, {
+      posts: [{ id: "p2", title: "T2", categoryId: "c9" }],
+    });
+    expect(parsed.posts[0]).toMatchObject({ id: "p2", title: "T2", categoryId: "c9" });
+  });
+});
+
 describe("normalizeResult with joined relations", () => {
   const cat = createModel({
     schema: z.object({ id: z.string(), name: z.string() }),
@@ -101,7 +137,7 @@ describe("normalizeResult with joined relations", () => {
     const nrFields = { post: single(post).with({ category: true }) };
     const ids = normalizeResult(reg, nrFields, {
       post: { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News" } },
-    } as never);
+    });
     expect(ids).toEqual({ post: "p1" });
     expect(reg.model(cat).getValue("c1")).toEqual({ id: "c1", name: "News" });
     expect(reg.model(post).getValue("p1")).toEqual({ id: "p1", title: "T", categoryId: "c1", category: "c1" });
@@ -125,7 +161,7 @@ describe("normalizeWritable with relations", () => {
     const nwFields = { post: single(post).with({ category: true }) };
     const ids = normalizeWritable(reg, nwFields, {
       post: { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News" } },
-    } as never);
+    });
     expect(ids).toEqual({ post: "p1" });
     expect(reg.model(cat).getValue("c1")).toEqual({ id: "c1", name: "News" });
   });
@@ -133,7 +169,7 @@ describe("normalizeWritable with relations", () => {
   it("passes an id-string element through unchanged (already normalized)", () => {
     const reg = createModelRegistry();
     const nwFields = { post: single(post) };
-    const ids = normalizeWritable(reg, nwFields, { post: "p9" } as never);
+    const ids = normalizeWritable(reg, nwFields, { post: "p9" });
     expect(ids).toEqual({ post: "p9" });
   });
 });
@@ -180,6 +216,36 @@ describe("collectShapeTopics", () => {
     const plainFields = { posts: array(postModel), author: single(userModel), count: z.number() };
     const shape = { posts: [], author: null, count: 5 };
     expect(collectShapeTopics(plainFields, shape)).toEqual([]);
+  });
+});
+
+describe("collectShapeTopics with joined relations", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "ctcat",
+  });
+  const post = createModel({
+    schema: z.object({
+      id: z.string(),
+      title: z.string(),
+      categoryId: z.string(),
+      category: ref(cat),
+    }),
+    getKey: (p) => p.id,
+    name: "ctpost",
+  });
+
+  it("emits nested entity topics for joined relations", () => {
+    const fields = { post: single(post).with({ category: true }) };
+    const shape = { post: { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News" } } };
+    expect(collectShapeTopics(fields, shape).sort()).toEqual(["ctcat:c1", "ctpost:p1"]);
+  });
+
+  it("omits nested topics when the relation is not joined", () => {
+    const fields = { posts: array(post) };
+    const shape = { posts: [{ id: "p2", title: "T2", categoryId: "c9" }] };
+    expect(collectShapeTopics(fields, shape)).toEqual(["ctpost:p2"]);
   });
 });
 

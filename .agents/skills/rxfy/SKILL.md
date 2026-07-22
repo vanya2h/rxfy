@@ -15,8 +15,9 @@ You adopt it at the depth your app needs: **Store → +SSR → +Sync**. These ar
 
 ## Invariant rules (prevent most bugs)
 
-1. **id-vs-entity** — _always._ `data$` from `useStateData` emits the **query shape**: model fields hold **ids**, not entities. Read entities via `useModelStore(model).get(id)`.
+1. **id-vs-entity** — _always._ `data$` from `useStateData` emits the **query shape**: model fields hold **ids** (branded `StoreKey`s), not entities. Read entities via `useModelStore(model).get(id)`. `get` accepts only a `StoreKey` — query-shape ids already are one; brand a raw id (URL param) with `asKey(model, id)`, or read a maybe-unloaded one with `useModelStoreValue(model, id)`.
 2. **patch-vs-stale** — _once you're on the sync layer._ `patch` updates an entity **in place**; `stale` never edits a list — it increments `updatesAvailable$` and the client refetches via `applyUpdates()`.
+3. **relations = model + per-state join** — declare a relation _in the model schema_ with `ref`/`refArray`; declare whether a fetch delivers it joined _per state_ with `.with({ rel: true })`. One model/one store backs both list (refs only) and detail (joined). Set `createModel`'s `fk` map so live `patch`es keep the relation resolvable. See `references/models-states.md`.
 
 ## First, orient yourself
 

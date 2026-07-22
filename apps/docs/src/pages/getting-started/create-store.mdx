@@ -64,7 +64,7 @@ One file: a model, a state, a fetch, and two components.
 
 ```tsx [App.tsx]
 import { z } from "zod";
-import { array, createModel, defineState } from "rxfy";
+import { array, asKey, createModel, defineState } from "rxfy";
 import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 
 // A model: an entity type plus how to read its id.
@@ -94,7 +94,9 @@ async function fetchUsers() {
 // Each row subscribes to its own entity by id and re-renders only when that entity changes.
 function UserRow({ id }: { id: string }) {
   const store = useModelStore(UserModel);
-  const [user] = useAtom(store.get(id));
+  // `id` here is a plain string prop, so brand it with `asKey`. (Type the prop as
+  // `StoreKey<User>` instead and the query-shape id flows in with no `asKey`.)
+  const [user] = useAtom(store.get(asKey(UserModel, id)));
   return <li>{user.name}</li>;
 }
 

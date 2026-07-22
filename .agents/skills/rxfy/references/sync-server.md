@@ -110,6 +110,10 @@ Covered in depth in `sync-grants.md`. In short:
   shape (raw DB rows — unbranded ids, extra columns OK), parses it through the state's schemas, signs
   a grant for the state's channel, and returns the parsed shape (ids branded, unknown keys stripped)
   with the grant attached as a reserved `$grant` field. Stateless — it never touches the hub.
+  For a **joined relation** (`.with({ rel: true })`), `serve` recurses: it validates the nested entity
+  and keeps it nested (so the client normalizes it), and the signed grant **enumerates the nested
+  entity's topic** — so a `patch` to a joined `category` reaches every client that fetched a post
+  joining it. Pass the ORM's joined result straight in (e.g. Drizzle `with: { category: true }`).
 - `sync.hydration(registry)` — one-call SSR payload: signs one grant per channel the render logged
   into `registry.channels`, and returns the `hydrationScript` string carrying the dehydrated state
   plus `grants: string[]`.

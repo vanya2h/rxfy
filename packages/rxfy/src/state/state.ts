@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { EntityKey, FieldDescriptor, IncludeMap, JoinSpec, StoreKey } from "../model/model.js";
+import type { EntityKey, FieldDescriptor, StoreKey } from "../model/model.js";
 
 // `ref()` fields infer as `StoreKey<R> | undefined` and `refArray()` as `StoreKey<R>[] | undefined`,
 // so relation detection strips the `| undefined` with NonNullable before matching.
@@ -16,14 +16,14 @@ type OmitRelations<TEntity> = {
  * joined) view. Relations not in the include map are absent here — and OmitRelations dropped them too,
  * so an un-joined relation is omitted from the final view entirely.
  */
-type JoinedRelations<TEntity, TInclude extends IncludeMap> = {
+type JoinedRelations<TEntity, TInclude> = {
   [K in keyof TInclude & keyof TEntity]: NonNullable<TEntity[K]> extends StoreKey<infer R>
-    ? TInclude[K] extends JoinSpec
-      ? StoreKey<EntityView<R, TInclude[K]["include"]>>
+    ? NonNullable<TInclude[K]> extends object // a nested include map → recurse; `true` → join flat
+      ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>
       : StoreKey<OmitRelations<R>>
     : NonNullable<TEntity[K]> extends StoreKey<infer R>[]
-      ? TInclude[K] extends JoinSpec
-        ? StoreKey<EntityView<R, TInclude[K]["include"]>>[]
+      ? NonNullable<TInclude[K]> extends object
+        ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>[]
         : StoreKey<OmitRelations<R>>[]
       : never;
 };
@@ -32,9 +32,7 @@ type JoinedRelations<TEntity, TInclude extends IncludeMap> = {
 type Simplify<T> = { [K in keyof T]: T[K] } & {};
 
 /** A model entity as seen through an include map: non-relations + joined relations; un-joined dropped. */
-export type EntityView<TEntity, TInclude extends IncludeMap> = Simplify<
-  OmitRelations<TEntity> & JoinedRelations<TEntity, TInclude>
->;
+export type EntityView<TEntity, TInclude> = Simplify<OmitRelations<TEntity> & JoinedRelations<TEntity, TInclude>>;
 
 /** A field entry: an entity descriptor (`array`/`single`) or a bare zod schema for a plain value. */
 export type FieldEntry = FieldDescriptor<any> | z.ZodType<any, any>;

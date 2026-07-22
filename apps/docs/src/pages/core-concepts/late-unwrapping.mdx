@@ -96,12 +96,13 @@ fulfilled query, so the read is synchronous, and a single post changing re-rende
 alone, not the list:
 
 ```tsx
+import { asKey } from "rxfy";
 import { useAtom, useModelStore } from "rxfy-react";
 import { PostModel } from "./models";
 
 function PostRow({ id }: { id: string }) {
   const store = useModelStore(PostModel);
-  const [post] = useAtom(store.get(id));
+  const [post] = useAtom(store.get(asKey(PostModel, id)));
   return <li>{post.title}</li>;
 }
 ```

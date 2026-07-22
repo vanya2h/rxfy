@@ -19,6 +19,9 @@ const { data$, mutations, set, setRaw, reload } = useStateData({ state: myState,
 // 4. Read an entity by id — sync writable handle; the id must come from a fulfilled query
 const store = useModelStore(TodoModel);
 const [todo] = useAtom(store.get(id)); // the cell itself — stable identity, no useMemo needed
+// `get` takes a StoreKey<T>, not a raw string. Ids from `data$`/query shapes already are one;
+// brand a raw string (URL param, literal) with `asKey(Model, id)`. `get` throws if not loaded —
+// for a maybe-unloaded read use `useModelStoreValue(Model, id)` → `T | undefined` (non-throwing).
 <li>{todo.title}</li>;
 
 // 5. Bind an IAtom (Lens / field handle)
@@ -40,6 +43,7 @@ refetch — no pending flash, no manual keep-previous. Reach for `usePending` on
 | `useStateData({ state, fetchFn, params })`                                | `StateHandle`     | Re-fetches when `params` value changes; `data$` identity stays stable                                                                            |
 | `useStatePagedData({ model, key, params, fetchPage, getCursor, select })` | `PagedListHandle` | Infinite list — see **Pagination** in mutations-writes.md                                                                                        |
 | `useModelStore(descriptor)`                                               | `ModelStore<T>`   | Same descriptor → same store in the registry; for pushing external data in, see **External writes** in mutations-writes.md                       |
+| `useModelStoreValue(descriptor, id)`                                      | `T \| undefined`  | Non-throwing reactive read (`undefined` until loaded / when id is `null`) — for components that render whether or not a relation was joined      |
 | `useModelRegistry()`                                                      | `IModelRegistry`  | The active registry — for `added$` subscriptions / manual store access                                                                           |
 | `useAtom(atom$)`                                                          | `[T, set]`        | `store.get(id)` is already stable; memoize derived atoms (`Lens`, drafts) — new identity resets                                                  |
 | `usePending(source$)`                                                     | `IWrapped<T>`     | Low-level; **prefer `<Pending>` for rendering** (late unwrapping + holds last value across reload). Use only when you need the raw `IWrapped<T>` |
