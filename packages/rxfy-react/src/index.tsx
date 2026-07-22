@@ -7,6 +7,7 @@ export { SsrContext, StoreProvider } from "./StoreProvider.js";
 export { SyncClientContext, useSyncClient } from "./sync-context.js";
 export { useAtom } from "./useAtom.js";
 export { useModelStore } from "./useModelStore.js";
+export { useModelStoreValue } from "./useModelStoreValue.js";
 export { useObservable } from "./useObservable.js";
 export type { ObservableLike } from "./usePending.js";
 export { usePending } from "./usePending.js";

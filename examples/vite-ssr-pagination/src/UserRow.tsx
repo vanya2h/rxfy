@@ -1,10 +1,11 @@
+import { asKey } from "rxfy";
 import { useAtom, useModelStore } from "rxfy-react";
 import { userModel } from "./users.ts";
 
 /** Subscribes to a single user entity by id — re-renders only when that user changes. */
 export function UserRow({ id }: { id: string }) {
   const store = useModelStore(userModel);
-  const [user] = useAtom(store.get(id));
+  const [user] = useAtom(store.get(asKey(userModel, id)));
 
   return (
     <li className="user-row">

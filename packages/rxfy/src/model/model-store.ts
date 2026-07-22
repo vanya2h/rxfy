@@ -2,7 +2,7 @@ import { Observable, Subject } from "rxjs";
 import { Atom, createAtom, type IAtom } from "../atom/atom.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { createGrantLog, type GrantLog } from "../state/grant-log.js";
-import type { EntityKey, ModelDescriptor } from "./model.js";
+import type { ModelDescriptor, StoreKey } from "./model.js";
 
 export type ModelStore<TEntity> = {
   /**
@@ -10,11 +10,13 @@ export type ModelStore<TEntity> = {
    * Assumes the entity is already loaded (ids come from fulfilled states); accessing an unloaded
    * key throws. Use `getValue` for a non-throwing probe.
    */
-  get: (key: EntityKey<TEntity>) => IAtom<TEntity>;
+  get: (key: StoreKey<TEntity>) => IAtom<TEntity>;
   set: (key: string, val: TEntity) => void;
   setMany: (items: TEntity[]) => void;
   /** Synchronous read of the latest value — used by denormalization and dehydration. */
   getValue: (key: string) => TEntity | undefined;
+  /** Non-throwing reactive read: emits `undefined` until the key is present, then the entity and its updates. */
+  observe: (key: string) => Observable<TEntity | undefined>;
   valueEntries: () => [string, TEntity][];
   /**
    * Emits a key the first time its entity becomes present (the first `set`); updates to an existing
@@ -106,6 +108,26 @@ export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>):
     }),
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
     getValue: (key) => cells.get(key)?.get(),
+    observe: (key) =>
+      new Observable<TEntity | undefined>((subscriber) => {
+        let inner: { unsubscribe: () => void } | undefined;
+        const attach = (): boolean => {
+          const cell = cells.get(key);
+          if (!cell) return false;
+          inner = cell.subscribe(subscriber);
+          return true;
+        };
+        if (attach()) return () => inner?.unsubscribe();
+        // Not present yet: emit undefined now, then switch to the cell the first time it appears.
+        subscriber.next(undefined);
+        const waiting = added.subscribe((k) => {
+          if (k === key && attach()) waiting.unsubscribe();
+        });
+        return () => {
+          inner?.unsubscribe();
+          waiting.unsubscribe();
+        };
+      }),
     valueEntries: () => [...cells].map(([key, cell]) => [key, cell.get()] as [string, TEntity]),
   };
 }

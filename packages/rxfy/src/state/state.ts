@@ -1,5 +1,40 @@
 import type { z } from "zod";
-import type { EntityKey, FieldDescriptor } from "../model/model.js";
+import type { EntityKey, FieldDescriptor, IncludeMap, JoinSpec, StoreKey } from "../model/model.js";
+
+// `ref()` fields infer as `StoreKey<R> | undefined` and `refArray()` as `StoreKey<R>[] | undefined`,
+// so relation detection strips the `| undefined` with NonNullable before matching.
+type IsRelation<V> =
+  NonNullable<V> extends StoreKey<any> ? true : NonNullable<V> extends StoreKey<any>[] ? true : false;
+
+/** Non-relation fields of an entity (plain columns like id, title, categoryId). */
+type OmitRelations<TEntity> = {
+  [K in keyof TEntity as IsRelation<TEntity[K]> extends true ? never : K]: TEntity[K];
+};
+
+/**
+ * The joined relations named in an include map, each re-typed as a StoreKey of its own (recursively
+ * joined) view. Relations not in the include map are absent here — and OmitRelations dropped them too,
+ * so an un-joined relation is omitted from the final view entirely.
+ */
+type JoinedRelations<TEntity, TInclude extends IncludeMap> = {
+  [K in keyof TInclude & keyof TEntity]: NonNullable<TEntity[K]> extends StoreKey<infer R>
+    ? TInclude[K] extends JoinSpec
+      ? StoreKey<EntityView<R, TInclude[K]["include"]>>
+      : StoreKey<OmitRelations<R>>
+    : NonNullable<TEntity[K]> extends StoreKey<infer R>[]
+      ? TInclude[K] extends JoinSpec
+        ? StoreKey<EntityView<R, TInclude[K]["include"]>>[]
+        : StoreKey<OmitRelations<R>>[]
+      : never;
+};
+
+/** Collapse an intersection into a single object literal so `A & {}` reads as `A` (exact type equality). */
+type Simplify<T> = { [K in keyof T]: T[K] } & {};
+
+/** A model entity as seen through an include map: non-relations + joined relations; un-joined dropped. */
+export type EntityView<TEntity, TInclude extends IncludeMap> = Simplify<
+  OmitRelations<TEntity> & JoinedRelations<TEntity, TInclude>
+>;
 
 /** A field entry: an entity descriptor (`array`/`single`) or a bare zod schema for a plain value. */
 export type FieldEntry = FieldDescriptor<any> | z.ZodType<any, any>;
@@ -13,10 +48,10 @@ export type ShapeFromFields<T extends FieldsMap> = {
 
 /** Entity field -> id (array) / id (single); plain zod field -> its value, passed through. */
 export type QueryShapeFromFields<T extends FieldsMap> = {
-  [K in keyof T]: T[K] extends FieldDescriptor<infer S>
+  [K in keyof T]: T[K] extends FieldDescriptor<infer S, any, infer Inc>
     ? S extends readonly (infer Item)[]
-      ? EntityKey<Item>[]
-      : EntityKey<S>
+      ? StoreKey<EntityView<Item, Inc>>[]
+      : StoreKey<EntityView<S, Inc>>
     : T[K] extends z.ZodType<infer O, any>
       ? O
       : never;
@@ -44,7 +79,7 @@ export type WritableQueryShapeFromFields<T extends FieldsMap> = {
 
 /** The normalized shape data$ emits, derived from a denormalized shape (entity-only; kept as a default). */
 export type QueryShapeOf<TShape> = {
-  [K in keyof TShape]: TShape[K] extends readonly (infer Item)[] ? EntityKey<Item>[] : EntityKey<TShape[K]>;
+  [K in keyof TShape]: TShape[K] extends readonly (infer Item)[] ? StoreKey<Item>[] : StoreKey<TShape[K]>;
 };
 
 /**

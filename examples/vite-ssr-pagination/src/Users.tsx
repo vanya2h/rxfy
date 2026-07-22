@@ -1,5 +1,6 @@
 import { parseResponse } from "hono/client";
 import { useMemo, useState } from "react";
+import { asKey } from "rxfy";
 import { Pending, useAtom, useModelStore, useStateData, useStatePagedData } from "rxfy-react";
 import { useApi } from "./api-client.tsx";
 import { LoadMoreSentinel } from "./LoadMoreSentinel.tsx";
@@ -11,7 +12,7 @@ type Mode = "scroll" | "click";
 /** Subscribes to the top user entity — the id comes normalized out of the header state. */
 function TopUserName({ id }: { id: string }) {
   const store = useModelStore(userModel);
-  const [user] = useAtom(store.get(id));
+  const [user] = useAtom(store.get(asKey(userModel, id)));
   return <strong>{user.name}</strong>;
 }
 

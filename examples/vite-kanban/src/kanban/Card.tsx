@@ -5,6 +5,7 @@ import { Card as UICard } from "examples-shared/ui/card";
 import { parseResponse } from "hono/client";
 import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { asKey } from "rxfy";
 import { useAtom, useModelStore } from "rxfy-react";
 import { useApi } from "./api-client.js";
 import { CardEditor } from "./CardEditor.js";
@@ -13,7 +14,7 @@ import { type CardId, cardModel } from "./models";
 export function Card({ id, onDeleted }: { id: CardId; onDeleted: () => void }) {
   const api = useApi();
   const store = useModelStore(cardModel);
-  const [card] = useAtom(store.get(id));
+  const [card] = useAtom(store.get(asKey(cardModel, id)));
   const [editing, setEditing] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
