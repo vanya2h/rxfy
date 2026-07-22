@@ -57,4 +57,18 @@ describe("SSR end-to-end", () => {
     expect(html).toContain("grants");
     expect(html).not.toContain("$RC");
   }, 30_000);
+
+  it("resolves the recursive join in the SSR'd detail markup (post → author, comments → author)", async () => {
+    // `postDetailState` joins the post's author and each comment's own author. If the recursion or the
+    // view-typed `get()` reads regressed, the render would throw or omit names — so these strings, all
+    // sourced from *joined* entities, prove the whole path (serve → dehydrate → hydrate → read) works.
+    const html = await (await fetch(`${BASE}/posts/p1`)).text();
+
+    // Assert on *rendered* markup (closing tags), not the hydration snapshot JSON where these names also
+    // appear — so a name only counts if the component actually rendered it from the joined entity.
+    expect(html).toContain("Alice Doe</div>"); // post → author (p1.userId = u1), in the byline
+    expect(html).toContain("Bob Smith</p>"); // c1 → author (u2), rendered by CommentItem from the user store
+    expect(html).toContain("Carol Lee</p>"); // c2 → author (u3)
+    expect(html).toContain("Great intro!</p>"); // c1 body — the joined comments array rendered
+  }, 30_000);
 });
