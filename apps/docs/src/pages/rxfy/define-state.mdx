@@ -122,10 +122,47 @@ const [category] = useAtom(useModelStore(CategoryModel).get(post.category)); // 
 const [author] = useAtom(useModelStore(AuthorModel).get(category.author)); // nested join → a StoreKey
 ```
 
+These reads need no `!`. `get` carries the key's brand through to its result, so an id minted by a
+joined state resolves to a **view** whose joined relations are _required_ — `post.category` and
+`category.author` are guaranteed by the type at every level you joined, not just at runtime. Thread
+those branded ids down to child components (rather than plain strings) and each `get` returns the
+matching view. See [view-typed reads](/react/use-model-store#view-typed-reads).
+
 A to-many relation nests the same way — `refArray` joins compose with `{ tags: { … } }`, and the
 join maps straight onto your ORM's include (e.g. Drizzle `with: { category: { with: { author: true } } }`),
 so the query result drops into `sync.serve` unchanged. See
 [create-model relations](/rxfy/create-model#relations-between-models).
+
+## Inferring a state's types
+
+A `StateDescriptor` carries its shapes as phantom type slots. Rather than reach into them, pull any
+one off a `defineState` value with these helpers — the `z.infer` of a state:
+
+| Helper            | The shape it extracts                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| `ParamsOf<S>`     | the fetch params (the `params` schema's output)                                                             |
+| `NormalizedOf<S>` | the normalized query shape `data$`/[`<Pending>`](/react/pending) emit — model fields hold ids (`StoreKey`s) |
+| `ShapeOf<S>`      | the denormalized output — entities inline, relations as keys (the client transport shape)                   |
+| `InputOf<S>`      | the denormalized input a raw fetch / `sync.serve` payload has before parsing — relations as nested entities |
+| `WritableOf<S>`   | the writable query shape [`setRaw`](/react/use-state-data) accepts — each slot takes an id or an entity     |
+
+```ts
+import type { NormalizedOf, InputOf } from "rxfy";
+
+type PostQuery = NormalizedOf<typeof postState>; // { post: StoreKey<…> } — what data$ emits
+type ServerPayload = InputOf<typeof postState>; // { post: { …, category: {…} } } — what sync.serve takes
+```
+
+A joined query shape brands each id with the **view** it was fetched as (its joined relations
+required). Deref that brand with `ViewOf` to name a nested ref type — the id you thread into a child
+component — without repeating a conditional:
+
+```ts
+import type { NormalizedOf, ViewOf } from "rxfy";
+
+type PostRef = NormalizedOf<typeof postState>["post"]; // StoreKey<PostView>
+type CategoryRef = ViewOf<PostRef>["category"]; // StoreKey<CategoryView> — the joined relation, required
+```
 
 ## Plain value fields
 

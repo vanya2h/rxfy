@@ -66,7 +66,7 @@ A `ModelStore<T>` exposes:
 
 ```ts
 type ModelStore<T> = {
-  get(key: StoreKey<T>): IAtom<T>; // writable handle (see below); throws if not loaded
+  get<TView extends T = T>(key: StoreKey<TView>): IAtom<TView>; // writable handle; the key's brand picks the view; throws if not loaded
   set(key: string, val: T): void; // write one entity
   setMany(items: T[]): void; // write many; key is derived via getKey
   getValue(key: string): T | undefined; // synchronous read, no subscription, never throws
@@ -172,3 +172,7 @@ see [`.with()` on defineState](/rxfy/define-state#relations--per-state-joins). T
 optional `fk` map is type-safe: its keys autocomplete to the model's relation fields and its
 values to the schema's plain columns. It records which FK column a relation mirrors, so a live
 sync `patch` keeps the relation resolvable.
+
+Once a state joins a relation, reads of it are [view-typed](/react/use-model-store#view-typed-reads) —
+the joined field is required, no `!` — and you can [infer the id/payload types](/rxfy/define-state#inferring-a-states-types)
+(`NormalizedOf`, `ViewOf`, …) rather than hand-write them.
