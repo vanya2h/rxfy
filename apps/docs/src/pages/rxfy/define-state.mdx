@@ -63,6 +63,107 @@ const userPageState = defineState({
 });
 ```
 
+## Relations & per-state joins
+
+When a model declares a [relation](/rxfy/create-model#relations-between-models) (`ref`/`refArray`),
+each state decides **per fetch** whether to deliver that relation joined or as a bare id. Chain
+`.with({ … })` on an `array()`/`single()` field to join it:
+
+```ts
+import { single, array } from "rxfy";
+
+// Post page — joins the category. The payload carries the full category object; it normalizes
+// into the Category store, and `post.category` is a resolvable StoreKey in `data$`.
+const postState = defineState({
+  key: "post",
+  params: z.object({ id: z.string() }),
+  model: { post: single(PostModel).with({ category: true }) },
+});
+
+// List page — no join. The category isn't fetched, so `post.category` is absent from the type;
+// only the plain `categoryId` is present. You can't accidentally resolve a category you never loaded.
+const postsState = defineState({
+  key: "posts",
+  params: z.object({}),
+  model: { posts: array(PostModel) },
+});
+```
+
+The same model and store back both pages — the list stores refs only, and opening the post page
+joins the category into the _same_ store. `.with()` is a type-safe map over the model's relations:
+its keys autocomplete to the relation fields, and an unknown key is a type error.
+
+### Nested joins (recursive)
+
+Nesting mirrors Prisma's `include`. A relation's value is either `true` (join it flat) or a **nested
+map** that joins _its_ relations too — to any depth. The nested keys autocomplete against the
+**nested model's** relations, so the whole tree is checked at compile time (no `join()` helper):
+
+```ts
+// A post → its category → and that category's author, in one fetch:
+const postState = defineState({
+  key: "post",
+  params: z.object({ id: z.string() }),
+  model: {
+    post: single(PostModel).with({
+      category: { author: true }, // join `category`, and inside it join `category.author`
+    }),
+  },
+});
+```
+
+Every level normalizes into its own store, and `data$` reflects exactly the tree you joined — each
+joined relation is a resolvable `StoreKey`, and a relation you didn't join is absent from the type at
+that level. So reads walk the tree store by store, and you can only reach what the state fetched:
+
+```tsx
+const [post] = useAtom(useModelStore(PostModel).get(postId));
+const [category] = useAtom(useModelStore(CategoryModel).get(post.category)); // joined → a StoreKey
+const [author] = useAtom(useModelStore(AuthorModel).get(category.author)); // nested join → a StoreKey
+```
+
+These reads need no `!`. `get` carries the key's brand through to its result, so an id minted by a
+joined state resolves to a **view** whose joined relations are _required_ — `post.category` and
+`category.author` are guaranteed by the type at every level you joined, not just at runtime. Thread
+those branded ids down to child components (rather than plain strings) and each `get` returns the
+matching view. See [view-typed reads](/react/use-model-store#view-typed-reads).
+
+A to-many relation nests the same way — `refArray` joins compose with `{ tags: { … } }`, and the
+join maps straight onto your ORM's include (e.g. Drizzle `with: { category: { with: { author: true } } }`),
+so the query result drops into `sync.serve` unchanged. See
+[create-model relations](/rxfy/create-model#relations-between-models).
+
+## Inferring a state's types
+
+A `StateDescriptor` carries its shapes as phantom type slots. Rather than reach into them, pull any
+one off a `defineState` value with these helpers — the `z.infer` of a state:
+
+| Helper            | The shape it extracts                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| `ParamsOf<S>`     | the fetch params (the `params` schema's output)                                                             |
+| `NormalizedOf<S>` | the normalized query shape `data$`/[`<Pending>`](/react/pending) emit — model fields hold ids (`StoreKey`s) |
+| `ShapeOf<S>`      | the denormalized output — entities inline, relations as keys (the client transport shape)                   |
+| `InputOf<S>`      | the denormalized input a raw fetch / `sync.serve` payload has before parsing — relations as nested entities |
+| `WritableOf<S>`   | the writable query shape [`setRaw`](/react/use-state-data) accepts — each slot takes an id or an entity     |
+
+```ts
+import type { NormalizedOf, InputOf } from "rxfy";
+
+type PostQuery = NormalizedOf<typeof postState>; // { post: StoreKey<…> } — what data$ emits
+type ServerPayload = InputOf<typeof postState>; // { post: { …, category: {…} } } — what sync.serve takes
+```
+
+A joined query shape brands each id with the **view** it was fetched as (its joined relations
+required). Deref that brand with `ViewOf` to name a nested ref type — the id you thread into a child
+component — without repeating a conditional:
+
+```ts
+import type { NormalizedOf, ViewOf } from "rxfy";
+
+type PostRef = NormalizedOf<typeof postState>["post"]; // StoreKey<PostView>
+type CategoryRef = ViewOf<PostRef>["category"]; // StoreKey<CategoryView> — the joined relation, required
+```
+
 ## Plain value fields
 
 Not every field is a normalized entity. A `model` entry can also be a **bare zod schema** — a

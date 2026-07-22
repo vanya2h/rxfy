@@ -1,17 +1,9 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
+import type { NormalizedOf } from "rxfy";
 import { Pending, useAtom, useModelStore } from "rxfy-react";
-import {
-  type Comment,
-  type CommentId,
-  type Post,
-  type PostId,
-  postModel,
-  type User,
-  type UserId,
-  userModel,
-} from "../data/models";
+import { type CommentId, postModel, userModel } from "../data/models";
 import type { postDetailState } from "../data/states";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
@@ -21,10 +13,6 @@ import { useBlog } from "./BlogContext";
 import { CommentItem } from "./CommentItem";
 import { type StateControls, type StateHandleFor } from "./PostList";
 import { UpdatesBadge } from "./UpdatesBadge";
-
-export type PostDetailData = { post: Post; author: User; comments: Comment[] };
-export type PostDetailFetcher = (params: { postId: PostId }, signal: AbortSignal) => Promise<PostDetailData>;
-type DetailIds = { post: PostId; author: UserId; comments: CommentId[] };
 
 export function PostDetail({
   detail,
@@ -69,15 +57,18 @@ function Article({
   renderCommentActions,
   controls,
 }: {
-  ids: DetailIds;
+  ids: NormalizedOf<typeof postDetailState>;
   actions?: ReactNode;
   renderCommentActions?: (id: CommentId, controls: StateControls) => ReactNode;
   controls: StateControls;
 }) {
   const postStore = useModelStore(postModel);
   const userStore = useModelStore(userModel);
+  // `ids.post` is a branded ref carrying the joined view, so `get` returns a post whose `author` and
+  // `comments` (each already joined with its own author) are required here — no `!`, no fallback.
   const [post] = useAtom(postStore.get(ids.post));
-  const [author] = useAtom(userStore.get(ids.author));
+  const [author] = useAtom(userStore.get(post.author));
+
   return (
     <Card>
       <CardHeader>
@@ -88,10 +79,9 @@ function Article({
         {actions}
         <p>{post.body}</p>
         <Separator />
-        <h3 className="font-medium">Comments ({ids.comments.length})</h3>
+        <h3 className="font-medium">Comments ({post.comments.length})</h3>
         <div className="flex flex-col gap-2">
-          {/* Newest first: sources return comments in insertion order (oldest→newest). */}
-          {[...ids.comments].reverse().map((cid) => (
+          {[...post.comments].reverse().map((cid) => (
             <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid, controls)} />
           ))}
         </div>

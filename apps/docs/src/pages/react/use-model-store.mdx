@@ -4,12 +4,15 @@ Returns the `ModelStore` for a model descriptor, so a component can subscribe to
 normalized entity without re-fetching the full list.
 
 ```tsx
+import { asKey } from "rxfy";
 import { useAtom, useModelStore } from "rxfy-react";
 import { TodoModel } from "./models";
 
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(TodoModel);
-  const [todo] = useAtom(store.get(id));
+  // `id` is a plain string prop here, so brand it with `asKey`; ids read straight from `data$`
+  // are already `StoreKey`s and pass to `get` without it.
+  const [todo] = useAtom(store.get(asKey(TodoModel, id)));
   return <li>{todo.title}</li>;
 }
 ```
@@ -22,16 +25,72 @@ The returned `ModelStore<T>` exposes:
 
 ```ts
 type ModelStore<T> = {
-  get(key: EntityKey<T>): IAtom<T>; // writable handle; throws if the entity is not loaded
+  get<TView extends T = T>(key: StoreKey<TView>): IAtom<TView>; // writable handle; the key's brand picks the view; throws if not loaded
   set(key: string, val: T): void; // write one entity
   setMany(items: T[]): void; // write many; key is derived via getKey
   getValue(key: string): T | undefined; // synchronous read, no subscription, never throws
+  observe(key: string): Observable<T | undefined>; // non-throwing reactive read; undefined until present
   valueEntries(): [string, T][]; // snapshot of all loaded [key, value] pairs
   added$: Observable<string>; // a key, the first time its entity appears
 };
 ```
 
-`get(id)` assumes the entity is already loaded — pass it ids that came out of a fulfilled
-state (`data$`), and it holds by construction. It returns the entity's cell itself, so the
-handle is stable across calls (no `useMemo` needed). See [Model](/rxfy/create-model) for the
-full reference on each method.
+`get(key)` takes a `StoreKey<T>` — a branded id the framework mints. Every id from a fulfilled
+state (`data$`/query shape) already is one, so passing those in holds by construction; brand a
+raw string with [`asKey`](/rxfy/create-model#storekey--get-only-accepts-framework-minted-ids).
+`get` returns the entity's cell itself, so the handle is stable across calls (no `useMemo`
+needed). See [Model](/rxfy/create-model) for the full reference on each method.
+
+## View-typed reads
+
+`get` preserves the key's brand. An id from a plain state resolves to the base entity, but an id from
+a [joined state](/rxfy/define-state#relations--per-state-joins) is branded with the **view** it was
+fetched as — so `get` hands back an entity whose joined relations are _required_, and you read them
+without a `!`:
+
+```tsx
+import type { NormalizedOf } from "rxfy";
+
+function Article({ id }: { id: NormalizedOf<typeof postState>["post"] }) {
+  const [post] = useAtom(useModelStore(PostModel).get(id)); // `id` carries the joined view
+  const [category] = useAtom(useModelStore(CategoryModel).get(post.category)); // required — no `!`, no fallback
+  return <CategoryBadge id={post.category} />; // thread the branded ref down, not a plain string
+}
+```
+
+Passing the branded id down (rather than a plain `string`) means the child's `get` returns the same
+view — no `asKey`, no re-widening. To name that prop type, index the query shape or deref a key with
+[`ViewOf`](/rxfy/define-state#inferring-a-states-types):
+
+```ts
+type PostRef = NormalizedOf<typeof postState>["post"];
+type CategoryRef = ViewOf<PostRef>["category"];
+```
+
+This is the type-safe alternative to `useModelStoreValue` below: reach for a branded ref + `get` when
+the state _guarantees_ the relation is loaded (SSR-safe, synchronous); reach for `useModelStoreValue`
+when it might not be.
+
+## useModelStoreValue
+
+A **non-throwing** reactive read of one entity by id. Returns `T | undefined` — `undefined` while
+the id is `null` or the entity hasn't loaded yet, then the entity once it's present. Use it for a
+component that may render whether or not a [relation](/rxfy/define-state#relations--per-state-joins)
+was joined, where `get` (which throws on an unloaded id) would be too strict:
+
+```tsx
+import { useModelStoreValue } from "rxfy-react";
+import { CategoryModel } from "./models";
+
+function CategoryBadge({ id }: { id: StoreKey<Category> | null }) {
+  const category = useModelStoreValue(CategoryModel, id);
+  return <span>{category ? category.name : "—"}</span>;
+}
+```
+
+```ts
+function useModelStoreValue<M>(model: M, id: StoreKey<EntityOf<M>> | null | undefined): EntityOf<M> | undefined;
+```
+
+Reach for `get` when the id is guaranteed loaded (the page fetched it); reach for
+`useModelStoreValue` when it might not be.

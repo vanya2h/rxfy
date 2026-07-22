@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import { array, createModel, single } from "../model/model.js";
+import { array, createModel, ref, single, type StoreKey } from "../model/model.js";
 import {
   defineState,
   type QueryShapeFromFields,
@@ -24,7 +24,7 @@ describe("defineState", () => {
       params: z.object({ page: z.number() }),
       model: { posts: array(postModel) },
     });
-    expect(state.fields.posts).toEqual({ kind: "array", model: postModel });
+    expect(state.fields.posts).toMatchObject({ kind: "array", model: postModel });
   });
 
   it("stores single field descriptor", () => {
@@ -33,7 +33,7 @@ describe("defineState", () => {
       params: z.object({ id: z.string() }),
       model: { user: single(userModel) },
     });
-    expect(state.fields.user).toEqual({ kind: "single", model: userModel });
+    expect(state.fields.user).toMatchObject({ kind: "single", model: userModel });
   });
 
   it("supports multiple fields", () => {
@@ -54,10 +54,87 @@ describe("defineState key option", () => {
   });
 });
 
+describe("query-shape ids are StoreKeys", () => {
+  const post = createModel({
+    schema: z.object({ id: z.string(), title: z.string() }),
+    getKey: (p) => p.id,
+    name: "p3",
+  });
+  const fields = { posts: array(post), owner: single(post) };
+
+  it("brands entity fields (array + single) as StoreKey", () => {
+    expectTypeOf<QueryShapeFromFields<typeof fields>>().toEqualTypeOf<{
+      posts: StoreKey<{ id: string; title: string }>[];
+      owner: StoreKey<{ id: string; title: string }>;
+    }>();
+  });
+});
+
+describe("includes shape reads", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "cat7",
+  });
+  const post = createModel({
+    schema: z.object({ id: z.string(), title: z.string(), categoryId: z.string(), category: ref(cat) }),
+    getKey: (p) => p.id,
+    name: "post7",
+  });
+
+  it("joined relation is a readable StoreKey; base has categoryId but no category", () => {
+    const joined = { post: single(post).with({ category: true }) };
+    const base = { posts: array(post) };
+
+    expectTypeOf<QueryShapeFromFields<typeof joined>["post"]>().toEqualTypeOf<
+      StoreKey<{
+        id: string;
+        title: string;
+        categoryId: string;
+        category: StoreKey<{ id: string; name: string }>;
+      }>
+    >();
+
+    expectTypeOf<QueryShapeFromFields<typeof base>["posts"]>().toEqualTypeOf<
+      StoreKey<{ id: string; title: string; categoryId: string }>[]
+    >();
+  });
+
+  it("nests recursively (Prisma-style): a nested include joins the relation's own relation", () => {
+    const author = createModel({
+      schema: z.object({ id: z.string(), name: z.string() }),
+      getKey: (a) => a.id,
+      name: "author7",
+    });
+    const category = createModel({
+      schema: z.object({ id: z.string(), authorId: z.string(), author: ref(author) }),
+      getKey: (c) => c.id,
+      name: "cat7n",
+    });
+    const post2 = createModel({
+      schema: z.object({ id: z.string(), categoryId: z.string(), category: ref(category) }),
+      getKey: (p) => p.id,
+      name: "post7n",
+    });
+    const nested = { post: single(post2).with({ category: { author: true } }) };
+
+    expectTypeOf<QueryShapeFromFields<typeof nested>["post"]>().toEqualTypeOf<
+      StoreKey<{
+        id: string;
+        categoryId: string;
+        category: StoreKey<{ id: string; authorId: string; author: StoreKey<{ id: string; name: string }> }>;
+      }>
+    >();
+  });
+});
+
 describe("QueryShapeOf", () => {
   it("maps array fields to string[] and single fields to string (type-level)", () => {
     type Shape = { items: { id: string }[]; owner: { id: string } };
-    expectTypeOf<QueryShapeOf<Shape>>().toEqualTypeOf<{ items: string[]; owner: string }>();
+    expectTypeOf<QueryShapeOf<Shape>>().toEqualTypeOf<{
+      items: StoreKey<{ id: string }>[];
+      owner: StoreKey<{ id: string }>;
+    }>();
   });
 });
 
@@ -105,7 +182,7 @@ describe("plain value fields", () => {
 
   it("maps query shape: entities -> ids, plain -> passthrough (type-level)", () => {
     expectTypeOf<QueryShapeFromFields<typeof fields>>().toEqualTypeOf<{
-      posts: string[];
+      posts: StoreKey<{ id: string }>[];
       isOpen: boolean;
       filters: { q: string };
     }>();
@@ -122,6 +199,10 @@ describe("plain value fields", () => {
   it("infers data$ shape on the descriptor (type-level)", () => {
     const _state = defineState({ key: "plain", params: z.object({}), model: fields });
     type Query = NonNullable<(typeof _state)["_query"]>;
-    expectTypeOf<Query>().toEqualTypeOf<{ posts: string[]; isOpen: boolean; filters: { q: string } }>();
+    expectTypeOf<Query>().toEqualTypeOf<{
+      posts: StoreKey<{ id: string }>[];
+      isOpen: boolean;
+      filters: { q: string };
+    }>();
   });
 });

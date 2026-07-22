@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
+import { asKey } from "rxfy";
 import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
-import { todoModel, todosState, type Todo } from "../todos";
+import { type Todo, todoModel, todosState } from "../todos";
 
 async function fetchTodos(): Promise<{ todos: Todo[] }> {
   const res = await fetch("/api/todos");
@@ -13,7 +14,7 @@ async function fetchTodos(): Promise<{ todos: Todo[] }> {
 // Subscribes to one entity by id — a store patch for this id re-renders only this item.
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
-  const [todo] = useAtom(store.get(id));
+  const [todo] = useAtom(store.get(asKey(todoModel, id)));
   return (
     <li>
       <label className="flex items-center gap-2">

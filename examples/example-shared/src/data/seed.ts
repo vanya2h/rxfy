@@ -43,14 +43,22 @@ export const seedComments: Comment[] = [
   {
     id: "1" as CommentId,
     postId: "1" as PostId,
+    userId: "2" as UserId,
     name: "Bob Smith",
     body: "Great intro! The Atom primitive reminds me of Jotai.",
   },
   {
     id: "2" as CommentId,
     postId: "1" as PostId,
+    userId: "3" as UserId,
     name: "Carol Lee",
     body: "Does rxfy support derived state like Recoil selectors?",
   },
-  { id: "3" as CommentId, postId: "2" as PostId, name: "Alice Doe", body: "The operator-chain examples are clean." },
+  {
+    id: "3" as CommentId,
+    postId: "2" as PostId,
+    userId: "1" as UserId,
+    name: "Alice Doe",
+    body: "The operator-chain examples are clean.",
+  },
 ];

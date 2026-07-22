@@ -42,8 +42,8 @@ npm install rxfy
 ## Links
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started)
-- [Model](https://rxfy.vanya2h.me/rxfy/create-model) — `createModel`, `array`, `single`
-- [State](https://rxfy.vanya2h.me/rxfy/define-state) — `defineState`, plain value fields, mutations
+- [Model](https://rxfy.vanya2h.me/rxfy/create-model) — `createModel`, `array`, `single`, relations (`ref`/`refArray` + `fk`), `StoreKey`/`asKey`
+- [State](https://rxfy.vanya2h.me/rxfy/define-state) — `defineState`, per-state joins (`.with`/`join`), plain value fields, mutations
 - [Atom](https://rxfy.vanya2h.me/rxfy/create-atom) — `createAtom`
 - [Lens](https://rxfy.vanya2h.me/rxfy/create-lens) — `createLens`, `keyLens`
 - [Observables](https://rxfy.vanya2h.me/core-concepts/observables) — the value-over-time model behind `Atom` and `data$`

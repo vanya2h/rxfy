@@ -1,3 +1,4 @@
+import type { PostDetailInput } from "examples-shared/data";
 import {
   type Comment,
   type CommentId,
@@ -25,19 +26,28 @@ export function listPosts(): { posts: Post[]; authors: User[]; meta: { total: nu
   return { posts: store.posts, authors, meta: { total: store.posts.length, generatedAt: new Date().toISOString() } };
 }
 
-export function getPostDetail(postId: PostId): { post: Post; author: User; comments: Comment[] } | undefined {
+export function getPostDetail(postId: PostId): PostDetailInput | undefined {
   const post = store.posts.find((p) => p.id === postId);
   if (!post) return undefined;
   const author = store.users.find((u) => u.id === post.userId);
   if (!author) return undefined;
-  const comments = store.comments.filter((c) => c.postId === postId);
-  return { post, author, comments };
+  // `postDetailState` joins each comment's `author` too, so build the nested denormalized shape:
+  // serve() splits it back into the user/comment/post stores + an id-only query.
+  const userById = new Map(store.users.map((u) => [u.id, u]));
+  const comments = store.comments
+    .filter((c) => c.postId === postId)
+    .map((c) => ({ ...c, author: userById.get(c.userId)! }));
+  return { post: { ...post, author, comments } };
 }
 
 export function addComment(postId: PostId, input: { name: string; body: string }): Comment {
+  // Derive the author from the entered name (a real app would use the session); every comment carries
+  // a `userId` for its `author` join.
+  const author = store.users.find((u) => u.name === input.name) ?? store.users[0];
   const comment: Comment = {
     id: String(store.nextCommentId++) as CommentId,
     postId,
+    userId: author.id,
     name: input.name,
     body: input.body,
   };

@@ -36,11 +36,11 @@ export const targets: Target[] = [
     env: { PORT: "4302", RXFY_SECRET },
   },
   {
-    name: "vite-blog-framework",
-    filter: "vite-blog-framework",
+    name: "vite-blog",
+    filter: "vite-blog",
     capability: "sync-blog",
     port: 4303,
-    command: "pnpm --filter vite-blog-framework preview",
+    command: "pnpm --filter vite-blog preview",
     env: { PORT: "4303", RXFY_SECRET },
   },
   {

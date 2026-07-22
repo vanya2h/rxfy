@@ -2,19 +2,25 @@ import { Observable, Subject } from "rxjs";
 import { Atom, createAtom, type IAtom } from "../atom/atom.js";
 import { createQueryCache, type QueryCache } from "../query/query-cache.js";
 import { createGrantLog, type GrantLog } from "../state/grant-log.js";
-import type { EntityKey, ModelDescriptor } from "./model.js";
+import type { ModelDescriptor, StoreKey } from "./model.js";
 
 export type ModelStore<TEntity> = {
   /**
    * Writable handle over a single entity's cell — synchronous reads, field Lenses, form binding.
    * Assumes the entity is already loaded (ids come from fulfilled states); accessing an unloaded
    * key throws. Use `getValue` for a non-throwing probe.
+   *
+   * The key's brand flows through to the result: a `StoreKey<View>` minted by a joined query shape
+   * (its joined relations required) yields an `IAtom<View>`, so joined relations read as present
+   * without a `!`. A base `StoreKey<TEntity>` yields the base `IAtom<TEntity>` as before.
    */
-  get: (key: EntityKey<TEntity>) => IAtom<TEntity>;
+  get: <TView extends TEntity = TEntity>(key: StoreKey<TView>) => IAtom<TView>;
   set: (key: string, val: TEntity) => void;
   setMany: (items: TEntity[]) => void;
   /** Synchronous read of the latest value — used by denormalization and dehydration. */
   getValue: (key: string) => TEntity | undefined;
+  /** Non-throwing reactive read: emits `undefined` until the key is present, then the entity and its updates. */
+  observe: (key: string) => Observable<TEntity | undefined>;
   valueEntries: () => [string, TEntity][];
   /**
    * Emits a key the first time its entity becomes present (the first `set`); updates to an existing
@@ -45,6 +51,8 @@ export type IModelRegistry<TModels extends ModelsShape = any> = {
   model: <TDescriptor extends TModels[keyof TModels]>(descriptor: TDescriptor) => ModelStore<EntityOf<TDescriptor>>;
   /** Typed store lookup by model name. Throws if the model was never materialized. */
   store: <TName extends keyof TModels & string>(name: TName) => ModelStore<EntityOf<TModels[TName]>>;
+  /** The registered descriptor for a model name, or undefined if never materialized. */
+  descriptor: (name: string) => AnyModelDescriptor | undefined;
   /** SSR query cache — fulfilled/rejected entries keyed by state key + params. */
   queries: QueryCache;
   /** Signed grants logged during an SSR render — read by grantsHydration to embed in the script. */
@@ -86,7 +94,7 @@ export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>):
   };
 
   return {
-    get: (key) => {
+    get: <TView extends TEntity = TEntity>(key: StoreKey<TView>): IAtom<TView> => {
       const cell = cells.get(key as string);
       if (!cell) {
         throw new Error(
@@ -94,7 +102,8 @@ export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>):
             `read its id from a fulfilled state, or seed the store first`,
         );
       }
-      return cell;
+      // The cell is stored as `Atom<TEntity>`; the key's brand narrows the read type to the view.
+      return cell as unknown as IAtom<TView>;
     },
     set,
     // Subscribe to future adds first, then replay the current snapshot — single-threaded, so a key
@@ -106,6 +115,26 @@ export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>):
     }),
     setMany: (items) => items.forEach((item) => set(descriptor.getKey(item), item)),
     getValue: (key) => cells.get(key)?.get(),
+    observe: (key) =>
+      new Observable<TEntity | undefined>((subscriber) => {
+        let inner: { unsubscribe: () => void } | undefined;
+        const attach = (): boolean => {
+          const cell = cells.get(key);
+          if (!cell) return false;
+          inner = cell.subscribe(subscriber);
+          return true;
+        };
+        if (attach()) return () => inner?.unsubscribe();
+        // Not present yet: emit undefined now, then switch to the cell the first time it appears.
+        subscriber.next(undefined);
+        const waiting = added.subscribe((k) => {
+          if (k === key && attach()) waiting.unsubscribe();
+        });
+        return () => {
+          inner?.unsubscribe();
+          waiting.unsubscribe();
+        };
+      }),
     valueEntries: () => [...cells].map(([key, cell]) => [key, cell.get()] as [string, TEntity]),
   };
 }
@@ -120,6 +149,7 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
   const stores = new Map<symbol, ModelStore<any>>();
   const descriptors = new Map<symbol, ModelDescriptor<any>>();
   const named = new Map<string, ModelStore<any>>();
+  const namedDescriptors = new Map<string, AnyModelDescriptor>();
   const stash = new Map<string, Record<string, unknown>>();
   const queries = createQueryCache();
   const grants = createGrantLog();
@@ -140,6 +170,7 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
       }
       return store;
     },
+    descriptor: (name) => namedDescriptors.get(name),
     model: <TEntity>(descriptor: ModelDescriptor<TEntity>): ModelStore<TEntity> => {
       if (!stores.has(descriptor._key)) {
         const store = createModelStore(descriptor);
@@ -149,6 +180,7 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
           console.warn(`rxfy: duplicate model name "${descriptor.name}" — SSR dehydration would mix their entities`);
         }
         named.set(descriptor.name, store);
+        namedDescriptors.set(descriptor.name, descriptor);
         const pending = stash.get(descriptor.name);
         if (pending) {
           stash.delete(descriptor.name);

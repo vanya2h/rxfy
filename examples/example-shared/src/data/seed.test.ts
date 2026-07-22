@@ -1,6 +1,6 @@
 import { createModelRegistry, normalizeResult } from "rxfy";
 import { describe, expect, it } from "vitest";
-import { postModel, userModel } from "./models";
+import { commentModel, postModel, userModel } from "./models";
 import { seedComments, seedPosts, seedUsers } from "./seed";
 import { postDetailState, postsState } from "./states";
 
@@ -26,15 +26,23 @@ describe("shared blog data", () => {
     expect(registry.model(userModel).getValue("1")).toMatchObject({ name: "Alice Doe" });
   });
 
-  it("postDetailState normalizes single + array fields to ids", () => {
+  it("postDetailState normalizes the recursive join (post → comments → author) into stores", () => {
     const registry = createModelRegistry();
-    const ids = normalizeResult(registry, postDetailState.fields, {
-      post: seedPosts[0],
-      author: seedUsers[0],
-      comments: seedComments.filter((c) => c.postId === ("1" as typeof c.postId)),
-    });
+    const post = seedPosts[0];
+    const author = seedUsers.find((u) => u.id === post.userId)!;
+    const comments = seedComments
+      .filter((c) => c.postId === ("1" as typeof c.postId))
+      .map((c) => ({ ...c, author: seedUsers.find((u) => u.id === c.userId)! }));
+    const ids = normalizeResult(registry, postDetailState.fields, { post: { ...post, author, comments } });
+
+    // The query shape holds only the post id; the joined author + comments resolve into the stores.
     expect(ids.post).toBe("1");
-    expect(ids.author).toBe("1");
-    expect(ids.comments).toEqual(["1", "2"]);
+    const stored = registry.model(postModel).getValue("1");
+    expect(stored?.author).toBe("1"); // the post's joined author, mirrored to a store key
+    expect(stored?.comments).toEqual(["1", "2"]); // the joined comment store keys
+    // Each comment's own joined author landed in the user store and is keyed on the comment.
+    expect(registry.model(commentModel).getValue("1")?.author).toBe("2");
+    expect(registry.model(userModel).getValue("2")).toMatchObject({ name: "Bob Smith" });
+    expect(registry.model(userModel).getValue("3")).toMatchObject({ name: "Carol Lee" });
   });
 });

@@ -1,5 +1,38 @@
 import type { z } from "zod";
-import type { EntityKey, FieldDescriptor } from "../model/model.js";
+import type { EntityKey, FieldDescriptor, StoreKey } from "../model/model.js";
+
+// `ref()` fields infer as `StoreKey<R> | undefined` and `refArray()` as `StoreKey<R>[] | undefined`,
+// so relation detection strips the `| undefined` with NonNullable before matching.
+type IsRelation<V> =
+  NonNullable<V> extends StoreKey<any> ? true : NonNullable<V> extends StoreKey<any>[] ? true : false;
+
+/** Non-relation fields of an entity (plain columns like id, title, categoryId). */
+type OmitRelations<TEntity> = {
+  [K in keyof TEntity as IsRelation<TEntity[K]> extends true ? never : K]: TEntity[K];
+};
+
+/**
+ * The joined relations named in an include map, each re-typed as a StoreKey of its own (recursively
+ * joined) view. Relations not in the include map are absent here — and OmitRelations dropped them too,
+ * so an un-joined relation is omitted from the final view entirely.
+ */
+type JoinedRelations<TEntity, TInclude> = {
+  [K in keyof TInclude & keyof TEntity]: NonNullable<TEntity[K]> extends StoreKey<infer R>
+    ? NonNullable<TInclude[K]> extends object // a nested include map → recurse; `true` → join flat
+      ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>
+      : StoreKey<OmitRelations<R>>
+    : NonNullable<TEntity[K]> extends StoreKey<infer R>[]
+      ? NonNullable<TInclude[K]> extends object
+        ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>[]
+        : StoreKey<OmitRelations<R>>[]
+      : never;
+};
+
+/** Collapse an intersection into a single object literal so `A & {}` reads as `A` (exact type equality). */
+type Simplify<T> = { [K in keyof T]: T[K] } & {};
+
+/** A model entity as seen through an include map: non-relations + joined relations; un-joined dropped. */
+export type EntityView<TEntity, TInclude> = Simplify<OmitRelations<TEntity> & JoinedRelations<TEntity, TInclude>>;
 
 /** A field entry: an entity descriptor (`array`/`single`) or a bare zod schema for a plain value. */
 export type FieldEntry = FieldDescriptor<any> | z.ZodType<any, any>;
@@ -13,10 +46,10 @@ export type ShapeFromFields<T extends FieldsMap> = {
 
 /** Entity field -> id (array) / id (single); plain zod field -> its value, passed through. */
 export type QueryShapeFromFields<T extends FieldsMap> = {
-  [K in keyof T]: T[K] extends FieldDescriptor<infer S>
+  [K in keyof T]: T[K] extends FieldDescriptor<infer S, any, infer Inc>
     ? S extends readonly (infer Item)[]
-      ? EntityKey<Item>[]
-      : EntityKey<S>
+      ? StoreKey<EntityView<Item, Inc>>[]
+      : StoreKey<EntityView<S, Inc>>
     : T[K] extends z.ZodType<infer O, any>
       ? O
       : never;
@@ -44,7 +77,7 @@ export type WritableQueryShapeFromFields<T extends FieldsMap> = {
 
 /** The normalized shape data$ emits, derived from a denormalized shape (entity-only; kept as a default). */
 export type QueryShapeOf<TShape> = {
-  [K in keyof TShape]: TShape[K] extends readonly (infer Item)[] ? EntityKey<Item>[] : EntityKey<TShape[K]>;
+  [K in keyof TShape]: TShape[K] extends readonly (infer Item)[] ? StoreKey<Item>[] : StoreKey<TShape[K]>;
 };
 
 /**
@@ -86,6 +119,21 @@ export type StateDescriptor<
   /** Phantom input-shape carrier — function-typed to keep TShapeInput contravariant, as an input should be. */
   readonly _shapeInput?: (input: TShapeInput) => void;
 };
+
+// Inference helpers: pull a state's shapes straight off a descriptor value, so app code never reaches
+// into the phantom `_shape`/`_query`/… carriers. `ParamsOf<typeof myState>`, `NormalizedOf<typeof myState>`,
+// etc. — mirrors `z.infer` for schemas.
+
+/** The params a state's fetch takes (`defineState({ params })`). */
+export type ParamsOf<S> = S extends StateDescriptor<infer P, any, any, any, any, any> ? P : never;
+/** The denormalized *output* shape: what the client consumes over the wire (relations as store keys). */
+export type ShapeOf<S> = S extends StateDescriptor<any, infer Sh, any, any, any, any> ? Sh : never;
+/** The normalized shape `data$`/`<Pending>` emit — model fields hold ids (branded `StoreKey`s) resolved against the stores. */
+export type NormalizedOf<S> = S extends StateDescriptor<any, any, any, infer Q, any, any> ? Q : never;
+/** The writable query shape (`setRaw`): each model slot accepts an id or a denormalized entity. */
+export type WritableOf<S> = S extends StateDescriptor<any, any, any, any, infer W, any> ? W : never;
+/** The denormalized *input* shape a fetch/serve payload has before parsing (relations as nested entities). */
+export type InputOf<S> = S extends StateDescriptor<any, any, any, any, any, infer I> ? I : never;
 
 // Overload: no mutations provided
 export function defineState<TParams, TFields extends FieldsMap>(def: {
