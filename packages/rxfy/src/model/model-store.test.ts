@@ -134,6 +134,16 @@ describe("createModelStore added$", () => {
   });
 });
 
+describe("registry.descriptor(name)", () => {
+  const m = createModel({ schema: z.object({ id: z.string() }), getKey: (x) => x.id, name: "desc-lookup" });
+
+  it("returns the descriptor for a materialized model, undefined otherwise", () => {
+    const reg = createModelRegistry(m);
+    expect(reg.descriptor("desc-lookup")).toBe(m);
+    expect(reg.descriptor("nope")).toBeUndefined();
+  });
+});
+
 describe("createModelRegistry", () => {
   it("returns the same ModelStore for the same descriptor", () => {
     const registry = createModelRegistry();

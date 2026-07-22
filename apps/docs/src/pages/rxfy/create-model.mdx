@@ -28,14 +28,15 @@ React apps they are wired automatically by `StoreProvider`; use them directly fo
 non-React or custom setups.
 
 ```ts
-import { createModelRegistry } from "rxfy";
+import { asKey, createModelRegistry } from "rxfy";
 
 const registry = createModelRegistry();
 const users = registry.model(UserModel);
 
 users.set("1", { id: "1", name: "Alice" });
-users.get("1").get(); // { id: "1", name: "Alice" } — synchronous
-users.get("1").subscribe(console.log); // reactive: emits on every change
+// `get` takes a branded StoreKey, not a raw string — brand a hand-built id with `asKey`:
+users.get(asKey(UserModel, "1")).get(); // { id: "1", name: "Alice" } — synchronous
+users.get(asKey(UserModel, "1")).subscribe(console.log); // reactive: emits on every change
 ```
 
 :::warning
@@ -44,14 +45,32 @@ from fulfilled states, which normalize their entities into the store before hand
 ids. Use `getValue(key)` for a non-throwing probe.
 :::
 
+### StoreKey — get only accepts framework-minted ids
+
+`get(key)` is typed to accept a **`StoreKey<T>`**, not a bare `string`. A `StoreKey` is a
+phantom-branded id the framework mints: every id a state's `data$`/query shape hands you is
+already one, so `store.get(post.author)` and `store.get(id)` (where `id` came from a query
+shape) keep working with no change. A raw, hand-built string — a URL param, a literal — is
+**not** a `StoreKey`, so `get("1")` is a type error. Brand it explicitly with `asKey`:
+
+```ts
+import { asKey } from "rxfy";
+
+store.get(asKey(UserModel, routeParams.id)); // the one sanctioned way to enter the keyspace
+```
+
+This makes "you tried to read an entity from an id you never fetched" a compile-time error
+instead of a runtime throw. `set`, `setMany`, and `getValue` still take plain `string` keys.
+
 A `ModelStore<T>` exposes:
 
 ```ts
 type ModelStore<T> = {
-  get(key: EntityKey<T>): IAtom<T>; // writable handle (see below); throws if not loaded
+  get(key: StoreKey<T>): IAtom<T>; // writable handle (see below); throws if not loaded
   set(key: string, val: T): void; // write one entity
   setMany(items: T[]): void; // write many; key is derived via getKey
   getValue(key: string): T | undefined; // synchronous read, no subscription, never throws
+  observe(key: string): Observable<T | undefined>; // non-throwing reactive read; undefined until present
   valueEntries(): [string, T][]; // snapshot of all loaded [key, value] pairs
   added$: Observable<string>; // a key, the first time its entity appears
 };
@@ -109,7 +128,7 @@ import { UserModel } from "./models";
 const users = createModelRegistry().model(UserModel);
 users.set("1", { id: "1", name: "Alice" });
 
-const user$ = users.get("1"); // IAtom<User>
+const user$ = users.get(asKey(UserModel, "1")); // IAtom<User>
 user$.get(); // { id: "1", name: "Alice" }
 user$.set({ id: "1", name: "Bob" }); // === users.set("1", { id: "1", name: "Bob" })
 ```
@@ -118,3 +137,38 @@ It assumes the entity is already loaded and **throws** for a key that has never 
 `set` — an id in hand should always have come from a fulfilled state, so an unloaded
 access is a programming error surfaced early, not a loading state. For the React
 form-binding pattern, see [`useAtom` & two-way binding](/react/use-atom).
+
+## Relations between models
+
+A model field can reference another model. Declare it in the schema with `ref` (to-one) or
+`refArray` (to-many); the referenced entity normalizes into its own store, and the field holds
+its `StoreKey`:
+
+```ts
+import { z } from "zod";
+import { createModel, ref } from "rxfy";
+
+const CategoryModel = createModel({
+  schema: z.object({ id: z.string(), name: z.string() }),
+  getKey: (c) => c.id,
+  name: "category",
+});
+
+const PostModel = createModel({
+  schema: z.object({
+    id: z.string(),
+    title: z.string(),
+    categoryId: z.string(), // plain FK column — always present
+    category: ref(CategoryModel), // the relation — resolvable when a state joins it
+  }),
+  getKey: (p) => p.id,
+  name: "post",
+  fk: { category: "categoryId" }, // links the relation to its FK column (both sides inferred from the schema)
+});
+```
+
+A **state** decides per-fetch whether to deliver the relation joined or as a bare id —
+see [`.with()` on defineState](/rxfy/define-state#relations--per-state-joins). The
+optional `fk` map is type-safe: its keys autocomplete to the model's relation fields and its
+values to the schema's plain columns. It records which FK column a relation mirrors, so a live
+sync `patch` keeps the relation resolvable.

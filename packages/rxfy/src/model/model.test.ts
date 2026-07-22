@@ -5,7 +5,6 @@ import {
   asKey,
   createModel,
   isFieldDescriptor,
-  join,
   ref,
   refArray,
   relationRegistry,
@@ -66,6 +65,57 @@ describe("ref / refArray", () => {
   });
 });
 
+describe("createModel fk linkage + relaxed ref validation", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "fkcat",
+  });
+
+  it("records the fk column in the relation metadata via createModel.fk", () => {
+    const post = createModel({
+      schema: z.object({ id: z.string(), title: z.string(), categoryId: z.string(), category: ref(cat) }),
+      getKey: (p) => p.id,
+      name: "fkpost",
+      fk: { category: "categoryId" },
+    });
+    expect(post.relations.category).toEqual({ model: cat, kind: "single", fk: "categoryId" });
+  });
+
+  it("leaves fk undefined when not declared", () => {
+    const post = createModel({
+      schema: z.object({ id: z.string(), category: ref(cat) }),
+      getKey: (p) => p.id,
+      name: "fkpost2",
+    });
+    expect(post.relations.category?.fk).toBeUndefined();
+  });
+
+  it("infers field names: rejects an unknown FK column and a non-relation key (type-level)", () => {
+    createModel({
+      schema: z.object({ id: z.string(), categoryId: z.string(), category: ref(cat) }),
+      getKey: (p) => p.id,
+      name: "fkpost3",
+      // @ts-expect-error — "nope" is not a field of the schema
+      fk: { category: "nope" },
+    });
+    createModel({
+      schema: z.object({ id: z.string(), categoryId: z.string(), category: ref(cat) }),
+      getKey: (p) => p.id,
+      name: "fkpost4",
+      // @ts-expect-error — "categoryId" is a plain column, not a relation field
+      fk: { categoryId: "categoryId" },
+    });
+  });
+
+  it("the ref validator accepts a string id, undefined, or a joined object (pre-extraction)", () => {
+    const schema = ref(cat);
+    expect(schema.safeParse("c1").success).toBe(true);
+    expect(schema.safeParse(undefined).success).toBe(true);
+    expect(schema.safeParse({ id: "c1", name: "News" }).success).toBe(true);
+  });
+});
+
 describe("createModel relations", () => {
   const cat = createModel({
     schema: z.object({ id: z.string(), name: z.string() }),
@@ -94,15 +144,24 @@ describe("createModel relations", () => {
   });
 });
 
-describe(".with / join include map", () => {
-  const cat = createModel({ schema: z.object({ id: z.string() }), getKey: (c) => c.id, name: "cat6" });
+describe(".with include map (Prisma-style nesting)", () => {
+  const author = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (a) => a.id,
+    name: "author6",
+  });
+  const cat = createModel({
+    schema: z.object({ id: z.string(), authorId: z.string(), author: ref(author) }),
+    getKey: (c) => c.id,
+    name: "cat6",
+  });
   const post = createModel({
-    schema: z.object({ id: z.string(), category: ref(cat) }),
+    schema: z.object({ id: z.string(), categoryId: z.string(), category: ref(cat) }),
     getKey: (p) => p.id,
     name: "post6",
   });
 
-  it(".with attaches an include map to the field descriptor", () => {
+  it(".with attaches a flat include map to the field descriptor", () => {
     const f = single(post).with({ category: true });
     expect(f.kind).toBe("single");
     expect(f.include).toEqual({ category: true });
@@ -113,9 +172,14 @@ describe(".with / join include map", () => {
     expect(f.include).toEqual({ category: true });
   });
 
-  it("join carries a nested include for a relation", () => {
-    const nested = join(cat, { parent: true });
-    expect(nested).toEqual({ kind: "join", model: cat, include: { parent: true } });
+  it("nests recursively with a nested map — no `join()` needed", () => {
+    const f = single(post).with({ category: { author: true } });
+    expect(f.include).toEqual({ category: { author: true } });
+  });
+
+  it("infers nested relation field names (type-level)", () => {
+    // @ts-expect-error — "notARelation" is not a relation field of Category
+    single(post).with({ category: { notARelation: true } });
   });
 });
 

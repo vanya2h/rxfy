@@ -47,6 +47,8 @@ export type IModelRegistry<TModels extends ModelsShape = any> = {
   model: <TDescriptor extends TModels[keyof TModels]>(descriptor: TDescriptor) => ModelStore<EntityOf<TDescriptor>>;
   /** Typed store lookup by model name. Throws if the model was never materialized. */
   store: <TName extends keyof TModels & string>(name: TName) => ModelStore<EntityOf<TModels[TName]>>;
+  /** The registered descriptor for a model name, or undefined if never materialized. */
+  descriptor: (name: string) => AnyModelDescriptor | undefined;
   /** SSR query cache — fulfilled/rejected entries keyed by state key + params. */
   queries: QueryCache;
   /** Signed grants logged during an SSR render — read by grantsHydration to embed in the script. */
@@ -142,6 +144,7 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
   const stores = new Map<symbol, ModelStore<any>>();
   const descriptors = new Map<symbol, ModelDescriptor<any>>();
   const named = new Map<string, ModelStore<any>>();
+  const namedDescriptors = new Map<string, AnyModelDescriptor>();
   const stash = new Map<string, Record<string, unknown>>();
   const queries = createQueryCache();
   const grants = createGrantLog();
@@ -162,6 +165,7 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
       }
       return store;
     },
+    descriptor: (name) => namedDescriptors.get(name),
     model: <TEntity>(descriptor: ModelDescriptor<TEntity>): ModelStore<TEntity> => {
       if (!stores.has(descriptor._key)) {
         const store = createModelStore(descriptor);
@@ -171,6 +175,7 @@ export function createModelRegistry(seed?: AnyModelDescriptor): IModelRegistry {
           console.warn(`rxfy: duplicate model name "${descriptor.name}" — SSR dehydration would mix their entities`);
         }
         named.set(descriptor.name, store);
+        namedDescriptors.set(descriptor.name, descriptor);
         const pending = stash.get(descriptor.name);
         if (pending) {
           stash.delete(descriptor.name);
