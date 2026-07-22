@@ -69,3 +69,14 @@ pnpm --filter vite-blog dev
 
 This is the exact stack that [Add Sync Client](/getting-started/add-sync-client) builds by hand,
 scaled up to three related entity types.
+
+### vite-kanban
+
+**[examples/vite-kanban](https://github.com/vanya2h/rxfy/tree/main/examples/vite-kanban)**
+
+A live kanban board on the same sync stack (Vite SSR · Hono · Hono WebSocket · PGlite · Drizzle · `rxfy-server` · `rxfy-ws` · `rxfy-client`), built the idiomatic way: **the query holds the board's structure as ordered id arrays per column; each card component unwraps its own entity from the normalized store.** It sharpens the `patch`/`stale` split from the structure side — moving, reordering, creating, or deleting a card changes _structure_ and emits a `stale` on the `board` channel (stale-while-revalidate refetch, no loading flash), while editing a card's title/description is an in-place `patch` on the `card:<id>` topic that re-renders just that card with no refetch. Drags are optimistic locally and reconciled by the refetch; card ordering uses `fractional-indexing` keys so drops between neighbors stay stable.
+
+```bash
+pnpm --filter vite-kanban dev
+# open in two tabs — drag a card in one, watch it move live in the other
+```
