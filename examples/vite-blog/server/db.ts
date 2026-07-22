@@ -13,8 +13,8 @@ const DDL = `
     body text NOT NULL, created_at timestamp NOT NULL DEFAULT now()
   );
   CREATE TABLE comments (
-    id text PRIMARY KEY, post_id text NOT NULL, name text NOT NULL,
-    body text NOT NULL, created_at timestamp NOT NULL DEFAULT now()
+    id text PRIMARY KEY, post_id text NOT NULL, user_id text NOT NULL,
+    name text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now()
   );
 `;
 
@@ -51,8 +51,8 @@ export function initDb(): Promise<void> {
         },
       ]);
       await db.insert(comments).values([
-        { id: "c1", postId: "p1", name: "Bob Smith", body: "Great intro!" },
-        { id: "c2", postId: "p1", name: "Carol Lee", body: "Does it support derived state?" },
+        { id: "c1", postId: "p1", userId: "u2", name: "Bob Smith", body: "Great intro!" },
+        { id: "c2", postId: "p1", userId: "u3", name: "Carol Lee", body: "Does it support derived state?" },
       ]);
     })();
   }
