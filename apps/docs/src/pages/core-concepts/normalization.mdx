@@ -75,7 +75,11 @@ page, say from a button handler, and the write goes straight to the shared store
 ```tsx
 function RenameButton({ id }: { id: string }) {
   const store = useModelStore(UserModel);
-  return <button onClick={() => store.get(id).modify((user) => ({ ...user, name: "John Doe" }))}>Rename</button>;
+  return (
+    <button onClick={() => store.get(asKey(UserModel, id)).modify((user) => ({ ...user, name: "John Doe" }))}>
+      Rename
+    </button>
+  );
 }
 ```
 

@@ -29,7 +29,7 @@ npm install rxfy rxfy-react
 ## Links
 
 - [Getting Started](https://rxfy.vanya2h.me/getting-started) — `StoreProvider` setup
-- [rxfy-react](https://rxfy.vanya2h.me/react) — `useStateData` (remote fetch or local `initial`), `useStatePagedData`, `useModelStore`, `useAtom`, `usePending`, `<Pending>`
+- [rxfy-react](https://rxfy.vanya2h.me/react) — `useStateData` (remote fetch or local `initial`), `useStatePagedData`, `useModelStore`, `useModelStoreValue`, `useAtom`, `usePending`, `<Pending>`
 - [Sync Client (React)](https://rxfy.vanya2h.me/react/sync-client) — `createSyncClient`, `StoreProvider`'s `syncClient` prop, `useStateData`'s `updatesAvailable$` / `applyUpdates()`; `createSyncClient` and `readSsrGrants` are re-exported from their framework-agnostic home, [`rxfy-client`](https://rxfy.vanya2h.me/framework/client)
 - [Server-Side Rendering](https://rxfy.vanya2h.me/core-concepts/ssr) — buffered, streaming (Next.js App Router), two-pass
 - [rxfy](../rxfy/README.md) — core library

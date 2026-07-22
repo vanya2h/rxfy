@@ -1,4 +1,4 @@
-import { createModel, createModelRegistry } from "rxfy";
+import { createModel, createModelRegistry, ref } from "rxfy";
 import { type ClientMessage, patch, type ServerMessage, stale, subscribe } from "rxfy-protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -173,6 +173,33 @@ describe("createSyncClient", () => {
     createSyncClient({ registry, transport });
     deliver(patch("post", "1", { id: "1", title: "new" }));
     expect(registry.model(postModel).getValue("1")).toEqual({ id: "1", title: "new" });
+  });
+
+  it("mirrors a relation id from its fk column on an inbound flat patch", () => {
+    const cat = createModel({
+      schema: z.object({ id: z.string(), name: z.string() }),
+      getKey: (c) => c.id,
+      name: "sccat",
+    });
+    const post = createModel({
+      schema: z.object({
+        id: z.string(),
+        title: z.string(),
+        categoryId: z.string(),
+        category: ref(cat),
+      }),
+      getKey: (p) => p.id,
+      name: "scpost",
+      fk: { category: "categoryId" },
+    });
+    const registry = createModelRegistry(cat).add(post);
+    registry.model(post).set("p1", { id: "p1", title: "old", categoryId: "c1", category: "c1" } as never);
+    const { transport, deliver } = fakeTransport();
+    createSyncClient({ registry, transport });
+
+    deliver(patch("scpost", "p1", { id: "p1", title: "new", categoryId: "c1" }));
+
+    expect(registry.model(post).getValue("p1")).toEqual({ id: "p1", title: "new", categoryId: "c1", category: "c1" });
   });
 
   it("counts stale signals per channel and resets", () => {

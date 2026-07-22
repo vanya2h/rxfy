@@ -99,6 +99,33 @@ describe("includes shape reads", () => {
       StoreKey<{ id: string; title: string; categoryId: string }>[]
     >();
   });
+
+  it("nests recursively (Prisma-style): a nested include joins the relation's own relation", () => {
+    const author = createModel({
+      schema: z.object({ id: z.string(), name: z.string() }),
+      getKey: (a) => a.id,
+      name: "author7",
+    });
+    const category = createModel({
+      schema: z.object({ id: z.string(), authorId: z.string(), author: ref(author) }),
+      getKey: (c) => c.id,
+      name: "cat7n",
+    });
+    const post2 = createModel({
+      schema: z.object({ id: z.string(), categoryId: z.string(), category: ref(category) }),
+      getKey: (p) => p.id,
+      name: "post7n",
+    });
+    const nested = { post: single(post2).with({ category: { author: true } }) };
+
+    expectTypeOf<QueryShapeFromFields<typeof nested>["post"]>().toEqualTypeOf<
+      StoreKey<{
+        id: string;
+        categoryId: string;
+        category: StoreKey<{ id: string; authorId: string; author: StoreKey<{ id: string; name: string }> }>;
+      }>
+    >();
+  });
 });
 
 describe("QueryShapeOf", () => {

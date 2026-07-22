@@ -24,29 +24,73 @@ export type ModelDescriptor<TEntity, TKey extends string = string, TInput = TEnt
   readonly relations: Readonly<Record<string, RelationMeta>>;
 };
 
-export type IncludeMap = Record<string, true | JoinSpec>;
-export type JoinSpec = {
-  readonly kind: "join";
-  readonly model: ModelDescriptor<any, any>;
-  readonly include: IncludeMap;
+/**
+ * A recursive relation-include map (the runtime shape). Each key is a relation field: `true` joins it
+ * flat, a nested map joins its own relations too — Prisma's `include` style: `{ category: { parent: true } }`.
+ */
+export type IncludeMap = { readonly [field: string]: true | IncludeMap };
+
+/** The referenced entity type behind a relation field value (`StoreKey<R>` for `ref`, `StoreKey<R>[]` for `refArray`). */
+type RelationEntity<V> =
+  NonNullable<V> extends StoreKey<infer R> ? R : NonNullable<V> extends StoreKey<infer R>[] ? R : never;
+
+/** Type-safe include over an entity's relation fields; recurses into each relation's own relations. */
+export type IncludeForEntity<TEntity> = {
+  [K in RelationFieldNames<TEntity>]?: true | IncludeForEntity<RelationEntity<TEntity[K]>>;
 };
 
+/** Type-safe include for a field shape — unwraps arrays to their element entity. */
+export type IncludeFor<TShape> = TShape extends readonly (infer E)[] ? IncludeForEntity<E> : IncludeForEntity<TShape>;
+
 // _shape/_input are phantom types — never set at runtime, they exist only for TypeScript inference
-export type FieldDescriptor<TShape, TInput = TShape, TInclude extends IncludeMap = Record<never, never>> = {
+export type FieldDescriptor<TShape, TInput = TShape, TInclude = Record<never, never>> = {
   readonly _shape?: TShape;
   readonly _input?: (input: TInput) => void;
   readonly kind: "single" | "array";
   readonly model: ModelDescriptor<any, any>;
   /** Which relations this state field joins; drives recursive normalization and the query-shape type. */
   readonly include?: TInclude;
-  /** Attach an include map (which relations to join for this fetch). */
-  readonly with: <TNext extends IncludeMap>(include: TNext) => FieldDescriptor<TShape, TInput, TNext>;
+  /**
+   * Join relations for this fetch (Prisma-`include` style). Keys autocomplete to the model's relation
+   * fields; a value of `true` joins the relation flat, a nested map joins its own relations recursively:
+   * `single(Post).with({ category: { parent: true } })`.
+   */
+  readonly with: <TNext extends IncludeFor<TShape>>(include: TNext) => FieldDescriptor<TShape, TInput, TNext>;
 };
+
+/** True when a field's value type is a relation reference (`ref` → `StoreKey<R>`, `refArray` → `StoreKey<R>[]`). */
+type IsRelationField<V> =
+  NonNullable<V> extends StoreKey<any> ? true : NonNullable<V> extends StoreKey<any>[] ? true : false;
+
+/** The relation field names of a model entity (fields declared with `ref`/`refArray`). */
+export type RelationFieldNames<TEntity> = {
+  [K in keyof TEntity]-?: IsRelationField<TEntity[K]> extends true ? K : never;
+}[keyof TEntity] &
+  string;
+
+/** Field names eligible as a foreign key: plain string columns that are not themselves relations. */
+export type FkFieldNames<TEntity> = {
+  [K in keyof TEntity]-?: IsRelationField<TEntity[K]> extends true
+    ? never
+    : NonNullable<TEntity[K]> extends string
+      ? K
+      : never;
+}[keyof TEntity] &
+  string;
+
+/**
+ * Type-safe foreign-key linkage: maps each relation field to the FK column it mirrors. Both sides are
+ * inferred from the model's schema — `{ category: "categoryId" }` autocompletes and rejects unknown names.
+ * Lives on `createModel` (not `ref`) because only here is the parent's field set a known type.
+ */
+export type FkMap<TEntity> = Partial<Record<RelationFieldNames<TEntity>, FkFieldNames<TEntity>>>;
 
 export type CreateModelConfig<TEntity, TKey extends string, TInput = TEntity, TName extends string = string> = {
   schema: z.ZodType<TEntity, TInput>;
   getKey: (item: TEntity) => TKey;
   name: TName;
+  /** Type-safe FK linkage per relation, e.g. `{ category: "categoryId" }`; both sides inferred from the schema. */
+  fk?: FkMap<TEntity>;
 };
 
 // Both Zod generics are inferred so TEntity comes from Output and TInput from Input —
@@ -55,12 +99,17 @@ export function createModel<TEntity, TKey extends string, TInput = TEntity, TNam
   schema,
   getKey,
   name,
+  fk,
 }: CreateModelConfig<TEntity, TKey, TInput, TName>): ModelDescriptor<TEntity, TKey, TInput, TName> {
-  return { _key: Symbol(), name, schema, getKey, relations: collectRelations(schema, name) };
+  return { _key: Symbol(), name, schema, getKey, relations: collectRelations(schema, name, fk) };
 }
 
 /** Walk a model schema's top-level `.shape` and collect any relation-tagged fields (`ref`/`refArray`). */
-function collectRelations(schema: z.ZodType<any, any>, name: string): Record<string, RelationMeta> {
+function collectRelations(
+  schema: z.ZodType<any, any>,
+  name: string,
+  fk?: Record<string, string | undefined>,
+): Record<string, RelationMeta> {
   // In zod 4, `.shape` is present on ZodObject and preserved through `.brand()`/`.refine()`; only true
   // wrappers (intersection, union, …) drop it. If it's unreachable a relation could be silently missed.
   const shape = (schema as { shape?: Record<string, z.ZodType<any, any>> }).shape;
@@ -70,7 +119,7 @@ function collectRelations(schema: z.ZodType<any, any>, name: string): Record<str
   const relations: Record<string, RelationMeta> = {};
   for (const [field, fieldSchema] of Object.entries(shape)) {
     const meta = relationRegistry.get(fieldSchema) as RelationMeta | undefined;
-    if (meta) relations[field] = meta;
+    if (meta) relations[field] = fk?.[field] ? { ...meta, fk: fk[field] } : meta;
   }
   return relations;
 }
@@ -87,7 +136,12 @@ export function asKey<TDescriptor extends ModelDescriptor<any, any, any, any>>(
   return id as StoreKey<EntityOfModel<TDescriptor>>;
 }
 
-export type RelationMeta = { readonly model: ModelDescriptor<any, any>; readonly kind: "single" | "array" };
+export type RelationMeta = {
+  readonly model: ModelDescriptor<any, any>;
+  readonly kind: "single" | "array";
+  /** Sibling foreign-key column this relation mirrors; lets flat sync patches keep the relation id. */
+  readonly fk?: string;
+};
 
 /**
  * Attaches relation metadata to a field schema so `createModel` can find it while walking `.shape`.
@@ -101,13 +155,17 @@ export const relationRegistry = z.registry<{ model: unknown; kind: "single" | "a
  * Declare a to-one relation field inside a model schema. Output type is the referenced entity's
  * `StoreKey` (optional — the field is absent on a fetch that did not join it); input accepts the id
  * or the joined entity so joined payloads type-check. Store extraction happens in `writeEntity`, not
- * in zod parse — here it is purely a marker + type.
+ * in zod parse — here it is purely a marker + type. FK linkage (for sync patches) is declared on
+ * `createModel`'s `fk` map, where the parent's field names are a known type.
  */
 export function ref<TEntity, TKey extends string, TInput>(
   model: ModelDescriptor<TEntity, TKey, TInput>,
 ): z.ZodType<StoreKey<TEntity> | undefined, StoreKey<TEntity> | TInput | undefined> {
-  // Accepts undefined (field absent when not joined) or a string id (after normalization).
-  const schema = z.custom<StoreKey<TEntity> | undefined>((v) => v === undefined || typeof v === "string");
+  // `.optional()` so the key may be absent (a non-joined payload omits it). The inner validator
+  // accepts a string id (normalized) or an object (a joined entity on the serve path, pre-extraction).
+  const schema = z
+    .custom<StoreKey<TEntity>>((v) => typeof v === "string" || (typeof v === "object" && v !== null))
+    .optional();
   schema.register(relationRegistry, { model, kind: "single" });
   return schema as unknown as z.ZodType<StoreKey<TEntity> | undefined, StoreKey<TEntity> | TInput | undefined>;
 }
@@ -116,17 +174,9 @@ export function ref<TEntity, TKey extends string, TInput>(
 export function refArray<TEntity, TKey extends string, TInput>(
   model: ModelDescriptor<TEntity, TKey, TInput>,
 ): z.ZodType<StoreKey<TEntity>[] | undefined, (StoreKey<TEntity> | TInput)[] | undefined> {
-  const schema = z.custom<StoreKey<TEntity>[] | undefined>((v) => v === undefined || Array.isArray(v));
+  const schema = z.custom<StoreKey<TEntity>[]>((v) => Array.isArray(v)).optional();
   schema.register(relationRegistry, { model, kind: "array" });
   return schema as unknown as z.ZodType<StoreKey<TEntity>[] | undefined, (StoreKey<TEntity> | TInput)[] | undefined>;
-}
-
-/** Standalone nested include used inside a parent `.with(...)` to join a relation's own relations. */
-export function join<TEntity, TKey extends string>(
-  model: ModelDescriptor<TEntity, TKey>,
-  include: IncludeMap,
-): JoinSpec {
-  return { kind: "join", model: model as ModelDescriptor<any, any>, include };
 }
 
 function makeField<TShape, TInput>(
@@ -136,7 +186,7 @@ function makeField<TShape, TInput>(
   const field = {
     kind,
     model,
-    with: <TNext extends IncludeMap>(include: TNext) =>
+    with: <TNext extends IncludeFor<TShape>>(include: TNext) =>
       ({ ...field, include }) as unknown as FieldDescriptor<TShape, TInput, TNext>,
   } as unknown as FieldDescriptor<TShape, TInput>;
   return field;

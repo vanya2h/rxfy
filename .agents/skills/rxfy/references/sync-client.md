@@ -18,7 +18,7 @@ const syncClient = createSyncClient({
 
 It drives the grant lifecycle. What it does:
 
-- Registers a `transport.onMessage` handler. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); `"stale"` messages increment the matching channel counter.
+- Registers a `transport.onMessage` handler. Inbound `"patch"` messages are applied directly to the named model store (`registry.namedStores().get(name)?.set(id, data)`); `"stale"` messages increment the matching channel counter. For a model with a `fk`-linked relation, the handler first mirrors the relation id from its FK column (`data[category] = data[categoryId]`) so a flat patch row keeps the joined relation resolvable.
 - Registers a `transport.onOpen` handler that replays every live entry's `subscribe` frame, so subscriptions re-establish after a reconnect with no caller action.
 - On `readSsrGrants()` at startup and on each `$grant` lifted from a served payload, it records the entry and sends a `subscribe(grant)` frame via `transport.send` — the grant's claims already carry its entity topics, so nothing else is computed client-side.
 - Runs one renewal timer: near a grant's expiry it POSTs the expiring grants to `renewUrl`, then re-subscribes with the reissued grants. A denied renewal (401, rotated secret) drops that entry — the state goes static until a refetch mints a fresh grant.

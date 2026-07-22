@@ -106,12 +106,18 @@ export function createSyncClient(config: SyncClientConfig): SyncClient {
 
   transport.onMessage((message) => {
     switch (message.kind) {
-      case "patch":
-        registry
-          .namedStores()
-          .get(message.name)
-          ?.set(message.id, message.data as unknown);
+      case "patch": {
+        const data = message.data as Record<string, unknown>;
+        const descriptor = registry.descriptor(message.name);
+        if (descriptor) {
+          for (const [field, meta] of Object.entries(descriptor.relations)) {
+            // Mirror the relation id from its FK column so a flat patch keeps the relation resolvable.
+            if (meta.fk && meta.fk in data) data[field] = data[meta.fk];
+          }
+        }
+        registry.namedStores().get(message.name)?.set(message.id, data);
         break;
+      }
       case "stale": {
         const counter = counters.get(message.channel);
         if (counter) counter.next(counter.value + 1);
