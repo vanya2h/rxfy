@@ -120,6 +120,21 @@ export type StateDescriptor<
   readonly _shapeInput?: (input: TShapeInput) => void;
 };
 
+// Inference helpers: pull a state's shapes straight off a descriptor value, so app code never reaches
+// into the phantom `_shape`/`_query`/… carriers. `ParamsOf<typeof myState>`, `NormalizedOf<typeof myState>`,
+// etc. — mirrors `z.infer` for schemas.
+
+/** The params a state's fetch takes (`defineState({ params })`). */
+export type ParamsOf<S> = S extends StateDescriptor<infer P, any, any, any, any, any> ? P : never;
+/** The denormalized *output* shape: what the client consumes over the wire (relations as store keys). */
+export type ShapeOf<S> = S extends StateDescriptor<any, infer Sh, any, any, any, any> ? Sh : never;
+/** The normalized shape `data$`/`<Pending>` emit — model fields hold ids (branded `StoreKey`s) resolved against the stores. */
+export type NormalizedOf<S> = S extends StateDescriptor<any, any, any, infer Q, any, any> ? Q : never;
+/** The writable query shape (`setRaw`): each model slot accepts an id or a denormalized entity. */
+export type WritableOf<S> = S extends StateDescriptor<any, any, any, any, infer W, any> ? W : never;
+/** The denormalized *input* shape a fetch/serve payload has before parsing (relations as nested entities). */
+export type InputOf<S> = S extends StateDescriptor<any, any, any, any, any, infer I> ? I : never;
+
 // Overload: no mutations provided
 export function defineState<TParams, TFields extends FieldsMap>(def: {
   key: string;

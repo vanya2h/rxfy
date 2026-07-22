@@ -11,6 +11,13 @@ export type EntityKey<TEntity> = TEntity extends { id: infer TKey extends string
  */
 export type StoreKey<TEntity> = EntityKey<TEntity> & { readonly __store: TEntity };
 
+/**
+ * The entity a `StoreKey` points at — the covariant brand carries the *view* it was minted for, so a key
+ * from a joined query shape derefs to that view (joined relations present). Lets app code name a child's
+ * ref type without repeating a `extends StoreKey<infer …>` conditional: `ViewOf<PostRef>["comments"]`.
+ */
+export type ViewOf<TKey> = TKey extends StoreKey<infer TEntity> ? TEntity : never;
+
 export type ModelDescriptor<TEntity, TKey extends string = string, TInput = TEntity, TName extends string = string> = {
   readonly _key: symbol;
   /** Stable string identity for SSR dehydration and live topics — symbols cannot cross the server/client boundary. Carried as a literal type so registries can key typed lookups by name. */
