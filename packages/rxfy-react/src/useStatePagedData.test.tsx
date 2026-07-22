@@ -75,19 +75,17 @@ describe("useStatePagedData", () => {
     );
     await firstValueFrom(result.current.handle.data$); // entities "0","1" written
 
-    // The append path writes the new entities via the store's setMany; spy it to prove only the
-    // new page is written (a full re-normalize would re-set all 4 entities every page).
-    const setManySpy = vi.spyOn(result.current.store, "setMany");
+    // The append path normalizes only the new page (writeEntity does one store `set` per entity);
+    // spy `set` to prove only the new page is written (a full re-normalize would re-set all 4).
+    const setSpy = vi.spyOn(result.current.store, "set");
     await act(async () => {
       result.current.handle.loadMore();
     });
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(2));
 
-    expect(setManySpy).toHaveBeenCalledTimes(1);
-    expect(setManySpy).toHaveBeenCalledWith([
-      { id: "2", title: "P2" },
-      { id: "3", title: "P3" },
-    ]);
+    expect(setSpy).toHaveBeenCalledTimes(2); // only the new page's 2 entities, not all 4 (O(page))
+    expect(setSpy).toHaveBeenCalledWith("2", { id: "2", title: "P2" });
+    expect(setSpy).toHaveBeenCalledWith("3", { id: "3", title: "P3" });
 
     const data = await firstValueFrom(result.current.handle.data$);
     expect(data).toEqual(["0", "1", "2", "3"]);

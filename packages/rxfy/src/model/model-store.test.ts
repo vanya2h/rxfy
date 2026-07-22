@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
 import { createLens, keyLens } from "../lens/lens.js";
-import { createModel } from "./model.js";
+import { asKey, createModel, type StoreKey } from "./model.js";
 import { createModelRegistry, createModelStore, type ModelStore } from "./model-store.js";
 
 const postModel = createModel({
@@ -10,25 +10,40 @@ const postModel = createModel({
   name: "post",
 });
 
+// Store keys are branded StoreKeys; for these store-level tests a loose brand helper keeps the focus
+// on store behavior. (A StoreKey<{id}> is assignable to any StoreKey<{id, ...}> via contravariance.)
+const k = (id: string) => id as StoreKey<{ id: string }>;
+
+describe("get is gated to StoreKey", () => {
+  it("accepts a StoreKey (via asKey) and rejects a raw string at the type level", () => {
+    const reg = createModelRegistry(postModel);
+    const store = reg.model(postModel);
+    store.set("a", { id: "a", title: "A" });
+    expect(store.get(asKey(postModel, "a")).get()).toEqual({ id: "a", title: "A" });
+    // @ts-expect-error — a raw string is no longer accepted by get
+    store.get("a");
+  });
+});
+
 describe("createModelStore", () => {
   it("get() reads the value synchronously after set", () => {
     const store = createModelStore(postModel);
     store.set("1", { id: "1", title: "Hello" });
-    expect(store.get("1").get()).toEqual({ id: "1", title: "Hello" });
+    expect(store.get(k("1")).get()).toEqual({ id: "1", title: "Hello" });
   });
 
   it("replaces existing value on set", () => {
     const store = createModelStore(postModel);
     store.set("1", { id: "1", title: "Old" });
     store.set("1", { id: "1", title: "New" });
-    expect(store.get("1").get()).toEqual({ id: "1", title: "New" });
+    expect(store.get(k("1")).get()).toEqual({ id: "1", title: "New" });
   });
 
   it("emits updated values to existing subscribers", () => {
     const store = createModelStore(postModel);
     store.set("1", { id: "1", title: "v1" });
     const values: Array<{ id: string; title: string }> = [];
-    const sub = store.get("1").subscribe((v) => values.push(v));
+    const sub = store.get(k("1")).subscribe((v) => values.push(v));
     store.set("1", { id: "1", title: "v2" });
     sub.unsubscribe();
     expect(values).toEqual([
@@ -43,13 +58,28 @@ describe("createModelStore", () => {
       { id: "1", title: "A" },
       { id: "2", title: "B" },
     ]);
-    expect(store.get("1").get()).toEqual({ id: "1", title: "A" });
-    expect(store.get("2").get()).toEqual({ id: "2", title: "B" });
+    expect(store.get(k("1")).get()).toEqual({ id: "1", title: "A" });
+    expect(store.get(k("2")).get()).toEqual({ id: "2", title: "B" });
   });
 
   it("get() throws when the entity is not loaded", () => {
     const store = createModelStore(postModel);
-    expect(() => store.get("ghost")).toThrow(/entity "ghost" for model "post" is not loaded/);
+    expect(() => store.get(k("ghost"))).toThrow(/entity "ghost" for model "post" is not loaded/);
+  });
+});
+
+describe("observe", () => {
+  const m = createModel({ schema: z.object({ id: z.string(), n: z.number() }), getKey: (x) => x.id, name: "obs" });
+
+  it("emits undefined for an absent key, then the entity once it arrives, then updates", () => {
+    const reg = createModelRegistry(m);
+    const store = reg.model(m);
+    const seen: (unknown | undefined)[] = [];
+    const sub = store.observe("k").subscribe((v) => seen.push(v));
+    store.set("k", { id: "k", n: 1 });
+    store.set("k", { id: "k", n: 2 });
+    sub.unsubscribe();
+    expect(seen).toEqual([undefined, { id: "k", n: 1 }, { id: "k", n: 2 }]);
   });
 });
 
@@ -99,7 +129,7 @@ describe("createModelStore added$", () => {
     const store = createModelStore(postModel);
     const keys: string[] = [];
     store.added$.subscribe((k) => keys.push(k));
-    expect(() => store.get("ghost")).toThrow();
+    expect(() => store.get(k("ghost"))).toThrow();
     expect(keys).toEqual([]);
   });
 });
@@ -175,7 +205,7 @@ describe("createModelStore cell semantics", () => {
 
   it("valueEntries() lists only set entries", () => {
     const store = createModelStore(Post);
-    expect(() => store.get("accessed-but-unset")).toThrow();
+    expect(() => store.get(k("accessed-but-unset"))).toThrow();
     store.set("p1", { id: "p1", title: "A" });
     expect(store.valueEntries()).toEqual([["p1", { id: "p1", title: "A" }]]);
   });
@@ -191,7 +221,7 @@ describe("ModelStore.get as writable IAtom", () => {
   it("exposes a writable IAtom over an entity; writes reach the store", () => {
     const store = createModelStore(Post);
     store.set("p1", { id: "p1", title: "Old" });
-    const post$ = store.get("p1");
+    const post$ = store.get(k("p1"));
     expect(post$.get()).toEqual({ id: "p1", title: "Old" });
     post$.set({ id: "p1", title: "New" });
     expect(store.getValue("p1")).toEqual({ id: "p1", title: "New" });
@@ -200,7 +230,7 @@ describe("ModelStore.get as writable IAtom", () => {
   it("a field Lens over the entity round-trips to the store", () => {
     const store = createModelStore(Post);
     store.set("p1", { id: "p1", title: "Old" });
-    const title$ = createLens(store.get("p1"), keyLens<{ id: string; title: string }, "title">("title"));
+    const title$ = createLens(store.get(k("p1")), keyLens<{ id: string; title: string }, "title">("title"));
     title$.set("Edited");
     expect(store.getValue("p1")).toEqual({ id: "p1", title: "Edited" });
   });

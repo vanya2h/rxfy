@@ -1,5 +1,6 @@
 import { parseResponse } from "hono/client";
 import { useState } from "react";
+import { asKey } from "rxfy";
 import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 import { useApi } from "../api-client.js";
 import { todoModel, todosState } from "../todos.js";
@@ -8,7 +9,7 @@ function TodoItem({ id }: { id: string }) {
   const api = useApi();
 
   const store = useModelStore(todoModel);
-  const [todo] = useAtom(store.get(id));
+  const [todo] = useAtom(store.get(asKey(todoModel, id)));
 
   return (
     <li>

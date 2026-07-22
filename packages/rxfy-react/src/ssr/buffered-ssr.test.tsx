@@ -2,7 +2,16 @@
 import { PassThrough } from "node:stream";
 import { Suspense } from "react";
 import { renderToPipeableStream, renderToString } from "react-dom/server";
-import { array, createModel, createModelRegistry, defineState, dehydrate, type IModelRegistry, StatusEnum } from "rxfy";
+import {
+  array,
+  asKey,
+  createModel,
+  createModelRegistry,
+  defineState,
+  dehydrate,
+  type IModelRegistry,
+  StatusEnum,
+} from "rxfy";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Pending } from "../Pending.js";
@@ -22,7 +31,7 @@ type FetchFn = (p: object, s: AbortSignal) => Promise<{ todos: { id: string; tit
 
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
-  const [todo] = useAtom(store.get(id));
+  const [todo] = useAtom(store.get(asKey(todoModel, id)));
   return <li>{todo.title}</li>;
 }
 

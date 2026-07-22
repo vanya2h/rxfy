@@ -47,7 +47,7 @@
   },
   "peerDependencies": {
     "rxfy": "^3.0.0-rc.0",
-    "rxfy-server": "workspace:*"
+    "rxfy-server": "^3.0.0"
   },
   "devDependencies": {
     "@vanya2h/eslint-config": "^0.7.0",

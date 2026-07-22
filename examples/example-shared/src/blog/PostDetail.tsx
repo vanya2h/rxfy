@@ -1,6 +1,7 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
+import { asKey } from "rxfy";
 import { Pending, useAtom, useModelStore } from "rxfy-react";
 import {
   type Comment,
@@ -76,8 +77,8 @@ function Article({
 }) {
   const postStore = useModelStore(postModel);
   const userStore = useModelStore(userModel);
-  const [post] = useAtom(postStore.get(ids.post));
-  const [author] = useAtom(userStore.get(ids.author));
+  const [post] = useAtom(postStore.get(asKey(postModel, ids.post)));
+  const [author] = useAtom(userStore.get(asKey(userModel, ids.author)));
   return (
     <Card>
       <CardHeader>

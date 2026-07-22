@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { array, createModel, single } from "../model/model.js";
+import { array, createModel, ref, single } from "../model/model.js";
 import { createModelRegistry } from "../model/model-store.js";
 import {
   collectEntityTopics,
@@ -8,7 +8,48 @@ import {
   denormalizeValue,
   normalizeResult,
   normalizeWritable,
+  writeEntity,
 } from "./normalize.js";
+
+describe("writeEntity", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "wcat",
+  });
+  const post = createModel({
+    schema: z.object({ id: z.string(), title: z.string(), categoryId: z.string(), category: ref(cat) }),
+    getKey: (p) => p.id,
+    name: "wpost",
+  });
+
+  it("with an include, extracts the joined entity into its store and stores the id on the parent", () => {
+    const reg = createModelRegistry();
+    const key = writeEntity(
+      reg,
+      post,
+      { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News" } },
+      { category: true },
+    );
+    expect(key).toBe("p1");
+    expect(reg.model(cat).getValue("c1")).toEqual({ id: "c1", name: "News" });
+    expect(reg.model(post).getValue("p1")).toEqual({ id: "p1", title: "T", categoryId: "c1", category: "c1" });
+  });
+
+  it("without an include, leaves a raw id reference and does not touch the child store", () => {
+    const reg = createModelRegistry();
+    writeEntity(reg, post, { id: "p2", title: "T2", categoryId: "c9" }, undefined);
+    expect(reg.model(post).getValue("p2")).toEqual({ id: "p2", title: "T2", categoryId: "c9" });
+    expect(reg.model(cat).getValue("c9")).toBeUndefined();
+  });
+
+  it("always replaces an existing entity (latest wins)", () => {
+    const reg = createModelRegistry();
+    writeEntity(reg, post, { id: "p3", title: "old", categoryId: "c1" }, undefined);
+    writeEntity(reg, post, { id: "p3", title: "new", categoryId: "c2" }, undefined);
+    expect(reg.model(post).getValue("p3")).toEqual({ id: "p3", title: "new", categoryId: "c2" });
+  });
+});
 
 const postModel = createModel({
   schema: z.object({ id: z.string(), title: z.string() }),
@@ -40,6 +81,60 @@ describe("normalizeResult", () => {
     expect(ids).toEqual({ posts: ["1", "2"], author: "u1" });
     expect(registry.model(postModel).getValue("2")).toEqual({ id: "2", title: "B" });
     expect(registry.model(userModel).getValue("u1")).toEqual({ id: "u1", name: "Ann" });
+  });
+});
+
+describe("normalizeResult with joined relations", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "nrcat",
+  });
+  const post = createModel({
+    schema: z.object({ id: z.string(), title: z.string(), categoryId: z.string(), category: ref(cat) }),
+    getKey: (p) => p.id,
+    name: "nrpost",
+  });
+
+  it("extracts nested joined entities via the field's include", () => {
+    const reg = createModelRegistry();
+    const nrFields = { post: single(post).with({ category: true }) };
+    const ids = normalizeResult(reg, nrFields, {
+      post: { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News" } },
+    } as never);
+    expect(ids).toEqual({ post: "p1" });
+    expect(reg.model(cat).getValue("c1")).toEqual({ id: "c1", name: "News" });
+    expect(reg.model(post).getValue("p1")).toEqual({ id: "p1", title: "T", categoryId: "c1", category: "c1" });
+  });
+});
+
+describe("normalizeWritable with relations", () => {
+  const cat = createModel({
+    schema: z.object({ id: z.string(), name: z.string() }),
+    getKey: (c) => c.id,
+    name: "nwcat",
+  });
+  const post = createModel({
+    schema: z.object({ id: z.string(), title: z.string(), categoryId: z.string(), category: ref(cat) }),
+    getKey: (p) => p.id,
+    name: "nwpost",
+  });
+
+  it("normalizes a denormalized entity with a joined relation, extracting the child", () => {
+    const reg = createModelRegistry();
+    const nwFields = { post: single(post).with({ category: true }) };
+    const ids = normalizeWritable(reg, nwFields, {
+      post: { id: "p1", title: "T", categoryId: "c1", category: { id: "c1", name: "News" } },
+    } as never);
+    expect(ids).toEqual({ post: "p1" });
+    expect(reg.model(cat).getValue("c1")).toEqual({ id: "c1", name: "News" });
+  });
+
+  it("passes an id-string element through unchanged (already normalized)", () => {
+    const reg = createModelRegistry();
+    const nwFields = { post: single(post) };
+    const ids = normalizeWritable(reg, nwFields, { post: "p9" } as never);
+    expect(ids).toEqual({ post: "p9" });
   });
 });
 
