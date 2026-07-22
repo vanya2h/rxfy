@@ -22,6 +22,9 @@ const [todo] = useAtom(store.get(id)); // the cell itself — stable identity, n
 // `get` takes a StoreKey<T>, not a raw string. Ids from `data$`/query shapes already are one;
 // brand a raw string (URL param, literal) with `asKey(Model, id)`. `get` throws if not loaded —
 // for a maybe-unloaded read use `useModelStoreValue(Model, id)` → `T | undefined` (non-throwing).
+// The key's brand flows through: an id from a JOINED state returns the joined view (relations
+// required), so `get(post.author)` reads with no `!`. Thread branded ids down to children (don't
+// re-widen to string); type the prop `NormalizedOf<typeof state>["field"]` / `ViewOf<Ref>["rel"]`.
 <li>{todo.title}</li>;
 
 // 5. Bind an IAtom (Lens / field handle)
