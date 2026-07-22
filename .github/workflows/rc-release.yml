@@ -20,21 +20,15 @@ jobs:
     steps:
       - name: Verify required secrets
         env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          : "${PAT_TOKEN:?PAT_TOKEN secret is not set — add it to the 'staging' environment (Settings → Environments)}"
           : "${NPM_TOKEN:?NPM_TOKEN secret is not set — add it to the 'staging' environment (Settings → Environments)}"
 
+      # RC uses snapshot releases: no pre-release mode, no version commits, no
+      # tags. So the default GITHUB_TOKEN checkout is enough — no PAT needed.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Enable Corepack
         run: corepack enable
@@ -57,26 +51,14 @@ jobs:
             echo "No pending changesets — nothing to release."
           fi
 
-      - name: Enter pre-release mode
+      # Snapshot versioning uses the *normal* bump math (which honours
+      # onlyUpdatePeerDependentsWhenOutOfRange), unlike pre-release mode, so a
+      # minor changeset stays a minor: 3.0.0 -> 3.1.0-rc-<commit>. The bump is
+      # applied to the working tree only — never committed. Changesets remain on
+      # the branch and are consumed later by the production release on `main`.
+      - name: Version packages (snapshot)
         if: steps.changesets.outputs.count != '0'
-        run: |
-          if ! grep -q '"mode": *"pre"' .changeset/pre.json 2>/dev/null; then
-            npx changeset pre enter rc
-            git add .changeset/pre.json
-            git diff --cached --quiet || git commit -m "chore: enter pre-release mode [skip ci]"
-          fi
-
-      - name: Version packages
-        if: steps.changesets.outputs.count != '0'
-        run: npx changeset version
-
-      - name: Push version bumps
-        if: steps.changesets.outputs.count != '0'
-        run: git push
-
-      - name: Re-install dependencies
-        if: steps.changesets.outputs.count != '0'
-        run: pnpm install --frozen-lockfile
+        run: npx changeset version --snapshot rc
 
       - name: Build
         if: steps.changesets.outputs.count != '0'
@@ -92,36 +74,8 @@ jobs:
         env:
           CI: "true"
 
-      - name: Publish RC packages
+      - name: Publish RC snapshot
         if: steps.changesets.outputs.count != '0'
-        run: pnpm changeset publish
+        run: pnpm changeset publish --tag rc --no-git-tag
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Push release tags
-        if: steps.changesets.outputs.count != '0'
-        run: git push --follow-tags
-
-      - name: Sync version bumps to develop
-        # Best-effort housekeeping: packages are already published, so a sync
-        # hiccup must not fail the job. `changeset version` leaves pre.json
-        # modified-but-uncommitted, so force the switch to discard that churn.
-        if: steps.changesets.outputs.count != '0'
-        continue-on-error: true
-        run: |
-          git fetch origin develop
-          git checkout -f develop
-          if ! git merge staging --no-edit -X theirs; then
-            # `-X theirs` only resolves content conflicts. .changeset/pre.json
-            # hits a modify/delete conflict every RC cycle: pre-release state
-            # is staging-only, and develop keeps it deleted. Anything else
-            # conflicting is unexpected — abort so a human can sort it out.
-            git rm -f --ignore-unmatch .changeset/pre.json
-            if git ls-files -u | grep -q .; then
-              echo "::warning::staging -> develop sync has unresolved conflicts; merge manually."
-              git merge --abort
-              exit 1
-            fi
-            git commit --no-edit
-          fi
-          git push origin develop
