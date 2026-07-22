@@ -17,6 +17,7 @@ export const posts = pgTable("posts", {
 export const comments = pgTable("comments", {
   id: text("id").primaryKey(),
   postId: text("post_id").notNull(),
+  userId: text("user_id").notNull(),
   name: text("name").notNull(),
   body: text("body").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),

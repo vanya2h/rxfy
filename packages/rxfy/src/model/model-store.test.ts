@@ -12,7 +12,7 @@ const postModel = createModel({
 
 // Store keys are branded StoreKeys; for these store-level tests a loose brand helper keeps the focus
 // on store behavior. (A StoreKey<{id}> is assignable to any StoreKey<{id, ...}> via contravariance.)
-const k = (id: string) => id as StoreKey<{ id: string }>;
+const k = (id: string) => id as StoreKey<any>;
 
 describe("get is gated to StoreKey", () => {
   it("accepts a StoreKey (via asKey) and rejects a raw string at the type level", () => {
