@@ -14,20 +14,22 @@ jobs:
     name: Publish Packages
     runs-on: ubuntu-latest
     environment: main
+    # The built-in GITHUB_TOKEN pushes the version-bump commit, tags and branch
+    # syncs back to git — no PAT needed (main/staging/develop are unprotected).
+    # contents: write covers pushes, tags and GitHub releases.
+    permissions:
+      contents: write
 
     steps:
       - name: Verify required secrets
         env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          : "${PAT_TOKEN:?PAT_TOKEN secret is not set — add it to the 'main' environment (Settings → Environments)}"
           : "${NPM_TOKEN:?NPM_TOKEN secret is not set — add it to the 'main' environment (Settings → Environments)}"
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Configure git
         run: |
@@ -89,7 +91,7 @@ jobs:
         # notes file is present here. Fall back to auto-generated notes if it is
         # missing, and skip cleanly if the release already exists.
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=$(node -p "require('./packages/rxfy/package.json').version")
           TAG="rxfy@${VERSION}"
