@@ -43,8 +43,16 @@ describe("live end-to-end", () => {
 
   it("pushes a stale to a socket that subscribed with the post-detail grant", async () => {
     // 1. Read the post detail — the response carries a signed channel grant as $grant.
-    const detail = (await (await fetch(`${BASE}/api/posts/1`)).json()) as { $grant: string };
+    const detail = (await (await fetch(`${BASE}/api/posts/1`)).json()) as {
+      $grant: string;
+      post: { author: { name: string }; comments: { author: { name: string } }[] };
+    };
     expect(typeof detail.$grant).toBe("string");
+    // The detail endpoint delivers the recursive join (post → author, and each comment → its author).
+    expect(detail.post.author.name).toBe("Alice Doe"); // post 1's author (userId 1)
+    expect(detail.post.comments.map((c) => c.author.name)).toEqual(
+      expect.arrayContaining(["Bob Smith", "Carol Lee"]), // comments 1 & 2 → their own authors
+    );
 
     // 2. Present the grant on a sync socket — the WS server verifies it and subscribes the channel.
     const ws = new WebSocket(`ws://localhost:${PORT}/live`);
@@ -67,6 +75,8 @@ describe("live end-to-end", () => {
       body: JSON.stringify({ name: "Live", body: "smoke test comment" }),
     });
     expect(res.ok).toBe(true);
+    const created = (await res.json()) as { userId?: string };
+    expect(typeof created.userId).toBe("string"); // addComment assigned an author (userId) for the join
 
     // 4. The subscribed socket receives the invalidation push.
     expect(await staleMessage).toMatchObject({ v: 2, kind: "stale", channel: "post-detail:postId=1" });
