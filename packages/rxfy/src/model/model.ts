@@ -41,9 +41,15 @@ export type IncludeMap = { readonly [field: string]: true | IncludeMap };
 type RelationEntity<V> =
   NonNullable<V> extends StoreKey<infer R> ? R : NonNullable<V> extends StoreKey<infer R>[] ? R : never;
 
-/** Type-safe include over an entity's relation fields; recurses into each relation's own relations. */
+/**
+ * Type-safe include over an entity's relation fields; recurses into each relation's own relations.
+ * A leaf relation (whose target has no relations of its own) accepts only `true`: without the guard
+ * the nested arm would collapse to `{}`, which any non-null value (`1`, `"x"`) satisfies.
+ */
 export type IncludeForEntity<TEntity> = {
-  [K in RelationFieldNames<TEntity>]?: true | IncludeForEntity<RelationEntity<TEntity[K]>>;
+  [K in RelationFieldNames<TEntity>]?: RelationFieldNames<RelationEntity<TEntity[K]>> extends never
+    ? true
+    : true | IncludeForEntity<RelationEntity<TEntity[K]>>;
 };
 
 /** Type-safe include for a field shape — unwraps arrays to their element entity. */
@@ -90,7 +96,9 @@ export type FkFieldNames<TEntity> = {
  * inferred from the model's schema — `{ category: "categoryId" }` autocompletes and rejects unknown names.
  * Lives on `createModel` (not `ref`) because only here is the parent's field set a known type.
  */
-export type FkMap<TEntity> = Partial<Record<RelationFieldNames<TEntity>, FkFieldNames<TEntity>>>;
+export type FkMap<TEntity> = [RelationFieldNames<TEntity>] extends [never]
+  ? Record<string, never> // no relations: forbid all keys rather than collapsing to `{}`, which accepts anything
+  : Partial<Record<RelationFieldNames<TEntity>, FkFieldNames<TEntity>>>;
 
 export type CreateModelConfig<TEntity, TKey extends string, TInput = TEntity, TName extends string = string> = {
   schema: z.ZodType<TEntity, TInput>;
