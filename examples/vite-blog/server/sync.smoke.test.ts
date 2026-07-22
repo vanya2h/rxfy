@@ -1,16 +1,24 @@
 import { EventEmitter } from "node:events";
-import { postsState } from "examples-shared/data";
+import { postDetailState, type PostId, postsState } from "examples-shared/data";
 import { createModelRegistry, normalizeResult, stateChannel } from "rxfy";
 import type { SyncClient } from "rxfy-client";
 import { createSyncClient } from "rxfy-client";
 import type { Hub, PublishSink } from "rxfy-server";
-import { createInMemoryHub, createSync, touch } from "rxfy-server";
+import { createInMemoryHub, createSync, touch, verifyGrant } from "rxfy-server";
 import { drizzleStorage } from "rxfy-server-drizzle";
 import { createWsServer } from "rxfy-ws";
 import type { WebSocketLike } from "rxfy-ws/client";
 import { createWsClient } from "rxfy-ws/client";
 import { describe, expect, it } from "vitest";
-import { commentResource, postModel, postResource, resources, userResource } from "../src/blog/resources.js";
+import {
+  commentModel,
+  commentResource,
+  postModel,
+  postResource,
+  resources,
+  userModel,
+  userResource,
+} from "../src/blog/resources.js";
 
 const SECRET = "test-secret";
 
@@ -25,7 +33,7 @@ async function freshDb() {
   await client.exec(`
     CREATE TABLE users (id text PRIMARY KEY, name text NOT NULL, email text NOT NULL);
     CREATE TABLE posts (id text PRIMARY KEY, user_id text NOT NULL, title text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
-    CREATE TABLE comments (id text PRIMARY KEY, post_id text NOT NULL, name text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
+    CREATE TABLE comments (id text PRIMARY KEY, post_id text NOT NULL, user_id text NOT NULL, name text NOT NULL, body text NOT NULL, created_at timestamp NOT NULL DEFAULT now());
   `);
   return db;
 }
@@ -110,6 +118,61 @@ describe("vite-blog sync server", () => {
         data: { id: "p1", userId: "u1", title: "New", body: "B", createdAt: expect.any(Date) },
       },
     ]);
+  }, 30_000);
+});
+
+describe("serve recurses the postDetail join", () => {
+  it("keeps nested entities, splits every level into its store, and enumerates all topics in the grant", async () => {
+    const hub = createInMemoryHub();
+    // serve() never touches storage — it parses the payload and signs a grant — but createSync requires one.
+    const sync = createSync({ storage: drizzleStorage(await freshDb()), hub, secret: SECRET });
+
+    // The denormalized payload the /posts/:id endpoint builds: post → joined author, and each comment
+    // joined with ITS own author (post → comments → author).
+    const served = sync.serve(
+      postDetailState,
+      { postId: "p1" as PostId },
+      {
+        post: {
+          id: "p1",
+          userId: "u1",
+          title: "Getting Started with rxfy",
+          body: "B",
+          author: { id: "u1", name: "Alice Doe", email: "alice@example.com" },
+          comments: [
+            {
+              id: "c1",
+              postId: "p1",
+              userId: "u2",
+              name: "Bob Smith",
+              body: "Great intro!",
+              author: { id: "u2", name: "Bob Smith", email: "bob@example.com" },
+            },
+          ],
+        },
+      },
+    );
+
+    // serve keeps the nested entities (cleaned through the schemas) at every level. The static output
+    // type carries relations as keys, so read the runtime nested shape loosely here.
+    const post = served.post as unknown as { author: { name: string }; comments: { author: { name: string } }[] };
+    expect(post.author).toMatchObject({ name: "Alice Doe" }); // post → author
+    expect(post.comments[0].author).toMatchObject({ name: "Bob Smith" }); // comment → its own author
+
+    // Normalizing that payload splits each level into its own store and yields an id-only query.
+    const registry = createModelRegistry(userModel).add(commentModel).add(postModel);
+    const { $grant, ...payload } = served;
+    const query = normalizeResult(registry, postDetailState.fields, payload) as { post: string };
+
+    expect(query.post).toBe("p1"); // the query holds only the post id
+    expect(registry.model(postModel).getValue("p1")).toMatchObject({ author: "u1", comments: ["c1"] });
+    expect(registry.model(commentModel).getValue("c1")?.author).toBe("u2"); // comment's joined author key
+    expect(registry.model(userModel).getValue("u1")?.name).toBe("Alice Doe"); // post author in store
+    expect(registry.model(userModel).getValue("u2")?.name).toBe("Bob Smith"); // comment author in store
+
+    // The signed grant enumerates every nested entity topic, so live updates reach joined entities too.
+    const claims = verifyGrant($grant, { secret: SECRET });
+    expect(claims?.entities).toEqual(expect.arrayContaining(["post:p1", "user:u1", "comment:c1", "user:u2"]));
   }, 30_000);
 });
 
