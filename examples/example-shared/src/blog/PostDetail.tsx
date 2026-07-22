@@ -1,6 +1,7 @@
 "use client";
 import { ArrowLeft } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
+import type { NormalizedOf } from "rxfy";
 import { Pending, useAtom, useModelStore } from "rxfy-react";
 import { type CommentId, postModel, userModel } from "../data/models";
 import type { postDetailState } from "../data/states";
@@ -12,8 +13,6 @@ import { useBlog } from "./BlogContext";
 import { CommentItem } from "./CommentItem";
 import { type StateControls, type StateHandleFor } from "./PostList";
 import { UpdatesBadge } from "./UpdatesBadge";
-
-type DetailQuery = NonNullable<(typeof postDetailState)["_query"]>;
 
 export function PostDetail({
   detail,
@@ -58,7 +57,7 @@ function Article({
   renderCommentActions,
   controls,
 }: {
-  ids: DetailQuery;
+  ids: NormalizedOf<typeof postDetailState>;
   actions?: ReactNode;
   renderCommentActions?: (id: CommentId, controls: StateControls) => ReactNode;
   controls: StateControls;
@@ -69,7 +68,7 @@ function Article({
   // `comments` (each already joined with its own author) are required here — no `!`, no fallback.
   const [post] = useAtom(postStore.get(ids.post));
   const [author] = useAtom(userStore.get(post.author));
-  const comments = post.comments;
+
   return (
     <Card>
       <CardHeader>
@@ -80,10 +79,9 @@ function Article({
         {actions}
         <p>{post.body}</p>
         <Separator />
-        <h3 className="font-medium">Comments ({comments.length})</h3>
+        <h3 className="font-medium">Comments ({post.comments.length})</h3>
         <div className="flex flex-col gap-2">
-          {/* Newest first: sources return comments in insertion order (oldest→newest). */}
-          {[...comments].reverse().map((cid) => (
+          {[...post.comments].reverse().map((cid) => (
             <CommentItem key={cid} id={cid} actions={renderCommentActions?.(cid, controls)} />
           ))}
         </div>
