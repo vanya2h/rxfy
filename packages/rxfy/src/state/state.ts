@@ -17,19 +17,14 @@ type OmitRelations<TEntity> = {
  * so an un-joined relation is omitted from the final view entirely.
  */
 type JoinedRelations<TEntity, TInclude> = {
-  // `true` → join flat; a nested include map → recurse; anything else (junk) → `never`, not a silent flat join.
   [K in keyof TInclude & keyof TEntity]: NonNullable<TEntity[K]> extends StoreKey<infer R>
-    ? NonNullable<TInclude[K]> extends true
-      ? StoreKey<OmitRelations<R>>
-      : NonNullable<TInclude[K]> extends object
-        ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>
-        : never
+    ? NonNullable<TInclude[K]> extends object // a nested include map → recurse; `true` → join flat
+      ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>
+      : StoreKey<OmitRelations<R>>
     : NonNullable<TEntity[K]> extends StoreKey<infer R>[]
-      ? NonNullable<TInclude[K]> extends true
-        ? StoreKey<OmitRelations<R>>[]
-        : NonNullable<TInclude[K]> extends object
-          ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>[]
-          : never
+      ? NonNullable<TInclude[K]> extends object
+        ? StoreKey<EntityView<R, NonNullable<TInclude[K]>>>[]
+        : StoreKey<OmitRelations<R>>[]
       : never;
 };
 

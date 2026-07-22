@@ -3,7 +3,6 @@ import { z } from "zod";
 import { array, createModel, ref, single, type StoreKey } from "../model/model.js";
 import {
   defineState,
-  type EntityView,
   type QueryShapeFromFields,
   type QueryShapeOf,
   type WritableQueryShapeFromFields,
@@ -99,26 +98,6 @@ describe("includes shape reads", () => {
     expectTypeOf<QueryShapeFromFields<typeof base>["posts"]>().toEqualTypeOf<
       StoreKey<{ id: string; title: string; categoryId: string }>[]
     >();
-  });
-
-  it("rejects non-`true` include values on a leaf relation (type-level)", () => {
-    // `cat` has no relations of its own, so `category` must be `true` — not any truthy junk.
-    // @ts-expect-error — a number is not a valid include for a leaf relation
-    single(post).with({ category: 1 });
-    // @ts-expect-error — a nested map is invalid when the relation has nothing further to join
-    single(post).with({ category: { deep: true } });
-    // valid: `true` joins the leaf relation flat
-    expect(single(post).with({ category: true }).include).toEqual({ category: true });
-  });
-
-  it("EntityView resolves a junk include to `never`, not a silent flat join (type-level)", () => {
-    type Post = { id: string; category: StoreKey<{ id: string; name: string }> };
-    // `true` → a real joined StoreKey
-    expectTypeOf<EntityView<Post, { category: true }>["category"]>().toEqualTypeOf<
-      StoreKey<{ id: string; name: string }>
-    >();
-    // junk value → `never` (previously it collapsed to the flat join under `extends object`)
-    expectTypeOf<EntityView<Post, { category: 1 }>["category"]>().toBeNever();
   });
 
   it("nests recursively (Prisma-style): a nested include joins the relation's own relation", () => {
