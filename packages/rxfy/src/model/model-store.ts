@@ -9,8 +9,12 @@ export type ModelStore<TEntity> = {
    * Writable handle over a single entity's cell — synchronous reads, field Lenses, form binding.
    * Assumes the entity is already loaded (ids come from fulfilled states); accessing an unloaded
    * key throws. Use `getValue` for a non-throwing probe.
+   *
+   * The key's brand flows through to the result: a `StoreKey<View>` minted by a joined query shape
+   * (its joined relations required) yields an `IAtom<View>`, so joined relations read as present
+   * without a `!`. A base `StoreKey<TEntity>` yields the base `IAtom<TEntity>` as before.
    */
-  get: (key: StoreKey<TEntity>) => IAtom<TEntity>;
+  get: <TView extends TEntity = TEntity>(key: StoreKey<TView>) => IAtom<TView>;
   set: (key: string, val: TEntity) => void;
   setMany: (items: TEntity[]) => void;
   /** Synchronous read of the latest value — used by denormalization and dehydration. */
@@ -90,7 +94,7 @@ export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>):
   };
 
   return {
-    get: (key) => {
+    get: <TView extends TEntity = TEntity>(key: StoreKey<TView>): IAtom<TView> => {
       const cell = cells.get(key as string);
       if (!cell) {
         throw new Error(
@@ -98,7 +102,8 @@ export function createModelStore<TEntity>(descriptor: ModelDescriptor<TEntity>):
             `read its id from a fulfilled state, or seed the store first`,
         );
       }
-      return cell;
+      // The cell is stored as `Atom<TEntity>`; the key's brand narrows the read type to the view.
+      return cell as unknown as IAtom<TView>;
     },
     set,
     // Subscribe to future adds first, then replay the current snapshot — single-threaded, so a key

@@ -39,9 +39,18 @@ export const api = new Hono()
     const postId = c.req.param("id") as PostId;
     const [post] = await db.select().from(posts).where(eq(posts.id, postId));
     if (!post) return c.json({ error: "not found" }, 404);
-    const [author] = await db.select().from(users).where(eq(users.id, post.userId));
     const postComments = await db.select().from(comments).where(eq(comments.postId, postId));
-    const data = { post, author, comments: postComments };
+    // `postDetailState` joins `author` on the post and `author` on each comment, so build the nested
+    // denormalized shape: serve() splits it back into the user/comment/post stores + an id-only query.
+    const allUsers = await db.select().from(users);
+    const userById = new Map(allUsers.map((u) => [u.id, u]));
+    const data = {
+      post: {
+        ...post,
+        author: userById.get(post.userId),
+        comments: postComments.map((cm) => ({ ...cm, author: userById.get(cm.userId) })),
+      },
+    };
     return c.json(sync.serve(postDetailState, { postId }, data));
   })
   .post("/posts", zValidator("json", CreatePostInputSchema), async (c) => {
@@ -66,9 +75,14 @@ export const api = new Hono()
   .post("/posts/:id/comments", zValidator("json", CreateCommentInputSchema), async (c) => {
     const postId = c.req.param("id");
     const { name, body } = c.req.valid("json");
+    // A real app derives the author from the session; here we match the entered name to a seeded user
+    // (falling back to the first) so the created comment carries a `userId` for its `author` join.
+    const [match] = await db.select().from(users).where(eq(users.name, name));
+    const [fallback] = await db.select().from(users).limit(1);
+    const userId = (match ?? fallback).id;
     const row = await sync.create(
       commentResource,
-      { id: newId(), postId, name, body },
+      { id: newId(), postId, userId, name, body },
       { touch: [touch(postDetailState, { postId })] },
     );
     return c.json(row);

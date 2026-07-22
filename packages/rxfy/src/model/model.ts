@@ -9,7 +9,7 @@ export type EntityKey<TEntity> = TEntity extends { id: infer TKey extends string
  * reject arbitrary ids. Still a subtype of `string`, so interpolation/keys/`String(...)` are unaffected.
  * The query-shape layer produces these; `asKey` is the explicit door for a genuinely-raw id.
  */
-export type StoreKey<TEntity> = EntityKey<TEntity> & { readonly __store: (e: TEntity) => void };
+export type StoreKey<TEntity> = EntityKey<TEntity> & { readonly __store: TEntity };
 
 export type ModelDescriptor<TEntity, TKey extends string = string, TInput = TEntity, TName extends string = string> = {
   readonly _key: symbol;
@@ -160,23 +160,24 @@ export const relationRegistry = z.registry<{ model: unknown; kind: "single" | "a
  */
 export function ref<TEntity, TKey extends string, TInput>(
   model: ModelDescriptor<TEntity, TKey, TInput>,
-): z.ZodType<StoreKey<TEntity> | undefined, StoreKey<TEntity> | TInput | undefined> {
-  // `.optional()` so the key may be absent (a non-joined payload omits it). The inner validator
-  // accepts a string id (normalized) or an object (a joined entity on the serve path, pre-extraction).
+): z.ZodOptional<z.ZodType<StoreKey<TEntity>, StoreKey<TEntity> | TInput>> {
+  // `.optional()` so the key may be absent (a non-joined payload omits it, and a raw entity row has
+  // no relation column). The inner validator accepts a string id (normalized) or an object (a joined
+  // entity on the serve path, pre-extraction). The `ZodOptional` return makes the schema field optional.
   const schema = z
     .custom<StoreKey<TEntity>>((v) => typeof v === "string" || (typeof v === "object" && v !== null))
     .optional();
   schema.register(relationRegistry, { model, kind: "single" });
-  return schema as unknown as z.ZodType<StoreKey<TEntity> | undefined, StoreKey<TEntity> | TInput | undefined>;
+  return schema as unknown as z.ZodOptional<z.ZodType<StoreKey<TEntity>, StoreKey<TEntity> | TInput>>;
 }
 
 /** Declare a to-many relation field inside a model schema (array of `ref`). Optional for the same reason. */
 export function refArray<TEntity, TKey extends string, TInput>(
   model: ModelDescriptor<TEntity, TKey, TInput>,
-): z.ZodType<StoreKey<TEntity>[] | undefined, (StoreKey<TEntity> | TInput)[] | undefined> {
+): z.ZodOptional<z.ZodType<StoreKey<TEntity>[], (StoreKey<TEntity> | TInput)[]>> {
   const schema = z.custom<StoreKey<TEntity>[]>((v) => Array.isArray(v)).optional();
   schema.register(relationRegistry, { model, kind: "array" });
-  return schema as unknown as z.ZodType<StoreKey<TEntity>[] | undefined, (StoreKey<TEntity> | TInput)[] | undefined>;
+  return schema as unknown as z.ZodOptional<z.ZodType<StoreKey<TEntity>[], (StoreKey<TEntity> | TInput)[]>>;
 }
 
 function makeField<TShape, TInput>(
