@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
+import { asKey } from "rxfy";
 import { Pending, useAtom, useModelStore, useStateData } from "rxfy-react";
 import { fetchTodos, todoModel, todosState } from "./todos.ts";
 
 // Subscribes to one entity by id — a store.set for this id re-renders only this item.
 function TodoItem({ id }: { id: string }) {
   const store = useModelStore(todoModel);
-  const [todo] = useAtom(store.get(id));
+  const [todo] = useAtom(store.get(asKey(todoModel, id)));
   return (
     <li>
       <label>

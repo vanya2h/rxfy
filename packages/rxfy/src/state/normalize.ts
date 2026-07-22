@@ -1,7 +1,46 @@
 import type { z } from "zod";
-import { isFieldDescriptor, type ModelDescriptor } from "../model/model.js";
-import type { IModelRegistry, ModelStore } from "../model/model-store.js";
+import { type IncludeMap, isFieldDescriptor, type JoinSpec } from "../model/model.js";
+import type { AnyModelDescriptor, IModelRegistry } from "../model/model-store.js";
 import type { FieldsMap, QueryShapeOf, WritableQueryShapeOf } from "./state.js";
+
+/**
+ * Write one entity to its store, recursively extracting joined relations. For each relation the
+ * `include` marks as joined, the payload carries the full child entity: recurse it into its own store
+ * (honoring nested includes) and replace the field on the parent with the child's id. Relations the
+ * include does not mention are left as whatever the payload holds (an id string, or absent). The
+ * (relation-normalized) entity is stored raw with `set` — always replace. Returns the entity's key.
+ */
+export function writeEntity(
+  registry: IModelRegistry,
+  descriptor: AnyModelDescriptor,
+  raw: unknown,
+  include: IncludeMap | undefined,
+  validate = false,
+): string {
+  const shaped: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+  for (const [field, meta] of Object.entries(descriptor.relations)) {
+    const joinSpec = include?.[field];
+    if (!joinSpec) continue; // not joined for this fetch — leave the field as-is (id or absent)
+    const value = shaped[field];
+    if (value === undefined || value === null) continue; // joined declared but payload omitted it
+    const nestedInclude = typeof joinSpec === "object" ? (joinSpec as JoinSpec).include : undefined;
+    shaped[field] =
+      meta.kind === "array"
+        ? (value as unknown[]).map((el) => writeEntity(registry, meta.model, el, nestedInclude, validate))
+        : writeEntity(registry, meta.model, value, nestedInclude, validate);
+  }
+  // Validation (opt-in, dev-only) runs AFTER relation extraction so joined objects have already been
+  // replaced by ids — the schema's `ref` fields expect an id, not the original nested object.
+  if (validate && process.env.NODE_ENV !== "production") {
+    const parsed = descriptor.schema.safeParse(shaped);
+    if (!parsed.success) {
+      throw new Error(`rxfy: invalid entity for model "${descriptor.name}": ${parsed.error.message}`);
+    }
+  }
+  const key = descriptor.getKey(shaped as never);
+  registry.model(descriptor).set(key, shaped);
+  return key;
+}
 
 /** Dev-only validation for plain (non-entity) field values; pass-through in production. */
 function devParse(schema: z.ZodType<any, any>, value: unknown, fieldName: string): unknown {
@@ -47,15 +86,10 @@ export function normalizeResult<TShape>(
       ids[fieldName] = devParse(entry, fieldValue, fieldName);
       continue;
     }
-    const store = registry.model(entry.model);
     if (entry.kind === "array") {
-      const items = fieldValue as unknown[];
-      store.setMany(items);
-      ids[fieldName] = items.map((item) => entry.model.getKey(item));
+      ids[fieldName] = (fieldValue as unknown[]).map((item) => writeEntity(registry, entry.model, item, entry.include));
     } else {
-      const key = entry.model.getKey(fieldValue);
-      store.set(key, fieldValue);
-      ids[fieldName] = key;
+      ids[fieldName] = writeEntity(registry, entry.model, fieldValue, entry.include);
     }
   }
   return ids as QueryShapeOf<TShape>;
@@ -129,18 +163,18 @@ export function denormalizeValue<TShape>(
   return value as TShape;
 }
 
-/** Resolve one model-field element to its id, writing the entity to its store when given an object. */
-function toEntityId(store: ModelStore<any>, model: ModelDescriptor<any, any>, el: unknown): string {
+/**
+ * Resolve one model-field element to its id: strings pass through; objects go through `writeEntity`
+ * (with dev-validation on) so joined relations are extracted before the entity is validated & stored.
+ */
+function toEntityId(
+  registry: IModelRegistry,
+  model: AnyModelDescriptor,
+  el: unknown,
+  include: IncludeMap | undefined,
+): string {
   if (typeof el === "string") return el; // already an id — passthrough, no store write
-  if (process.env.NODE_ENV !== "production") {
-    const parsed = model.schema.safeParse(el);
-    if (!parsed.success) {
-      throw new Error(`rxfy: invalid entity passed to setRaw for model "${model.name}": ${parsed.error.message}`);
-    }
-  }
-  const key = model.getKey(el);
-  store.set(key, el);
-  return key;
+  return writeEntity(registry, model, el, include, true);
 }
 
 /**
@@ -161,11 +195,10 @@ export function normalizeWritable<TShape>(
       ids[fieldName] = devParse(entry, fieldValue, fieldName);
       continue;
     }
-    const store = registry.model(entry.model);
     if (entry.kind === "array") {
-      ids[fieldName] = (fieldValue as unknown[]).map((el) => toEntityId(store, entry.model, el));
+      ids[fieldName] = (fieldValue as unknown[]).map((el) => toEntityId(registry, entry.model, el, entry.include));
     } else {
-      ids[fieldName] = toEntityId(store, entry.model, fieldValue);
+      ids[fieldName] = toEntityId(registry, entry.model, fieldValue, entry.include);
     }
   }
   return ids as QueryShapeOf<TShape>;

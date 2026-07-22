@@ -2,6 +2,7 @@ import { type PostId, postModel } from "examples-shared/data";
 import { Button } from "examples-shared/ui/button";
 import { parseResponse } from "hono/client";
 import { useState } from "react";
+import { asKey } from "rxfy";
 import { useAtom, useModelStore } from "rxfy-react";
 import { useApi } from "../blog/api-client.js";
 import { EditPostForm } from "./EditPostForm.js";
@@ -9,7 +10,7 @@ import { EditPostForm } from "./EditPostForm.js";
 export function PostActions({ id, onDeleted }: { id: PostId; onDeleted?: () => void }) {
   const api = useApi();
   const store = useModelStore(postModel);
-  const [post] = useAtom(store.get(id));
+  const [post] = useAtom(store.get(asKey(postModel, id)));
   const [editing, setEditing] = useState(false);
 
   if (editing) {
