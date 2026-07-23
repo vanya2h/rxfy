@@ -1,5 +1,30 @@
 # rxfy
 
+## 3.1.0
+
+### Minor Changes
+
+- 0441eab: Add model relations with per-state joins. Declare relation fields in a model schema with `ref()`/`refArray()` and join them per fetch with `single(Model).with({ rel: true })` (Prisma-`include` style — a nested map `{ rel: { sub: true } }` joins recursively), so list and detail payloads share one normalized store. New `useModelStoreValue(model, id)` gives a non-throwing reactive read for components that may render whether or not a relation was joined.
+
+  **⚠️ Breaking (type-only): `ModelStore.get` now requires a `StoreKey<T>`, not a bare string.** Query shapes mint `StoreKey`s automatically, so ids read from a state's `data# rxfy keep working unchanged. But a **raw string passed directly to `get()`no longer type-checks** — migrate it with the new`asKey` helper:
+
+  ```ts
+  // before
+  store.get(id);
+  // after — brand a genuinely-raw id (e.g. a URL param) into the keyspace
+  store.get(asKey(Model, id));
+  ```
+
+  This is a compile-time change only; runtime behavior is identical. It ships as a minor because on-pattern code (ids sourced from query shapes) is unaffected — only off-pattern raw-string `get()` calls need the one-line `asKey` migration.
+
+- db7c450: Joined reads are now view-typed: `ModelStore.get` preserves the key's brand, so a `StoreKey` minted by a joined query shape (`single(Post).with({ author: true, comments: { author: true } })`) yields an entity whose joined relations are **required** — they read without a `!`. Thread those branded keys down to child components (instead of raw ids) and each `get` returns the matching view. A base `StoreKey<T>` still yields the base entity as before. Enabled by making the `StoreKey` phantom brand covariant, so a joined-view key is assignable wherever the base key is expected.
+- 9453c1c: Add inference helper types so app code can name a state's shapes without reaching into the phantom `_shape`/`_query`/`_shapeInput` carriers. From a `defineState` value: `ParamsOf<S>`, `ShapeOf<S>` (denormalized output), `NormalizedOf<S>` (normalized id shape `data# rxfy emits), `WritableOf<S>`, and `InputOf<S>`(denormalized input a fetch/serve payload has before parsing). Plus`ViewOf<Key>`to deref a`StoreKey`to the entity view it was minted for. Mirrors`z.infer`for schemas — e.g.`NormalizedOf<typeof myState>["post"]`instead of`NonNullable<(typeof myState)["_query"]>["post"]`.
+- 97308a6: Real-time sync for model relations. `createModel` accepts a type-safe `fk` map (`{ category: "categoryId" }`, both sides inferred from the schema) linking each relation to its foreign-key column; `sync.serve` now recurses joined relations so the signed grant enumerates nested entity topics (client-fetch and SSR) and the served payload keeps nested entities for the client to normalize; the client patch handler mirrors a relation's id from its `fk` column so a flat patch keeps the relation resolvable. New `registry.descriptor(name)` accessor. Additive — store-only and non-joined apps are unaffected.
+
+### Patch Changes
+
+- 94ff7e8: Tighten `createModel`'s `fk` map typing: on a model with no relations it now rejects all keys. Previously `FkMap` collapsed to `{}` for a relation-less model, silently accepting junk like `fk: { bogus: "col" }`. Models with relations are unchanged (`fk` still autocompletes and rejects unknown relation/column names).
+
 ## 3.0.0
 
 ### Major Changes

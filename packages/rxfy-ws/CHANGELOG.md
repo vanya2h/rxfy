@@ -1,5 +1,11 @@
 # rxfy-ws
 
+## 3.1.0
+
+### Patch Changes
+
+- rxfy-protocol@3.1.0
+
 ## 3.0.0
 
 ### Major Changes
