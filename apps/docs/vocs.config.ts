@@ -11,7 +11,12 @@ export default defineConfig({
   baseUrl: "https://rxfy.vanya2h.me",
   ogImageUrl: `https://rxfy.vanya2h.me/og?title=%title&description=%description&v=${buildId}`,
   iconUrl: "/rxfy-icon-tile.svg",
-  changelog: Changelog.github({ repo: "vanya2h/rxfy" }),
+  // The changelog list is fetched from GitHub Releases at `vocs build` time and
+  // baked into the static page. Authenticate the fetch so the build doesn't hit
+  // GitHub's 60 req/hr unauthenticated limit — a 403 there makes `fetchChangelog`
+  // throw and empties the whole changelog. Set GITHUB_TOKEN in Railway's docs
+  // service variables (a read-only / public-repo token is sufficient).
+  changelog: Changelog.github({ repo: "vanya2h/rxfy", token: process.env.GITHUB_TOKEN }),
   sidebar: [
     { text: "Introduction", link: "/" },
     { text: "Comparison", link: "/comparison" },
