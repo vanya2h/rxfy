@@ -107,6 +107,16 @@ jobs:
             gh release create "$TAG" --title "$VERSION" --generate-notes
           fi
 
+      - name: Deploy docs (advance the Railway `production` branch)
+        # The docs /changelog is baked from the GitHub Releases API at `vocs build`
+        # time, so the docs must rebuild AFTER the release above exists — otherwise
+        # the changelog lags one version behind. Railway deploys the docs service
+        # from the `production` branch; fast-forwarding it to main's HEAD here (with
+        # the release already published) triggers a fresh build that includes it.
+        # Runs on every push to main — no-op releases still advance `production` —
+        # so ordinary docs merges to main deploy too.
+        run: git push --force origin HEAD:production
+
       - name: Sync version bumps to staging and develop
         continue-on-error: true
         # Force a merge commit (--no-ff) carrying [skip ci] so the push to
