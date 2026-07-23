@@ -12,10 +12,12 @@ export default defineConfig({
   ogImageUrl: `https://rxfy.vanya2h.me/og?title=%title&description=%description&v=${buildId}`,
   iconUrl: "/rxfy-icon-tile.svg",
   // The changelog list is fetched from GitHub Releases at `vocs build` time and
-  // baked into the static page. Authenticate the fetch so the build doesn't hit
-  // GitHub's 60 req/hr unauthenticated limit — a 403 there makes `fetchChangelog`
-  // throw and empties the whole changelog. Set GITHUB_TOKEN in Railway's docs
-  // service variables (a read-only / public-repo token is sufficient).
+  // baked into the static page, so it only refreshes when this build actually
+  // re-runs. Unauthenticated the fetch is capped at 60 req/hr per IP and a 403
+  // makes `fetchChangelog` throw, emptying the whole changelog — tolerable only
+  // because builds are rare. Note Railway service variables are NOT passed to
+  // Dockerfile builds, so setting GITHUB_TOKEN there does nothing; it would have
+  // to arrive as a docker build arg for this to pick it up.
   changelog: Changelog.github({ repo: "vanya2h/rxfy", token: process.env.GITHUB_TOKEN }),
   sidebar: [
     { text: "Introduction", link: "/" },
